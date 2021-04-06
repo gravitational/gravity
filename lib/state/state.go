@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -73,6 +74,15 @@ type stateLocator struct {
 	StateDir string `json:"stateDir,omitempty"`
 }
 
+// InStateDir returns the provided path elements joined with the state dir.
+func InStateDir(elems ...string) (string, error) {
+	stateDir, err := GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return filepath.Join(append([]string{stateDir}, elems...)...), nil
+}
+
 // Secret returns a full path to a secret
 func Secret(baseDir, secretName string) string {
 	return filepath.Join(baseDir, defaults.SecretsDir, secretName)
@@ -88,9 +98,24 @@ func GravityUpdateDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir)
 }
 
+// GravityLocalDir returns full path to the directory with local gravity state.
+func GravityLocalDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.LocalDir)
+}
+
 // GravityRPCAgentDir returns full path to the RPC agent directory
 func GravityRPCAgentDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SiteDir, defaults.UpdateDir, defaults.AgentDir)
+}
+
+// TeleportNodeDataDir returns full path to the directory where teleport node keeps its data.
+func TeleportNodeDataDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.TeleportDir)
+}
+
+// TeleportAuthDataDir returns full path to the directory where teleport auth server keeps its data.
+func TeleportAuthDataDir(baseDir string) string {
+	return filepath.Join(baseDir, defaults.SiteDir, defaults.TeleportDir)
 }
 
 // ShareDir returns full path to the planet share directory
@@ -103,10 +128,50 @@ func RegistryDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.PlanetDir, defaults.StateRegistryDir)
 }
 
+// InEtcdDir returns full path to the specified file in the planet etcd data directory
+func InEtcdDir(baseDir, filename string) string {
+	return filepath.Join(baseDir, defaults.PlanetDir, defaults.EtcdDir, filename)
+}
+
 // LogDir returns full path to the planet log directory
 func LogDir(baseDir string, suffixes ...string) string {
 	elems := []string{baseDir, defaults.PlanetDir, defaults.LogDir}
 	return filepath.Join(append(elems, suffixes...)...)
+}
+
+// GravityInstallerServicePath returns the path to the installer service
+// as configured in the state directory rooted at baseDir.
+func GravityInstallerServicePath(baseDir string) (path string, err error) {
+	marker := GravityInstallDirAt(baseDir, "host_uuid")
+	isInstaller, err := utils.IsFile(marker)
+	log.WithError(err).WithField("marker", marker).Warn("Determine installer service path.")
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.ConvertSystemError(err)
+	}
+	if isInstaller {
+		return defaults.SystemUnitPath(defaults.GravityRPCInstallerServiceName), nil
+	}
+	return defaults.SystemUnitPath(defaults.GravityRPCAgentServiceName), nil
+}
+
+// GravityInstallerSocketPath returns the path to the installer socket file
+// inside the installer state directory rooted at baseDir
+func GravityInstallerSocketPath(baseDir string) (path string) {
+	return GravityInstallDirAt(baseDir, defaults.GravityRPCInstallerSocketName)
+}
+
+// GravityInstallDir returns the location of the temporary state directory for
+// the install/join operation.
+// elems are appended to resulting path
+func GravityInstallDir(elems ...string) (path string) {
+	return GravityInstallDirAt(utils.Exe.WorkingDir, elems...)
+}
+
+// GravityInstallDirAt returns the path to the specified elements
+// inside the installer state directory rooted at baseDir
+func GravityInstallDirAt(baseDir string, elems ...string) (path string) {
+	parts := []string{baseDir, ".gravity"}
+	return filepath.Join(append(parts, elems...)...)
 }
 
 var (
@@ -121,5 +186,11 @@ var (
 	GravityBinPaths = []string{
 		defaults.GravityBin,
 		defaults.GravityBinAlternate,
+	}
+
+	// GravityAgentBinPaths is a list of possible gravity agent binary locations on host
+	GravityAgentBinPaths = []string{
+		defaults.GravityAgentBin,
+		defaults.GravityAgentBinAlternate,
 	}
 )

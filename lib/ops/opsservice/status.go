@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -30,7 +31,7 @@ import (
 )
 
 // CheckSiteStatus runs application status hook and updates cluster status appropriately
-func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
+func (o *Operator) CheckSiteStatus(ctx context.Context, key ops.SiteKey) error {
 	cluster, err := o.openSite(key)
 	if err != nil {
 		return trace.Wrap(err)
@@ -61,6 +62,9 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		events.Emit(ctx, o, events.ClusterUnhealthy, events.Fields{
+			events.FieldReason: reason,
+		})
 		return trace.Wrap(statusErr)
 	}
 
@@ -74,6 +78,7 @@ func (o *Operator) CheckSiteStatus(key ops.SiteKey) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		events.Emit(ctx, o, events.ClusterHealthy)
 	}
 
 	return nil
@@ -109,7 +114,10 @@ func (s *site) checkStatusHook(ctx context.Context) error {
 		ServiceUser: s.serviceUser(),
 	})
 	if ref != nil {
-		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, *ref)
+		err := s.service.cfg.Apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{
+			HookRef: *ref,
+			Cascade: true,
+		})
 		if err != nil {
 			s.Warnf("Failed to delete status hook %v: %v.",
 				ref, trace.DebugReport(err))

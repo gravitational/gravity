@@ -17,153 +17,119 @@ limitations under the License.
 package report
 
 import (
-	"fmt"
+	"compress/gzip"
+	"context"
 	"io"
+	"io/ioutil"
 	"os"
-	"path/filepath"
+	"time"
 
-	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
 
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
-// NewFileWriter creates a Writer that writes to a file
-func NewFileWriter(dir string) Writer {
-	return func(name string) (io.WriteCloser, error) {
-		fileName := filepath.Join(dir, name)
-		return NewPendingFileWriter(fileName), nil
-	}
-}
-
-// NewPendingFileWriter creates a new instance of the pendingWriter
-// for the specified path
-func NewPendingFileWriter(path string) *pendingWriter {
-	return &pendingWriter{path: path}
-}
-
-// Write forwards specified data to the underlying file which
-// is created at this point if not yet existing.
-// It implements io.Writer
-func (r *pendingWriter) Write(data []byte) (n int, err error) {
-	if len(data) == 0 {
-		return 0, nil
-	}
-	if r.file == nil {
-		var err error
-		r.file, err = os.OpenFile(r.path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
-			defaults.SharedReadWriteMask)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return r.file.Write(data)
-}
-
-// Close closes the underlying file if it has been created.
-// It implements io.Closer
-func (r *pendingWriter) Close() error {
-	if r.file == nil {
-		return nil
-	}
-	err := r.file.Close()
-	r.file = nil
-	return err
-}
-
-// pendingWriter forwards data to the underlying file.
-// It only creates a file if there's data to forward.
-type pendingWriter struct {
-	path string
-	file io.WriteCloser
-}
-
-// Writer defines an interface for collectors to serialize
-// data with a name.
-type Writer func(name string) (io.WriteCloser, error)
-
-// Collector defines an interface to collect diagnostic information
-type Collector interface {
-	// Collect collects diagnostics using CommandRunner and serializes
-	// them using specified Writer
-	Collect(Writer, utils.CommandRunner) error
-}
-
-// Collectors is a list of Collectors
-type Collectors []Collector
-
-// Collect implements Collector for a list of Collectors
-func (r Collectors) Collect(reportWriter Writer, runner utils.CommandRunner) error {
-	var errors []error
-	for _, collector := range r {
-		err := collector.Collect(reportWriter, runner)
-		if err != nil {
-			errors = append(errors, err)
-		}
-	}
-	return trace.NewAggregate(errors...)
-}
-
-// Cmd creates a new Command with the given name and command line
-func Cmd(name string, args ...string) Command {
-	cmd := args[0]
-	args = args[1:]
-	return Command{name: name, cmd: cmd, args: args}
-}
-
-// Self returns a reference to this binary.
-// name names the resulting output file.
-// args is the list of optional command line arguments
-func Self(name string, args ...string) Command {
-	return Command{name: name, cmd: utils.Exe.Path, args: args}
-}
-
-// Command defines a generic command with a name and a list of arguments
-type Command struct {
-	name string
-	cmd  string
-	args []string
-}
-
-// Collect implements Collector for this Command
-func (r Command) Collect(reportWriter Writer, runner utils.CommandRunner) error {
-	w, err := reportWriter(r.name)
-	if err != nil {
+// Collect collects diagnostic information using the default set of collectors.
+// The results are written as a compressed tarball to w.
+func Collect(ctx context.Context, config Config, w io.Writer) error {
+	if err := config.checkAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
-	defer w.Close()
-
-	args := []string{r.cmd}
-	args = append(args, r.args...)
-	return runner.RunStream(w, args...)
-}
-
-// Script creates a new script collector
-func Script(name, script string) ScriptCollector {
-	return ScriptCollector{name: name, script: script}
-}
-
-// Collect implements Collector using a bash script
-func (r ScriptCollector) Collect(reportWriter Writer, runner utils.CommandRunner) error {
-	args := []string{"/bin/bash", "-c", r.script}
-	w, err := reportWriter(r.name)
-	if err != nil {
-		return trace.Wrap(err)
+	var collectors Collectors
+	for _, filter := range teleutils.Deduplicate(config.Filters) {
+		switch filter {
+		case FilterSystem:
+			collectors = append(collectors, NewSystemCollector(config.Since)...)
+			collectors = append(collectors, NewPackageCollector(config.Packages))
+		case FilterKubernetes:
+			collectors = append(collectors, NewKubernetesCollector(ctx, utils.Runner, config.Since)...)
+		case FilterEtcd:
+			collectors = append(collectors, etcdBackup()...)
+			collectors = append(collectors, etcdMetrics()...)
+		case FilterTimeline:
+			collectors = append(collectors, NewTimelineCollector())
+		case FilterResources:
+			collectors = append(collectors, ResourceCollectors()...)
+		}
 	}
-	defer w.Close()
 
-	return runner.RunStream(w, args...)
+	dir, err := ioutil.TempDir("", "report")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	defer os.RemoveAll(dir)
+
+	rw := NewFileWriter(dir)
+	err = collectors.Collect(ctx, rw, utils.Runner)
+	if err != nil {
+		config.WithError(err).Warn("Failed to collect diagnostics.")
+	}
+
+	reader, writer := io.Pipe()
+	go func() {
+		var output io.WriteCloser = writer
+		if config.Compressed {
+			output = gzip.NewWriter(writer)
+		}
+		err := archive.CompressDirectory(dir, output)
+		if config.Compressed {
+			output.Close()
+		}
+		writer.CloseWithError(err) //nolint:errcheck
+	}()
+
+	_, err = io.Copy(w, reader)
+	return trace.ConvertSystemError(err)
 }
 
-// ScriptCollector is a convenience Collector to execute bash scripts
-type ScriptCollector struct {
-	name   string
-	script string
+func (r *Config) checkAndSetDefaults() error {
+	if len(r.Filters) == 0 {
+		r.Filters = AllFilters
+	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = log.WithField(trace.Component, "report-collector")
+	}
+	return nil
 }
 
-func tarball(pattern string) string {
-	return fmt.Sprintf(`
-#!/bin/bash
-/bin/tar cz --ignore-failed-read --ignore-command-error -f /dev/stdout -C / $(readlink -e %v) -P 2> /dev/null
-`, pattern)
+// Config defines collector configuration
+type Config struct {
+	log.FieldLogger
+	// Filters lists collection filters.
+	Filters []string
+	// Compressed controls whether the resulting tarball is compressed
+	Compressed bool
+	// Packages specifies the package service for the package
+	// diagnostics collector
+	Packages pack.PackageService
+	// Since specifies the start of the time filter. A value of 1h will report
+	// log entries starting from one hour ago up till the end of the time filter.
+	Since time.Duration
 }
+
+const (
+	// JournalDateFormat defines the timestamp format for journalctl since/until flags
+	JournalDateFormat = "2006-01-02 15:04:05"
+
+	// FilterSystem defines a report collection filter to fetch system diagnostics
+	FilterSystem = "system"
+
+	// FilterKubernetes defines a report collection filter to fetch kubernetes diagnostics
+	FilterKubernetes = "kubernetes"
+
+	// FilterEtcd defines a report collection filter to fetch etcd data
+	FilterEtcd = "etcd"
+
+	// FilterTimeline defines a report collection filter to fetch the status timeline
+	FilterTimeline = "timeline"
+
+	// FilterResources defines a report collection filter to fetch gravity resources
+	FilterResources = "resources"
+)
+
+// AllFilters lists all available collector filters
+var AllFilters = []string{FilterSystem, FilterKubernetes, FilterEtcd, FilterTimeline, FilterResources}

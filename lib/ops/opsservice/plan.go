@@ -64,6 +64,14 @@ func (p provisionedServers) Masters() []*ProvisionedServer {
 	return servers
 }
 
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (p provisionedServers) MasterIPs() (ips []string) {
+	for _, master := range p.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
 // Nodes returns a sub-list of this server list that contains only nodes
 func (p provisionedServers) Nodes() []*ProvisionedServer {
 	nodes := make([]*ProvisionedServer, 0)
@@ -139,14 +147,6 @@ func (s *ProvisionedServer) String() string {
 // InGravity returns a directory within gravity state dir on this server
 func (s *ProvisionedServer) InGravity(dir ...string) string {
 	return filepath.Join(append([]string{s.StateDir()}, dir...)...)
-}
-
-// suffixer replaces characters unacceptable as a package suffix
-var suffixer = strings.NewReplacer(".", "", ":", "")
-
-func PackageSuffix(node remoteServer, domain string) string {
-	data := fmt.Sprintf("%v.%v", node.Address(), domain)
-	return suffixer.Replace(data)
 }
 
 func FQDN(domain, hostname, ip string) string {

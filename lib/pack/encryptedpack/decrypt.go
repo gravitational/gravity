@@ -17,16 +17,16 @@ limitations under the License.
 package encryptedpack
 
 import (
-	log "github.com/sirupsen/logrus"
-	"github.com/gravitational/trace"
-
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
+
+	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // DecryptPackage decrypts the specified package in the specified package service
 func DecryptPackage(p pack.PackageService, loc loc.Locator, encryptionKey string) error {
-	envelope, data, err := p.ReadPackage(loc)
+	envelope, _, err := p.ReadPackage(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -40,7 +40,7 @@ func DecryptPackage(p pack.PackageService, loc loc.Locator, encryptionKey string
 
 	// wrap the package service into "encrypted pack" to decrypt the package
 	encryptedPack := New(p, encryptionKey)
-	envelope, data, err = encryptedPack.ReadPackage(loc)
+	envelope, data, err := encryptedPack.ReadPackage(loc)
 	if err != nil {
 		return trace.Wrap(err)
 	}

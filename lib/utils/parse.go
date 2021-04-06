@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -99,6 +100,29 @@ func SplitHostPort(in, defaultPort string) (host string, port string) {
 		return parts[0], parts[1]
 	}
 	return parts[0], defaultPort
+}
+
+// EnsurePort makes sure that the provided address includes a port and adds
+// the specified default one if it does not.
+func EnsurePort(address, defaultPort string) string {
+	if _, _, err := net.SplitHostPort(address); err == nil {
+		return address
+	}
+	return net.JoinHostPort(address, defaultPort)
+}
+
+// EnsureScheme makes sure the provided URL contains http or https scheme and
+// adds the specified default one if it does not.
+func EnsureScheme(url, defaultScheme string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	}
+	return fmt.Sprintf("%v://%v", defaultScheme, url)
+}
+
+// EnsurePortURL is like EnsurePort but for URLs.
+func EnsurePortURL(url, defaultPort string) string {
+	return ParseOpsCenterAddress(url, defaultPort)
 }
 
 // Hosts returns a list of hosts from the provided host:port addresses
@@ -459,4 +483,36 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 	}
 
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
+}
+
+// PasseBoolFlag extracts boolean parameter of the specified name from the
+// provided request's query string, or returns default.
+func ParseBoolFlag(r *http.Request, name string, def bool) (bool, error) {
+	sValue := r.URL.Query().Get(name)
+	if sValue == "" {
+		return def, nil
+	}
+	bValue, err := strconv.ParseBool(sValue)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	return bValue, nil
+}
+
+// ParseProxy parses the provided HTTP(-S) proxy address and returns it in
+// the parsed URL form. The proxy value is expected to be a complete URL
+// that includes a scheme (http, https or socks5).
+//
+// This function is loosely based on Go's proxy parsing method:
+//
+// https://github.com/golang/go/blob/release-branch.go1.15/src/vendor/golang.org/x/net/http/httpproxy/proxy.go#L149-L170
+func ParseProxy(proxy string) (*url.URL, error) {
+	proxyURL, err := url.Parse(proxy)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to parse proxy address %q", proxy)
+	}
+	if !StringInSlice([]string{"http", "https", "socks5"}, proxyURL.Scheme) {
+		return nil, trace.BadParameter("proxy address %q must include a valid scheme (http, https or socks5)", proxy)
+	}
+	return proxyURL, nil
 }

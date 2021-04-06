@@ -12,7 +12,7 @@ import (
 	"github.com/gravitational/trace"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -95,14 +95,14 @@ func PollStatus(ctx context.Context, retryAttempts int, retryPeriod time.Duratio
 }
 
 // CollectPods collects pods matched by fn
-func CollectPods(namespace string, matchLabels map[string]string, entry *log.Entry, client *kubernetes.Clientset,
+func CollectPods(namespace string, matchLabels map[string]string, logger log.FieldLogger, client *kubernetes.Clientset,
 	fn func(metav1.OwnerReference) bool) (map[string]v1.Pod, error) {
 	set := make(labels.Set)
 	for key, val := range matchLabels {
 		set[key] = val
 	}
 
-	podList, err := client.Core().Pods(namespace).List(metav1.ListOptions{
+	podList, err := client.CoreV1().Pods(namespace).List(metav1.ListOptions{
 		LabelSelector: set.AsSelector().String(),
 	})
 	if err != nil {
@@ -114,7 +114,7 @@ func CollectPods(namespace string, matchLabels map[string]string, entry *log.Ent
 		for _, ref := range pod.OwnerReferences {
 			if fn(ref) {
 				pods[pod.Spec.NodeName] = pod
-				entry.Infof("found pod %v on node %v", formatMeta(pod.ObjectMeta), pod.Spec.NodeName)
+				logger.Infof("found pod %v on node %v", formatMeta(pod.ObjectMeta), pod.Spec.NodeName)
 			}
 		}
 	}
@@ -171,30 +171,30 @@ func nodeSelector(spec *v1.PodSpec) labels.Selector {
 	return set.AsSelector()
 }
 
-func checkRunning(pods map[string]v1.Pod, nodes []v1.Node, entry *log.Entry) error {
-	ready, err := checkRunningAndReady(pods, nodes, entry)
+func checkRunning(pods map[string]v1.Pod, nodes []v1.Node, logger log.FieldLogger) error {
+	ready, err := checkRunningAndReady(pods, nodes, logger)
 	if ready || err == errPodCompleted {
 		return nil
 	}
 	return trace.Wrap(err)
 }
 
-func checkRunningAndReady(pods map[string]v1.Pod, nodes []v1.Node, entry *log.Entry) (bool, error) {
+func checkRunningAndReady(pods map[string]v1.Pod, nodes []v1.Node, logger log.FieldLogger) (bool, error) {
 	for _, node := range nodes {
 		pod, ok := pods[node.Name]
 		if !ok {
-			entry.Infof("no pod found on node %v", node.Name)
+			logger.Infof("no pod found on node %v", node.Name)
 			return false, trace.NotFound("no pod found on node %v", node.Name)
 		}
 		meta := formatMeta(pod.ObjectMeta)
 		switch pod.Status.Phase {
 		case v1.PodFailed, v1.PodSucceeded:
-			entry.Infof("node %v: pod %v is %q", node.Name, meta, pod.Status.Phase)
+			logger.Infof("node %v: pod %v is %q", node.Name, meta, pod.Status.Phase)
 			return false, errPodCompleted
 		case v1.PodRunning:
 			ready := isPodReadyConditionTrue(pod.Status)
 			if ready {
-				entry.Infof("node %v: pod %v is up and running", node.Name, meta)
+				logger.Infof("node %v: pod %v is up and running", node.Name, meta)
 			}
 			return ready, nil
 		default:
@@ -299,31 +299,31 @@ func withExponentialBackoff(fn func() error) error {
 	return trace.Wrap(err)
 }
 
-func deletePodsList(podIface corev1.PodInterface, pods []v1.Pod, entry log.Entry) error {
+func deletePodsList(podIface corev1.PodInterface, pods []v1.Pod, logger log.FieldLogger) error {
 	for _, pod := range pods {
-		entry.Debugf("deleting pod %v", pod.Name)
+		logger.Debugf("deleting pod %v", pod.Name)
 		err := ConvertError(podIface.Delete(pod.Name, nil))
 		if err != nil && !trace.IsNotFound(err) {
 			return ConvertError(err)
 		}
 	}
 
-	return trace.Wrap(waitForPodsList(podIface, pods, entry))
+	return trace.Wrap(waitForPodsList(podIface, pods))
 }
 
-func deletePods(podIface corev1.PodInterface, pods map[string]v1.Pod, entry log.Entry) error {
+func deletePods(podIface corev1.PodInterface, pods map[string]v1.Pod, logger log.FieldLogger) error {
 	for _, pod := range pods {
-		entry.Debugf("deleting pod %v", pod.Name)
+		logger.Debugf("deleting pod %v", pod.Name)
 		err := ConvertError(podIface.Delete(pod.Name, nil))
 		if err != nil && !trace.IsNotFound(err) {
 			return ConvertError(err)
 		}
 	}
 
-	return trace.Wrap(waitForPods(podIface, pods, entry))
+	return trace.Wrap(waitForPods(podIface, pods))
 }
 
-func waitForPodsList(podIface corev1.PodInterface, pods []v1.Pod, entry log.Entry) error {
+func waitForPodsList(podIface corev1.PodInterface, pods []v1.Pod) error {
 	var errors []error
 	for _, pod := range pods {
 		err := waitForObjectDeletion(func() error {
@@ -337,7 +337,7 @@ func waitForPodsList(podIface corev1.PodInterface, pods []v1.Pod, entry log.Entr
 	return trace.NewAggregate(errors...)
 }
 
-func waitForPods(podIface corev1.PodInterface, pods map[string]v1.Pod, entry log.Entry) error {
+func waitForPods(podIface corev1.PodInterface, pods map[string]v1.Pod) error {
 	var errors []error
 	for _, pod := range pods {
 		err := waitForObjectDeletion(func() error {

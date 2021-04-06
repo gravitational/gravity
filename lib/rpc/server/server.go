@@ -53,7 +53,7 @@ type Server interface {
 }
 
 // New returns a new instance of the unstarted gRPC server
-func New(config Config, log logrus.FieldLogger) (*agentServer, error) {
+func New(config Config) (*agentServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -64,14 +64,13 @@ func New(config Config, log logrus.FieldLogger) (*agentServer, error) {
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	healthServer := health.NewServer()
-	validationServer := validation.NewServer(log)
+	validationServer := validation.NewServer(config.FieldLogger)
 	grpcServer := grpc.NewServer(opts...)
 	srv := agentServer{
-		grpcServer:  grpcServer,
-		Config:      config,
-		FieldLogger: log,
-		ctx:         ctx,
-		cancel:      cancel,
+		grpcServer: grpcServer,
+		Config:     config,
+		ctx:        ctx,
+		cancel:     cancel,
 	}
 	pb.RegisterAgentServer(grpcServer, &srv)
 	pb.RegisterDiscoveryServer(grpcServer, &srv)
@@ -93,14 +92,17 @@ func (srv *agentServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Stop requests the server to stop and clean up
-func (srv *agentServer) Stop(_ context.Context) error {
+func (srv *agentServer) Stop(ctx context.Context) error {
 	select {
 	case <-srv.ctx.Done():
 		return nil
 	default:
-		srv.cancel()
+	}
+	for _, c := range srv.closers {
+		c.Close(ctx)
 	}
 	srv.grpcServer.GracefulStop()
+	srv.cancel()
 	return nil
 }
 
@@ -132,6 +134,7 @@ func (srv *agentServer) serve(listener net.Listener) error {
 
 // Config defines RPC server configuration
 type Config struct {
+	logrus.FieldLogger
 	// Credentials specifies the connect credentials
 	Credentials
 	// PeerStore specifies the peer store.
@@ -144,11 +147,22 @@ type Config struct {
 	// ReconnectTimeout specifies the maximum timeout used to reconnect to a peer.
 	// Defaults to defaults.RPCAgentBackoffThreshold
 	ReconnectTimeout time.Duration
+	// AbortHandler specifies an optional handler for aborting the operation.
+	// The handler is invoked when serving the Abort API.
+	// Note that the handler should avoid invoking blocking gRPC APIs - otherwise the
+	// service shut down might block
+	AbortHandler func(context.Context) error
+	// StopHandler specifies an optional handler for when the agent is stopped.
+	// completed indicates whether the agent is stopped after a successfully completed operation
+	StopHandler func(ctx context.Context, completed bool) error
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.
 	// Being an interface provides necessary flexibiltiy for testing.
 	commandExecutor
+	// closers lists additional resources to close upon receiving a stop command
+	//nolint:structcheck
+	closers []closer
 }
 
 // CheckAndSetDefaults validates this config and sets defaults
@@ -159,6 +173,10 @@ func (r *Config) CheckAndSetDefaults() error {
 
 	if r.ReconnectTimeout == 0 {
 		r.ReconnectTimeout = defaults.RPCAgentBackoffThreshold
+	}
+
+	if r.FieldLogger == nil {
+		r.FieldLogger = logrus.WithField(trace.Component, "rpcserver")
 	}
 
 	if r.systemInfo == nil {
@@ -197,10 +215,11 @@ type systemInfo interface {
 
 type agentServer struct {
 	Config
-	logrus.FieldLogger
 	grpcServer *grpc.Server
-	// listener is the server's listener
-	listener net.Listener
-	ctx      context.Context
-	cancel   context.CancelFunc
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+type closer interface {
+	Close(context.Context) error
 }

@@ -72,8 +72,10 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 		marker = constants.InProgressMark
 	} else if phase.GetState() == storage.OperationPhaseStateCompleted {
 		marker = constants.SuccessMark
-	} else if phase.GetState() == storage.OperationPhaseStateFailed || phase.GetState() == storage.OperationPhaseStateRolledBack {
+	} else if phase.GetState() == storage.OperationPhaseStateFailed {
 		marker = constants.FailureMark
+	} else if phase.GetState() == storage.OperationPhaseStateRolledBack {
+		marker = constants.RollbackMark
 	}
 	fmt.Fprintf(w, "%v%v %v\t%v\t%v\t%v\t%v\t%v\n",
 		strings.Repeat("  ", indent),
@@ -86,6 +88,38 @@ func printPhase(w io.Writer, phase storage.OperationPhase, indent int) {
 		formatTimestamp(phase.GetLastUpdateTime()))
 	for _, subPhase := range phase.Phases {
 		printPhase(w, subPhase, indent+1)
+	}
+}
+
+// FormatOperationPlanShort formats provided operation plan as text with
+// fewer number of columns.
+func FormatOperationPlanShort(w io.Writer, plan storage.OperationPlan) {
+	var t tabwriter.Writer
+	t.Init(w, 0, 10, 5, ' ', 0)
+	common.PrintTableHeader(&t, []string{"Phase", "State", "Updated"})
+	for _, phase := range plan.Phases {
+		printPhaseShort(&t, phase, 0)
+	}
+	t.Flush()
+}
+
+func printPhaseShort(w io.Writer, phase storage.OperationPhase, indent int) {
+	marker := "*"
+	if phase.GetState() == storage.OperationPhaseStateInProgress {
+		marker = constants.InProgressMark
+	} else if phase.GetState() == storage.OperationPhaseStateCompleted {
+		marker = constants.SuccessMark
+	} else if phase.GetState() == storage.OperationPhaseStateFailed || phase.GetState() == storage.OperationPhaseStateRolledBack {
+		marker = constants.FailureMark
+	}
+	fmt.Fprintf(w, "%v%v %v\t%v\t%v\n",
+		strings.Repeat("  ", indent),
+		marker,
+		formatName(phase.ID),
+		formatState(phase.GetState()),
+		formatTimestamp(phase.GetLastUpdateTime()))
+	for _, subPhase := range phase.Phases {
+		printPhaseShort(w, subPhase, indent+1)
 	}
 }
 

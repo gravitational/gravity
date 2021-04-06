@@ -55,7 +55,23 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		AccountID:     ctx.Operation.AccountID,
 		ClusterName:   ctx.Operation.SiteDomain,
 		Servers:       builder.ClusterNodes,
+		DNSConfig:     ctx.Cluster.DNSConfig,
 	}
+
+	// perform some initialization on the node
+	builder.AddInitPhase(plan)
+
+	// start RPC agent on one of the cluster's master nodes
+	if builder.JoiningNode.IsMaster() {
+		builder.AddStartAgentPhase(plan)
+	}
+
+	if builder.JoiningNode.SELinux {
+		builder.AddBootstrapSELinuxPhase(plan)
+	}
+
+	// execute preflight checks on the joining node
+	builder.AddChecksPhase(plan)
 
 	// have cluster controller configure packages for the joining node
 	builder.AddConfigurePhase(plan)
@@ -84,7 +100,6 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		// special rollback procedure will be required so we're starting an agent
 		// on the first master which will be used for recovery
 		if len(builder.ClusterNodes.Masters()) == 1 {
-			builder.AddStartAgentPhase(plan)
 			builder.AddEtcdBackupPhase(plan)
 		}
 		builder.AddEtcdPhase(plan)
@@ -93,9 +108,8 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	// wait for the planet to start up and the new Kubernetes node to register
 	builder.AddWaitPhase(plan)
 
-	// everything has started correctly so if we started a recovery agent
-	// above, we don't need it anymore
-	if builder.JoiningNode.IsMaster() && len(builder.ClusterNodes.Masters()) == 1 {
+	// RPC agent started in the beginning is no longer needed so shut it down
+	if builder.JoiningNode.IsMaster() {
 		builder.AddStopAgentPhase(plan)
 	}
 
@@ -104,11 +118,14 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 		builder.AddPostHookPhase(plan)
 	}
 
-	// if added a master node, make sure it participates in leader election
-	if builder.JoiningNode.IsMaster() {
-		builder.AddElectPhase(plan)
-	}
+	// Enable/disable leader election depending on the cluster role
+	// of the joining node
+	builder.AddElectPhase(plan)
 
-	fillSteps(plan)
+	fillSteps(plan, uiJoinSteps)
 	return plan, nil
 }
+
+// uiJoinSteps is the number of steps for the join operation that
+// currently can be displayed in the UI.
+const uiJoinSteps = 10

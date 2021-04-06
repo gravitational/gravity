@@ -26,10 +26,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// DropCapabilitiesForChroot drops capabilities except those required to do chroot
-func DropCapabilitiesForChroot() error {
+// DropCapabilitiesForJournalExport drops capabilities except those required
+// to export a systemd journal
+func DropCapabilitiesForJournalExport() error {
 	keep := map[int]struct{}{
-		capSysChroot: struct{}{},
+		// The journal is exported by issuing a chroot
+		capSysChroot: {},
+		// Exporter requires access to the journal files
+		capDACOverride: {},
 	}
 	return trace.Wrap(DropCapabilities(keep))
 }
@@ -91,5 +95,12 @@ func maxCap() (cap int, err error) {
 	return strconv.Atoi(strings.TrimSpace(string(buf[:n])))
 }
 
-// capSysChroot defines the number of the linux capability to execute chroot
-const capSysChroot = 18
+const (
+	// Capability to bypass file read, write, and execute permission checks.
+	// (DAC is an abbreviation of "discretionary access control".)
+	capDACOverride = 1
+	// Capability to:
+	//  * Use chroot(2).
+	//  * Change mount namespaces using setns(2).
+	capSysChroot = 18
+)

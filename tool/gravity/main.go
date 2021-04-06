@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,21 +20,34 @@ import (
 	stdlog "log"
 	"os"
 
+	"github.com/gravitational/gravity/lib/install/proto"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.InfoLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-	app := kingpin.New("gravity", "Cluster management tool")
+
+	// configure the process to avoid common proxy related installation problems
+	cli.ConfigureNoProxy()
+
+	app := kingpin.New("gravity", "Gravity cluster management tool.")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		if errCode, ok := trace.Unwrap(err).(utils.ExitCodeError); ok {
+			if errCode != installer.ErrCompleted {
+				log.WithError(err).Warn("Command failed.")
+				common.PrintError(errCode.OrigError())
+			}
+			os.Exit(errCode.ExitCode())
+		}
+		log.WithError(err).Warn("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}

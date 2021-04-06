@@ -1,3 +1,8 @@
+---
+title: Monitoring a Kubernetes Cluster with Gravity
+description: How to monitor the health and performance an air-gapped or on-prem Kubernetes cluster with Gravity
+---
+
 # Cluster Monitoring
 
 Gravity Clusters come with a fully configured and customizable monitoring/alerting system by default.
@@ -228,6 +233,32 @@ To remove an alert:
 $ gravity resource rm alert my-formula
 ```
 
+### Configuring Custom Alerts With Config Maps
+
+It is also possible to configure custom alerts without using `gravity resource`
+CLI. To do it this way, create a ConfigMap with `monitoring: alert` label in
+the `monitoring` namespace and put the full "alert" Gravity resource spec in
+the ConfigMap data under the `spec` key:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-formula
+  namespace: monitoring
+  labels:
+    monitoring: alert
+data:
+  spec: |
+    kind: alert
+    version: v2
+    metadata:
+      name: my-formula
+    spec:
+      formula: |
+        Kapacitor formula
+```
+
 ### Builtin Alerts
 
 Alerts (written in [TICKscript](https://docs.influxdata.com/kapacitor/v1.2/tick)) are automatically detected, loaded and
@@ -244,7 +275,7 @@ Following table shows the alerts Gravity ships with by default:
 | Filesystem | High disk space usage | Triggers a warning, when > 80% used, with > 90% used, triggers a critical error |
 | Filesystem | High inode usage | Triggers a warning, when > 90% used, with > 95% used, triggers a critical error |
 | System | Uptime | Triggers a warning when a node's uptime is less than 5min |
-| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](/requirements/#kernel-module-matrix) for details. |
+| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](requirements.md#kernel-module-matrix) for details. |
 | Etcd | Etcd instance health | Triggers an error when an Etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |
@@ -252,4 +283,4 @@ Following table shows the alerts Gravity ships with by default:
 | Kubernetes | Kubernetes node readiness | Triggers an error when the node is not ready |
 
 Kapacitor will also trigger an email for each of the events listed above if SMTP resource has been
-configured (see [configuration](/monitoring/#configuration) for details).
+configured (see [configuration](monitoring.md#configuration) for details).

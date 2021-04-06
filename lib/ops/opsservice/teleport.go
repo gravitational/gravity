@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -42,7 +41,11 @@ func (s *site) validateRemoteAccess(req ops.ValidateRemoteAccessRequest) (resp *
 		return nil, trace.Wrap(err)
 	}
 
-	runner := &teleportRunner{recorder{}, s.domainName, s.teleport()}
+	runner := &teleportRunner{
+		FieldLogger:          log.WithField(trace.Component, "teleport-runner"),
+		domainName:           s.domainName,
+		TeleportProxyService: s.teleport(),
+	}
 	var results []ops.NodeResponse
 	for _, node := range servers {
 		server, err := newTeleportServer(node)
@@ -100,15 +103,6 @@ func (t *teleportServer) HostName() string { return t.Labels[ops.Hostname] }
 // Debug implements remoteServer.Debug
 func (t *teleportServer) Debug() string { return t.Addr }
 
-func (t *teleportServer) getLabel(name string) string {
-	return t.Labels[name]
-}
-
-func (t *teleportServer) isMaster() bool {
-	role := schema.ServiceRole(t.Labels[schema.ServiceLabelRole])
-	return (role == schema.ServiceRoleMaster)
-}
-
 func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *teleportServer, err error) {
 	const noRetry = 1
 	labels := map[string]string{labelName: labelValue}
@@ -124,8 +118,8 @@ func (s *site) getTeleportServerNoRetry(labelName, labelValue string) (server *t
 	return newTeleportServer(servers[0])
 }
 
-// getTeleportServer queries all teleport servers in a retry loop
-func (s *site) getTeleportServers() (teleservers, error) {
+// getAllTeleportServers queries all teleport servers in a retry loop
+func (s *site) getAllTeleportServers() (teleservers, error) {
 	anyServers := func(string, []teleservices.Server) error {
 		return nil
 	}
@@ -133,11 +127,10 @@ func (s *site) getTeleportServers() (teleservers, error) {
 		defaults.RetryInterval, defaults.RetryLessAttempts, anyServers)
 }
 
-// getTeleportServer queries the teleport server with the specified label in a retry loop
-func (s *site) getTeleportServer(labelName, labelValue string) (server *teleportServer, err error) {
-	labels := map[string]string{labelName: labelValue}
+// getTeleportServers returns all servers matching provided label
+func (s *site) getTeleportServers(labelName, labelValue string) (result []teleportServer, err error) {
 	servers, err := s.getTeleportServersWithTimeout(
-		labels,
+		map[string]string{labelName: labelValue},
 		defaults.TeleportServerQueryTimeout,
 		defaults.RetryInterval,
 		defaults.RetryLessAttempts,
@@ -145,7 +138,27 @@ func (s *site) getTeleportServer(labelName, labelValue string) (server *teleport
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return newTeleportServer(servers[0])
+	for _, server := range servers {
+		teleportServer, err := newTeleportServer(server)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *teleportServer)
+	}
+	return result, nil
+}
+
+// getTeleportServer queries the teleport server with the specified label in a retry loop
+func (s *site) getTeleportServer(labelName, labelValue string) (server *teleportServer, err error) {
+	servers, err := s.getTeleportServers(labelName, labelValue)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(servers) == 0 {
+		return nil, trace.NotFound("no teleport servers matching %v=%v",
+			labelName, labelValue)
+	}
+	return &servers[0], nil
 }
 
 // getTeleportServerWithTimeout queries the teleport server with the specified label in a retry loop.
@@ -179,16 +192,6 @@ func queryReturnsAtLeastOneServer(domainName string, servers []teleservices.Serv
 		return trace.NotFound("no servers found for %q", domainName)
 	}
 	return nil
-}
-
-type recorder struct{}
-
-func (r recorder) Record(format string, args ...interface{}) {
-	log.Infof(format, args...)
-}
-
-func (r recorder) WithFields(fields log.Fields) *log.Entry {
-	return log.WithFields(fields)
 }
 
 func (r teleservers) getWithLabels(labels labels) (result teleservers) {

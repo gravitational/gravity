@@ -7,7 +7,8 @@
         "*": [
           "*",
         ],
-        "app/*": ["src/app/*"]
+        "app/*": ["src/*"],
+        "oss-app/*": ["src/*"]
       }
     },
     "include": [

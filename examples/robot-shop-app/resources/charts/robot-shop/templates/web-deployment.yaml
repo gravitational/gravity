@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    service: web
+spec:
+  replicas: {{ .Values.numberWebReplicas }}
+  selector:
+    matchLabels:
+      service: web
+  template:
+    metadata:
+      labels:
+        service: web
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: web
+        image: {{ .Values.registry }}{{ .Values.image.repo }}/rs-web:{{ .Values.image.version }}
+        {{- if .Values.eum.key }}
+        env:
+        - name: INSTANA_EUM_KEY
+          value: {{ .Values.eum.key }}
+        - name: INSTANA_EUM_REPORTING_URL
+          value: {{ .Values.eum.url }}
+        {{- end}}
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+      restartPolicy: Always

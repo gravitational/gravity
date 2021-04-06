@@ -21,20 +21,13 @@ import (
 	"io"
 	"time"
 
-	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/trace"
 
 	log "github.com/sirupsen/logrus"
 )
-
-type Recorder interface {
-	Record(format string, args ...interface{})
-	WithFields(log.Fields) *log.Entry
-}
 
 // operationContext holds necessary operation context,
 // operation key, recorder and plan
@@ -50,28 +43,9 @@ type operationContext struct {
 	recorder io.WriteCloser
 	// provisionedServers is used in all operations
 	provisionedServers provisionedServers
-	// variables is a map of opaque data for operations
-	variables map[string]interface{}
 	// serversToRemove is a list of servers to remove
 	// in shrink operation
 	serversToRemove []storage.Server
-	// update groups update-related transient attributes
-	update updateContext
-}
-
-// update groups update-related transient attributes
-type updateContext struct {
-	// masterIP is the IP of the active master node
-	masterIP string
-	// installOp references the installation operation used to create
-	// the cluster
-	installOp ops.SiteOperation
-	// app describes the update application
-	app appservice.Application
-	// gravityPath specifies location of the temporary gravity binary used for update.
-	gravityPath string
-	// gravityPackage specifies the package with the new gravity binary
-	gravityPackage loc.Locator
 }
 
 func (s *site) newOperationContext(operation ops.SiteOperation) (*operationContext, error) {
@@ -94,21 +68,10 @@ func (s *site) newOperationContext(operation ops.SiteOperation) (*operationConte
 	return ctx, nil
 }
 
+//nolint:unused
 func (c *operationContext) removeAll() bool {
 	// this is a special case and means - remove all servers
 	return len(c.serversToRemove) == 0
-}
-
-func (c *operationContext) shouldRemoveServer(name string) bool {
-	if c.removeAll() {
-		return true
-	}
-	for _, s := range c.serversToRemove {
-		if s.Hostname == name {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *operationContext) profiles() (result map[string]storage.ServerProfile) {
@@ -130,12 +93,6 @@ func (c *operationContext) getNumServers() (servers int) {
 		}
 		return servers
 	}
-}
-
-// serverWithRole augments server profile with its role name
-type serverWithRole struct {
-	storage.ServerProfile
-	role string
 }
 
 // key returns SiteOperationKey generated from the operation
@@ -184,18 +141,4 @@ func (c *operationContext) Close() error {
 func (c *operationContext) Write(b []byte) (int, error) {
 	c.Entry.Print(string(b))
 	return len(b), nil
-}
-
-// logRecorder implements Recorder interface and uses standard logging, so it
-// can be used where operationContext is not available
-type logRecorder struct {
-	*log.Entry
-}
-
-func (r logRecorder) WithFields(fields log.Fields) *log.Entry {
-	return r.Entry.WithFields(fields)
-}
-
-func (r logRecorder) Record(format string, a ...interface{}) {
-	r.Infof(format, a...)
 }

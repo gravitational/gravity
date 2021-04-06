@@ -69,7 +69,7 @@ func (p *agentStartExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cluster, err := p.Operator.GetLocalSite()
+	cluster, err := p.Operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -146,20 +146,20 @@ type agentStopExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// AgentClient is the RPC agent client
-	AgentClient fsm.AgentRepository
+	AgentClient rpc.AgentRepository
 	// Master is the master node where the agent is deployed
 	Master storage.Server
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 }
 
-// Execute starts an RPC agent on a node
+// Execute stops an RPC agent on a node
 func (p *agentStopExecutor) Execute(ctx context.Context) error {
 	err := rpc.ShutdownAgents(ctx, []string{p.Master.AdvertiseIP},
 		p.FieldLogger, p.AgentClient)
 	if err != nil {
-		p.Errorf("Failed to stop agent on master node %v: %v.",
-			p.Master.AdvertiseIP, trace.DebugReport(err))
+		p.WithError(err).Errorf("Failed to stop agent on master node %v.",
+			p.Master.AdvertiseIP)
 	} else {
 		p.Infof("Stopped agent on master node %v.", p.Master.AdvertiseIP)
 	}

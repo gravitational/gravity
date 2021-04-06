@@ -44,7 +44,7 @@ func NewAgentGroup(config AgentGroupConfig, from []Peer) (*AgentGroup, error) {
 	// FIXME: arbitrary channel size
 	watchCh := make(chan WatchEvent, 10)
 	peersConfig := peersConfig{
-		FieldLogger:       config.FieldLogger.WithField(trace.Component, "peers"),
+		FieldLogger:       config.FieldLogger.WithField(trace.Component, "agent-group"),
 		ReconnectStrategy: config.ReconnectStrategy,
 		watchCh:           watchCh,
 		checkTimeout:      config.HealthCheckTimeout,
@@ -152,27 +152,26 @@ func (r *AgentGroup) Add(p Peer) {
 	r.peers.add(peer{Peer: p})
 }
 
-// Remove shuts down the specified peer and removes it from the group
+// Remove removes the specified peer from the group
 func (r *AgentGroup) Remove(ctx context.Context, p Peer) error {
-	err := r.peers.iterate(func(peer peer) error {
-		if p.Addr() == peer.Addr() {
-			return trace.Wrap(peer.Shutdown(ctx))
-		}
-		return nil
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	r.peers.delete(peer{Peer: p})
 	return nil
 }
 
 // Shutdown requests agents to shut down
-func (r *AgentGroup) Shutdown(ctx context.Context) error {
+func (r *AgentGroup) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	err := r.peers.iterate(func(p peer) error {
-		return trace.Wrap(p.Shutdown(ctx))
+		return trace.Wrap(p.Shutdown(ctx, req))
 	})
 	return trace.Wrap(err)
+}
+
+// Abort requests agents to abort the operation and uninstall
+func (r *AgentGroup) Abort(ctx context.Context) error {
+	return r.peers.iterate(func(p peer) error {
+		r.WithField("peer", p).Info("Abort peer.")
+		return p.Abort(ctx)
+	})
 }
 
 // Start starts this group's internal goroutines
@@ -232,11 +231,11 @@ func (r *AgentGroup) updateLoop() {
 	}
 }
 
-func (r errorPeer) Command(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) Command(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 
-func (r errorPeer) GravityCommand(context.Context, log.FieldLogger, io.Writer, ...string) error {
+func (r errorPeer) GravityCommand(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	return trace.Wrap(r.error)
 }
 
@@ -256,6 +255,10 @@ func (r errorPeer) GetCurrentTime(context.Context) (*time.Time, error) {
 	return nil, trace.Wrap(r.error)
 }
 
+func (r errorPeer) GetVersion(context.Context) (*pb.Version, error) {
+	return nil, trace.Wrap(r.error)
+}
+
 func (r errorPeer) CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error) {
 	return nil, trace.Wrap(r.error)
 }
@@ -264,7 +267,15 @@ func (r errorPeer) CheckBandwidth(context.Context, *validationpb.CheckBandwidthR
 	return nil, trace.Wrap(r.error)
 }
 
-func (r errorPeer) Shutdown(context.Context) error {
+func (r errorPeer) CheckDisks(context.Context, *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
+	return nil, trace.Wrap(r.error)
+}
+
+func (r errorPeer) Shutdown(context.Context, *pb.ShutdownRequest) error {
+	return trace.Wrap(r.error)
+}
+
+func (r errorPeer) Abort(context.Context) error {
 	return trace.Wrap(r.error)
 }
 

@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"strings"
 
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -59,17 +59,23 @@ type DeployAgentsRequest struct {
 	logrus.FieldLogger
 
 	// LeaderParams defines which parameters to pass to the leader agent process.
-	// The leader agent is responsible for driving the automatic update
-	LeaderParams []string
+	// The leader agent specifies the agent that executes an operation.
+	LeaderParams string
 
 	// Leader is the node where the leader agent should be launched
 	//
 	// If not set, the first master node will serve as a leader
 	Leader *storage.Server
+
+	// NodeParams defines which parameters to pass to the regular agent process.
+	NodeParams string
+
+	// Progress is the progress reporter.
+	Progress utils.Progress
 }
 
-// Check validates the request to deploy agents
-func (r DeployAgentsRequest) Check() error {
+// CheckAndSetDefaults validates the request to deploy agents and sets defaults.
+func (r *DeployAgentsRequest) CheckAndSetDefaults() error {
 	// if the leader node was explicitly passed, make sure
 	// it is present among the deploy nodes
 	if r.Leader != nil && len(r.LeaderParams) != 0 {
@@ -84,6 +90,9 @@ func (r DeployAgentsRequest) Check() error {
 			return trace.NotFound("requested leader node %v was not found among deploy servers: %v",
 				r.Leader.AdvertiseIP, r.Servers)
 		}
+	}
+	if r.Progress == nil {
+		r.Progress = utils.DiscardProgress
 	}
 	return nil
 }
@@ -107,7 +116,7 @@ func (r DeployAgentsRequest) canBeLeader(node DeployServer) bool {
 // One of the master nodes is selected to control the automatic update operation specified
 // with req.LeaderParams.
 func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
-	if err := req.Check(); err != nil {
+	if err := req.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
 	errors := make(chan error, len(req.Servers))
@@ -127,21 +136,27 @@ func DeployAgents(ctx context.Context, req DeployAgentsRequest) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		serverStateDir := stateServer.StateDir()
 
-		go func(node, nodeStateDir string, leader bool) {
-			err := trace.Wrap(deployAgentOnNode(ctx, req, node, nodeStateDir,
-				leader, req.SecretsPackage.String()))
-			if err != nil {
-				logrus.WithError(err).WithField("node", node).Warnf("Failed to deploy agent.")
-			}
-			errors <- err
-		}(server.NodeAddr, serverStateDir, leaderProcess)
+		logger := req.WithFields(server.fields())
+
+		go func(nodeAddr string, leader bool) {
+			// Try a few times to account for possible network glitches.
+			err := utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+				if err := deployAgentOnNode(ctx, req, *stateServer, nodeAddr, leader, req.SecretsPackage.String()); err != nil {
+					logger.WithError(err).Warn("Failed to deploy agent.")
+					return trace.Wrap(err)
+				}
+				req.Progress.Print(color.GreenString("Deployed agent on %v (%v)", stateServer.Hostname, stateServer.AdvertiseIP))
+				logger.Info("Agent deployed.")
+				return nil
+			})
+			errors <- trace.Wrap(err, "failed to deploy agent on %v", stateServer.AdvertiseIP)
+		}(server.NodeAddr, leaderProcess)
 	}
 
 	err := utils.CollectErrors(ctx, errors)
 	if err != nil {
-		return trace.Wrap(err, "failed to deploy agents")
+		return trace.Wrap(err)
 	}
 
 	if !leaderProcessScheduled && len(req.LeaderParams) > 0 {
@@ -169,6 +184,11 @@ type DeployServer struct {
 	NodeAddr string
 }
 
+// fields returns log fields for the server.
+func (s DeployServer) fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
+}
+
 // NewDeployServer creates a new instance of DeployServer
 func NewDeployServer(node storage.Server) DeployServer {
 	return DeployServer{
@@ -180,47 +200,50 @@ func NewDeployServer(node storage.Server) DeployServer {
 	}
 }
 
-func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, node, nodeStateDir string, leader bool, secretsPackage string) error {
-	nodeClient, err := req.Proxy.ConnectToNode(ctx, node, defaults.SSHUser, false)
+func deployAgentOnNode(ctx context.Context, req DeployAgentsRequest, server storage.Server, nodeAddr string, leader bool, secretsPackage string) error {
+	nodeClient, err := req.Proxy.ConnectToNode(ctx, nodeAddr, defaults.SSHUser, false)
 	if err != nil {
-		return trace.Wrap(err, node)
+		return trace.Wrap(err, "failed to connect").AddField("node", nodeAddr)
 	}
 	defer nodeClient.Close()
 
+	stateDir := server.StateDir()
 	gravityHostPath := filepath.Join(
-		state.GravityRPCAgentDir(nodeStateDir), constants.GravityPackage)
-	gravityPlanetPath := filepath.Join(
-		defaults.GravityRPCAgentDir, constants.GravityPackage)
+		state.GravityRPCAgentDir(stateDir), constants.GravityPackage)
 	secretsHostDir := filepath.Join(
-		state.GravityRPCAgentDir(nodeStateDir), defaults.SecretsDir)
-	secretsPlanetDir := filepath.Join(
-		defaults.GravityRPCAgentDir, defaults.SecretsDir)
+		state.GravityRPCAgentDir(stateDir), defaults.SecretsDir)
 
 	var runCmd string
 	if leader {
 		runCmd = fmt.Sprintf("%s agent --debug install %s",
-			gravityHostPath,
-			strings.Join(req.LeaderParams, " "))
+			gravityHostPath, req.LeaderParams)
 	} else {
-		runCmd = fmt.Sprintf("%s agent --debug install", gravityHostPath)
+		runCmd = fmt.Sprintf("%s agent --debug install %s",
+			gravityHostPath, req.NodeParams)
 	}
 
+	exportFormat := "%s package export --file-mask=%o %s %s --ops-url=%s --insecure"
+	exportArgs := []interface{}{
+		constants.GravityBin, defaults.SharedExecutableMask,
+		req.GravityPackage, gravityHostPath, defaults.GravityServiceURL,
+	}
+	if server.SELinux {
+		exportFormat = "%s package export --file-mask=%o %s %s --ops-url=%s --insecure --file-label=%s"
+		exportArgs = append(exportArgs, defaults.GravityFileLabel)
+	}
 	err = utils.NewSSHCommands(nodeClient.Client).
 		C("rm -rf %s", secretsHostDir).
 		C("mkdir -p %s", secretsHostDir).
-		WithRetries("%s enter -- --notty %s -- package unpack %s %s --debug --ops-url=%s --insecure",
-			constants.GravityBin, defaults.GravityBin, secretsPackage, secretsPlanetDir, defaults.GravityServiceURL).
-		IgnoreError("/usr/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
-		WithRetries("%s enter -- --notty %s -- package export --file-mask=%o %s %s --ops-url=%s --insecure",
-			constants.GravityBin, defaults.GravityBin, defaults.SharedExecutableMask,
-			req.GravityPackage, gravityPlanetPath, defaults.GravityServiceURL).
+		WithRetries("%s package unpack %s %s --debug --ops-url=%s --insecure",
+			constants.GravityBin, secretsPackage, secretsHostDir, defaults.GravityServiceURL).
+		IgnoreError("/bin/systemctl stop %s", defaults.GravityRPCAgentServiceName).
+		WithRetries(exportFormat, exportArgs...).
 		C(runCmd).
-		WithLogger(req.WithField("node", node)).
+		WithLogger(req.WithField("node", nodeAddr)).
 		Run(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	req.Infof("Successfully deployed agent on node %v.", node)
 	return nil
 }

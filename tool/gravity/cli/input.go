@@ -23,11 +23,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/systeminfo"
-
-	"github.com/fatih/color"
-	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/trace"
 )
 
@@ -43,64 +38,6 @@ func readCheck(prompt string, fn func(v string) (string, error)) (string, error)
 		}
 		return out, nil
 	}
-}
-
-func notEmpty(v string) (string, error) {
-	if v == "" {
-		return "", fmt.Errorf("value can not be empty")
-	}
-	return v, nil
-}
-
-func validDomain(v string) (string, error) {
-	if !cstrings.IsValidDomainName(v) {
-		return "", fmt.Errorf("value should be a valid domain")
-	}
-	return v, nil
-}
-
-// selectInterface returns IP address of the network interface selected
-// for the installation
-//
-// If the machine has a single network interface (not counting loopback),
-// it is returned right away. Otherwise, a user is shown a prompt dialog
-// where they can pick an interface.
-func selectInterface() (addr string, autoselected bool, err error) {
-	ifaces, err := systeminfo.NetworkInterfaces()
-	if err != nil {
-		return "", false, trace.Wrap(err)
-	}
-	if len(ifaces) == 0 {
-		return "", false, trace.Errorf("no network interfaces found")
-	}
-	if len(ifaces) == 1 {
-		return ifaces[0].IPv4, true, nil
-	}
-	fmt.Printf("\nSelect an interface for the installer to listen on:\n\n")
-
-	num2iface := make(map[string]storage.NetworkInterface)
-	number := 0
-	for _, iface := range ifaces {
-		if iface.IPv4 != "" && iface.IPv4 != "<nil>" {
-			number += 1
-			num2iface[fmt.Sprintf("%v", number)] = iface
-			fmt.Printf("%v. %v\n", number, iface.IPv4)
-		}
-	}
-	fmt.Printf(color.YellowString("\nNote: Target servers should be able to connect to this IP\n"))
-
-	addr, err = readCheck(fmt.Sprintf("\nSelect interface number [%v-%v]", 1, number), func(number string) (string, error) {
-		iface, ok := num2iface[number]
-		if !ok {
-			return "", fmt.Errorf("select interface number")
-		}
-		return iface.IPv4, nil
-	})
-	if err != nil {
-		return "", false, trace.Wrap(err)
-	}
-
-	return addr, false, nil
 }
 
 func checkYesNo(v string) (string, error) {
@@ -135,7 +72,7 @@ func enforceConfirmation(title string, args ...interface{}) error {
 		return trace.Wrap(err)
 	}
 	if !confirmed {
-		return trace.CompareFailed("cancelled")
+		return trace.CompareFailed("Operation has been canceled by user.")
 	}
 	return nil
 }

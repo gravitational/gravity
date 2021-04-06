@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -28,13 +27,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"github.com/gravitational/gravity/lib/app/docker"
+	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -43,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/ghodss/yaml"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -54,38 +54,25 @@ import (
 
 // VendorerConfig is configuration for vendorer
 type VendorerConfig struct {
-	// DockerURL is the URL of docker API
-	DockerURL string
-	// RegistryURL is the URL of a running docker registry
+	// DockerClient is the docker client to use to manage images
+	DockerClient docker.DockerInterface
+	// ImageService is the docker registry service
+	docker.ImageService
+	// RegistryURL is the URL of the active docker registry to use
 	RegistryURL string
 	// Packages is the pack service
 	Packages pack.PackageService
 }
 
 // NewVendorer creates a new vendorer instance.
-func NewVendorer(conf VendorerConfig) (*vendorer, error) {
-	dockerClient, err := docker.NewClient(conf.DockerURL)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: conf.RegistryURL,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewVendorerFromClients(dockerClient, imageService, conf.RegistryURL, conf.Packages)
-}
-
-// NewVendorerFromClients creates a new vendorer helper from existing docker client - useful in tests.
-func NewVendorerFromClients(dockerClient docker.DockerInterface, imageService docker.ImageService, registryURL string, packages pack.PackageService) (*vendorer, error) {
-	dockerPuller := docker.NewDockerPuller(dockerClient)
+func NewVendorer(config VendorerConfig) (*vendorer, error) {
+	dockerPuller := docker.NewDockerPuller(config.DockerClient)
 	v := &vendorer{
-		dockerClient: dockerClient,
-		imageService: imageService,
+		dockerClient: config.DockerClient,
+		imageService: config.ImageService,
 		dockerPuller: dockerPuller,
-		registryURL:  registryURL,
-		packages:     packages,
+		registryURL:  config.RegistryURL,
+		packages:     config.Packages,
 	}
 	return v, nil
 }
@@ -132,6 +119,10 @@ type VendorRequest struct {
 	// ProgressReporter is a special writer, if set, vendorer will output user-friendly
 	// information during vendoring
 	ProgressReporter utils.Progress
+	// Helm contains parameters for rendering Helm charts.
+	Helm helm.RenderParameters
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull bool
 }
 
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
@@ -167,7 +158,7 @@ func (v *vendorer) VendorTarball(ctx context.Context, tarball io.ReadCloser, req
 // to point to a fixed docker registry address.
 func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req VendorRequest) error {
 	if req.ProgressReporter == nil {
-		req.ProgressReporter = utils.NewNopProgress()
+		req.ProgressReporter = utils.DiscardProgress
 	}
 	// before parsing resources apply basic transformations on manifest, e.g. environment
 	// variables interpolation
@@ -178,7 +169,7 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	}
 
 	// parse all resources
-	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req.ResourcePatterns, req.IgnoreResourcePatterns)
+	resourceFiles, chartResources, err := resourcesFromPath(unpackedDir, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -191,16 +182,14 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	log.Infof("Detected raw resource files: %v.", resourceFiles)
-	for _, resourceFile := range resourceFiles {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "resource file"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
 	// next, rewrite images that were specified by `--set-image` since the
 	// original image tag might not actually exist.
 	err = resourceFiles.RewriteImages(makeRewriteSetImagesFunc(req.SetImages))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = analyzeResources(resourceFiles, chartResources, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -217,12 +206,6 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 	log.Infof("Chart images: %v.", chartImages)
-	log.Infof("Found images captured from charts: %v.", chartResources)
-	for _, resourceFile := range chartResources {
-		if err := printResourceStatus(resourceFile, req.ManifestPath, req.ProgressReporter, "Helm chart"); err != nil {
-			return trace.Wrap(err)
-		}
-	}
 
 	images = append(images, chartImages...)
 
@@ -260,10 +243,9 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		}
 		image := image // create new variable for go routine below
 		group.Go(groupCtx, func() error {
-
 			// pull all missing images (this will correctly fail for images without a remote
 			// registry that do not exist i.e. due to failed image build)
-			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req.ProgressReporter); err != nil {
+			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req); err != nil {
 				return trace.Wrap(err)
 			}
 
@@ -319,6 +301,36 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	return nil
 }
 
+// analyzeResources looks at the parsed Kubernetes/Helm resource files and
+// prints some helpful information about them to the user.
+func analyzeResources(resourceFiles, chartFiles resources.ResourceFiles, req VendorRequest) error {
+	for _, resourceFile := range append(resourceFiles, chartFiles...) {
+		images, err := resourceFile.Images()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if len(images.UnrecognizedObjects) > 0 {
+			req.ProgressReporter.PrintSubWarn("Some resources weren't recognized, run with --verbose (-v) for more details")
+			break
+		}
+	}
+	log.Infof("Detected resource files: %v.", resourceFiles)
+	for _, resourceFile := range resourceFiles {
+		err := printResourceStatus(resourceFile, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	log.Infof("Detected Helm templates: %v.", chartFiles)
+	for _, resourceFile := range chartFiles {
+		err := printResourceStatus(resourceFile, req)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // printResourceStatus prints a user-friendly status message about the provided
 // resource file which gives the user a high-level visibility into the process
 // of discovering images from resources
@@ -327,25 +339,39 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 //  - the fact that this resource file has been detected and is being processed
 //  - an info message in case no Docker images could be extracted from the file
 //    which might help the user spot mistakes in their resource file / chart
-//  - an info message in case an object definition of an unknown version / kind
+//  - a debug message in case an object definition of an unknown version / kind
 //    has been detected
-func printResourceStatus(resourceFile resources.ResourceFile, manifestPath string, progressReporter utils.Progress, resourceType string) error {
-	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(manifestPath))
-	if resourceFile.Path() == manifestPath {
-		resourceType = "application manifest"
-	}
-	progressReporter.PrintSubStep("Detected %v %v", resourceType, relPath)
+func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest) error {
+	relPath := utils.TrimPathPrefix(resourceFile.Path(), filepath.Dir(req.ManifestPath))
 	extractedImages, err := resourceFile.Images()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if len(extractedImages.Images) == 0 {
-		progressReporter.PrintSubStep("Found no images to vendor in %v %v", resourceType, relPath)
+		req.ProgressReporter.PrintSubDebug("%v %v:\n\t\tNo images to vendor", resourceFile.Kind(), relPath)
+	} else {
+		req.ProgressReporter.PrintSubDebug("%v %v:", resourceFile.Kind(), relPath)
+		for _, image := range extractedImages.Images {
+			req.ProgressReporter.PrintSubDebug(color.GreenString("\t%v", image))
+		}
 	}
 	for _, o := range extractedImages.UnrecognizedObjects {
 		gvk := o.GetObjectKind().GroupVersionKind()
-		progressReporter.PrintSubStep("Will skip unrecognized object in %v %v: apiVersion=%v/%v, kind=%v",
-			resourceType, relPath, gvk.Group, gvk.Version, gvk.Kind)
+		unk, err := resources.ToUnknown(o)
+		if err != nil {
+			log.WithError(err).WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+			}).Warn("Failed to convert object to unknown resource.")
+		} else {
+			log.WithFields(log.Fields{
+				"apiVersion": fmt.Sprintf("%v/%v", gvk.Group, gvk.Version),
+				"kind":       gvk.Kind,
+				"name":       unk.Metadata.Name,
+			}).Info("Skip unrecognized object.")
+			req.ProgressReporter.PrintSubDebug(color.BlueString("\tUnrecognized object: apiVersion=%v; kind=%v; name=%v",
+				fmt.Sprintf("%v/%v", gvk.Group, gvk.Version), gvk.Kind, unk.Metadata.Name))
+		}
 	}
 	return nil
 }
@@ -701,27 +727,39 @@ func isChartDirectory(path string) (bool, error) {
 	return !fi.IsDir(), nil
 }
 
-func resourceFromChart(path string) (*resources.Resource, error) {
-	out, err := helm.Render(helm.RenderParameters{Path: path})
+func resourcesFromChart(path string, req VendorRequest) (resources.ResourceFiles, error) {
+	rendered, err := helm.Render(helm.RenderParameters{
+		Path:   path,
+		Values: req.Helm.Values,
+		Set:    req.Helm.Set,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.WithField("path", path).Debug(string(out))
-	return resources.Decode(bytes.NewReader(out))
+	var result resources.ResourceFiles
+	for k, v := range rendered {
+		resource, err := resources.Decode(strings.NewReader(v))
+		if err != nil {
+			return nil, trace.Wrap(err, "failed to decode: %v", k)
+		}
+		result = append(result, resources.NewResourceFileObject(
+			k, resources.KindHelmTemplate, *resource))
+	}
+	return result, nil
 }
 
 // resourcesFromPath collects resource files in root for further processing.
 // It will search for files starting with root and matching a set of file path patterns
 // specified with patterns.
 // Returns a list of collected resource files upon success.
-func resourcesFromPath(root string, includePatterns []string, ignorePatterns []string) (result resources.ResourceFiles, chartResources resources.ResourceFiles, err error) {
+func resourcesFromPath(root string, req VendorRequest) (result resources.ResourceFiles, chartResources resources.ResourceFiles, err error) {
 	err = filepath.Walk(root, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
 		var matched bool
-		for _, pattern := range includePatterns {
+		for _, pattern := range req.ResourcePatterns {
 			matched, _ = archive.PathMatch(archive.PathPattern(pattern), path)
 			if matched {
 				break
@@ -729,7 +767,7 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 		}
 
 		if matched {
-			for _, ignorePattern := range ignorePatterns {
+			for _, ignorePattern := range req.IgnoreResourcePatterns {
 				matchedIgnore, _ := regexp.MatchString(ignorePattern, path)
 				if matchedIgnore {
 					matched = false
@@ -747,11 +785,20 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 				return nil
 			}
 			log.Infof("Extracting images from Helm chart directory %v.", path)
-			resource, err := resourceFromChart(path)
+			resource, err := resourcesFromChart(path, req)
 			if err != nil {
-				return trace.Wrap(err)
+				return trace.Wrap(err, "failed to parse resources in Helm chart: %v",
+					utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 			}
-			chartResources = append(chartResources, resources.NewResourceFileObject(path, *resource))
+			chartResources = append(chartResources, resource...)
+			// Chart dir can also contain manifest file.
+			if _, err := utils.StatFile(filepath.Join(path, defaults.ManifestFileName)); err == nil {
+				resourceFile, err := resources.NewResourceFile(filepath.Join(path, defaults.ManifestFileName))
+				if err != nil {
+					return trace.Wrap(err)
+				}
+				result = append(result, *resourceFile)
+			}
 			return filepath.SkipDir
 		}
 
@@ -761,8 +808,8 @@ func resourcesFromPath(root string, includePatterns []string, ignorePatterns []s
 		}
 		resourceFile, err := resources.NewResourceFile(path)
 		if err != nil {
-			return trace.Wrap(err, "failed to parse resource file %q: %v",
-				utils.TrimPathPrefix(path, root, defaults.ResourcesDir), err)
+			return trace.Wrap(err, "failed to parse resource file: %v",
+				utils.TrimPathPrefix(path, root, defaults.ResourcesDir))
 		}
 		result = append(result, *resourceFile)
 		return nil

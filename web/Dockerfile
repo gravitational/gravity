@@ -1,10 +1,6 @@
-FROM node:8.11.2-slim
+FROM node:12.18.3-stretch-slim
 
 RUN apt-get update && apt-get install git -y
-
-RUN apt-get install -y python python-dev python-pip
-
-RUN npm i npm@6.1.0 -g
 
 # prepare to install only package.json dependencies
 RUN mkdir -p /app
@@ -14,7 +10,7 @@ COPY package*.json /app/
 WORKDIR /app
 
 RUN npm set audit false ;\
-    npm install
+    npm install --silent
 
 COPY . /app
 

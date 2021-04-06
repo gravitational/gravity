@@ -57,7 +57,9 @@ func UnmountService(service string, services systemservice.ServiceManager) error
 	}
 
 	log.Debugf("Mount service is %q.", status)
-	err = services.UninstallService(service)
+	err = services.UninstallService(systemservice.UninstallServiceRequest{
+		Name: service,
+	})
 	if err != nil {
 		return trace.Wrap(err, "failed to uninstall mount service %q", service)
 	}

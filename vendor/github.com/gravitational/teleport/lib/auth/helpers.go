@@ -52,6 +52,8 @@ type TestAuthServerConfig struct {
 	AcceptedUsage []string
 	// CipherSuites is the list of ciphers that the server supports.
 	CipherSuites []uint16
+	// Clock is used to control time in tests.
+	Clock clockwork.FakeClock
 }
 
 // CheckAndSetDefaults checks and sets defaults
@@ -62,6 +64,9 @@ func (cfg *TestAuthServerConfig) CheckAndSetDefaults() error {
 	if cfg.Dir == "" {
 		return trace.BadParameter("missing parameter Dir")
 	}
+	if cfg.Clock == nil {
+		cfg.Clock = clockwork.NewFakeClockAt(time.Now())
+	}
 	if len(cfg.CipherSuites) == 0 {
 		cfg.CipherSuites = utils.DefaultCipherSuites()
 	}
@@ -70,8 +75,13 @@ func (cfg *TestAuthServerConfig) CheckAndSetDefaults() error {
 
 // CreateUploaderDir creates directory for file uploader service
 func CreateUploaderDir(dir string) error {
-	return os.MkdirAll(filepath.Join(dir, teleport.LogsDir, teleport.ComponentUpload,
+	err := os.MkdirAll(filepath.Join(dir, teleport.LogsDir, teleport.ComponentUpload,
 		events.SessionLogsDir, defaults.Namespace), teleport.SharedDirMode)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+
+	return nil
 }
 
 // TestAuthServer is auth server using local filesystem backend
@@ -218,10 +228,11 @@ func (a *TestAuthServer) GenerateUserCert(key []byte, username string, ttl time.
 	}
 	certs, err := a.AuthServer.generateUserCert(certRequest{
 		user:          user,
-		roles:         checker,
 		ttl:           ttl,
 		compatibility: compatibility,
 		publicKey:     key,
+		checker:       checker,
+		traits:        user.GetTraits(),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -238,7 +249,7 @@ func GenerateCertificate(authServer *AuthServer, identity TestIdentity) ([]byte,
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
-		roles, err := services.FetchRoles(user.GetRoles(), authServer, user.GetTraits())
+		checker, err := services.FetchRoles(user.GetRoles(), authServer, user.GetTraits())
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
@@ -252,9 +263,10 @@ func GenerateCertificate(authServer *AuthServer, identity TestIdentity) ([]byte,
 		certs, err := authServer.generateUserCert(certRequest{
 			publicKey: pub,
 			user:      user,
-			roles:     roles,
 			ttl:       identity.TTL,
 			usage:     identity.AcceptedUsage,
+			checker:   checker,
+			traits:    user.GetTraits(),
 		})
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
@@ -488,6 +500,16 @@ func TestBuiltin(role teleport.Role) TestIdentity {
 		I: BuiltinRole{
 			Role:     role,
 			Username: string(role),
+		},
+	}
+}
+
+// TestServerID returns a TestIdentity for a node with the passed in serverID.
+func TestServerID(serverID string) TestIdentity {
+	return TestIdentity{
+		I: BuiltinRole{
+			Role:     teleport.RoleNode,
+			Username: serverID,
 		},
 	}
 }

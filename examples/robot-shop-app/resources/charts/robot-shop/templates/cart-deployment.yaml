@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  labels:
+    service: cart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: cart
+  template:
+    metadata:
+      labels:
+        service: cart
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: cart
+        image: {{ .Values.registry }}{{ .Values.image.repo }}/rs-cart:{{ .Values.image.version }}
+        # agent networking access 
+        env:
+          - name: INSTANA_AGENT_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi

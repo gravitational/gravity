@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cloudflare/cfssl/csr"
 	licenseapi "github.com/gravitational/license"
@@ -53,7 +54,6 @@ func TestOpsService(t *testing.T) { TestingT(t) }
 
 type AgentSuite struct {
 	backend      storage.Backend
-	dir          string
 	users        users.Identity
 	accessToken  string
 	installer    ops.Operator
@@ -110,7 +110,7 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	opKey, err := s.installer.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.installer.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:   acct.ID,
 		SiteDomain:  s.cluster.Domain,
 		Variables:   storage.OperationVariables{},
@@ -119,17 +119,9 @@ func (s *AgentSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(opKey, NotNil)
 
-	tokens, err := s.users.GetSiteProvisioningTokens(s.cluster.Domain)
+	token, err := s.installer.GetExpandToken(s.cluster.Key())
 	c.Assert(err, IsNil)
-	var token *storage.ProvisioningToken
-	for i := range tokens {
-		if tokens[i].Type == storage.ProvisioningTokenTypeInstall {
-			token = &tokens[i]
-			break
-		}
-	}
-
-	c.Assert(token, NotNil, Commentf("expected provisioning token to exist, got %+v", tokens))
+	c.Assert(token, NotNil, Commentf("expected provisioning token to exist, got %+v", token))
 	s.key = *opKey
 	s.accessToken = token.Token
 }
@@ -138,7 +130,7 @@ func (s *AgentSuite) TearDownTest(c *C) {
 	if s.agentServer != nil {
 		ctx, cancel := context.WithTimeout(s.ctx, 2*time.Second)
 		defer cancel()
-		s.agentServer.Stop(ctx)
+		s.agentServer.Stop(ctx) //nolint:errcheck
 	}
 }
 
@@ -158,11 +150,17 @@ func (s *AgentSuite) TestInstallAgentCheckLicense(c *C) {
 	_, err = s.backend.UpdateSite(*cluster)
 	c.Assert(err, IsNil)
 
-	s.testConnectValidatesCondition(c, [2]string{"node-1", "node-2"}, "license allows maximum of 1 nodes, requested: 2")
+	s.testConnectValidatesCondition(c,
+		[2]string{"node-1", "node-2"},
+		"license allows maximum of 1 nodes, requested: 2",
+	)
 }
 
 func (s *AgentSuite) TestInstallAgentCheckHostname(c *C) {
-	s.testConnectValidatesCondition(c, [2]string{"node-1", "node-1"}, "One of existing peers already has hostname")
+	s.testConnectValidatesCondition(c,
+		[2]string{"node-1", "node-1"},
+		"One of existing peers already has hostname",
+	)
 }
 
 // TestPingPongSuccess tests inter agent network connectivity check
@@ -269,7 +267,9 @@ func (s *AgentSuite) TestPingPongFailure(c *C) {
 }
 
 func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agentAddr string, resp checks.PingPongGameResults)) {
-	go s.agentServer.Serve()
+	go func() {
+		c.Assert(s.agentServer.Serve(), IsNil)
+	}()
 
 	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, IsNil)
@@ -284,10 +284,14 @@ func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agen
 		WatchCh:            watchCh,
 		HealthCheckTimeout: checkTimeout,
 	}
-	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(), log.StandardLogger(),
+	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(),
 		rpcserver.NewTestCommand("test"), newSystemInfo("node-1"))
-	go agent.Serve()
-	defer agent.Stop(context.TODO())
+	go func() {
+		c.Assert(agent.Serve(), IsNil)
+	}()
+	defer func() {
+		c.Assert(agent.Stop(context.TODO()), IsNil)
+	}()
 
 	select {
 	case update := <-watchCh:
@@ -311,7 +315,9 @@ func (s *AgentSuite) testPingPong(c *C, req checks.PingPongRequest, fn func(agen
 }
 
 func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, expectedError string) {
-	go s.agentServer.Serve()
+	go func() {
+		c.Assert(s.agentServer.Serve(), IsNil)
+	}()
 
 	// simulate that there is already a connected agent
 	s.agentService.peerStore.groups[s.key] = newTestAgentGroup(c, "192.168.1.1", hostnames[0])
@@ -327,30 +333,33 @@ func (s *AgentSuite) testConnectValidatesCondition(c *C, hostnames [2]string, ex
 			Listener:      listener,
 		},
 		WatchCh: watchCh,
+		ReconnectStrategy: rpcserver.ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		},
 	}
-	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(), log.StandardLogger(),
+	agent := rpcserver.NewTestPeer(c, config, s.agentServer.Addr().String(),
 		rpcserver.NewTestCommand("test"), newSystemInfo(hostnames[1]))
-	go agent.Serve()
-	defer agent.Stop(context.TODO())
+	go func() {
+		c.Assert(agent.Serve(), IsNil)
+	}()
+	defer func() {
+		c.Assert(agent.Stop(context.TODO()), IsNil)
+	}()
 
 	select {
 	case update := <-watchCh:
 		c.Assert(update.Error, NotNil)
 		c.Assert(strings.Contains(update.Error.Error(), expectedError), Equals, true)
-	case <-time.After(time.Second):
+	case <-time.After(10 * time.Second):
 		c.Error("timeout")
 	}
 }
 
-func (s *AgentSuite) token(tok string) string {
-	return fmt.Sprintf("%v.%v", tok, s.key.OperationID)
-}
-
-func newTestAgentGroup(c *C, addr, hostname string) agentGroup {
+func newTestAgentGroup(c *C, addr, hostname string) *agentGroup {
 	group, err := rpcserver.NewAgentGroup(rpcserver.AgentGroupConfig{}, []rpcserver.Peer{testPeer{addr: addr}})
 	c.Assert(err, IsNil)
 
-	return agentGroup{
+	return &agentGroup{
 		AgentGroup: *group,
 		hostnames:  map[string]string{addr: hostname},
 	}
@@ -380,19 +389,19 @@ func newSystemInfo(hostname string) rpcserver.TestSystemInfo {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: hostname,
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 512,
 				FreeKB:  0,
 			},
 		},
 		NetworkInterfaces: map[string]storage.NetworkInterface{
-			"device0": storage.NetworkInterface{
+			"device0": {
 				Name: "device0",
 				IPv4: "172.168.0.1",
 			},

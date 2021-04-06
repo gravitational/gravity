@@ -13,6 +13,7 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
 DOCKER_ARGS ?= --pull
+NOROOT=-u $$(id -u):$$(id -g)
 BBOX = gravity-buildbox:latest
 
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
@@ -27,15 +28,26 @@ LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
 MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
+INGRESS_APP_TAG ?= 0.0.1
+INGRESS_APP_BRANCH ?= $(INGRESS_APP_TAG)
+STORAGE_APP_TAG ?= 0.0.1
+STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
 K8S_APP_TAG ?= 0.0.1
 TILLER_APP_TAG ?= 0.0.1
+SELINUX_BRANCH ?= distro/centos_rhel/7
+
+GOLFLAGS ?= -w -s
 
 # Git repositories
 TELEPORT_REPO = git@github.com:gravitational/teleport.git
 PLANET_REPO = git@github.com:gravitational/planet.git
 LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
 MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
+INGRESS_APP_REPO = git@github.com:gravitational/ingress-app.git
+STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
 BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
+FIO_REPO = git@github.com:axboe/fio.git
+SELINUX_REPO = git@github.com:gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -57,7 +69,6 @@ ARCH := $(shell uname -m)
 
 # Address of OpsCenter to publish telekube binaries to
 DISTRIBUTION_OPSCENTER ?= https://get.gravitational.io
-S3_DISTRIBUTION_BUCKET ?= s3://get.gravitational.io/releases/$(GRAVITY_VERSION)
 
 # Telekube package names
 TELEKUBE_GRAVITY_PKG := gravitational.io/gravity_$(OS)_$(ARCH):$(GRAVITY_TAG)
@@ -66,18 +77,35 @@ TELEKUBE_TSH_PKG := gravitational.io/tsh_$(OS)_$(ARCH):$(GRAVITY_TAG)
 
 # Version of tsh binary that gets published into distribution OpsCenter, may differ from
 # the one Gravity currently depends on
-TELEKUBE_TSH_TAG := v3.0.4
+TELEKUBE_TSH_TAG := v3.2.16
 
 # Extra flags that may be provided when publishing telekube artifacts (e.g. --insecure)
 TELEKUBE_PUBLISH_FLAGS ?=
 
-BINARIES ?= tele gravity terraform-provider-gravity
+GOCACHE_DOCKER_OPTIONS ?=
+GOCACHE ?= $(HOME)/.cache/go-build
+ifdef GOCACHE_ENABLED
+GOCACHE_DOCKER_OPTIONS = -v $(GOCACHE):$(GOCACHE) -e "GOCACHE=$(GOCACHE)"
+endif
+BINARIES ?= tele gravity
+TARGETS ?= $(addprefix $(LOCAL_GRAVITY_BUILDDIR)/, $(BINARIES))
+HOST_TARGETS ?= $(addprefix $(GRAVITY_BUILDDIR)/, $(BINARIES))
 
 # release tarball path
 RELEASE_TARBALL_NAME := gravity-$(GRAVITY_VERSION)-$(OS)-$(ARCH)-bin.tar.gz
 RELEASE_OUT := $(GRAVITY_BUILDDIR)/$(RELEASE_TARBALL_NAME)
 
 BASH ?= /bin/bash
+
+# packages to test
+TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
+
+GRPC_PROTOS = \
+	$(TOP)/lib/install/proto/installer.proto \
+	$(TOP)/lib/rpc/proto/agent.proto \
+	$(TOP)/lib/rpc/proto/discovery.proto \
+	$(TOP)/lib/network/validation/proto/validation.proto
+GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
 
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
@@ -101,13 +129,14 @@ test: buildbox test-etcd
 	docker run --net=host --rm=true $(NOROOT) \
 		-v $(TOP):$(SRCDIR) \
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
+		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(BBOX) \
 		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
 test-inside-container:
-	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(GRAVITY_PKG_PATH)/lib/... $(FLAGS)
+	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(TEST_PACKAGES) $(FLAGS)
 # TODO: It turns out "go vet" never really worked because we used incorrect package path
 # and now that I've fixed it, it produces a gazillion of warnings. So I'm commenting this
 # out for the time being, should uncomment once we've fixed the warnings.
@@ -139,7 +168,7 @@ define build_app
 		cd $(BUILDDIR)/$1 && \
 		git fetch --all && \
 		git checkout $3 && \
-		git pull origin $3 ; \
+		git pull origin $3 && \
 		make -C $(BUILDDIR)/$1 import \
 			OPS_URL=$(OPS_URL) \
 			GRAVITY="$(GRAVITY)" \
@@ -151,30 +180,27 @@ endef
 #
 # build gravity binaries
 #
+ifeq ($(OS),darwin)
 .PHONY: build
-build:
-	@if [ "$(OS)" = "darwin" ]; then $(MAKE) build-on-host; else $(MAKE) build-in-container; fi
+build: build-on-host
 	ln -sf $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+else
+.PHONY: build
+build: selinux grpc build-in-container
+	ln -sfT $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+endif
 
 #
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox grpc-agents grpc-validation
+grpc: buildbox $(GRPC_PROTO_OUTPUTS)
 
-.PHONY: grpc-agents
-grpc-agents:
-	docker run --rm=true -u $$(id -u) \
+$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/rpc/proto
-
-.PHONY: grpc-validation
-grpc-validation:
-	docker run --rm=true -u $$(id -u) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/lib/network/validation/proto
+		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
 
 #
 # this is a temporary target until we upgrade docker packages
@@ -196,7 +222,7 @@ validate-deps: buildbox
 #
 .PHONY: build-in-container
 build-in-container: buildbox
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
 		   -v $(TOP):$(SRCDIR) \
 		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
 		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
@@ -204,9 +230,12 @@ build-in-container: buildbox
 		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
 		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
 		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
-		   -e 'BINARIES=$(BINARIES)' \
+		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
+		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
+		   -e "TARGETS=$(TARGETS)" \
+		   $(GOCACHE_DOCKER_OPTIONS) \
 		   $(BBOX) \
-		   dumb-init make -C $(SRCDIR)/build.assets -j $(BINARIES)
+		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
 
 #
 # build gravity binaries on host
@@ -214,9 +243,8 @@ build-in-container: buildbox
 .PHONY: build-on-host
 build-on-host:
 	cd $(GOPATH)/src && \
-		LOCAL_GRAVITY_BUILDDIR=$(GRAVITY_BUILDDIR) \
-			$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
-			$(BINARIES)
+		$(MAKE) -C $(GOPATH)/src/github.com/gravitational/gravity/build.assets -j \
+		$(HOST_TARGETS)
 
 #
 # removes build artifacts.
@@ -243,34 +271,13 @@ publish-telekube: build
 	@echo -e "\n----> Publishing Tsh to $(DISTRIBUTION_OPSCENTER)...\n"
 	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TELEKUBE_TSH_PKG) && \
 	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TSH_OUT) $(TELEKUBE_TSH_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravity to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITY_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITY_OUT) $(TF_PROVIDER_GRAVITY_PKG)
-	@echo -e "\n----> Publishing terraform-provider-gravityenterprise to $(DISTRIBUTION_OPSCENTER)...\n"
-	$(GRAVITY_OUT) package delete --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) --force $(TF_PROVIDER_GRAVITYENTERPRISE_PKG) && \
-	$(GRAVITY_OUT) package import --ops-url=$(DISTRIBUTION_OPSCENTER) $(TELEKUBE_PUBLISH_FLAGS) $(TF_PROVIDER_GRAVITYENTERPRISE_OUT) $(TF_PROVIDER_GRAVITYENTERPRISE_PKG)
-
-
-#
-# publish telekube/opscenter application packages to S3
-#
-.PHONY: publish-telekube-s3
-publish-telekube-s3:
-	@echo -e "\n----> Publishing Telekube application to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_BUILDDIR)/telekube.tar" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Ops Center application to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_BUILDDIR)/opscenter.tar" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Gravity to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(GRAVITY_OUT)" $(S3_DISTRIBUTION_BUCKET)/
-	@echo -e "\n----> Publishing Tele to $(S3_DISTRIBUTION_BUCKET)...\n"
-	$(AWS) s3 cp $(S3_OPTS) "$(TELE_OUT)" $(S3_DISTRIBUTION_BUCKET)/
 
 
 #
 # publish artifacts to S3
 #
 .PHONY: publish
-publish: push-teleport push-gravity push-bandwagon push-logging-app push-monitoring-app
+publish: push-teleport push-gravity push-fio push-bandwagon push-logging-app push-monitoring-app push-ingress-app push-storage-app push-selinux
 
 #
 # prepare ansible variables for publishing to the hub
@@ -295,12 +302,21 @@ push-gravity:
 $(GRAVITY_BUILDDIR):
 	mkdir -p $@
 
+$(GOCACHE):
+	mkdir -p $@
+
 # Builds binaries inside a docker container
-.PHONY: $(BINARIES)
-$(BINARIES):
-	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
-	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
+.PHONY: $(TARGETS)
+$(TARGETS): | $(GOCACHE)
+	@echo -e "\n----> Building $@ binary...\n"
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	@echo "\nDone --> $@\n"
+
+.PHONY: $(HOST_TARGETS)
+$(HOST_TARGETS): | $(GOCACHE)
+	@echo -e "\n----> Building $@ binary...\n"
+	GO111MODULE=on go build -mod=vendor -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	@echo "\nDone --> $@\n"
 
 .PHONY: compile
 compile: | $(GRAVITY_BUILDDIR)
@@ -327,10 +343,13 @@ K8S_IMPORT_OPTIONS := \
 		--set-dep=$(WEB_ASSETS_PKG) \
 		--set-dep=$(TELEPORT_PKG) \
 		--set-dep=$(PLANET_PKG) \
+		--set-dep=$(FIO_PKG) \
 		--set-dep=$(RBAC_APP_PKG) \
 		--set-dep=$(DNS_APP_PKG) \
 		--set-dep=$(LOGGING_APP_PKG) \
 		--set-dep=$(MONITORING_APP_PKG) \
+		--set-dep=$(INGRESS_APP_PKG) \
+		--set-dep=$(STORAGE_APP_PKG) \
 		--set-dep=$(BANDWAGON_PKG) \
 		--set-dep=$(TILLER_APP_PKG) \
 		--set-dep=$(SITE_APP_PKG)
@@ -343,7 +362,7 @@ rbac-app:
 	$(GRAVITY) package export $(RBAC_APP_PKG) $(RBAC_APP_OUT)
 
 .PHONY: k8s-app
-k8s-app: gravity-package teleport planet web-assets site-app monitoring-app logging-app tiller-app rbac-app dns-app bandwagon
+k8s-app: gravity-package teleport fio planet web-assets site-app monitoring-app logging-app ingress-app storage-app tiller-app rbac-app dns-app bandwagon
 	@echo -e "\n----> Building kubernetes-app...\n"
 	- $(GRAVITY) app delete $(K8S_APP_PKG) $(DELETE_OPTS) && \
 	  $(GRAVITY) app import $(ASSETSDIR)/kubernetes $(VENDOR_OPTS) $(K8S_IMPORT_OPTIONS) \
@@ -374,10 +393,15 @@ tiller-app:
 
 .PHONY: site-app
 site-app:
-	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
+	$(eval TMPDIR := $(shell mktemp -d -p $(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
-	cd $(TMPDIR) && VERSION=$(GRAVITY_TAG) GRAVITY="$(GRAVITY)" OPS_URL=$(OPS_URL) make import
+	cd $(TMPDIR) && \
+		VERSION=$(GRAVITY_TAG) \
+		GRAVITY="$(GRAVITY)" \
+		OPS_URL=$(OPS_URL) \
+		DOCKER_ARGS=$(DOCKER_ARGS) \
+		make import
 	$(GRAVITY) package export $(SITE_APP_PKG) $(SITE_APP_OUT)
 	rm -rf $(TMPDIR)
 
@@ -424,7 +448,7 @@ build-tsh:
 #
 .PHONY: build-tsh-in-container
 build-tsh-in-container: clone-teleport
-	docker run --rm=true -u $$(id -u) \
+	docker run --rm=true $(NOROOT) \
            -v $(TOP):$(SRCDIR) \
 		   -v $(TELEPORT_SRCDIR)/teleport:$(TELEPORT_SRCDIR_CONTAINER) \
 		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
@@ -440,17 +464,17 @@ build-tsh-in-container: clone-teleport
 .PHONY: build-tsh-on-host
 build-tsh-on-host:
 	@echo "\n----> Building Tsh binary on host...\n"
-	GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
+	GO111MODULE=off GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -o $(TSH_OUT) ./tool/tsh
+		GO111MODULE=off GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	GO111MODULE=off go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport
@@ -508,6 +532,64 @@ $(BANDWAGON_OUT):
 push-bandwagon: $(BANDWAGON_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(BANDWAGON_OUT) $(BUILD_BUCKET_URL)/bandwagon/$(BANDWAGON_TAG)
 
+.PHONY: fio
+fio: $(FIO_OUT)
+	$(GRAVITY) package delete $(FIO_PKG) $(DELETE_OPTS) && \
+	    $(GRAVITY) package import $(FIO_OUT) $(FIO_PKG)
+
+$(FIO_OUT):
+	mkdir -p $(FIO_BUILDDIR) && \
+	    $(MAKE) pull-fio && \
+	    $(MAKE) build-fio
+
+.PHONY: pull-fio
+pull-fio:
+	if [ ! -e "$(FIO_OUT)" ]; then \
+	    $(MAKE) pull-fio-sub; \
+	fi
+
+.PHONY: pull-fio-sub
+pull-fio-sub:
+	-$(AWS) s3 cp $(S3_OPTS) \
+	    $(BUILD_BUCKET_URL)/fio/$(FIO_VER)/fio \
+	    $(FIO_OUT)
+
+.PHONY: build-fio
+build-fio:
+	if [ ! -e "$(FIO_OUT)" ]; then \
+	    $(MAKE) build-fio-sub; \
+	fi
+
+.PHONY: build-fio-sub
+build-fio-sub: clone-fio
+	docker run --rm=true $(NOROOT) \
+	    -v $(TOP):$(SRCDIR) \
+	    -v $(FIO_BUILDDIR):/fio \
+	    $(BBOX) \
+	    dumb-init make -C $(SRCDIR)/build.assets build-fio-in-buildbox
+
+.PHONY: build-fio-in-buildbox
+build-fio-in-buildbox:
+	cd /fio && \
+	    ./configure --build-static && \
+	    make
+
+.PHONY: clone-fio
+clone-fio: clean-fio
+	mkdir -p $(FIO_BUILDDIR) && \
+	    git clone $(FIO_REPO) $(FIO_BUILDDIR) && \
+	    cd $(FIO_BUILDDIR) && \
+	    git fetch --all && \
+	    git checkout $(FIO_TAG)
+
+.PHONY: push-fio
+push-fio: $(FIO_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(FIO_OUT) $(BUILD_BUCKET_URL)/fio/$(FIO_VER)/fio
+
+.PHONY: clean-fio
+clean-fio:
+	rm -rf $(FIO_BUILDDIR)
+
 #
 # dependency: logging app
 #
@@ -539,11 +621,71 @@ push-monitoring-app: $(MONITORING_APP_OUT)
 	$(AWS) s3 cp $(S3_OPTS) $(MONITORING_APP_OUT) $(BUILD_BUCKET_URL)/monitoring-app/$(MONITORING_APP_TAG)
 
 #
+# dependency: ingress app
+#
+.PHONY: ingress-app push-ingress-app
+ingress-app: $(INGRESS_APP_OUT)
+	if ! $(GRAVITY) package list | grep $(INGRESS_APP_PKG); then \
+		$(GRAVITY) app import $(INGRESS_APP_OUT) $(IMPORT_OPTS) ; \
+	fi
+
+$(INGRESS_APP_OUT):
+	$(call build_app,ingress-app,$(INGRESS_APP_REPO),$(INGRESS_APP_BRANCH),$(INGRESS_APP_PKG),$(INGRESS_APP_TAG))
+
+push-ingress-app: $(INGRESS_APP_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(INGRESS_APP_OUT) $(BUILD_BUCKET_URL)/ingress-app/$(INGRESS_APP_TAG)
+
+#
+# dependency: storage app
+#
+.PHONY: storage-app push-storage-app
+storage-app: $(STORAGE_APP_OUT)
+	if ! $(GRAVITY) package list | grep $(STORAGE_APP_PKG); then \
+		$(GRAVITY) app import $(STORAGE_APP_OUT) $(IMPORT_OPTS) ; \
+	fi
+
+$(STORAGE_APP_OUT):
+	$(call build_app,storage-app,$(STORAGE_APP_REPO),$(STORAGE_APP_BRANCH),$(STORAGE_APP_PKG),$(STORAGE_APP_TAG))
+
+push-storage-app: $(STORAGE_APP_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(STORAGE_APP_OUT) $(BUILD_BUCKET_URL)/storage-app/$(STORAGE_APP_TAG)
+
+#
 # enters bbox container (for debugging the containerized build process)
 #
 .PHONY: enter
 enter:
 	docker run -ti --rm=true $(BBOX) /bin/bash
+
+.PHONY: selinux-policy-package
+selinux-policy-package: $(SELINUX_OUT)
+	$(GRAVITY) package delete $(SELINUX_POLICY_PKG) $(DELETE_OPTS) && \
+		$(GRAVITY) package import $(SELINUX_OUT) $(SELINUX_POLICY_PKG)
+
+.PHONY: selinux
+selinux: $(SELINUX_ASSETS)
+ifeq ($(OS),linux)
+	$(MAKE) -C $(TOP)/lib/system/selinux
+endif
+
+.PHONY: push-selinux
+push-selinux: $(SELINUX_OUT)
+	$(AWS) s3 cp $(S3_OPTS) $(SELINUX_OUT) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION)
+
+$(SELINUX_ASSETS): $(SELINUX_OUT)
+	tar xf $^ -C $(@D) $(@F)
+
+$(SELINUX_OUT): | $(GRAVITY_BUILDDIR)
+	if ! $(AWS) s3 cp $(S3_OPTS) $(BUILD_BUCKET_URL)/selinux/centos/$(SELINUX_VERSION) $@; then \
+		mkdir -p $(BUILDDIR) && cd $(BUILDDIR) && \
+		( test -d $(BUILDDIR)/selinux || git clone $(SELINUX_REPO) selinux ) && \
+		cd $(BUILDDIR)/selinux && \
+		git fetch --all && \
+		git checkout $(SELINUX_BRANCH) && \
+		git pull origin $(SELINUX_BRANCH) && git submodule update --init --recursive && \
+		make -C $(BUILDDIR)/selinux BUILDBOX_INSTANCE= && \
+		tar czf $@ -C $(BUILDDIR)/selinux/output gravity.pp.bz2 container.pp.bz2 gravity.statedir.fc.template; \
+	fi
 
 #
 # buildbox container: container used for building packages
@@ -556,4 +698,6 @@ buildbox:
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BBOX) .

@@ -33,6 +33,7 @@ var _ = Suite(&FileutilsSuite{})
 
 func (s *FileutilsSuite) TestRecursiveGlob(c *C) {
 	var matches []string
+	//nolint:errcheck
 	RecursiveGlob("../../assets/site/fixtures/glob", []string{"*yaml"}, func(match string) error {
 		matches = append(matches, match)
 		return nil

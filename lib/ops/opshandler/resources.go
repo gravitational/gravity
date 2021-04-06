@@ -22,8 +22,10 @@ import (
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
@@ -55,7 +57,7 @@ func (h *WebHandler) upsertUser(w http.ResponseWriter, r *http.Request, p httpro
 	if req.TTL != 0 {
 		user.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = ctx.Identity.UpsertUser(user)
+	err = ctx.Operator.UpsertUser(r.Context(), siteKey(p), user)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -83,7 +85,7 @@ func (h *WebHandler) upsertClusterAuthPreference(w http.ResponseWriter, r *http.
 		return trace.Wrap(err)
 	}
 
-	err = ctx.Identity.SetAuthPreference(cap)
+	err = ctx.Operator.UpsertClusterAuthPreference(r.Context(), siteKey(p), cap)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -109,7 +111,7 @@ func (h *WebHandler) upsertAuthGateway(w http.ResponseWriter, r *http.Request, p
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = ctx.Operator.UpsertAuthGateway(siteKey(p), gw)
+	err = ctx.Operator.UpsertAuthGateway(r.Context(), siteKey(p), gw)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -134,6 +136,42 @@ func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p ht
 	return rawMessage(w, bytes, err)
 }
 
+/* getReleases returns all currently installed application releases in a cluster.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/releases
+
+   Success response:
+
+     []storage.Release
+*/
+func (h *WebHandler) getReleases(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	err := r.ParseForm()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	includeIcons, err := utils.ParseBoolFlag(r, "include_icons", false)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	releases, err := ctx.Operator.ListReleases(ops.ListReleasesRequest{
+		SiteKey:      siteKey(p),
+		IncludeIcons: includeIcons,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	items := make([]json.RawMessage, 0, len(releases))
+	for _, release := range releases {
+		bytes, err := storage.MarshalRelease(release)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		items = append(items, bytes)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, items)
+	return nil
+}
+
 /* getUser returns user by name
 
      GET /portal/v1/accounts/:account_id/sites/:site_domain/users/:name
@@ -143,7 +181,7 @@ func (h *WebHandler) getAuthGateway(w http.ResponseWriter, r *http.Request, p ht
      teleservices.Role
 */
 func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	user, err := ctx.Identity.GetUser(p.ByName("name"))
+	user, err := ctx.Operator.GetUser(siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -160,7 +198,7 @@ func (h *WebHandler) getUser(w http.ResponseWriter, r *http.Request, p httproute
      []teleservices.User
 */
 func (h *WebHandler) getUsers(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	users, err := ctx.Identity.GetUsers()
+	users, err := ctx.Operator.GetUsers(siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -187,7 +225,7 @@ func (h *WebHandler) getUsers(w http.ResponseWriter, r *http.Request, p httprout
      }
 */
 func (h *WebHandler) deleteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := ctx.Identity.DeleteUser(p.ByName("name"))
+	err := ctx.Operator.DeleteUser(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -211,7 +249,7 @@ func (h *WebHandler) upsertGithubConnector(w http.ResponseWriter, r *http.Reques
 	if req.TTL != 0 {
 		connector.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = ctx.Identity.UpsertGithubConnector(connector)
+	err = ctx.Operator.UpsertGithubConnector(r.Context(), siteKey(p), connector)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -228,7 +266,7 @@ func (h *WebHandler) getGithubConnector(w http.ResponseWriter, r *http.Request, 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connector, err := ctx.Identity.GetGithubConnector(p.ByName("id"), withSecrets)
+	connector, err := ctx.Operator.GetGithubConnector(siteKey(p), p.ByName("id"), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -245,7 +283,7 @@ func (h *WebHandler) getGithubConnectors(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	connectors, err := ctx.Identity.GetGithubConnectors(withSecrets)
+	connectors, err := ctx.Operator.GetGithubConnectors(siteKey(p), withSecrets)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -266,11 +304,60 @@ func (h *WebHandler) getGithubConnectors(w http.ResponseWriter, r *http.Request,
    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/github/connectors/:id
 */
 func (h *WebHandler) deleteGithubConnector(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := ctx.Identity.DeleteGithubConnector(p.ByName("id"))
+	name := p.ByName("id")
+	err := ctx.Operator.DeleteGithubConnector(r.Context(), siteKey(p), name)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("GitHub connector %q not found", name)
+		}
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, message("Github connector deleted"))
+	return nil
+}
+
+/* getPersistentStorage retrieves cluster persistent storage configuration.
+
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage
+
+   Success response:
+
+     storage.PersistentStorage
+*/
+func (h *WebHandler) getPersistentStorage(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	ps, err := context.Operator.GetPersistentStorage(r.Context(), siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	bytes, err := storage.MarshalPersistentStorage(ps)
+	return rawMessage(w, bytes, err)
+}
+
+/* updatePersistentStorage updates persistent storage configuration.
+
+     PUT /portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage
+
+   Success response:
+
+     { "message": "persistent storage configuration updated" }
+*/
+func (h *WebHandler) updatePersistentStorage(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+	var req opsclient.UpsertResourceRawReq
+	if err := telehttplib.ReadJSON(r, &req); err != nil {
+		return trace.Wrap(err)
+	}
+	ps, err := storage.UnmarshalPersistentStorage(req.Resource)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = ctx.Operator.UpdatePersistentStorage(r.Context(), ops.UpdatePersistentStorageRequest{
+		SiteKey:  siteKey(p),
+		Resource: ps,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, message("persistent storage configuration updated"))
 	return nil
 }
 

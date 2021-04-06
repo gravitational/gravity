@@ -23,8 +23,8 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 	"github.com/gravitational/gravity/lib/vacuum/prune/journal"
 
@@ -34,21 +34,20 @@ import (
 
 // NewJournal returns a new executor to remove obsolete systemd journal
 // directories inside the runtime container.
-func NewJournal(params libfsm.ExecutorParams, runtimePath string, emitter utils.Emitter) (*journalExecutor, error) {
+func NewJournal(params libfsm.ExecutorParams, runtimePath string, silent localenv.Silent, logger log.FieldLogger) (*journalExecutor, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	log := log.WithField(trace.Component, "gc:journal")
 	logDir := state.LogDir(stateDir, "journal")
 	machineIDFile := filepath.Join(runtimePath, constants.PlanetRootfs, defaults.SystemdMachineIDFile)
 	pruner, err := journal.New(journal.Config{
 		LogDir:        logDir,
 		MachineIDFile: machineIDFile,
 		Config: prune.Config{
-			Emitter:     emitter,
-			FieldLogger: log.WithField("phase", params.Phase),
+			Silent:      silent,
+			FieldLogger: logger,
 		},
 	})
 	if err != nil {
@@ -56,7 +55,7 @@ func NewJournal(params libfsm.ExecutorParams, runtimePath string, emitter utils.
 	}
 
 	return &journalExecutor{
-		FieldLogger: log,
+		FieldLogger: logger,
 		Pruner:      pruner,
 	}, nil
 }

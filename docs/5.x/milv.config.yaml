@@ -1,0 +1,31 @@
+request-repeats: 3
+timeout: 5
+allow-redirect: true
+allow-code-blocks: false
+ignore-external: false
+white-list-external:
+  - "https://<proxy-host>:3080"
+  - "https://auth.example.com:3080/web/newuser/22e3acb6a0c2cde22f13bdc879ff9d2a"
+  - "https://proxy.example.com:3080/v1/webapi/oidc/callback"
+  - "https://[HOST]:3080/web/sessions"
+  - "https://proxyhost:3080"
+  - "https://localhost:3080/v1/webapi/saml/acs"
+  - "http://schemas.microsoft.com/ws/2008/06/identity/claims/windowsaccountname"
+  - "http://schemas.microsoft.com/ws/2008/06/identity/claims/windowsaccountname\"_"
+  - "http://schemas.xmlsoap.org/claims/Group"
+  - "http://127.0.0.1:3000/metrics"
+  - "http://127.0.0.1:3000/healthz"
+  - "http://127.0.0.1:3000/readyz"
+  - "http://127.0.0.1:3000/debug/pprof"
+  - "https://[route53_domain](#route53_domain"
+  - "http://10.5.5.28:32010"
+  - "http://10.5.5.29:32010"
+  - "https://10.5.5.28:32009/web"
+  - "https://<cluster-hostname>/portalapi/v1/oidc/callback"
+  - "https://<host>/portalapi/v1/saml/callback"
+  - "https://example.com/t"
+files:
+  - path: "./faq.md"
+    config:
+      white-list-internal:
+        - "requirements.md#br_netfilter-module"

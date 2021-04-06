@@ -20,11 +20,15 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
 
+	clusterv1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	admissionv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
@@ -42,6 +46,7 @@ import (
 	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	storagev1beta1 "k8s.io/api/storage/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -70,11 +75,29 @@ type ResourceFiles []ResourceFile
 type ResourceFile struct {
 	Resource
 	path string
+	kind string
 }
+
+const (
+	// KindResourceFile represents a generic Kubernetes resource spec file.
+	KindResourceFile = "Resource file"
+	// KindManifestFile represents a cluster/app image manifest file.
+	KindManifestFile = "Manifest file"
+	// KindHelmTemplate represents a Helm template file.
+	KindHelmTemplate = "Helm template"
+)
 
 // Path returns path to resource
 func (r ResourceFile) Path() string {
 	return r.path
+}
+
+// Kind returns the kind of the resource this file represents.
+func (r ResourceFile) Kind() string {
+	if r.kind != "" {
+		return r.kind
+	}
+	return KindResourceFile
 }
 
 // Images returns a list of Docker images in this resource file
@@ -88,8 +111,8 @@ func (r ResourceFile) String() string {
 }
 
 // NewResourceFileObject returns new resource file created from resource
-func NewResourceFileObject(path string, resource Resource) ResourceFile {
-	return ResourceFile{path: path, Resource: resource}
+func NewResourceFileObject(path, kind string, resource Resource) ResourceFile {
+	return ResourceFile{path: path, kind: kind, Resource: resource}
 }
 
 // NewResourceFile parses the file at path and returns
@@ -108,7 +131,16 @@ func NewResourceFile(path string) (*ResourceFile, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	return &ResourceFile{*resource, path}, nil
+	kind := KindResourceFile
+	if filepath.Base(path) == defaults.ManifestFileName {
+		kind = KindManifestFile
+	}
+
+	return &ResourceFile{
+		Resource: *resource,
+		path:     path,
+		kind:     kind,
+	}, nil
 }
 
 // Images accumulates container image references over the specified range of
@@ -202,6 +234,12 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 							return trace.Wrap(err)
 						}
 					}
+				}
+			case *clusterv1beta1.ImageSet:
+				log.Infof("Rewriting images in ImageSet %q.", resource.Name)
+				for i := range resource.Spec.Images {
+					resource.Spec.Images[i].Image = rewriteFunc(
+						resource.Spec.Images[i].Image)
 				}
 			case *corev1.Pod:
 				log.Infof("Rewriting images in Pod %q.", resource.Name)
@@ -312,6 +350,10 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 					containers = append(containers, job.Spec.Template.Spec.InitContainers...)
 				}
 			}
+		case *clusterv1beta1.ImageSet:
+			for _, spec := range resource.Spec.Images {
+				imagesMap[spec.Image] = struct{}{}
+			}
 		case *corev1.Pod:
 			containers = append(resource.Spec.Containers, resource.Spec.InitContainers...)
 		case *corev1.ReplicationController:
@@ -368,7 +410,6 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 			containers = append(resource.Spec.JobTemplate.Spec.Template.Spec.Containers,
 				resource.Spec.JobTemplate.Spec.Template.Spec.InitContainers...)
 		default:
-			log.Debugf("Skipping object: %v.", obj.GetObjectKind().GroupVersionKind().String())
 			if !isKnownNonPodObject(obj) {
 				unrecognizedObjects = append(unrecognizedObjects, obj)
 			}
@@ -422,6 +463,7 @@ func isKnownNonPodObject(object runtime.Object) bool {
 		*corev1.PersistentVolume,
 		*corev1.PersistentVolumeClaim,
 		*policyv1beta1.PodDisruptionBudget,
+		*policyv1beta1.PodSecurityPolicy,
 		*settingsv1alpha1.PodPreset,
 		*extensions.PodSecurityPolicy,
 		*corev1.ResourceQuota,
@@ -429,7 +471,10 @@ func isKnownNonPodObject(object runtime.Object) bool {
 		*corev1.ServiceAccount,
 		*corev1.Service,
 		*storagev1.StorageClass,
-		*storagev1beta1.StorageClass:
+		*storagev1beta1.StorageClass,
+		*v1beta1.CustomResourceDefinition,
+		*admissionv1beta1.ValidatingWebhookConfiguration,
+		*admissionv1beta1.MutatingWebhookConfiguration:
 		return true
 	}
 	return false

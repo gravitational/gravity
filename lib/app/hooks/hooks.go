@@ -35,7 +35,7 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -83,6 +83,8 @@ type Params struct {
 	// ServiceUser specifies the service user which overrides the default
 	// security context for the job's Pod
 	ServiceUser storage.OSUser
+	// Values are helm values in a marshaled yaml format
+	Values []byte
 }
 
 // JobRef is a reference to a hook job
@@ -126,13 +128,28 @@ func NewRunner(client *kubernetes.Clientset) (*Runner, error) {
 	return runner, nil
 }
 
+// DeleteJobRequest combines parameters for job deletion.
+type DeleteJobRequest struct {
+	// JobRef identifies the job to delete.
+	JobRef
+	// Cascade specifies whether dependent objects should be deleted.
+	Cascade bool
+}
+
 // DeleteJob deletes job by ref
-func (r *Runner) DeleteJob(ctx context.Context, ref JobRef) error {
-	err := r.client.Batch().Jobs(ref.Namespace).Delete(ref.Name, nil)
+func (r *Runner) DeleteJob(ctx context.Context, req DeleteJobRequest) error {
+	var opts *metav1.DeleteOptions
+	if req.Cascade {
+		propagationPolicy := metav1.DeletePropagationForeground
+		opts = &metav1.DeleteOptions{
+			PropagationPolicy: &propagationPolicy,
+		}
+	}
+	err := r.client.BatchV1().Jobs(req.Namespace).Delete(req.Name, opts)
 	if err = rigging.ConvertError(err); err != nil {
 		return err
 	} else {
-		r.Debugf("Deleted job %q in namespace %q.", ref.Name, ref.Namespace)
+		r.Debugf("Deleted job %q in namespace %q.", req.Name, req.Namespace)
 	}
 	return nil
 }
@@ -166,7 +183,7 @@ func (r *Runner) Start(ctx context.Context, p Params) (*JobRef, error) {
 	r.Debug(string(jobBytes), ".")
 
 	// try to create the namespace and ignore "already exists" errors
-	_, err = r.client.Core().Namespaces().Create(&v1.Namespace{
+	_, err = r.client.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobNamespace,
 		},
@@ -177,7 +194,7 @@ func (r *Runner) Start(ctx context.Context, p Params) (*JobRef, error) {
 		}
 	}
 
-	job, err = r.client.Batch().Jobs(jobNamespace).Create(job)
+	job, err = r.client.BatchV1().Jobs(jobNamespace).Create(job)
 	if err = rigging.ConvertError(err); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -212,7 +229,7 @@ func findFailure(job batchv1.Job) *batchv1.JobCondition {
 func (r *Runner) Wait(ctx context.Context, ref JobRef) error {
 	interval := utils.NewUnlimitedExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
-		watcher, err := newJobWatch(r.client.Batch(), ref)
+		watcher, err := newJobWatch(r.client.BatchV1(), ref)
 		if err != nil {
 			return &backoff.PermanentError{Err: err}
 		}
@@ -234,7 +251,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 	localContext, localCancel := context.WithCancel(ctx)
 	defer localCancel()
 
-	job, err := r.client.Batch().Jobs(ref.Namespace).Get(ref.Name, metav1.GetOptions{})
+	job, err := r.client.BatchV1().Jobs(ref.Namespace).Get(ref.Name, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -257,9 +274,9 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 
 	interval := utils.NewUnlimitedExponentialBackOff()
 	err = utils.RetryWithInterval(ctx, interval, func() error {
-		watcher, err := newPodWatch(r.client.Core(), ref)
+		watcher, err := newPodWatch(r.client.CoreV1(), ref)
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		err = r.monitorPods(localContext, watcher.ResultChan(), *job, *jobControl, out)
 		watcher.Stop()
@@ -283,7 +300,7 @@ func (r *Runner) monitorPods(ctx context.Context, eventsC <-chan watch.Event,
 	err := r.checkJob(ctx, &job, &jobControl, podSet, w)
 	diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
 	if err == nil {
-		fmt.Fprintf(w, "%v has completed, %v.\n", describe(job), diff)
+		fmt.Fprintf(w, "%v has completed, %v.\n", describe(&job), diff)
 		return nil
 	}
 	log.Debugf("%v: %v", diff, err)
@@ -299,7 +316,7 @@ func (r *Runner) monitorPods(ctx context.Context, eventsC <-chan watch.Event,
 			diff = humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
 			err = r.checkJob(ctx, &job, &jobControl, podSet, w)
 			if err == nil {
-				fmt.Fprintf(w, "%v has completed, %v.\n", describe(job), diff)
+				fmt.Fprintf(w, "%v has completed, %v.\n", describe(&job), diff)
 				return nil
 			}
 			log.Debugf("%v: %v", diff, err)
@@ -324,7 +341,11 @@ func (r *Runner) checkJob(ctx context.Context, job *batchv1.Job, jobControl *rig
 		for _, containerDiff := range diff.containers {
 			// stream logs for running containers
 			if containerDiff.new.State.Running != nil {
-				go r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out)
+				go func() {
+					if err := r.streamPodContainerLogs(ctx, &pod, containerDiff.name, out); err != nil {
+						r.WithError(err).Warn("Failed to stream container logs.")
+					}
+				}()
 			}
 		}
 	}
@@ -404,7 +425,7 @@ func podSelector(job *batchv1.Job) labels.Set {
 // with podName: pod pairs
 func (r *Runner) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 	set := podSelector(job)
-	podList, err := r.client.Core().Pods(job.Namespace).List(metav1.ListOptions{
+	podList, err := r.client.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
 		LabelSelector: set.AsSelector().String(),
 	})
 	if err != nil {
@@ -426,7 +447,7 @@ func (r *Runner) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 func (r *Runner) streamPodContainerLogs(ctx context.Context, pod *v1.Pod, containerName string, out io.Writer) error {
 	r.Debugf("Start streaming logs for %q, container %q.", describe(pod), containerName)
 	defer r.Debugf("Stopped streaming logs for %q, container %q.", describe(pod), containerName)
-	req := r.client.Core().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+	req := r.client.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
 		Container: containerName,
 		Follow:    true,
 	})

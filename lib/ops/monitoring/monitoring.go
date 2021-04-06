@@ -17,8 +17,6 @@ limitations under the License.
 package monitoring
 
 import (
-	"time"
-
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -26,22 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
-
-// Monitoring defines the interface for monitoring provider
-type Monitoring interface {
-	// GetRetentionPolicies returns a list of retention policies
-	GetRetentionPolicies() ([]RetentionPolicy, error)
-	// UpdateRetentionPolicy updates a retention policy
-	UpdateRetentionPolicy(RetentionPolicy) error
-}
-
-// RetentionPolicy represents a single retention policy
-type RetentionPolicy struct {
-	// Name is the policy name
-	Name string `json:"name"`
-	// Duration is the policy duration
-	Duration time.Duration `json:"duration"`
-}
 
 // GetNamespace uses the provided Kubernetes client to determine namespace
 // where monitoring resources reside

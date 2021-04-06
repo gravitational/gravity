@@ -12,12 +12,12 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-
 */
 
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -353,11 +353,11 @@ func (a *AuthServer) updateRemoteClusterStatus(remoteCluster services.RemoteClus
 	return nil
 }
 
-// GetRemoteClusters returns remote clusters with udpated statuses
-func (a *AuthServer) GetRemoteClusters() ([]services.RemoteCluster, error) {
+// GetRemoteClusters returns remote clusters with updated statuses
+func (a *AuthServer) GetRemoteClusters(opts ...services.MarshalOption) ([]services.RemoteCluster, error) {
 	// To make sure remote cluster exists - to protect against random
 	// clusterName requests (e.g. when clusterName is set to local cluster name)
-	remoteClusters, err := a.Presence.GetRemoteClusters()
+	remoteClusters, err := a.Presence.GetRemoteClusters(opts...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -413,21 +413,18 @@ func (a *AuthServer) validateTrustedCluster(validateRequest *ValidateTrustedClus
 		}
 	}
 
-	// export our certificate authority and return it to the cluster
+	// export local cluster certificate authority and return it to the cluster
 	validateResponse := ValidateTrustedClusterResponse{
 		CAs: []services.CertAuthority{},
 	}
 	for _, caType := range []services.CertAuthType{services.HostCA, services.UserCA} {
-		certAuthorities, err := a.GetCertAuthorities(caType, false, services.SkipValidation())
+		certAuthority, err := a.GetCertAuthority(
+			services.CertAuthID{Type: caType, DomainName: domainName},
+			false, services.SkipValidation())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-
-		for _, certAuthority := range certAuthorities {
-			if certAuthority.GetClusterName() == domainName {
-				validateResponse.CAs = append(validateResponse.CAs, certAuthority)
-			}
-		}
+		validateResponse.CAs = append(validateResponse.CAs, certAuthority)
 	}
 
 	// log the local certificate authorities we are sending
@@ -490,7 +487,7 @@ func (s *AuthServer) sendValidateRequestToProxy(host string, validateRequest *Va
 		return nil, trace.Wrap(err)
 	}
 
-	out, err := httplib.ConvertResponse(clt.PostJSON(clt.Endpoint("webapi", "trustedclusters", "validate"), validateRequestRaw))
+	out, err := httplib.ConvertResponse(clt.PostJSON(context.TODO(), clt.Endpoint("webapi", "trustedclusters", "validate"), validateRequestRaw))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

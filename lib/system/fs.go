@@ -20,22 +20,24 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/docker/docker/pkg/mount"
 	"github.com/gravitational/trace"
 )
 
 // GetFilesystem detects the filesystem on device specified with path
 func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner) (filesystem string, err error) {
-	var out bytes.Buffer
-	err = runner.RunStream(&out, "lsblk", "--noheading", "--output", "FSTYPE", path)
+	var stdout, stderr bytes.Buffer
+	err = runner.RunStream(ctx, &stdout, &stderr, "lsblk", "--noheading", "--output", "FSTYPE", path)
 	if err != nil {
 		return "", trace.Wrap(err, "failed to determine filesystem type on %v", path)
 	}
 
-	s := bufio.NewScanner(&out)
+	s := bufio.NewScanner(&stdout)
 	s.Split(bufio.ScanLines)
 
 	for s.Scan() {
@@ -48,3 +50,30 @@ func GetFilesystem(ctx context.Context, path string, runner utils.CommandRunner)
 
 	return "", trace.NotFound("no filesystem found for %v", path)
 }
+
+// GetFilesystemForPath returns the filesystem type for given path.
+// It does not verify whether the path actually exists
+func GetFilesystemForPath(path string) (fstype string, err error) {
+	mounts, err := mount.GetMounts(mount.ParentsFilter(path))
+	if err != nil {
+		return "", trace.Wrap(trace.ConvertSystemError(err))
+	}
+	mountPoints := make(map[string]string) // map mount point to filesystem
+	for _, m := range mounts {
+		mountPoints[m.Mountpoint] = m.Fstype
+	}
+	dir := path
+	for dir != "/" {
+		if fstype, ok := mountPoints[dir]; ok {
+			return fstype, nil
+		}
+		dir = filepath.Dir(dir)
+	}
+	if fstype, ok := mountPoints[dir]; ok {
+		return fstype, nil
+	}
+	return "", trace.NotFound("filesystem not found for path %v", path)
+}
+
+// FilesystemTemporary defines the tmpfs filesystem
+const FilesystemTemporary = "tmpfs"

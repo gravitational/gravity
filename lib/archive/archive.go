@@ -95,7 +95,6 @@ func Unpack(path string) (unpackedDir string, err error) {
 // The resulting files and directories are created using the current user context.
 func Extract(r io.Reader, dir string) error {
 	tarball := tar.NewReader(r)
-
 	for {
 		header, err := tarball.Next()
 		if err == io.EOF {
@@ -104,11 +103,43 @@ func Extract(r io.Reader, dir string) error {
 			return trace.Wrap(err)
 		}
 
-		if err := extractFile(tarball, header, dir); err != nil {
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		err = SanitizeTarPath(header, dir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		if err := extractFile(tarball, header, dir, header.Name); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	return nil
+}
+
+// ExtractWithPrefix extracts the contents of the specified tarball under directory dir.
+// Only the files/directories found in tarDirPrefix in the tarball matching patterns are extracted.
+// Note, files from tarDir are written directly to dir omitting tarDir.
+// The resulting files and directories are created using the current user context.
+func ExtractWithPrefix(r io.Reader, dir, tarDirPrefix string) error {
+	err := TarGlobWithPrefix(tar.NewReader(r), tarDirPrefix, func(match *tar.Header, r *tar.Reader) error {
+		// Security: ensure tar doesn't refer to file paths outside the directory
+		// Note, it validates the path as if the file/directory described by match
+		// would have been extracted as-is while it is, in fact, extracted without the
+		// top-level directory. It should not affect the security check though
+		err := SanitizeTarPath(match, dir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		relpath, err := filepath.Rel(tarDirPrefix, match.Name)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if err := extractFile(r, match, dir, relpath); err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
 }
 
 // HasFile returns nil if the specified tarball contains specified file
@@ -146,7 +177,6 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 		var hdr *tar.Header
 		hdr, err = source.Next()
 		if err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {
@@ -172,6 +202,38 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 	}
 	return nil
 }
+
+// TarGlobWithPrefix iterates the contents of the specified tarball and invokes handler
+// for each file in the directory with the specified prefix (and all its sub-directories).
+// If the handler returns a special Abort error, iteration will be aborted without errors.
+func TarGlobWithPrefix(source *tar.Reader, prefix string, handler TarGlobHandler) (err error) {
+	for {
+		var hdr *tar.Header
+		hdr, err = source.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if hdr.FileInfo().IsDir() {
+			continue
+		}
+		path := filepath.Clean(hdr.Name)
+		if strings.HasPrefix(path, prefix) {
+			if err = handler(hdr, source); err != nil {
+				if trace.Unwrap(err) == Abort {
+					return nil
+				}
+				return trace.Wrap(err)
+			}
+		}
+	}
+	return nil
+}
+
+// TarGlobHandler defines a handler for the match when iterating files in the tarball r.
+type TarGlobHandler func(match *tar.Header, r *tar.Reader) error
 
 // TarAppender wraps a tar writer and can append items to it
 type TarAppender struct {
@@ -307,18 +369,44 @@ var Abort = errors.New("abort iteration")
 // extractFile extracts a single file or directory from tarball into dir.
 // Uses header to determine the type of item to create
 // Based on https://github.com/mholt/archiver
-func extractFile(tarball *tar.Reader, header *tar.Header, dir string) error {
+func extractFile(tarball *tar.Reader, header *tar.Header, dir, path string) error {
+	targetPath := filepath.Join(dir, path)
 	switch header.Typeflag {
 	case tar.TypeDir:
-		return withDir(filepath.Join(dir, header.Name), nil)
+		return withDir(targetPath, nil)
 	case tar.TypeBlock, tar.TypeChar, tar.TypeReg, tar.TypeRegA, tar.TypeFifo:
-		return writeFile(filepath.Join(dir, header.Name), tarball, header.FileInfo().Mode())
+		return writeFile(targetPath, tarball, header.FileInfo().Mode())
 	case tar.TypeLink:
-		return writeHardLink(filepath.Join(dir, header.Name), filepath.Join(dir, header.Linkname))
+		return writeHardLink(targetPath, filepath.Join(dir, header.Linkname))
 	case tar.TypeSymlink:
-		return writeSymbolicLink(filepath.Join(dir, header.Name), header.Linkname)
+		return writeSymbolicLink(targetPath, header.Linkname)
 	default:
 		log.Warnf("unsupported type flag %v for %v", header.Typeflag, header.Name)
+	}
+	return nil
+}
+
+// SanitizeTarPath checks that the tar header paths resolve to a subdirectory path, and don't contain file paths or
+// links that could escape the tar file (e.g. ../../etc/passwrd)
+func SanitizeTarPath(header *tar.Header, dir string) error {
+	// Security: sanitize that all tar paths resolve to within the destination directory
+	destPath := filepath.Join(dir, header.Name)
+	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+		return trace.BadParameter("%s: illegal file path", header.Name).AddField("prefix", dir)
+	}
+	// Security: Ensure link destinations resolve to within the destination directory
+	if header.Linkname != "" {
+		if filepath.IsAbs(header.Linkname) {
+			if !strings.HasPrefix(filepath.Clean(header.Linkname), filepath.Clean(dir)+string(os.PathSeparator)) {
+				return trace.BadParameter("%s: illegal link path", header.Linkname).AddField("prefix", dir)
+			}
+		} else {
+			// relative paths are relative to the filename after extraction to a directory
+			linkPath := filepath.Join(dir, filepath.Dir(header.Name), header.Linkname)
+			if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
+				return trace.BadParameter("%s: illegal link path", header.Linkname).AddField("prefix", dir)
+			}
+		}
 	}
 	return nil
 }

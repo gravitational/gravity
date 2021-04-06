@@ -28,14 +28,19 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
 	// ZeroVersion is a special "zero" package version that means "no particular version"
 	ZeroVersion = "0.0.0"
 
+	// FirstVersion is a special package version that indicates the initial package version
+	FirstVersion = "0.0.1"
+
 	// LatestVersion defines a special placeholder for greatest available version
 	LatestVersion = "0.0.0+latest"
+
 	// StableVersion defines a special placeholder for the latest stable version
 	StableVersion = "0.0.0+stable"
 )
@@ -81,16 +86,17 @@ func (d Digest) String() string {
 func NewLocator(repository, name, ver string) (*Locator, error) {
 	if !cstrings.IsValidDomainName(repository) {
 		return nil, trace.BadParameter(
-			"repository '%v' has invalid format, should be valid domain name, e.g. example.com", repository)
+			"repository %q has invalid format, should be valid domain name, e.g. example.com", repository)
 	}
 	if name == "" {
 		return nil, trace.BadParameter(
-			"package name '%v' has invalid format, should be valid identifier e.g. package-name", name)
+			"package name %q has invalid format, should be valid identifier e.g. package-name", name)
 	}
 	_, err := semver.NewVersion(ver)
 	if err != nil {
 		return nil, trace.BadParameter(
-			"unsupported version format, need semver format: %v, e.g 1.0.0", err)
+			"unsupported version format %q, need semver format e.g 1.0.0: %v",
+			ver, err)
 	}
 	return &Locator{Repository: repository, Name: name, Version: ver}, nil
 }
@@ -176,6 +182,15 @@ func (l Locator) WithVersion(version *semver.Version) Locator {
 	}
 }
 
+// WithLiteralVersion returns a copy of this locator with version set to the specified one
+func (l Locator) WithLiteralVersion(version string) Locator {
+	return Locator{
+		Repository: l.Repository,
+		Name:       l.Name,
+		Version:    version,
+	}
+}
+
 func ParseLocator(v string) (*Locator, error) {
 	parts := strings.Split(v, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
@@ -224,6 +239,31 @@ func Deduplicate(ls []Locator) (result []Locator) {
 	return result
 }
 
+// Contains checks if a list of locators contains another one
+func Contains(locator Locator, locators []Locator) bool {
+	for _, l := range locators {
+		if l.Name == locator.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Filter filters a list of locators.
+// Excludes the values specified in []filters from []locators.
+func Filter(locators []Locator, filters []Locator, message string) (result []Locator) {
+	for _, l := range locators {
+		if !Contains(l, filters) {
+			result = append(result, l)
+		} else {
+			log.Infof(message, l)
+		}
+	}
+
+	return result
+}
+
 var (
 	// OpsCenterCertificateAuthority is locator for the package containing certificate and private
 	// key for the OpsCenter
@@ -241,6 +281,18 @@ var (
 	// Planet is the planet package locator
 	Planet = MustParseLocator(
 		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.PlanetPackage, ZeroVersion))
+
+	// Teleport is the teleport package locator
+	Teleport = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.TeleportPackage, ZeroVersion))
+
+	// Gravity is the gravity binary package locator
+	Gravity = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.GravityPackage, ZeroVersion))
+
+	// Fio is the fio binary package locator
+	Fio = MustParseLocator(
+		fmt.Sprintf("%v/%v:%v", defaults.SystemAccountOrg, constants.FioPackage, ZeroVersion))
 
 	// TrustedCluster is the trusted-cluster package locator
 	TrustedCluster = MustParseLocator(

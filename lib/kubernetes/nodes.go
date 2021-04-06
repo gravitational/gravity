@@ -18,6 +18,8 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
@@ -27,8 +29,10 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -40,7 +44,7 @@ func Drain(ctx context.Context, client *kubernetes.Clientset, nodeName string) e
 		return trace.Wrap(err)
 	}
 
-	d := drain{
+	d := drainer{
 		client:             client,
 		nodeName:           nodeName,
 		gracePeriodSeconds: defaults.ResourceGracePeriod,
@@ -68,7 +72,7 @@ func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(setUnschedulable(client, nodeName, unschedulable))
 	})
 
@@ -95,7 +99,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 		return nil
 	}
 
-	err = retry(ctx, func() error {
+	err = Retry(ctx, func() error {
 		return trace.Wrap(updateTaints(client, nodeName, newTaints))
 	})
 
@@ -104,7 +108,7 @@ func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // UpdateLabels adds labels on the node specified with nodeName
 func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName string, labels map[string]string) error {
-	err := retry(ctx, func() error {
+	err := Retry(ctx, func() error {
 		return trace.Wrap(updateLabels(client, nodeName, labels))
 	})
 
@@ -113,9 +117,9 @@ func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // GetNode returns Kubernetes node corresponding to the provided server
 func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, error) {
-	nodes, err := client.Core().Nodes().List(metav1.ListOptions{
+	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: utils.MakeSelector(map[string]string{
-			defaults.KubernetesHostnameLabel: server.KubeNodeID(),
+			v1.LabelHostname: server.KubeNodeID(),
 		}).String(),
 	})
 	if err != nil {
@@ -124,7 +128,8 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	}
 	if len(nodes.Items) == 0 {
 		return nil, trace.NotFound(
-			"could not find a Kubernetes node for %v", server)
+			"could not find a Kubernetes node for %v", server).
+			AddField("label", fmt.Sprintf("%v=%v", v1.LabelHostname, server.KubeNodeID()))
 	}
 	if len(nodes.Items) > 1 {
 		return nil, trace.BadParameter(
@@ -133,17 +138,33 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 	return &nodes.Items[0], nil
 }
 
-// setUnschedulable sets node unschedulable status on the node given with nodeName
+// setUnschedulable sets unschedulable status on the node given with nodeName
 func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulable bool) error {
 	node, err := client.Get(nodeName, metav1.GetOptions{})
 	if err != nil {
-		return trace.Wrap(err)
+		return rigging.ConvertError(err)
+	}
+
+	oldData, err := json.Marshal(node)
+	if err != nil {
+		return rigging.ConvertError(err)
 	}
 
 	node.Spec.Unschedulable = unschedulable
 
-	_, err = client.Update(node)
-	return trace.Wrap(err)
+	newData, err := json.Marshal(node)
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+
+	patchBytes, patchErr := strategicpatch.CreateTwoWayMergePatch(oldData, newData, node)
+	if patchErr == nil {
+		_, err = client.Patch(node.Name, types.StrategicMergePatchType, patchBytes)
+	} else {
+		log.WithError(err).Warn("Failed to patch node object.")
+		_, err = client.Update(node)
+	}
+	return rigging.ConvertError(err)
 }
 
 // updateTaints updates taints on the node given with nodeName from newTaints
@@ -156,7 +177,7 @@ func updateTaints(client corev1.NodeInterface, nodeName string, newTaints []v1.T
 	node.Spec.Taints = newTaints
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // updateLabels updates labels on the node specified with nodeName
@@ -171,7 +192,7 @@ func updateLabels(client corev1.NodeInterface, nodeName string, labels map[strin
 	}
 
 	_, err = client.Update(node)
-	return trace.Wrap(err)
+	return rigging.ConvertError(err)
 }
 
 // deleteTaints deletes the given taints from the node's list of taints
@@ -239,14 +260,13 @@ func addTaints(oldTaints []v1.Taint, newTaints *[]v1.Taint) bool {
 	return len(oldTaints) != len(*newTaints)
 }
 
-// retry retries the specified function fn using classify to determine
-// whether to retry a particular error.
+// Retry retries the specified function fn using classify to determine
+// whether to Retry a particular error.
 // Returns the first permanent error
-func retry(ctx context.Context, fn func() error) error {
+func Retry(ctx context.Context, fn func() error) error {
 	interval := backoff.NewExponentialBackOff()
 	err := utils.RetryWithInterval(ctx, interval, func() error {
-		err := RetryOnUpdateConflict(fn())
-		return trace.Wrap(err)
+		return RetryOnUpdateConflict(fn())
 	})
 	return trace.Wrap(err)
 }

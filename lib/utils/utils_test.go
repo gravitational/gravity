@@ -287,3 +287,40 @@ func (s *UtilsSuite) TestTrimPathPrefix(c *C) {
 		c.Assert(TrimPathPrefix(t.path, t.prefix...), Equals, t.result)
 	}
 }
+
+func (s *UtilsSuite) TestSplitSlice(c *C) {
+	tests := []struct {
+		slice  []string
+		size   int
+		result [][]string
+	}{
+		{
+			slice:  []string{"a", "b", "c", "d", "e"},
+			size:   1,
+			result: [][]string{{"a"}, {"b"}, {"c"}, {"d"}, {"e"}},
+		},
+		{
+			slice:  []string{"a", "b", "c", "d", "e"},
+			size:   2,
+			result: [][]string{{"a", "b"}, {"c", "d"}, {"e"}},
+		},
+		{
+			slice:  []string{"a", "b", "c", "d", "e"},
+			size:   3,
+			result: [][]string{{"a", "b", "c"}, {"d", "e"}},
+		},
+		{
+			slice:  []string{"a", "b", "c", "d", "e"},
+			size:   5,
+			result: [][]string{{"a", "b", "c", "d", "e"}},
+		},
+		{
+			slice:  []string{"a", "b", "c", "d", "e"},
+			size:   250,
+			result: [][]string{{"a", "b", "c", "d", "e"}},
+		},
+	}
+	for _, test := range tests {
+		c.Assert(SplitSlice(test.slice, test.size), DeepEquals, test.result)
+	}
+}

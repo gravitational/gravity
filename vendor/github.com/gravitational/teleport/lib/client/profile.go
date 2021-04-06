@@ -1,3 +1,19 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package client
 
 import (
@@ -7,8 +23,9 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/gravitational/trace"
+	"github.com/gravitational/teleport/lib/client/extensions"
 
+	"github.com/gravitational/trace"
 	"gopkg.in/yaml.v2"
 )
 
@@ -56,6 +73,10 @@ type ClientProfile struct {
 	// ForwardedPorts is the list of ports to forward to the target node.
 	ForwardedPorts []string `yaml:"forward_ports,omitempty"`
 
+	// DynamicForwardedPorts is a list of ports to use for dynamic port
+	// forwarding (SOCKS5).
+	DynamicForwardedPorts []string `yaml:"dynamic_forward_ports,omitempty"`
+
 	// DELETE IN: 3.1.0
 	// The following fields have been deprecated and replaced with
 	// "proxy_web_addr" and "proxy_ssh_addr".
@@ -78,6 +99,25 @@ func (c *ClientProfile) Name() string {
 	return addr
 }
 
+// TLSCertificatePath returns full path to the profile's TLS certificate.
+func (c *ClientProfile) TLSCertificatePath(profileDir string) string {
+	return filepath.Join(FullProfilePath(profileDir), sessionKeyDir, c.Name(), c.Username+fileExtTLSCert)
+}
+
+// KeyPath returns full path to the profile's private key.
+func (c *ClientProfile) KeyPath(profileDir string) string {
+	return filepath.Join(FullProfilePath(profileDir), sessionKeyDir, c.Name(), c.Username)
+}
+
+// ToConfig makes config suitable for use with configurators.
+func (c *ClientProfile) ToConfig(profileDir string) extensions.Config {
+	return extensions.Config{
+		ProxyAddress:    c.WebProxyAddr,
+		CertificatePath: c.TLSCertificatePath(profileDir),
+		KeyPath:         c.KeyPath(profileDir),
+	}
+}
+
 // FullProfilePath returns the full path to the user profile directory.
 // If the parameter is empty, it returns expanded "~/.tsh", otherwise
 // returns its unmodified parameter
@@ -92,7 +132,6 @@ func FullProfilePath(pDir string) string {
 		home = u.HomeDir
 	}
 	return filepath.Join(home, ProfileDir)
-
 }
 
 // If there's a current profile symlink, remove it
@@ -126,8 +165,18 @@ func ProfileFromFile(filePath string) (*ClientProfile, error) {
 	return cp, nil
 }
 
+// CurrentProfile returns the currently active client profile.
+func CurrentProfile(profileDir string) (*ClientProfile, error) {
+	currentProfilePath := filepath.Join(FullProfilePath(profileDir), CurrentProfileSymlink)
+	currentProfile, err := ProfileFromFile(currentProfilePath)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return currentProfile, nil
+}
+
 // SaveTo saves the profile into a given filename, optionally overwriting it.
-func (cp *ClientProfile) SaveTo(filePath string, opts ProfileOptions) error {
+func (cp *ClientProfile) SaveTo(profileAliasPath, filePath string, opts ProfileOptions) error {
 	bytes, err := yaml.Marshal(&cp)
 	if err != nil {
 		return trace.Wrap(err)
@@ -135,10 +184,21 @@ func (cp *ClientProfile) SaveTo(filePath string, opts ProfileOptions) error {
 	if err = ioutil.WriteFile(filePath, bytes, 0660); err != nil {
 		return trace.Wrap(err)
 	}
+	if profileAliasPath != "" && filepath.Base(profileAliasPath) != filepath.Base(filePath) {
+		if err := os.Remove(profileAliasPath); err != nil {
+			log.Warningf("Failed to remove symlink alias: %v", err)
+		}
+		err := os.Symlink(filepath.Base(filePath), profileAliasPath)
+		if err != nil {
+			log.Warningf("Failed to create profile alias: %v", err)
+		}
+	}
 	// set 'current' symlink:
 	if opts&ProfileMakeCurrent != 0 {
 		symlink := filepath.Join(filepath.Dir(filePath), CurrentProfileSymlink)
-		os.Remove(symlink)
+		if err := os.Remove(symlink); err != nil {
+			log.Warningf("Failed to remove symlink: %v", err)
+		}
 		err = os.Symlink(filepath.Base(filePath), symlink)
 	}
 	return trace.Wrap(err)

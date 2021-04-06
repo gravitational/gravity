@@ -23,22 +23,123 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	libkube "github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/teleport/lib/service"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
-// startCertificateWatch starts watching for the changes in cluster certificate
-// and notifies the process' "certificateCh" when the change happens
-func (p *Process) startCertificateWatch(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runCertExpirationWatch checks if the default self signed cluster web UI cert is about to expire soon and rotates it
+func (p *Process) runCertExpirationWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
+		ticker := time.NewTicker(time.Hour * 24)
+		defer ticker.Stop()
+		for {
+			err := p.replaceCertIfAboutToExpire(ctx, client)
+			if err != nil {
+				p.WithError(err).Error("Failed to check for cluster web UI certificate expiration or replace it.")
+			}
+
+			select {
+			case <-ticker.C:
+			case <-ctx.Done():
+				p.Debug("Cluster web UI certificate expiration watcher stopped.")
+				return
+			}
+		}
+	}
+}
+
+func (p *Process) replaceCertIfAboutToExpire(ctx context.Context, client *kubernetes.Clientset) error {
+	p.Info("Running check for self signed cluster web UI certificate expiration.")
+
+	ticker := backoff.NewTicker(&backoff.ExponentialBackOff{
+		InitialInterval: time.Second * 3,
+		Multiplier:      1.5,
+		MaxInterval:     10 * time.Second,
+		MaxElapsedTime:  1 * time.Minute,
+		Clock:           backoff.SystemClock,
+	})
+	defer ticker.Stop()
+
+	for {
+		select {
+		case tm := <-ticker.C:
+			if tm.IsZero() {
+				return trace.ConnectionProblem(nil, "timed out waiting while checking "+
+					"for cluster web UI certificate expiration")
+			}
+			clusterCert, _, err := opsservice.GetClusterCertificate(client)
+			if err != nil {
+				p.WithError(err).Error("Failed to retrieve the cluster web UI certificate from k8s.")
+				continue
+			}
+
+			cert, err := tlsca.ParseCertificatePEM(clusterCert)
+			if err != nil {
+				p.WithError(err).Error("Failed to parse the cluster web UI certificate.")
+				continue
+			}
+
+			if len(cert.Issuer.OrganizationalUnit) == 0 || cert.Issuer.OrganizationalUnit[0] != defaults.SelfSignedCertWebOrg {
+				p.Debug("Skipping expiration check for customer provided cluster web UI certificate.")
+				return nil
+			}
+
+			periodBeforeExpire := time.Now().Add(defaults.CertRenewBeforeExpiry)
+			if periodBeforeExpire.After(cert.NotAfter) {
+				p.Infof("The cluster web UI certificate with SerialNumber=%v will expire soon."+
+					" Replacing it with a new one...", cert.SerialNumber)
+
+				cert, err := utils.GenerateSelfSignedCert([]string{p.cfg.Hostname})
+				if err != nil {
+					p.WithError(err).Error("Failed to generate self signed cluster web UI certificate.")
+					continue
+				}
+
+				parsedCert, err := tlsca.ParseCertificatePEM(cert.Cert)
+				if err != nil {
+					p.WithError(err).Error("Failed to parse the self signed cluster web UI certificate.")
+					continue
+				}
+
+				err = opsservice.UpdateClusterCertificate(client, ops.UpdateCertificateRequest{
+					AccountID:   defaults.SystemAccountID,
+					SiteDomain:  defaults.SystemAccountOrg,
+					Certificate: cert.Cert,
+					PrivateKey:  cert.PrivateKey,
+				})
+				if err != nil {
+					p.WithError(err).Error("Failed to update the self signed cluster web UI certificate.")
+					continue
+				}
+
+				p.Infof("Successfully rotated the self-signed cluster web UI certificate. "+
+					"New cert ExpirationDate:%v, SerialNumber=%v", parsedCert.NotAfter, parsedCert.SerialNumber)
+			}
+
+			return nil
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
+		}
+	}
+}
+
+// runCertificateWatch updates process on p.certificateCh
+// when changes to cluster certificates are detected
+func (p *Process) runCertificateWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
@@ -53,14 +154,13 @@ func (p *Process) startCertificateWatch(ctx context.Context, client *kubernetes.
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }
 
 func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clientset) error {
 	p.Debug("Restarting certificate watch.")
 
-	watcher, err := client.Core().Secrets(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
+	watcher, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.ClusterCertificateMap).String(),
 	})
 	if err != nil {
@@ -103,17 +203,16 @@ func (p *Process) watchCertificate(ctx context.Context, client *kubernetes.Clien
 	}
 }
 
-// startAuthGatewayWatch launches watcher that monitors config map with
-// auth gateway configuration and updates Teleport configuration
-// appropriately.
-func (p *Process) startAuthGatewayWatch(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runAuthGatewayWatch monitors config map with auth gateway configuration
+// and updates Teleport configuration appropriately.
+func (p *Process) runAuthGatewayWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			err := p.watchAuthGateway(ctx, client)
 			if err != nil {
-				p.Errorf("Failed to start auth gateway config watch: %v.", trace.DebugReport(err))
+				p.WithError(err).Warn("Failed to start auth gateway config watch.")
 			}
 			select {
 			case <-ticker.C:
@@ -122,15 +221,14 @@ func (p *Process) startAuthGatewayWatch(ctx context.Context, client *kubernetes.
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }
 
 // watchAuthGateway observes changes to the auth gateway config map and
 // updates Teleport configuration appropriately.
 func (p *Process) watchAuthGateway(ctx context.Context, client *kubernetes.Clientset) error {
 	p.Debug("Restarting auth gateway config watch.")
-	watcher, err := client.Core().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
+	watcher, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Watch(metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.AuthGatewayConfigMap).String(),
 	})
 	if err != nil {
@@ -194,7 +292,7 @@ func (p *Process) reloadAuthGatewayConfig(authGatewayConfig storage.AuthGateway)
 		// Replacing principals in config will result in Teleport
 		// regenerating identities (asynchonously) and then
 		// sending reload event which will be caught below.
-		processconfig.ReplacePublicAddrs(p.teleportProcess().Config, config)
+		processconfig.ReplacePublicAddrs(p.TeleportProcess.Config, config)
 	} else if authGatewayConfig.SettingsChanged(p.authGatewayConfig) {
 		// Principals didn't change but some of the Teleport
 		// settings changed so we can reload right away.
@@ -214,10 +312,9 @@ func (p *Process) reloadAuthGatewayConfig(authGatewayConfig storage.AuthGateway)
 	return nil
 }
 
-// startWatchingReloadEvents launches watcher that listens for reload events
-// and restarts the process.
-func (p *Process) startWatchingReloadEvents(ctx context.Context, client *kubernetes.Clientset) error {
-	go func() {
+// runReloadEventsWatch watches reload events and restarts the process.
+func (p *Process) runReloadEventsWatch(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
 		eventsCh := make(chan service.Event)
 		p.WaitForEvent(ctx, service.TeleportReloadEvent, eventsCh)
 		p.Infof("Started watching %v events.", service.TeleportReloadEvent)
@@ -239,6 +336,5 @@ func (p *Process) startWatchingReloadEvents(ctx context.Context, client *kuberne
 				return
 			}
 		}
-	}()
-	return nil
+	}
 }

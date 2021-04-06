@@ -17,20 +17,21 @@ limitations under the License.
 package handler
 
 import (
-	"crypto/tls"
-	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/julienschmidt/httprouter"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
-	"github.com/gravitational/gravity/lib/app/docker"
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/app/suite"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
@@ -130,16 +131,13 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 		})
 		c.Assert(err, IsNil)
 
-		r.server = httptest.NewServer(handler)
+		// It is important that we launch TLS server as authentication
+		// middleware on the handler expects TLS connections.
+		r.server = httptest.NewTLSServer(handler)
 
 		apps, err := client.NewAuthenticatedClient(
 			r.server.URL, r.user.GetName(), "admin-password",
-			client.HTTPClient(&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					}}}),
-		)
+			client.HTTPClient(r.server.Client()))
 		c.Assert(err, IsNil)
 		return apps
 	}
@@ -213,4 +211,16 @@ func (r *HandlerSuite) TestFetchChart(c *C) {
 
 func (r *HandlerSuite) TestFetchIndexFile(c *C) {
 	r.suite.FetchIndexFile(c)
+}
+
+// TestTelekubeInstallScriptChecksSemverSanity ensures that the install script generator is checking the semver for
+// malicious input
+func TestTelekubeInstallScriptChecksSemverSanity(t *testing.T) {
+	h := &WebHandler{}
+	assert.Error(t, h.telekubeInstallScript(nil, nil, httprouter.Params{
+		httprouter.Param{
+			Key:   "version",
+			Value: "1.0.1-aaa$(touch grav)",
+		},
+	}), "validate that telekubeInstallScript throws error on bad input")
 }

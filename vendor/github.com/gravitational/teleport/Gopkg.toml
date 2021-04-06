@@ -41,6 +41,10 @@ ignored = ["github.com/Sirupsen/logrus"]
   version = ">=1.0.0, <=19.0.0-g5d150e7"
 
 [[constraint]]
+  name = "github.com/gogo/protobuf"
+  version = "v1.1.1"
+
+[[constraint]]
   name = "github.com/vulcand/predicate"
   version = "v1.1.0"
 
@@ -69,6 +73,10 @@ ignored = ["github.com/Sirupsen/logrus"]
   name = "github.com/gokyle/hotp"
 
 [[constraint]]
+  name = "golang.org/x/crypto"
+  branch = "master"
+
+[[constraint]]
   branch = "master"
   name = "golang.org/x/net"
 
@@ -86,7 +94,7 @@ ignored = ["github.com/Sirupsen/logrus"]
 
 [[constraint]]
   name = "github.com/gravitational/roundtrip"
-  revision = "6a87d116a90b9c4e73bedc19ebc9c17f1b43d826"
+  version = "1.0.0"
 
 [[constraint]]
   version = "0.0.1"
@@ -130,7 +138,7 @@ ignored = ["github.com/Sirupsen/logrus"]
 
 [[constraint]]
   name = "github.com/gravitational/trace"
-  version = "1.1.5"
+  version = "v1.1.14"
 
 [[constraint]]
   name = "github.com/coreos/go-oidc"
@@ -181,3 +189,11 @@ ignored = ["github.com/Sirupsen/logrus"]
 [[override]]
   name = "github.com/json-iterator/go"
   version = "=1.1.5"
+
+[[constraint]]
+  name = "github.com/fatih/color"
+  version = "=v1.7.0"
+
+[[constraint]]
+  name = "github.com/cyphar/filepath-securejoin"
+  version = "=v0.2.2"

@@ -39,12 +39,12 @@ import (
 // To start the peer, invoke its Serve method.
 // Once started, the peer connects to the control server to register its identity.
 // The control server establishes reverse connection to execute remote commands.
-func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerServer, error) {
+func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	server, err := New(config.Config, log)
+	server, err := New(config.Config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -54,7 +54,7 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerSe
 		addr = config.proxyAddr
 	}
 
-	serverPeer := serverPeer{
+	serverPeer := &serverPeer{
 		systemInfo: config.Config.systemInfo,
 		addr:       addr,
 		serverAddr: serverAddr,
@@ -62,7 +62,7 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerSe
 		creds:      config.Client,
 	}
 	peersConfig := peersConfig{
-		FieldLogger:       log.WithField(trace.Component, "peers"),
+		FieldLogger:       config.WithField(trace.Component, "server-peer"),
 		watchCh:           config.WatchCh,
 		checkTimeout:      config.HealthCheckTimeout,
 		ReconnectStrategy: config.ReconnectStrategy,
@@ -74,10 +74,12 @@ func NewPeer(config PeerConfig, serverAddr string, log log.FieldLogger) (*PeerSe
 	}
 
 	peer := &PeerServer{
-		PeerConfig:  config,
-		agentServer: server,
-		peers:       checker,
+		PeerConfig: config,
+		server:     server,
+		peer:       serverPeer,
+		peers:      checker,
 	}
+	server.closers = append(server.closers, peer)
 	return peer, nil
 }
 
@@ -119,6 +121,7 @@ type ReconnectStrategy struct {
 	// ShouldReconnect makes a decision whether to continue reconnecting
 	// or to abort based on the specified error.
 	// To signal abort, should return an instance of *backoff.PermanentError.
+	// The handler should return a valid error to continue reconnection attempts
 	ShouldReconnect func(err error) error `json:"-"`
 }
 
@@ -170,7 +173,14 @@ type WatchEvent struct {
 // Serve starts this peer
 func (r *PeerServer) Serve() error {
 	r.peers.start()
-	return r.agentServer.Serve()
+	return r.server.Serve()
+}
+
+// ServeWithToken starts this peer using the specified token for authorization
+func (r *PeerServer) ServeWithToken(token string) error {
+	r.peer.config.Token = token
+	r.peers.start()
+	return r.server.Serve()
 }
 
 // ValidateConnection makes sure that connection to the control server can be established
@@ -180,20 +190,26 @@ func (r *PeerServer) ValidateConnection(ctx context.Context) error {
 
 // Stop stops this server and its internal goroutines
 func (r *PeerServer) Stop(ctx context.Context) error {
-	err := r.peers.close(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	r.agentServer.Stop(ctx)
-	return nil
+	return r.server.Stop(ctx)
+}
+
+// Close stops this server and its internal goroutines
+func (r *PeerServer) Close(ctx context.Context) error {
+	return trace.Wrap(r.peers.close(ctx))
+}
+
+// Done returns a channel that's closed when agent shuts down
+func (r *PeerServer) Done() <-chan struct{} {
+	return r.server.Done()
 }
 
 // PeerServer represents a peer connected to a control server
 type PeerServer struct {
 	// PeerConfig is the peer configuration
 	PeerConfig
-	*agentServer
-	*peers
+	server *agentServer
+	peer   *serverPeer
+	peers  *peers
 }
 
 // NewPeer is a no-op
@@ -209,18 +225,19 @@ var discardPeers = discardStore{}
 
 // Addr returns the address of the controlling server.
 // Implements Peer
-func (r serverPeer) Addr() string {
+func (r *serverPeer) Addr() string {
 	return r.serverAddr
 }
 
 // String returns textual representation of this peer
-func (r serverPeer) String() string {
+// Implements fmt.Stringer
+func (r *serverPeer) String() string {
 	return fmt.Sprintf("peer(addr=%v->server=%v)", r.addr, r.serverAddr)
 }
 
 // Reconnect establishes a connection to the controlling server and rejoins the cluster.
 // Implements Peer
-func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
+func (r *serverPeer) Reconnect(ctx context.Context) (Client, error) {
 	info, err := r.systemInfo.getSystemInfo()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -238,15 +255,17 @@ func (r serverPeer) Reconnect(ctx context.Context) (Client, error) {
 
 	_, err = clt.PeerJoin(ctx, &pb.PeerJoinRequest{Addr: r.addr, Config: &r.config, SystemInfo: payload})
 	if err != nil {
-		return nil, &backoff.PermanentError{trace.Wrap(err)}
+		// Let ReconnectStrategy decide whether the peer should continue reconnecting
+		return nil, err
 	}
 
 	return clt, nil
 }
 
 // Disconnect sends a request to the controlling server to initiate this peer
-// shutdown
-func (r serverPeer) Disconnect(ctx context.Context) error {
+// shutdown.
+// Implements Peer
+func (r *serverPeer) Disconnect(ctx context.Context) error {
 	info, err := r.systemInfo.getSystemInfo()
 	if err != nil {
 		return trace.Wrap(err)
@@ -255,7 +274,7 @@ func (r serverPeer) Disconnect(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clt, err := newClient(ctx, r.creds, r.serverAddr)
+	clt, err := newClient(ctx, r.creds, r.serverAddr, grpc.FailOnNonTempDialError(true))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -315,12 +334,13 @@ type remotePeer struct {
 	reconnectTimeout time.Duration
 }
 
-func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string) (*agentClient, error) {
+func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string, dialOpts ...grpc.DialOption) (*agentClient, error) {
 	opts := []grpc.DialOption{
-		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
+		grpc.WithBackoffConfig(grpc.BackoffConfig{MaxDelay: defaults.RPCAgentBackoffThreshold}),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
 	}
+	opts = append(opts, dialOpts...)
 
 	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
@@ -351,19 +371,19 @@ func (r peer) String() string {
 }
 
 // Command executes the command specified with args on this peer
-func (r *peer) Command(ctx context.Context, log log.FieldLogger, out io.Writer, args ...string) error {
+func (r *peer) Command(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	if r.Client == nil {
 		return trace.ConnectionProblem(nil, "%v not connected", r.Addr())
 	}
-	return trace.Wrap(r.Client.Client().Command(ctx, log, out, args...))
+	return trace.Wrap(r.Client.Client().Command(ctx, log, stdout, stderr, args...))
 }
 
 // GravityCommand executes the gravity command specified with args on this peer
-func (r *peer) GravityCommand(ctx context.Context, log log.FieldLogger, out io.Writer, args ...string) error {
+func (r *peer) GravityCommand(ctx context.Context, log log.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	if r.Client == nil {
 		return trace.ConnectionProblem(nil, "%v not connected", r.Addr())
 	}
-	return trace.Wrap(r.Client.Client().GravityCommand(ctx, log, out, args...))
+	return trace.Wrap(r.Client.Client().GravityCommand(ctx, log, stdout, stderr, args...))
 }
 
 // GetSystemInfo queries remote system information
@@ -403,11 +423,19 @@ func (r *peer) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 }
 
 // Shutdown shuts down this peer
-func (r *peer) Shutdown(ctx context.Context) error {
+func (r *peer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	if r.Client == nil {
 		return nil
 	}
-	return trace.Wrap(r.Client.Client().Shutdown(ctx))
+	return trace.Wrap(r.Client.Client().Shutdown(ctx, req))
+}
+
+// Abort aborts this peer
+func (r *peer) Abort(ctx context.Context) error {
+	if r.Client == nil {
+		return nil
+	}
+	return trace.Wrap(r.Client.Client().Abort(ctx))
 }
 
 // Close closes the underlying client

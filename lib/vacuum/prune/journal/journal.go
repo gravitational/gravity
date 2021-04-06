@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 
 	"github.com/gravitational/trace"
@@ -70,9 +69,6 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:journal")
-	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
 	}
 	return nil
 }

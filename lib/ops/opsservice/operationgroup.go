@@ -17,10 +17,13 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -63,10 +66,18 @@ func (s swap) Check() error {
 
 // createSiteOperation creates the provided operation if the checks allow it to be created
 func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.SiteOperationKey, error) {
+	return g.createSiteOperationWithOptions(operation, createOperationOptions{})
+}
+
+type createOperationOptions struct {
+	force bool
+}
+
+func (g *operationGroup) createSiteOperationWithOptions(operation ops.SiteOperation, options createOperationOptions) (*ops.SiteOperationKey, error) {
 	g.Lock()
 	defer g.Unlock()
 
-	err := g.canCreateOperation(operation)
+	err := g.canCreateOperation(operation, options.force)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -91,32 +102,59 @@ func (g *operationGroup) createSiteOperation(operation ops.SiteOperation) (*ops.
 		return nil, trace.Wrap(err)
 	}
 
+	err = g.emitAuditEvent(context.TODO(), *op)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	key := op.Key()
 	return &key, nil
+}
+
+func (g *operationGroup) emitAuditEvent(ctx context.Context, operation ops.SiteOperation) error {
+	// Audit events for the following operations are emitted by their agents.
+	switch operation.Type {
+	case ops.OperationInstall, ops.OperationUpdate, ops.OperationUpdateConfig, ops.OperationUpdateRuntimeEnviron:
+		return nil
+	}
+	// Expand operation start event is emitted by the joining agent.
+	if operation.Type == ops.OperationExpand && !operation.IsFinished() {
+		return nil
+	}
+	return events.EmitForOperation(ctx, g.operator, operation)
 }
 
 // canCreateOperation checks if the provided operation is allowed to be created
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
+func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force bool) error {
 	cluster, err := g.operator.GetSite(g.siteKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	switch operation.Type {
-	case ops.OperationInstall, ops.OperationUninstall:
+	case ops.OperationInstall, ops.OperationUninstall, ops.OperationReconfigure:
 		// no special checks for install/uninstall are needed
 	case ops.OperationExpand:
 		// expand has to undergo some checks
-		err := g.canCreateExpandOperation(*cluster, operation)
+		err := g.canCreateExpandOperation(*cluster, operation.InstallExpand.Profiles)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-	case ops.OperationShrink, ops.OperationGarbageCollect:
-		// shrink and gc are allowed for degraded clusters
-		// shrink is allowed to be able to remove failed/offline nodes
+	case ops.OperationUpdate:
+		err := g.canCreateUpgradeOperation(*cluster, operation, force)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	case ops.OperationShrink:
+		err := g.canCreateShrinkOperation(*cluster, operation, force)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	case ops.OperationGarbageCollect, ops.OperationUpdateRuntimeEnviron:
+		// gc and updating environment are allowed for degraded clusters
 		switch cluster.State {
 		case ops.SiteStateActive, ops.SiteStateDegraded:
 		default:
@@ -134,13 +172,152 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation) error {
 	return nil
 }
 
+func (g *operationGroup) canCreateUpgradeOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+	// Upgrade is only allowed for active and healthy clusters.
+	if cluster.State != ops.SiteStateActive {
+		return trace.CompareFailed(
+			`Upgrade operation can only be triggered for active clusters. This cluster is currently %v.
+Use "gravity status" to see the cluster status and make sure that the cluster is active and healthy before retrying.`, cluster.State)
+	}
+	// Even if the cluster is active, run a few checks on the last upgrade
+	// operation to make sure it was completed/rolled back properly, to
+	// protect against cases when cluster state is force-reset midway.
+	lastUpgrade, err := ops.GetLastUpgradeOperation(cluster.Key(), g.operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		return nil
+	}
+	err = g.checkLastOperation(*lastUpgrade)
+	if err != nil {
+		if force { // Last operation checks didn't pass but force flag was provided.
+			log.WithError(err).Warn("Force-creating upgrade operation.")
+			return nil
+		}
+		return trace.Wrap(err)
+	}
+	// All last operation checks passed.
+	return nil
+}
+
+func (g *operationGroup) checkLastOperation(operation ops.SiteOperation) error {
+	// Check if the operation is in a terminal state.
+	if !operation.IsFinished() {
+		return trace.CompareFailed(
+			`The last %v operation (%v) is still in progress.
+Use "gravity plan" to view the operation plan, and either resume or rollback it before attempting to start another operation.
+You can provide --force flag to override this check.`,
+			operation.TypeString(),
+			operation.ID)
+	}
+	// Last upgrade completed fine.
+	if operation.IsCompleted() {
+		return nil
+	}
+	// Otherwise the operation is failed - check its plan and make sure it was
+	// fully rolled back.
+	plan, err := g.operator.GetOperationPlan(operation.Key())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		return nil
+	}
+	if !fsm.IsRolledBack(plan) {
+		return trace.CompareFailed(
+			`The last %v operation (%v) is in a %v state but its operation plan isn't fully rolled back.
+Use "gravity plan" to view the operation plan, and either resume it or roll it back before attempting to start another operation.
+You can provide --force flag to override this check.`,
+			operation.TypeString(),
+			operation.ID,
+			operation.State)
+	}
+	return nil
+}
+
+// canCreateShrinkOperation runs shrink-specific checks
+//
+// In case of failed checks returns trace.CompareFailed error to indicate that
+// the cluster is not in the appropriate state.
+func (g *operationGroup) canCreateShrinkOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+	if force {
+		return nil
+	}
+
+	// shrink is allowed while the cluster is degraded or there are active operations but prevented during operations
+	// that change controllers
+	switch cluster.State {
+	case ops.SiteStateActive, ops.SiteStateDegraded:
+		return nil
+	case ops.SiteStateExpanding, ops.SiteStateShrinking:
+	default:
+		return trace.CompareFailed("the cluster is %v", cluster.State)
+	}
+
+	for _, server := range operation.Shrink.Servers {
+		if server.ClusterRole == string(schema.ServiceRoleMaster) {
+			return trace.CompareFailed("can't shrink a controller node while another operation is active")
+		}
+	}
+
+	for _, opType := range []string{ops.OperationExpand, ops.OperationShrink} {
+		operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, opType)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+
+		// if an operation that's working on a master node is currently running,
+		// it has to finish before another operation can be started
+		for _, op := range operations {
+			for _, node := range op.Servers {
+				if node.ClusterRole == string(schema.ServiceRoleMaster) {
+					return trace.CompareFailed("can't launch another expand while master node %v is joining",
+						node.AdvertiseIP)
+				}
+
+				for _, server := range operation.Servers {
+					if server.AdvertiseIP == node.AdvertiseIP {
+						return trace.CompareFailed("%v already running on node %v",
+							operation.Key(), node.AdvertiseIP)
+					}
+				}
+			}
+		}
+	}
+
+	// if we reach here there are no conditions that should prevent the shrink from starting
+	return nil
+}
+
 // canCreateExpandOperation runs expand-specific checks
 //
 // In case of failed checks returns trace.CompareFailed error to indicate that
 // the cluster is not in the appropriate state.
-func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.SiteOperation) error {
-	if site.State == ops.SiteStateActive {
+func (g *operationGroup) canCreateExpandOperation(site ops.Site, profiles map[string]storage.ServerProfile) error {
+	// expand is allowed while the cluster is active, already expanding (subject to limits), or shrinking (workers only)
+	switch site.State {
+	case ops.SiteStateActive:
 		return nil
+	case ops.SiteStateExpanding, ops.SiteStateShrinking:
+	default:
+		return trace.CompareFailed("the cluster is %v", site.State)
+	}
+
+	// allow the expand while shrinking, unless the shrink operation is on a controller node
+	if site.State == ops.SiteStateShrinking {
+		operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, ops.OperationShrink)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+
+		for _, operation := range operations {
+			for _, server := range operation.Servers {
+				if server.ClusterRole == string(schema.ServiceRoleMaster) {
+					return trace.CompareFailed("cannot expand cluster while shrinking controller")
+				}
+			}
+		}
 	}
 
 	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, ops.OperationExpand)
@@ -149,8 +326,11 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 	}
 
 	// cluster is not active, but there are no expand operations so there is either
-	// other type of operation is in progress, or it's degraded
+	// other type of operation in progress, or it's degraded
 	if len(operations) == 0 {
+		if site.State == ops.SiteStateDegraded {
+			return utils.ClusterDegradedError{}
+		}
 		return trace.CompareFailed("cannot expand %v cluster", site.State)
 	}
 
@@ -172,7 +352,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 
 	// now check the opposite use-case: if we're about to add a master,
 	// it has to be the only operation running
-	for _, profile := range operation.InstallExpand.Profiles {
+	for _, profile := range profiles {
 		switch profile.ServiceRole {
 		case string(schema.ServiceRoleMaster):
 			// the joining node wants to be a master
@@ -198,7 +378,7 @@ func (g *operationGroup) canCreateExpandOperation(site ops.Site, operation ops.S
 // In the case the operation moves to its final state, it also updates the cluster
 // state accordingly (e.g. moves the cluster from 'expanding' to 'active' if no other
 // expand operations are running).
-func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {
+func (g *operationGroup) compareAndSwapOperationState(ctx context.Context, swap swap) (*ops.SiteOperation, error) {
 	g.Lock()
 	defer g.Unlock()
 
@@ -217,12 +397,12 @@ func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOpera
 			"operation %v is not in %v", operation, swap.expectedStates)
 	}
 
-	site, err := g.operator.openSite(g.siteKey)
+	cluster, err := g.operator.openSite(g.siteKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	operation, err = site.setOperationState(operation.Key(), swap.newOpState)
+	operation, err = cluster.setOperationState(operation.Key(), swap.newOpState)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -230,6 +410,10 @@ func (g *operationGroup) compareAndSwapOperationState(swap swap) (*ops.SiteOpera
 	// if we've just moved the operation to one of the final states (completed/failed),
 	// see if we also need to update the site state
 	if operation.IsFinished() {
+		err = g.emitAuditEvent(ctx, *operation)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		err = g.onSiteOperationComplete(swap.key)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -247,18 +431,20 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return trace.Wrap(err)
 	}
 
+	logger := log.WithField("operation", operation.String())
+
 	operations, err := ops.GetActiveOperationsByType(g.siteKey, g.operator, operation.Type)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 
 	if len(operations) > 0 {
-		log.Debugf("%v more %q operation(-s) in progress for %v: %#v %#v",
+		logger.Debugf("%v more %q operation(-s) in progress for %v: %#v %#v",
 			len(operations), operation.Type, key.SiteDomain, key, operations)
 		return nil
 	}
 
-	site, err := g.operator.openSite(g.siteKey)
+	cluster, err := g.operator.openSite(g.siteKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -268,7 +454,7 @@ func (g *operationGroup) onSiteOperationComplete(key ops.SiteOperationKey) error
 		return trace.Wrap(err)
 	}
 
-	err = site.setSiteState(state)
+	err = cluster.setSiteState(state)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -58,10 +58,6 @@ type ValidateVariables struct {
 	SessionToken string `json:"session_token"`
 }
 
-type providerType string
-
-const providerTypeAWS providerType = "aws"
-
 type packageLocator loc.Locator
 
 // MarshalText converts this locator to text form

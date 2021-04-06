@@ -20,8 +20,9 @@ import (
 	"context"
 
 	libfsm "github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/localenv"
 	libpack "github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 	"github.com/gravitational/gravity/lib/vacuum/prune/pack"
 
@@ -32,18 +33,22 @@ import (
 // NewPackages creates a new executor that removes unused telekube packages
 func NewPackages(
 	params libfsm.ExecutorParams,
-	app pack.Application,
-	remoteApps []pack.Application,
+	app storage.Application,
 	packages libpack.PackageService,
-	emitter utils.Emitter,
+	silent localenv.Silent,
+	logger log.FieldLogger,
 ) (*packageExecutor, error) {
-	log := log.WithField(trace.Component, "gc:packages")
+	var remoteApps []storage.Application
+	if params.Phase.Data != nil && params.Phase.Data.GarbageCollect != nil {
+		remoteApps = params.Phase.Data.GarbageCollect.RemoteApps
+	}
 	pruner, err := pack.New(pack.Config{
 		Packages: packages,
 		App:      &app,
+		Apps:     remoteApps,
 		Config: prune.Config{
-			Emitter:     emitter,
-			FieldLogger: log.WithField("phase", params.Phase),
+			Silent:      silent,
+			FieldLogger: logger,
 		},
 	})
 	if err != nil {
@@ -51,7 +56,7 @@ func NewPackages(
 	}
 
 	return &packageExecutor{
-		FieldLogger: log,
+		FieldLogger: logger,
 		Pruner:      pruner,
 	}, nil
 }

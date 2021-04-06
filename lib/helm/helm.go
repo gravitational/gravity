@@ -17,15 +17,12 @@ limitations under the License.
 package helm
 
 import (
-	"bytes"
-	"fmt"
 	"path/filepath"
 	"strings"
 
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/manifest"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/renderutil"
 	"k8s.io/helm/pkg/timeconv"
@@ -44,7 +41,7 @@ type RenderParameters struct {
 }
 
 // RenderHelm renders templates of a provided Helm chart.
-func Render(p RenderParameters) ([]byte, error) {
+func Render(p RenderParameters) (map[string]string, error) {
 	rawVals, err := helmutils.Vals(p.Values, p.Set, nil, nil, "", "", "")
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -66,16 +63,16 @@ func Render(p RenderParameters) ([]byte, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var b bytes.Buffer
-	for _, m := range manifest.SplitManifests(renderedTemplates) {
-		filename := filepath.Base(m.Name)
+	result := make(map[string]string)
+	for k, v := range renderedTemplates {
+		filename := filepath.Base(k)
 		// Render only Kubernetes resources skipping internal Helm
 		// files and files that begin with underscore which are not
 		// expected to output a Kubernetes spec.
 		if filename == "NOTES.txt" || strings.HasPrefix(filename, "_") {
 			continue
 		}
-		b.WriteString(fmt.Sprintf("---\n%v\n", m.Content))
+		result[k] = v
 	}
-	return b.Bytes(), nil
+	return result, nil
 }

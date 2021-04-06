@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -30,8 +31,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 var profilingStarted int32
@@ -43,10 +44,26 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 		return trace.AlreadyExists("profiling has been already started")
 	}
 
-	log.Infof("[PROFILING] http %v, profiles in %v", httpEndpoint, profileDir)
+	listener, err := net.Listen("tcp", httpEndpoint)
+	if err != nil {
+		return trace.Wrap(err, "failed to start profiling on %v", httpEndpoint)
+	}
+
+	logger := log.WithFields(log.Fields{
+		trace.Component: "profiling",
+		"pid":           os.Getpid(),
+		"addr":          listener.Addr(),
+		"cmdline":       os.Args,
+		"curl":          fmt.Sprintf("%v/debug/pprof/goroutine?debug=1", listener.Addr()),
+	})
+	if profileDir != "" {
+		log.WithField("profile-dir", profileDir).Info("Started.")
+	} else {
+		logger.Info("Started.")
+	}
 
 	go func() {
-		log.Println(http.ListenAndServe(httpEndpoint, nil))
+		logger.Println(http.Serve(listener, nil))
 	}()
 
 	if profileDir == "" {
@@ -58,7 +75,7 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 		return trace.Wrap(err, "failed to create directory %v", profileDir)
 	}
 
-	log.Infof("setting up periodic profile dumps in %v", profileDir)
+	logger.Info("Setting up periodic profile dumps.")
 	go func() {
 		ticker := time.NewTicker(defaults.ProfilingInterval)
 		for {
@@ -68,7 +85,7 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 				if err == nil {
 					err = pprof.Lookup("goroutine").WriteTo(f, 1)
 					if err != nil {
-						log.Errorf("failed to dump goroutines: %v", trace.DebugReport(err))
+						logger.WithError(err).Warn("Failed to dump goroutine profile.")
 					}
 					f.Close()
 				}
@@ -76,7 +93,7 @@ func StartProfiling(ctx context.Context, httpEndpoint, profileDir string) error 
 				if err == nil {
 					err = pprof.WriteHeapProfile(f)
 					if err != nil {
-						log.Errorf("failed to dump heap: %v", trace.DebugReport(err))
+						logger.WithError(err).Warn("Failed to dump heap profile.")
 					}
 					f.Close()
 				}

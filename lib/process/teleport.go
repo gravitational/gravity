@@ -18,12 +18,17 @@ package process
 
 import (
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
 
+	"github.com/gravitational/teleport"
+	"github.com/gravitational/teleport/lib/client"
 	"github.com/gravitational/teleport/lib/config"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	"github.com/gravitational/teleport/lib/service"
+	"github.com/gravitational/teleport/lib/services"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -64,6 +69,13 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	if len(serviceConfig.AuthServers) == 0 && serviceConfig.Auth.Enabled {
 		serviceConfig.AuthServers = append(serviceConfig.AuthServers, serviceConfig.Auth.SSHAddr)
 	}
+	// Configure auth tokens so nodes can join.
+	tokens, err := p.getTeleportAuthTokens()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	serviceConfig.Auth.StaticTokens.SetStaticTokens(append(tokens,
+		serviceConfig.Auth.StaticTokens.GetStaticTokens()...))
 	// Teleport will be using Gravity backend implementation.
 	serviceConfig.Identity = p.identity
 	serviceConfig.Trust = p.identity
@@ -74,19 +86,45 @@ func (p *Process) buildTeleportConfig(authGatewayConfig storage.AuthGateway) (*s
 	serviceConfig.Access = p.identity
 	serviceConfig.Console = logrus.StandardLogger().Writer()
 	serviceConfig.ClusterConfiguration = p.identity
+	// Use high-res polling period so principal changes are detected
+	// faster when auth gateway settings are updated.
+	serviceConfig.PollingPeriod = teledefaults.HighResPollingPeriod
 	return serviceConfig, nil
+}
+
+// getTeleportAuthTokens returns tokens Teleport nodes can use to authenticate
+// with auth server to join the cluster.
+func (p *Process) getTeleportAuthTokens() (result []services.ProvisionToken, err error) {
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	allTokens, err := p.backend.GetSiteProvisioningTokens(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, t := range allTokens {
+		// Consider expand tokens as well for backwards compatibility.
+		if (t.IsTeleport() || t.IsExpand()) && t.IsPersistent() {
+			result = append(result, services.ProvisionToken{
+				Roles: teleport.Roles{teleport.RoleNode},
+				Token: t.Token,
+			})
+		}
+	}
+	return result, nil
 }
 
 // getOrInitAuthGatewayConfig returns auth gateway configuration.
 //
 // If it's not found, it's first initialized with default values.
 func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
-	if !p.inKubernetes() {
+	if !inKubernetes() {
 		// We're not running inside Kubernetes, so this is likely an installer
 		// process which doesn't support auth gateway reconfiguration.
 		return nil, nil
 	}
-	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	_, err := p.backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			// There's no local cluster which likely means that process is
@@ -122,8 +160,6 @@ func (p *Process) getOrInitAuthGatewayConfig() (storage.AuthGateway, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// Initially the local cluster name is set as a principal.
-	authGateway.SetPublicAddrs([]string{cluster.Domain})
 	err = opsservice.UpsertAuthGateway(client, p.identity, authGateway)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -137,4 +173,21 @@ func (p *Process) getAuthGatewayConfig() (storage.AuthGateway, error) {
 		return nil, trace.Wrap(err)
 	}
 	return opsservice.GetAuthGateway(client, p.identity)
+}
+
+// proxySettings returns Teleport proxy settings based on the Teleport config.
+func (p *Process) proxySettings() client.ProxySettings {
+	settings := client.ProxySettings{
+		Kube: client.KubeProxySettings{
+			Enabled: p.teleportConfig.Proxy.Kube.Enabled,
+		},
+		SSH: client.SSHProxySettings{
+			ListenAddr: p.teleportConfig.Proxy.SSHAddr.String(),
+		},
+		Features: modules.Get().ProxyFeatures(p.mode),
+	}
+	if len(p.teleportConfig.Proxy.Kube.PublicAddrs) > 0 {
+		settings.Kube.PublicAddr = p.teleportConfig.Proxy.Kube.PublicAddrs[0].String()
+	}
+	return settings
 }

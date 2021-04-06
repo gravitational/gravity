@@ -166,9 +166,8 @@ func (b *multiBolt) key(prefix string, keys ...string) key {
 }
 
 func (b *multiBolt) Close() error {
-	return trace.Wrap(b.withBolt(func(b *blt) error {
-		return trace.Wrap(b.Close())
-	}))
+	// no-op since all APIs implicitly close the database
+	return nil
 }
 
 func (b *multiBolt) withBolt(fn func(b *blt) error) error {

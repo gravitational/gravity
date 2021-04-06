@@ -19,6 +19,7 @@ package phases
 import (
 	"testing"
 
+	"github.com/gravitational/gravity/lib/storage"
 	"gopkg.in/check.v1"
 )
 
@@ -73,7 +74,7 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
   }
   forward . 1.1.1.1 8.8.8.8 {
     policy sequential
-    health_check 0
+    health_check 1s
   }
 }
 `,
@@ -102,18 +103,93 @@ func (*StartSuite) TestCoreDNSConf(c *check.C) {
   }
   forward . 1.1.1.1 {
     policy random
-    health_check 0
+    health_check 1s
   }
+}
+`,
+		},
+		{
+			CorednsConfig{
+				Rotate: true,
+			},
+			`
+.:53 {
+  reload
+  errors
+  health
+  prometheus :9153
+  cache 30
+  loop
+  reload
+  loadbalance
+  hosts { 
+    fallthrough
+  }
+  kubernetes cluster.local in-addr.arpa ip6.arpa {
+    pods verified
+    fallthrough in-addr.arpa ip6.arpa
+  }
+  
 }
 `,
 		},
 	}
 
 	for _, tt := range configTable {
-		config, err := GenerateCorefile(tt.config)
+		config, err := generateCorefile(tt.config)
 
 		c.Assert(err, check.IsNil)
 		c.Assert(config, check.Equals, tt.expected)
 	}
 
+}
+
+func (*StartSuite) TestMergeUpstreamResolvers(c *check.C) {
+	var cases = []struct {
+		configs     []*storage.ResolvConf
+		expected    []string
+		description string
+	}{
+		{
+			configs: []*storage.ResolvConf{
+				{
+					Servers: []string{"1.1.1.1", "1.1.1.2", "1.1.1.3"},
+				},
+			},
+			expected:    []string{"1.1.1.1", "1.1.1.2", "1.1.1.3"},
+			description: "basic configuration",
+		},
+		{
+			configs: []*storage.ResolvConf{
+				{
+					Servers: []string{"1.1.1.1"},
+				},
+				{
+					Servers: []string{"1.1.1.2"},
+				},
+			},
+			expected:    []string{"1.1.1.1", "1.1.1.2"},
+			description: "merge multiple resolv confs",
+		},
+		{
+			configs: []*storage.ResolvConf{
+				{
+					Servers: []string{"1.1.1.1", "1.1.1.2", "1.1.1.3"},
+				},
+				{
+					Servers: []string{"1.1.1.2", "1.1.1.4"},
+				},
+			},
+			expected:    []string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4"},
+			description: "merge multiple resolv confs discarding duplicates and preserving order",
+		},
+	}
+
+	for _, tt := range cases {
+		// ensure mergeUpstreamResolvers can handle a nil resolver
+		configs := append(tt.configs, nil)
+
+		upstream := mergeUpstreamResolvers(configs...)
+		c.Assert(upstream, check.DeepEquals, tt.expected)
+	}
 }

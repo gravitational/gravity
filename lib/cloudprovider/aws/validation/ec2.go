@@ -145,13 +145,13 @@ func validateCreateTags(client *clientContext) error {
 	// disable this check until it can be properly fixed
 	// https://github.com/gravitational/gravity/issues/3047
 	return nil
-	request := &ec2.CreateTagsInput{
-		DryRun:    dryRun,
-		Resources: []*string{},
-		Tags:      []*ec2.Tag{},
-	}
-	_, err := client.ec2.CreateTags(request)
-	return trace.Wrap(err)
+	// request := &ec2.CreateTagsInput{
+	// 	DryRun:    dryRun,
+	// 	Resources: []*string{},
+	// 	Tags:      []*ec2.Tag{},
+	// }
+	// _, err := client.ec2.CreateTags(request)
+	// return trace.Wrap(err)
 }
 
 func validateDescribeInstances(client *clientContext) error {

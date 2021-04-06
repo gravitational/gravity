@@ -17,10 +17,14 @@ limitations under the License.
 package rpc
 
 import (
+	"bytes"
 	"context"
+	"io"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -33,7 +37,7 @@ func ShutdownAgents(ctx context.Context, servers []string, logger log.FieldLogge
 	errs := make(chan error, len(servers))
 	for _, srv := range servers {
 		go func(host string) {
-			err := shutdownAgent(ctx, host, rpc)
+			err := shutdownAgent(ctx, logger, host, rpc)
 			if err != nil {
 				logger.WithError(err).Errorf("Failed to shut down agent on %s.", host)
 			} else {
@@ -46,7 +50,7 @@ func ShutdownAgents(ctx context.Context, servers []string, logger log.FieldLogge
 	return trace.Wrap(utils.CollectErrors(ctx, errs))
 }
 
-func shutdownAgent(ctx context.Context, addr string, rpc AgentRepository) error {
+func shutdownAgent(ctx context.Context, logger log.FieldLogger, addr string, rpc AgentRepository) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.DialTimeout)
 	defer cancel()
 
@@ -54,12 +58,32 @@ func shutdownAgent(ctx context.Context, addr string, rpc AgentRepository) error 
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer clt.Close()
 
-	return trace.Wrap(clt.Shutdown(ctx))
+	var out bytes.Buffer
+	err = clt.Command(ctx, logger, &out, &out, defaults.SystemctlBin, "disable", defaults.GravityRPCAgentServiceName)
+	if err != nil {
+		logger.WithError(err).Warnf("Failed to disable agent on %s: %s.", addr, out.String())
+	}
+
+	return trace.Wrap(clt.Shutdown(ctx, &pb.ShutdownRequest{}))
 }
 
-// AgentRepository manages RPC connections to remote servers
+// AgentRepository provides an interface for creating clients for remote RPC
+// agents and executing commands on them.
 type AgentRepository interface {
-	// GetClient returns a client to the remote server specified with addr
+	// RemoteRunner provides an interface for executing remote commands.
+	RemoteRunner
+	// GetClient returns a client to the remote server specified with addr.
 	GetClient(ctx context.Context, addr string) (rpcclient.Client, error)
+}
+
+// RemoteRunner provides an interface for executing remote commands.
+type RemoteRunner interface {
+	io.Closer
+	// Run executes a command on a remote node.
+	Run(ctx context.Context, server storage.Server, command ...string) error
+	// CanExecute determines whether the runner can execute a command
+	// on the specified remote node.
+	CanExecute(context.Context, storage.Server) error
 }

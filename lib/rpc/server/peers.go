@@ -93,16 +93,23 @@ func (r *peers) validateConnection(ctx context.Context) error {
 func (r *peers) tryPeer(ctx context.Context, peer *peer) error {
 	client, err := peer.Reconnect(ctx)
 	if err != nil {
-		return trace.Wrap(err, "RPC agent could not connect to %v: %v", peer.Addr(), err)
+		r.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"peer":       peer.String(),
+		}).Warn("Failed to connect.")
+		return trace.Wrap(err, "RPC agent could not connect to %v", peer.Addr())
 	}
 	if err := client.Close(); err != nil {
-		r.WithField("peer", peer).Warnf("Failed to close client: %v.", err)
+		r.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"peer":       peer.String(),
+		}).Warn("Failed to close client.")
 	}
 	return nil
 }
 
 func (r *peers) monitorPeers() {
-	log := r.WithField("health.checker", r)
+	log := r.WithField("health.checker", r.String())
 	log.Info("Monitoring peers.")
 	defer log.Info("Health checker loop closing.")
 	for {
@@ -149,7 +156,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 	default:
 		clt, err = r.checkPeer(p, clt, reconnectCh, respCh, doneCh)
 		if err != nil {
-			log.Warnf("Failed to reconnect: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to reconnect.")
 			return
 		}
 	}
@@ -158,7 +165,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 		case <-ticker.C:
 			clt, err = r.checkPeer(p, clt, reconnectCh, respCh, doneCh)
 			if err != nil {
-				log.Warnf("Failed to reconnect: %v.", trace.DebugReport(err))
+				log.WithError(err).Warn("Failed to reconnect.")
 				return
 			}
 		case <-doneCh:
@@ -173,7 +180,7 @@ func (r *peers) monitorPeer(p Peer, clt Client, reconnectCh chan<- chan clientUp
 // a disconnect.
 // Returns the client to the peer or error if reconnecting failed.
 func (r *peers) checkPeer(p Peer, clt Client, reconnectCh chan<- chan clientUpdate, respCh chan clientUpdate, doneCh chan struct{}) (Client, error) {
-	log := r.WithField("checked", p)
+	log := r.WithField("checked", p.String())
 	if clt != nil {
 		resp, err := clt.Check(r.ctx, &healthpb.HealthCheckRequest{})
 		if err == nil && isPeerHealthy(*resp) {
@@ -210,7 +217,7 @@ func (r *peers) checkPeer(p Peer, clt Client, reconnectCh chan<- chan clientUpda
 }
 
 func (r *peers) reconnectPeer(p Peer, reqCh <-chan chan clientUpdate, doneCh chan struct{}) {
-	log := r.WithField("reconnected", p)
+	log := r.WithField("reconnected", p.String())
 	log.Info("Reconnecting")
 	defer log.Info("Reconnect loop closing.")
 	for {
@@ -220,6 +227,7 @@ func (r *peers) reconnectPeer(p Peer, reqCh <-chan chan clientUpdate, doneCh cha
 			err := utils.RetryWithInterval(r.ctx, r.Backoff(), func() (err error) {
 				clt, err = p.Reconnect(r.ctx)
 				if err != nil {
+					log.WithError(err).Info("Failed to reconnect.")
 					return r.ShouldReconnect(err)
 				}
 				return nil
@@ -298,11 +306,11 @@ func (r *peers) iterate(handler func(peer) error) error {
 }
 
 func (r *peers) close(ctx context.Context) error {
+	r.cancel()
 	var errors []error
 	for _, peer := range r.getPeers() {
 		errors = append(errors, peer.Disconnect(ctx))
 	}
-	r.cancel()
 	return trace.NewAggregate(errors...)
 }
 

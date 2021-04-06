@@ -46,7 +46,13 @@ type ETCDConfig struct {
 	// InsecureSkipVerify controls whether a client verifies the
 	// server's certificate chain and host name.
 	InsecureSkipVerify bool
+	// Client specifies the optional HTTP client to use for checks.
+	// If unspecified, one will be created with default settings
+	Client *http.Client
 }
+
+// defaultHTTPTimeout defines the default HTTP client timeout for HTTP-based checks
+const defaultHTTPTimeout = 10 * time.Second
 
 // defaultTLSHandshakeTimeout specifies the default maximum amount of time
 // spent waiting to for a TLS handshake
@@ -93,6 +99,18 @@ func etcdStatus(payload []byte) (healthy bool, err error) {
 	}
 
 	return (result.Health == "true" || nresult.Health == true), nil
+}
+
+// NewClient returns a new HTTP client with default configuration
+func (r *ETCDConfig) NewClient() (*http.Client, error) {
+	transport, err := r.NewHTTPTransport()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   defaultHTTPTimeout,
+	}, nil
 }
 
 // NewHTTPTransport creates a new http.Transport from the specified

@@ -31,7 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -105,7 +105,7 @@ type Applications interface {
 	WaitAppHook(ctx context.Context, ref HookRef) error
 
 	// DeleteAppHookJob deletes app hook job
-	DeleteAppHookJob(ctx context.Context, ref HookRef) error
+	DeleteAppHookJob(ctx context.Context, req DeleteAppHookJobRequest) error
 
 	// StreamAppHookLogs streams app hook logs to output writer, this is a blocking call
 	StreamAppHookLogs(ctx context.Context, ref HookRef, out io.Writer) error
@@ -115,6 +115,14 @@ type Applications interface {
 
 	// FetchIndexFile returns Helm chart repository index file data.
 	FetchIndexFile() (io.Reader, error)
+}
+
+// DeleteAppHookJobRequest is a request to delete a hook job.
+type DeleteAppHookJobRequest struct {
+	// HookRef is the hook job reference.
+	HookRef
+	// Cascade specifies whether dependent pods should be deleted as well.
+	Cascade bool `json:"cascade"`
 }
 
 // ListAppsRequest is a request to show applications in a repository
@@ -208,6 +216,8 @@ type HookRunRequest struct {
 	NodeSelector map[string]string `json:"node_selector"`
 	// Env defines additional environment variables to pass to the hook job
 	Env map[string]string `json:"env"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 	// SkipInitContainers skips injection of init containers
 	SkipInitContainers bool `json:"skip_init_containers"`
 	// HostNetwork specifies whether the hook job runs in host network namespace

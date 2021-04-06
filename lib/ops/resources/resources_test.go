@@ -18,6 +18,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -39,24 +40,28 @@ var _ = check.Suite(&ResourceControlSuite{})
 func (s *ResourceControlSuite) TestResourceControl(c *check.C) {
 	control := NewControl(&testResources{})
 
-	reader := strings.NewReader(resources)
+	reader := strings.NewReader(resourceBytes)
 
-	err := control.Create(reader, false, "")
+	err := control.Create(context.TODO(), reader, CreateRequest{})
 	c.Assert(err, check.IsNil)
 
 	w := &bytes.Buffer{}
-	err = control.Get(w, "", "", false, "text", "")
+	err = control.Get(w, ListRequest{}, "text")
 	c.Assert(err, check.IsNil)
 	c.Assert(w.String(), check.Equals, `kind1/resource1
 kind2/resource2
 kind1/resource3
 `)
 
-	err = control.Remove("kind2", "resource2", false, "")
+	req := RemoveRequest{
+		Kind: "kind2",
+		Name: "resource2",
+	}
+	err = control.Remove(context.TODO(), req)
 	c.Assert(err, check.IsNil)
 
 	w.Reset()
-	err = control.Get(w, "", "", false, "text", "")
+	err = control.Get(w, ListRequest{}, "text")
 	c.Assert(err, check.IsNil)
 	c.Assert(w.String(), check.Equals, `kind1/resource1
 kind1/resource3
@@ -68,7 +73,7 @@ type testResources struct {
 	resources []teleservices.UnknownResource
 }
 
-func (r *testResources) Create(req CreateRequest) error {
+func (r *testResources) Create(ctx context.Context, req CreateRequest) error {
 	r.resources = append(r.resources, req.Resource)
 	return nil
 }
@@ -77,7 +82,7 @@ func (r *testResources) GetCollection(req ListRequest) (Collection, error) {
 	return testCollection(r.resources), nil
 }
 
-func (r *testResources) Remove(req RemoveRequest) error {
+func (r *testResources) Remove(ctx context.Context, req RemoveRequest) error {
 	for i, resource := range r.resources {
 		if resource.Kind == req.Kind && resource.Metadata.Name == req.Name {
 			r.resources = append(r.resources[:i], r.resources[i+1:]...)
@@ -124,7 +129,7 @@ func (c testCollection) WriteJSON(w io.Writer) error {
 	return trace.Wrap(err)
 }
 
-const resources = `
+const resourceBytes = `
 kind: kind1
 metadata:
   name: resource1

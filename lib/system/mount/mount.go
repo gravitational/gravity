@@ -24,6 +24,7 @@ import (
 
 	"github.com/docker/docker/pkg/mount"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
 // RoBindMount bind-mounts the specified hostDir in
@@ -32,22 +33,40 @@ import (
 // inside the new environment
 func (r *Mounter) RoBindMount(hostDir, localDir string) error {
 	dir := r.abs(localDir)
+	if err := r.BindMount(hostDir, localDir); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := mount.ForceMount(hostDir, dir, "none", "remount,ro,bind"); err != nil {
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"src":        hostDir,
+			"dst":        dir,
+		}).Warn("Failed to remount.")
+		return trace.Wrap(err, "failed to remount %v as %v (read-only)", hostDir, dir)
+	}
+	return nil
+}
 
+// BindMount bind-mounts the specified hostDir.
+// After chroot(r.rootDir), hostDir will be available as localDir
+// inside the new environment
+func (r *Mounter) BindMount(hostDir, localDir string) error {
+	dir := r.abs(localDir)
 	err := os.MkdirAll(dir, defaults.SharedDirMask)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
-
-	if mounted, _ := mount.Mounted(dir); !mounted {
-		if err := mount.Mount(hostDir, dir, "none", "bind,rw"); err != nil {
-			return trace.Wrap(err, "failed to mount %v as %v", hostDir, dir)
-		}
+	if mounted, _ := mount.Mounted(dir); mounted {
+		return nil
 	}
-
-	if err := mount.ForceMount(hostDir, dir, "none", "remount,ro,bind"); err != nil {
-		return trace.Wrap(err, "failed to remount %v as %v (read-only)", hostDir, dir)
+	if err := mount.Mount(hostDir, dir, "none", "bind,rw"); err != nil {
+		log.WithFields(log.Fields{
+			log.ErrorKey: err,
+			"src":        hostDir,
+			"dst":        dir,
+		}).Warn("Failed to mount.")
+		return trace.Wrap(err, "failed to mount %v as %v", hostDir, dir)
 	}
-
 	return nil
 }
 

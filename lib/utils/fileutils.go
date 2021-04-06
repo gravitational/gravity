@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -105,6 +106,19 @@ func ReadPath(path string) ([]byte, error) {
 	return bytes, nil
 }
 
+// ReaderForPath returns a reader for file at given path
+func ReaderForPath(path string) (io.ReadCloser, error) {
+	abs, err := NormalizePath(path)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	f, err := os.Open(abs)
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
+	return f, nil
+}
+
 // StatDir stats directory, returns error if file exists, but not a directory
 func StatDir(path string) (os.FileInfo, error) {
 	fi, err := os.Stat(path)
@@ -131,9 +145,18 @@ func StatFile(path string) (os.FileInfo, error) {
 	return fi, nil
 }
 
-// IsDirectory determines if dir specifies a directory
-func IsDirectory(dir string) (bool, error) {
-	fi, err := os.Stat(dir)
+// IsFile determines if path specifies a regular file
+func IsFile(path string) (bool, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false, trace.ConvertSystemError(err)
+	}
+	return !fi.IsDir() && fi.Mode().IsRegular(), nil
+}
+
+// IsDirectory determines if path specifies a directory
+func IsDirectory(path string) (bool, error) {
+	fi, err := os.Stat(path)
 	if err != nil {
 		return false, trace.ConvertSystemError(err)
 	}
@@ -145,13 +168,13 @@ func IsDirectory(dir string) (bool, error) {
 func IsDirectoryEmpty(dir string) (bool, error) {
 	f, err := os.Open(dir)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, trace.ConvertSystemError(err)
 	}
 	defer f.Close()
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil
 	}
-	return false, err
+	return false, trace.ConvertSystemError(err)
 }
 
 // CopyDirContents copies all contents of the source directory (including the
@@ -163,6 +186,7 @@ func CopyDirContents(fromDir, toDir string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	fromDir = filepath.Clean(fromDir)
 	err = filepath.Walk(fromDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return trace.Wrap(err)
@@ -204,16 +228,13 @@ func CopyDirContents(fromDir, toDir string) error {
 // EnsureLocalPath("", ".gravity", "config") -> ${HOME}/.gravity/config
 //
 // It also makes sure that base dir exists
-func EnsureLocalPath(customPath string, defaultLocalDir, defaultLocalPath string) (string, error) {
-	if customPath == "" {
-		homeDir := os.Getenv(constants.EnvHome)
-		if homeDir == "" {
-			return "", trace.BadParameter("no path provided and environment variable %v is not not set", constants.EnvHome)
-		}
-		customPath = filepath.Join(homeDir, defaultLocalDir, defaultLocalPath)
+func EnsureLocalPath(customPath, defaultLocalDir, defaultLocalPath string) (string, error) {
+	path, err := GetLocalPath(customPath, defaultLocalDir, defaultLocalPath)
+	if err != nil {
+		return "", trace.Wrap(err)
 	}
-	baseDir := filepath.Dir(customPath)
-	_, err := StatDir(baseDir)
+	baseDir := filepath.Dir(path)
+	_, err = StatDir(baseDir)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			if err := MkdirAll(baseDir, defaults.PrivateDirMask); err != nil {
@@ -223,7 +244,20 @@ func EnsureLocalPath(customPath string, defaultLocalDir, defaultLocalPath string
 			return "", trace.Wrap(err)
 		}
 	}
-	return customPath, nil
+	return path, nil
+}
+
+// GetLocalPath constructs path to the local gravity config file like described
+// in the EnsureLocalPath above.
+func GetLocalPath(customPath, defaultLocalDir, defaultLocalPath string) (string, error) {
+	if customPath != "" {
+		return customPath, nil
+	}
+	homeDir := os.Getenv(constants.EnvHome)
+	if homeDir == "" {
+		return "", trace.NotFound("no path provided and environment variable %v is not set", constants.EnvHome)
+	}
+	return filepath.Join(homeDir, defaultLocalDir, defaultLocalPath), nil
 }
 
 // CopyFile copies contents of src to dst atomically
@@ -242,12 +276,24 @@ func CopyReader(dst string, src io.Reader) error {
 // Uses CopyReaderWithPerms for its implementation - see function documentation
 // for details of operation
 func CopyFileWithPerms(dst, src string, perm os.FileMode) error {
+	return CopyFileWithOptions(dst, src, PermOption(perm))
+}
+
+// CopyFileWithOptions copies the contents from src to dst atomically.
+// Applies specified options to the target path
+func CopyFileWithOptions(dst, src string, options ...FileOption) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
 	defer in.Close()
-	return CopyReaderWithPerms(dst, in, perm)
+	return CopyReaderWithOptions(dst, in, options...)
+}
+
+// CopyExecutable copies the provided reader to the specified destination and
+// sets executable permissions.
+func CopyExecutable(dst string, src io.Reader) error {
+	return CopyReaderWithPerms(dst, src, defaults.SharedExecutableMask)
 }
 
 // CopyReaderWithPerms copies the contents from src to dst atomically.
@@ -255,17 +301,23 @@ func CopyFileWithPerms(dst, src string, perm os.FileMode) error {
 // If the copy fails, CopyReaderWithPerms aborts and dst is preserved.
 // Adopted with modifications from https://go-review.googlesource.com/#/c/1591/9/src/io/ioutil/ioutil.go
 func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
+	return CopyReaderWithOptions(dst, src, PermOption(perm))
+}
+
+// CopyReaderWithOptions copies the contents from src to dst atomically.
+// If dst does not exist, CopyReaderWithOptions creates it.
+// Callers choose the options to apply on the resulting file with options
+func CopyReaderWithOptions(dst string, src io.Reader, options ...FileOption) error {
 	tmp, err := ioutil.TempFile(filepath.Dir(dst), "")
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
 
-	cleanup := func() error {
+	cleanup := func() {
 		err := os.Remove(tmp.Name())
 		if err != nil {
-			log.Errorf("failed to remove %q: %v", tmp.Name(), err)
+			log.WithError(err).Warnf("Failed to remove %q.", tmp.Name())
 		}
-		return trace.ConvertSystemError(err)
 	}
 
 	_, err = io.Copy(tmp, src)
@@ -278,9 +330,11 @@ func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
 		cleanup()
 		return trace.ConvertSystemError(err)
 	}
-	if err = os.Chmod(tmp.Name(), perm); err != nil {
-		cleanup()
-		return trace.ConvertSystemError(err)
+	for _, option := range options {
+		if err = option(tmp.Name()); err != nil {
+			cleanup()
+			return trace.ConvertSystemError(err)
+		}
 	}
 	err = os.Rename(tmp.Name(), dst)
 	if err != nil {
@@ -288,6 +342,25 @@ func CopyReaderWithPerms(dst string, src io.Reader, perm os.FileMode) error {
 		return trace.ConvertSystemError(err)
 	}
 	return nil
+}
+
+// FileOption defines a functional option to apply to specified path
+type FileOption func(path string) error
+
+// PermOption changes the file permissions on the specified file
+// to perm
+func PermOption(perm os.FileMode) FileOption {
+	return func(path string) error {
+		return os.Chmod(path, perm)
+	}
+}
+
+// OwnerOption changes the owner on the specified file
+// to (uid, gid)
+func OwnerOption(uid, gid int) FileOption {
+	return func(path string) error {
+		return os.Chown(path, uid, gid)
+	}
 }
 
 // CleanupReadCloser is an io.ReadCloser that tracks when the reading side is closed
@@ -317,7 +390,7 @@ func (r *CleanupReadCloser) Close() (err error) {
 func WithTempDir(fn func(dir string) error, prefix string) error {
 	dir, err := ioutil.TempDir("", prefix)
 	if err != nil {
-		return trace.Wrap(err)
+		return trace.ConvertSystemError(err)
 	}
 	defer os.RemoveAll(dir)
 
@@ -331,7 +404,7 @@ func WithTempDir(fn func(dir string) error, prefix string) error {
 // RemoveContents removes any children of dir.
 // It removes everything it can but returns the first error
 // it encounters. If the dir does not exist, RemoveContents
-// returns nil (no error).
+// returns nil.
 func RemoveContents(dir string) error {
 	fd, err := os.Open(dir)
 	if err != nil {
@@ -387,17 +460,21 @@ func EnsureLineInFile(path, line string) error {
 }
 
 // Chown adjusts ownership of the specified directory and all its subdirectories
-func Chown(dir, uid, gid string) error {
-	out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), dir).CombinedOutput()
-	if err != nil {
-		return trace.Wrap(err, "failed to chown %q to %v:%v: %s", dir, uid, gid, out)
-	}
-	return nil
+func Chown(path string, uid, gid int) error {
+	err := Retry(time.Second, 5, func() error {
+		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v", uid, gid), path).CombinedOutput()
+		if err != nil {
+			return trace.Wrap(err, "failed to chown %q to %v:%v: %s", path, uid, gid, out)
+		}
+		return nil
+	})
+	return trace.Wrap(err)
+
 }
 
 // CopyWithRetries copies the contents of the reader obtained with open to targetPath
 // retrying on transient errors
-func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), mode os.FileMode) error {
+func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.ReadCloser, error), options ...FileOption) error {
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
 	err := RetryTransient(ctx, b, func() error {
 		rc, err := open()
@@ -406,7 +483,7 @@ func CopyWithRetries(ctx context.Context, targetPath string, open func() (io.Rea
 		}
 		defer rc.Close()
 
-		err = CopyReaderWithPerms(targetPath, rc, mode)
+		err = CopyReaderWithOptions(targetPath, rc, options...)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)

@@ -18,9 +18,16 @@ package utils
 
 import (
 	"archive/tar"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
+	"net"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,7 +38,9 @@ import (
 	cfsslhelpers "github.com/cloudflare/cfssl/helpers"
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/license/authority"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
+	"github.com/sirupsen/logrus"
 )
 
 // CertificateOutput contains information about cluster certificate
@@ -52,6 +61,68 @@ type CertificateName struct {
 	Organization []string `json:"org"`
 	// OrganizationalUnit is the subject/issuer unit
 	OrganizationalUnit []string `json:"org_unit"`
+}
+
+// GenerateSelfSignedCert generates a self signed certificate that
+// is valid for given domain names and ips, returns PEM-encoded bytes with key and cert
+// Generates a certificate that is compatible with the MacOS requirements described at:
+// https://support.apple.com/en-us/HT210176
+func GenerateSelfSignedCert(hostNames []string) (*teleutils.TLSCredentials, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	notBefore := time.Now().Add(defaults.CertBackdating)
+	notAfter := notBefore.Add(time.Hour * 24 * 825) // 825 days or fewer is the required validity period for MacOS
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	entity := pkix.Name{
+		CommonName:   "localhost",
+		Country:      []string{"US"},
+		Organization: []string{"localhost"},
+		// OrganizationalUnit is needed in order to be able to identify the cert when doing
+		// automated cert rotation. If a user decides to use their own cert
+		// we should not rotate.
+		OrganizationalUnit: []string{defaults.SelfSignedCertWebOrg},
+	}
+
+	template := x509.Certificate{
+		SerialNumber:          serialNumber,
+		Issuer:                entity,
+		Subject:               entity,
+		NotBefore:             notBefore,
+		NotAfter:              notAfter,
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, // MacOS specific requirement
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	// collect IP addresses localhost resolves to and add them to the cert. template:
+	template.DNSNames = append(hostNames, "localhost.local")
+	template.IPAddresses = []net.IP{net.ParseIP("127.0.0.1")}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	publicKeyBytes, err := x509.MarshalPKIXPublicKey(priv.Public())
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to marshal PKI public key.")
+		return nil, trace.Wrap(err)
+	}
+
+	return &teleutils.TLSCredentials{
+		PublicKey:  pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: publicKeyBytes}),
+		PrivateKey: pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}),
+		Cert:       pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes}),
+	}, nil
 }
 
 // CertificateValidity contains information about certificate validity dates
@@ -137,7 +208,6 @@ func ReadTLSArchive(source io.Reader) (TLSArchive, error) {
 		var hdr *tar.Header
 		hdr, err = reader.Next()
 		if err == io.EOF {
-			err = nil
 			break
 		}
 		if err != nil {

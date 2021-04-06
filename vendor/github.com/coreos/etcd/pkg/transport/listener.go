@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/etcd/pkg/fileutil"
 	"github.com/coreos/etcd/pkg/tlsutil"
 )
 
@@ -53,6 +54,9 @@ func wrapTLS(addr, scheme string, tlsinfo *TLSInfo, l net.Listener) (net.Listene
 	if scheme != "https" && scheme != "unixs" {
 		return l, nil
 	}
+	if tlsinfo != nil && tlsinfo.SkipClientSANVerify {
+		return NewTLSListener(l, tlsinfo)
+	}
 	return newTLSListener(l, tlsinfo, checkSAN)
 }
 
@@ -64,6 +68,8 @@ type TLSInfo struct {
 	ClientCertAuth     bool
 	CRLFile            string
 	InsecureSkipVerify bool
+
+	SkipClientSANVerify bool
 
 	// ServerName ensures the cert matches the given host in case of discovery / virtual hosting
 	ServerName string
@@ -95,8 +101,9 @@ func (info TLSInfo) Empty() bool {
 	return info.CertFile == "" && info.KeyFile == ""
 }
 
-func SelfCert(dirpath string, hosts []string) (info TLSInfo, err error) {
-	if err = os.MkdirAll(dirpath, 0700); err != nil {
+func SelfCert(dirpath string, hosts []string, additionalUsages ...x509.ExtKeyUsage) (info TLSInfo, err error) {
+	err = fileutil.TouchDirAll(dirpath)
+	if err != nil {
 		return
 	}
 
@@ -124,7 +131,7 @@ func SelfCert(dirpath string, hosts []string) (info TLSInfo, err error) {
 		NotAfter:     time.Now().Add(365 * (24 * time.Hour)),
 
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		ExtKeyUsage:           append([]x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}, additionalUsages...),
 		BasicConstraintsValid: true,
 	}
 

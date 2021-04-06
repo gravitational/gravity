@@ -18,7 +18,6 @@ package server
 
 import (
 	"bytes"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,11 +25,14 @@ import (
 	"github.com/gravitational/gravity/lib/rpc/client"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 	. "gopkg.in/check.v1"
 )
 
@@ -50,12 +52,15 @@ func (r *S) TestClientExecutesCommandsRemotely(c *C) {
 	log := r.WithField("test", "ClientExecutesCommandsRemotely")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger:     log.WithField("server", listener.Addr()),
 		Listener:        listener,
 		Credentials:     creds,
 		commandExecutor: cmd,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -74,19 +79,24 @@ func (r *S) TestAgentsConnectToController(c *C) {
 	log := r.WithField("test", "AgentsConnectToController")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	peer := r.newPeer(c, PeerConfig{Config: Config{Listener: listen(c)}}, srv.Addr().String(), log)
-	go peer.Serve()
-	defer withTestCtx(peer.Stop)
+	go func() {
+		c.Assert(peer.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer.Stop, c)
 
 	err = store.expect(ctx, 1)
 	cancel()
@@ -107,36 +117,45 @@ func (r *S) TestPeerDisconnect(c *C) {
 	log := r.WithField("test", "PeerDisconnect")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	// launch two peers
 	peer1, err := NewPeer(PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: creds,
 			systemInfo:  TestSystemInfo{},
 		},
-	}, srv.Addr().String(), log)
+	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go peer1.Serve()
-	defer withTestCtx(peer1.Stop)
+	go func() {
+		c.Assert(peer1.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer1.Stop, c)
 
 	peer2, err := NewPeer(PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: creds,
 			systemInfo:  TestSystemInfo{},
 		},
-	}, srv.Addr().String(), log)
+	}, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go peer2.Serve()
-	defer withTestCtx(peer2.Stop)
+	go func() {
+		c.Assert(peer2.Serve(), IsNil)
+	}()
+	defer withTestCtx(peer2.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	defer cancel()
@@ -165,13 +184,16 @@ func (r *S) TestServerReportsHealth(c *C) {
 	log := r.WithField("test", "ServerReportsHealth")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	clt, err := newClient(ctx, creds.Client, srv.Addr().String())
 	c.Assert(err, IsNil)
@@ -191,14 +213,17 @@ func (r *S) TestWaitsUntilAgentShutsDown(c *C) {
 	log := r.WithField("test", "WaitsUntilAgentShutsDown")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
 
-	withTestCtx(srv.Stop)
+	withTestCtx(srv.Stop, c)
 	select {
 	case <-srv.Done():
 	case <-ctx.Done():
@@ -212,28 +237,37 @@ func (r *S) TestRejectsPeer(c *C) {
 	log := r.WithField("test", "RejectsPeer")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr().String()),
 		Listener:    listener,
 		Credentials: creds,
 		PeerStore:   store,
-	}, log.WithField("server", listener.Addr().String()))
+	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	watchCh := make(chan WatchEvent, 1)
 	config := PeerConfig{
 		Config: Config{
+			FieldLogger: log,
 			Listener:    listen(c),
 			Credentials: TestCredentials(c),
 			systemInfo:  TestSystemInfo{},
 		},
 		WatchCh: watchCh,
+		ReconnectStrategy: ReconnectStrategy{
+			ShouldReconnect: utils.ShouldReconnectPeer,
+		},
 	}
-	p, err := NewPeer(config, srv.Addr().String(), log)
+	p, err := NewPeer(config, srv.Addr().String())
 	c.Assert(err, IsNil)
-	go p.Serve()
-	defer withTestCtx(p.Stop)
+	go func() {
+		c.Assert(p.Serve(), IsNil)
+	}()
+	defer withTestCtx(p.Stop, c)
 
 	select {
 	case update := <-watchCh:
@@ -247,19 +281,19 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "foo",
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 512,
 				FreeKB:  0,
 			},
 		},
 		NetworkInterfaces: map[string]storage.NetworkInterface{
-			"device0": storage.NetworkInterface{
+			"device0": {
 				Name: "device0",
 				IPv4: "172.168.0.1",
 			},
@@ -281,14 +315,17 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 	log := r.WithField("test", "QueriesSystemInfo")
 	listener := listen(c)
 	srv, err := New(Config{
+		FieldLogger: log.WithField("server", listener.Addr()),
 		Listener:    listener,
 		Credentials: creds,
 		systemInfo:  TestSystemInfo(*sysinfo),
-	}, log.WithField("server", listener.Addr()))
+	})
 	c.Assert(err, IsNil)
 
-	go srv.Serve()
-	defer withTestCtx(srv.Stop)
+	go func() {
+		c.Assert(srv.Serve(), IsNil)
+	}()
+	defer withTestCtx(srv.Stop, c)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
@@ -301,22 +338,20 @@ func (r *S) TestQueriesSystemInfo(c *C) {
 
 	obtained, err := clt.GetSystemInfo(ctx)
 	c.Assert(err, IsNil)
-	// Namespace is not serialized
-	sysinfo.Namespace = ""
 	compare.DeepCompare(c, obtained, sysinfo)
 }
 
 func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agentServer, expectedOutput string) {
-	defer withTestCtx(srv.Stop)
+	defer withTestCtx(srv.Stop, c)
 
 	clientLog := r.WithField(trace.Component, "client")
 	var buf bytes.Buffer
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
-	err := clt.Command(ctx, clientLog, &buf, "test")
+	err := clt.Command(ctx, clientLog, &buf, &buf, "test")
 	c.Assert(err, IsNil)
 
-	err = clt.Shutdown(ctx)
+	err = clt.Shutdown(ctx, &pb.ShutdownRequest{})
 	clt.Close()
 
 	c.Assert(err, IsNil)
@@ -324,18 +359,18 @@ func (r *S) clientExecutesCommandsWithClient(c *C, clt client.Client, srv *agent
 }
 
 func (r *S) newPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger) *PeerServer {
+	config.FieldLogger = log.WithField("peer", config.Listener.Addr())
 	return NewTestPeer(c, config, serverAddr,
-		log.WithField("peer", config.Listener.Addr()),
 		testCommand{"test output"}, TestSystemInfo{},
 	)
 }
 
 func (r rejectingStore) NewPeer(ctx context.Context, req pb.PeerJoinRequest, peer Peer) error {
-	return trace.AccessDenied("peer not authorized")
+	return status.Error(codes.PermissionDenied, "peer not authorized")
 }
 
 func (r rejectingStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest, peer Peer) error {
-	return trace.AccessDenied("peer not authorized")
+	return status.Error(codes.PermissionDenied, "peer not authorized")
 }
 
 type rejectingStore struct{}
@@ -421,8 +456,4 @@ func (r *peerStore) remove(peer Peer) {
 	r.Lock()
 	defer r.Unlock()
 	delete(r.peers, peer.Addr())
-}
-
-func isPeerDeniedError(err error) bool {
-	return strings.Contains(err.Error(), "peer not authorized")
 }

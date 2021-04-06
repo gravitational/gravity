@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,13 +33,14 @@ import (
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/auth"
+	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 
 	"github.com/mailgun/lemma/secret"
 	"github.com/pborman/uuid"
-	log "github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
 )
 
@@ -129,9 +130,34 @@ type sealData struct {
 	Nonce []byte `json:"nonce"`
 }
 
+// SSHLogin contains SSH login parameters
+type SSHLogin struct {
+	// Context is an external context
+	Context context.Context
+	// ProxyAddr is the target proxy address
+	ProxyAddr string
+	// ConnectorID is the OIDC or SAML connector ID to use
+	ConnectorID string
+	// PubKey is SSH public key to sign
+	PubKey []byte
+	// TTL is requested TTL of the client certificates
+	TTL time.Duration
+	// Insecure turns off verification for x509 target proxy
+	Insecure bool
+	// Pool is x509 cert pool to use for server certifcate verification
+	Pool *x509.CertPool
+	// Protocol is an optional protocol selection
+	Protocol string
+	// Compatibility sets compatibility mode for SSH certificates
+	Compatibility string
+	// BindAddr is an optional host:port address to bind
+	// to for SSO login flows
+	BindAddr string
+}
+
 // SSHAgentSSOLogin is used by SSH Agent (tsh) to login using OpenID connect
-func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, protocol string, compatibility string) (*auth.SSHLoginResponse, error) {
-	clt, proxyURL, err := initClient(proxyAddr, insecure, pool)
+func SSHAgentSSOLogin(login SSHLogin) (*auth.SSHLoginResponse, error) {
+	clt, proxyURL, err := initClient(login.ProxyAddr, login.Insecure, login.Pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -172,7 +198,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 		})
 	}
 
-	server := httptest.NewServer(makeHandler(func(w http.ResponseWriter, r *http.Request) (*auth.SSHLoginResponse, error) {
+	handler := makeHandler(func(w http.ResponseWriter, r *http.Request) (*auth.SSHLoginResponse, error) {
 		if r.URL.Path != "/callback" {
 			return nil, trace.NotFound("path not found")
 		}
@@ -198,8 +224,38 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 			return nil, trace.BadParameter("failed to decode response: in %v, err: %v", r.URL.String(), err)
 		}
 		return re, nil
-	}))
+	})
+
+	redirPath := "/" + uuid.New()
+	// longURL will be set based on the response from the webserver
+	var longURL utils.SyncString
+	mux := http.NewServeMux()
+	mux.Handle("/callback", handler)
+	mux.HandleFunc(redirPath, func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, longURL.Value(), http.StatusFound)
+	})
+	redir := httptest.NewServer(mux)
+	defer redir.Close()
+
+	var server *httptest.Server
+	if login.BindAddr != "" {
+		log.Debugf("Binding to %v.", login.BindAddr)
+		listener, err := net.Listen("tcp", login.BindAddr)
+		if err != nil {
+			return nil, trace.Wrap(err, "%v: could not bind to %v, make sure the address is host:port format for ipv4 and [ipv6]:port format for ipv6, and the address is not in use", err, login.BindAddr)
+		}
+		server = &httptest.Server{
+			Listener: listener,
+			Config:   &http.Server{Handler: mux},
+		}
+		server.Start()
+	} else {
+		server = httptest.NewServer(mux)
+	}
 	defer server.Close()
+
+	// redirURL is the short URL presented to the user
+	redirURL := server.URL + redirPath
 
 	u, err := url.Parse(server.URL + "/callback")
 	if err != nil {
@@ -209,12 +265,12 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 	query.Set("secret", secret.KeyToEncodedString(keyBytes))
 	u.RawQuery = query.Encode()
 
-	out, err := clt.PostJSON(clt.Endpoint("webapi", protocol, "login", "console"), SSOLoginConsoleReq{
+	out, err := clt.PostJSON(login.Context, clt.Endpoint("webapi", login.Protocol, "login", "console"), SSOLoginConsoleReq{
 		RedirectURL:   u.String(),
-		PublicKey:     pubKey,
-		CertTTL:       ttl,
-		ConnectorID:   connectorID,
-		Compatibility: compatibility,
+		PublicKey:     login.PubKey,
+		CertTTL:       login.TTL,
+		ConnectorID:   login.ConnectorID,
+		Compatibility: login.Compatibility,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -225,18 +281,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	// Start a HTTP server on the client that re-directs to the SAML provider.
-	// This creates nice short URLs and also works around some platforms (like
-	// Windows) that truncate long URLs before passing them to the default browser.
-	redirPath := "/" + uuid.New()
-	redirMux := http.NewServeMux()
-	redirMux.HandleFunc(redirPath, func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, re.RedirectURL, http.StatusFound)
-	})
-	redir := httptest.NewServer(redirMux)
-	defer redir.Close()
-	redirURL := redir.URL + redirPath
+	longURL.Set(re.RedirectURL)
 
 	// If a command was found to launch the browser, create and start it.
 	var execCmd *exec.Cmd
@@ -253,7 +298,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 		if err == nil {
 			execCmd = exec.Command(path, "url.dll,FileProtocolHandler", redirURL)
 		}
-	// Linux or any other operating sytem.
+	// Linux or any other operating system.
 	default:
 		path, err := exec.LookPath(teleport.OpenBrowserLinux)
 		if err == nil {
@@ -266,7 +311,7 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 
 	// Print to screen in-case the command that launches the browser did not run.
 	fmt.Printf("If browser window does not open automatically, open it by ")
-	fmt.Printf("clicking on the link:\n %v\n", redirURL)
+	fmt.Printf("clicking on the link:\n %v\n", utils.ClickableURL(redirURL))
 
 	log.Infof("Waiting for response at: %v.", server.URL)
 
@@ -277,12 +322,12 @@ func SSHAgentSSOLogin(ctx context.Context, proxyAddr, connectorID string, pubKey
 	case response := <-waitC:
 		log.Debugf("Got response from browser.")
 		return response, nil
-	case <-time.After(60 * time.Second):
-		log.Debugf("Timed out waiting for callback.")
+	case <-time.After(defaults.CallbackTimeout):
+		log.Debugf("Timed out waiting for callback after %v.", defaults.CallbackTimeout)
 		return nil, trace.Wrap(trace.Errorf("timed out waiting for callback"))
-	case <-ctx.Done():
+	case <-login.Context.Done():
 		log.Debugf("Canceled by user.")
-		return nil, trace.Wrap(ctx.Err())
+		return nil, trace.Wrap(login.Context.Err())
 	}
 }
 
@@ -305,7 +350,17 @@ type ProxySettings struct {
 	Kube KubeProxySettings `json:"kube"`
 	// SSH is SSH specific proxy settings
 	SSH SSHProxySettings `json:"ssh"`
+	// Features is a list of additional features proxy supports such as
+	// Docker registry or Helm chart repository.
+	Features []string `json:"features,omitempty"`
 }
+
+const (
+	// FeatureDocker indicates that server provides Docker registry.
+	FeatureDocker = "docker"
+	// FeatureHelm indicates that server provides Helm repository.
+	FeatureHelm = "helm"
+)
 
 // KubeProxySettings is kubernetes proxy settings
 type KubeProxySettings struct {
@@ -379,7 +434,7 @@ type GithubSettings struct {
 // to better user experience: users get connection errors before being asked for passwords. The second
 // is to return the form of authentication that the server supports. This also leads to better user
 // experience: users only get prompted for the type of authentication the server supports.
-func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName string) (*PingResponse, error) {
+func Ping(ctx context.Context, proxyAddr string, insecure bool, pool *x509.CertPool, connectorName string) (*PingResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -390,7 +445,7 @@ func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName st
 		endpoint = clt.Endpoint("webapi", "ping", connectorName)
 	}
 
-	response, err := clt.Get(endpoint, url.Values{})
+	response, err := clt.Get(ctx, endpoint, url.Values{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -408,12 +463,12 @@ func Ping(proxyAddr string, insecure bool, pool *x509.CertPool, connectorName st
 // if credentials are valid
 //
 // proxyAddr must be specified as host:port
-func SSHAgentLogin(proxyAddr, user, password, otpToken string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
+func SSHAgentLogin(ctx context.Context, proxyAddr, user, password, otpToken string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	re, err := clt.PostJSON(clt.Endpoint("webapi", "ssh", "certs"), CreateSSHCertReq{
+	re, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "ssh", "certs"), CreateSSHCertReq{
 		User:          user,
 		Password:      password,
 		OTPToken:      otpToken,
@@ -438,13 +493,13 @@ func SSHAgentLogin(proxyAddr, user, password, otpToken string, pubKey []byte, tt
 // If the credentials are valid, the proxy wiil return a challenge.
 // We then call the official u2f-host binary to perform the signing and pass the signature to the proxy.
 // If the authentication succeeds, we will get a temporary certificate back
-func SSHAgentU2FLogin(proxyAddr, user, password string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
+func SSHAgentU2FLogin(ctx context.Context, proxyAddr, user, password string, pubKey []byte, ttl time.Duration, insecure bool, pool *x509.CertPool, compatibility string) (*auth.SSHLoginResponse, error) {
 	clt, _, err := initClient(proxyAddr, insecure, pool)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	u2fSignRequest, err := clt.PostJSON(clt.Endpoint("webapi", "u2f", "signrequest"), U2fSignRequestReq{
+	u2fSignRequest, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "u2f", "signrequest"), U2fSignRequestReq{
 		User: user,
 		Pass: password,
 	})
@@ -503,7 +558,7 @@ func SSHAgentU2FLogin(proxyAddr, user, password string, pubKey []byte, ttl time.
 		return nil, trace.Wrap(err)
 	}
 
-	re, err := clt.PostJSON(clt.Endpoint("webapi", "u2f", "certs"), CreateSSHCertWithU2FReq{
+	re, err := clt.PostJSON(ctx, clt.Endpoint("webapi", "u2f", "certs"), CreateSSHCertWithU2FReq{
 		User:            user,
 		U2FSignResponse: *u2fSignResponse,
 		PubKey:          pubKey,

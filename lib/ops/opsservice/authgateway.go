@@ -17,9 +17,12 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	teleservices "github.com/gravitational/teleport/lib/services"
@@ -29,11 +32,11 @@ import (
 )
 
 // UpsertAuthGateway updates auth gateway configuration.
-func (o *Operator) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) error {
+func (o *Operator) UpsertAuthGateway(ctx context.Context, key ops.SiteKey, gw storage.AuthGateway) error {
 	// Updating auth gateway configuration may trigger gravity-site
 	// restart so allow to create it only on active clusters (to avoid
 	// interrupting an operation for example).
-	cluster, err := o.GetLocalSite()
+	cluster, err := o.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -45,7 +48,12 @@ func (o *Operator) UpsertAuthGateway(key ops.SiteKey, gw storage.AuthGateway) er
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return UpsertAuthGateway(client, o.users(), gw)
+	err = UpsertAuthGateway(client, o.users(), gw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.AuthGatewayUpdated)
+	return nil
 }
 
 // UpsertAuthGateway updates auth gateway configuration.
@@ -75,7 +83,7 @@ func UpsertAuthGateway(client *kubernetes.Clientset, identity users.Identity, gw
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return updateConfigMap(client.Core().ConfigMaps(defaults.KubeSystemNamespace),
+	return updateConfigMap(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace),
 		constants.AuthGatewayConfigMap, defaults.KubeSystemNamespace, string(data), nil)
 }
 
@@ -90,7 +98,7 @@ func (o *Operator) GetAuthGateway(key ops.SiteKey) (storage.AuthGateway, error) 
 
 // GetAuthGateway returns auth gateway configuration
 func GetAuthGateway(client *kubernetes.Clientset, identity users.Identity) (storage.AuthGateway, error) {
-	data, err := getConfigMap(client.Core().ConfigMaps(defaults.KubeSystemNamespace),
+	data, err := getConfigMap(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace),
 		constants.AuthGatewayConfigMap)
 	if err != nil {
 		return nil, trace.Wrap(err)

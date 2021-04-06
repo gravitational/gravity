@@ -133,6 +133,13 @@ type ProcTime struct {
 	Total     uint64
 }
 
+type ProcCpu struct {
+	ProcTime
+	LastTime uint64
+	Percent  float64
+	cache    map[int]ProcCpu
+}
+
 type ProcArgs struct {
 	List []string
 }

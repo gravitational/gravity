@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,12 +29,11 @@ import (
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/gokyle/hotp"
 	"github.com/gravitational/teleport"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-
-	"github.com/gokyle/hotp"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
@@ -134,6 +133,7 @@ func (u *UsersService) DeleteAPIKey(userEmail, token string) error {
 	return trace.Wrap(u.backend.DeleteAPIKey(userEmail, token))
 }
 
+// CreateProvisioningToken creates a new token from the specified template t
 func (u *UsersService) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
 	return u.backend.CreateProvisioningToken(t)
 }
@@ -168,11 +168,16 @@ func (u *UsersService) DeleteUserLoginAttempts(user string) error {
 }
 
 // CreateInstallToken creates a new one-time installation token
-func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.InstallToken, error) {
-	// generate a token for a one-time installation for the specifed account
-	data, err := users.CryptoRandomToken(defaults.InstallTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storage.InstallToken, err error) {
+	// In case token was supplied externally, use the provided value
+	data := t.Token
+	if data == "" {
+		// generate a token for a one-time installation for the specifed account
+		data, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		t.Token = data
 	}
 	email := fmt.Sprintf("install@%v", data)
 
@@ -198,13 +203,8 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (*storage.Inst
 		}
 	}
 
-	// In case if token supplied externally, use its original value
-	if t.Token == "" {
-		t.Token = data
-	}
-
 	t.UserEmail = user.GetName()
-	token, err := u.backend.CreateInstallToken(t)
+	token, err = u.backend.CreateInstallToken(t)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -351,23 +351,25 @@ func (c *UsersService) AuthenticateUserBasicAuth(username, password string) (sto
 		return nil, trace.BadParameter("unexpected user type %T", i)
 	}
 
+	if err = c.checkCanUseBasicAuth(user); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	switch user.GetType() {
 	case storage.AgentUser:
 		// check the provided password against agent api keys (it may have a few)
-		match := false
 		keys, err := c.backend.GetAPIKeys(user.GetName())
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		for _, k := range keys {
 			if subtle.ConstantTimeCompare([]byte(k.Token), []byte(password)) == 1 {
-				match = true
+				return user, nil
 			}
 		}
-		if !match {
-			return nil, trace.AccessDenied("bad agent api key")
-		}
-		return user, nil
+
+		return nil, trace.AccessDenied("bad agent api key")
+
 	case storage.AdminUser, storage.RegularUser:
 		keys, err := c.backend.GetAPIKeys(user.GetName())
 		if err != nil {
@@ -378,13 +380,30 @@ func (c *UsersService) AuthenticateUserBasicAuth(username, password string) (sto
 				return user, nil
 			}
 		}
-		if err := bcrypt.CompareHashAndPassword([]byte(user.GetPassword()), []byte(password)); err != nil {
-			return nil, trace.AccessDenied("bad user password")
+
+		if err := bcrypt.CompareHashAndPassword([]byte(user.GetPassword()), []byte(password)); err == nil {
+			return user, nil
 		}
-		return user, nil
+
+		return nil, trace.AccessDenied("bad user or password")
 	default:
 		return nil, trace.AccessDenied("unsupported user type: %v", user.GetType())
 	}
+}
+
+func (c *UsersService) checkCanUseBasicAuth(user storage.User) error {
+	// don't allow users with TOTP/HOTP tokens set to use Basic Auth
+	totp, err := c.GetTOTP(user.GetName())
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if len(totp) != 0 {
+		return trace.AccessDenied("basic auth not available")
+	}
+	if len(user.GetHOTP()) != 0 {
+		return trace.AccessDenied("basic auth not available")
+	}
+	return nil
 }
 
 // AuthenticateUserBearerAuth is used to authenticate site agent users
@@ -653,6 +672,33 @@ func (c *UsersService) upsertAPIKey(key storage.APIKey) (err error) {
 	return nil
 }
 
+// getUserTraits returns traits for the provided user.
+//
+// If the user has traits already assigned (which is the case for SSO users),
+// they are returned as-is. Otherwise returns the default set of traits
+// extracted from the user roles.
+func (c *UsersService) getUserTraits(user storage.User) (map[string][]string, error) {
+	if len(user.GetTraits()) != 0 {
+		return user.GetTraits(), nil
+	}
+	roles, err := teleservices.FetchRoles(user.GetRoles(), c, user.GetTraits())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	logins, err := roles.CheckLoginDuration(0)
+	if err != nil && !trace.IsAccessDenied(err) { // returns 'access denied' if there're no logins which is ok
+		return nil, trace.Wrap(err)
+	}
+	groups, err := roles.CheckKubeGroups(0)
+	if err != nil && !trace.IsAccessDenied(err) { // returns 'access denied' if there're no groups which is ok
+		return nil, trace.Wrap(err)
+	}
+	return map[string][]string{
+		teleport.TraitLogins:     logins,
+		teleport.TraitKubeGroups: groups,
+	}, nil
+}
+
 // UpsertUser creates a new user or updates existing user
 // In case of AgentUser it will generate a random token - API key
 // In case of AdminUser or Regular user it requires a password
@@ -666,11 +712,11 @@ func (c *UsersService) UpsertUser(teleuser teleservices.User) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	for _, role := range teleuser.GetRoles() {
-		if _, err := c.backend.GetRole(role); err != nil {
-			return trace.Wrap(err)
-		}
+	traits, err := c.getUserTraits(u)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+	u.SetTraits(traits)
 	var keys []storage.APIKey
 	if u.GetType() == storage.AgentUser {
 		// generate a unique api key for the agent
@@ -1007,12 +1053,12 @@ func (c *UsersService) UpsertTunnelConnection(conn teleservices.TunnelConnection
 }
 
 // GetTunnelConnections returns tunnel connections for a given cluster
-func (c *UsersService) GetTunnelConnections(clusterName string) ([]teleservices.TunnelConnection, error) {
+func (c *UsersService) GetTunnelConnections(clusterName string, opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	return c.backend.GetTunnelConnections(clusterName)
 }
 
 // GetAllTunnelConnections returns all tunnel connections
-func (c *UsersService) GetAllTunnelConnections() ([]teleservices.TunnelConnection, error) {
+func (c *UsersService) GetAllTunnelConnections(opts ...teleservices.MarshalOption) ([]teleservices.TunnelConnection, error) {
 	return c.backend.GetAllTunnelConnections()
 }
 
@@ -1286,6 +1332,13 @@ func (c *UsersService) CreateInviteToken(advertiseURL string, userInvite storage
 
 	if userInvite.ExpiresIn == 0 {
 		userInvite.ExpiresIn = defaults.SignupTokenTTL
+	}
+
+	// Validate that requested roles exist.
+	for _, role := range userInvite.Roles {
+		if _, err := c.GetRole(role); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 
 	userToken, err := c.createUserToken(storage.UserTokenTypeInvite, userInvite.Name, userInvite.ExpiresIn)
@@ -1599,7 +1652,7 @@ func (u *UsersService) DeleteAllCertAuthorities(caType teleservices.CertAuthType
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (teleservices.CertAuthority, error) {
+func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
 	return u.backend.GetCertAuthority(id, loadSigningKeys)
 }
 
@@ -1706,7 +1759,7 @@ func (u *UsersService) GetRemoteCluster(clusterName string) (teleservices.Remote
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (u *UsersService) GetRemoteClusters() ([]teleservices.RemoteCluster, error) {
+func (u *UsersService) GetRemoteClusters(opts ...teleservices.MarshalOption) ([]teleservices.RemoteCluster, error) {
 	return u.backend.GetRemoteClusters()
 }
 

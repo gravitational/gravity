@@ -56,7 +56,7 @@ data:
 ```
 
 Dashboard ConfigMap may contain multiple keys with dashboards and key names are not relevant. The monitoring
-application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/master/resources/resources.yaml#L413)
+application source on GitHub has an [example](https://github.com/gravitational/monitoring-app/blob/3.0.0/resources/resources.yaml#L194-L404)
 of a dashboard ConfigMap.
 
 Since the embedded Grafana runs in read-only mode, a separate Grafana instance is required to
@@ -214,7 +214,7 @@ Following table shows the alerts Telekube ships with by default:
 | Filesystem | High disk space usage | Triggers a warning, when > 80% used, with > 90% used, triggers a critical error |
 | Filesystem | High inode usage | Triggers a warning, when > 90% used, with > 95% used, triggers a critical error |
 | System | Uptime | Triggers a warning when a node's uptime is less than 5min |
-| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](/requirements/#kernel-module-matrix) for details. |
+| System | Kernel parameters | Triggers an error if a parameter is not set. See [value matrix](requirements.md#kernel-module-matrix) for details. |
 | Etcd | Etcd instance health | Triggers an error when an etcd master is down longer than 5min |
 | Etcd | Etcd latency check | Triggers a warning, when follower <-> leader latency exceeds 500ms, then an error when it exceeds 1s over a period of 1min |
 | Docker | Docker daemon health | Triggers an error when docker daemon is down |
@@ -222,7 +222,7 @@ Following table shows the alerts Telekube ships with by default:
 | Kubernetes | Kubernetes node readiness | Triggers an error when the node is not ready |
 
 Kapacitor will also trigger an email for each of the events listed above if stmp resource has been
-configured (see [configuration](/monitoring/#configuration) for details).
+configured (see [configuration](monitoring.md#configuration) for details).
 
 
 ### Custom and default alerts

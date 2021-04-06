@@ -121,11 +121,11 @@ func (s *SessionRegistry) emitSessionJoinEvent(ctx *ServerContext) {
 		events.EventUser:       ctx.Identity.TeleportUser,
 		events.LocalAddr:       ctx.Conn.LocalAddr().String(),
 		events.RemoteAddr:      ctx.Conn.RemoteAddr().String(),
-		events.SessionServerID: ctx.srv.ID(),
+		events.SessionServerID: ctx.srv.HostUUID(),
 	}
 
 	// Emit session join event to Audit Log.
-	ctx.session.recorder.GetAuditLog().EmitAuditEvent(events.SessionJoinEvent, sessionJoinEvent)
+	ctx.session.recorder.GetAuditLog().EmitAuditEvent(events.SessionJoin, sessionJoinEvent)
 
 	// Notify all members of the party that a new member has joined over the
 	// "x-teleport-event" channel.
@@ -191,12 +191,12 @@ func (s *SessionRegistry) emitSessionLeaveEvent(party *party) {
 		events.EventType:       events.SessionLeaveEvent,
 		events.SessionEventID:  party.id.String(),
 		events.EventUser:       party.user,
-		events.SessionServerID: party.serverID,
+		events.SessionServerID: party.ctx.srv.HostUUID(),
 		events.EventNamespace:  s.srv.GetNamespace(),
 	}
 
 	// Emit session leave event to Audit Log.
-	party.s.recorder.GetAuditLog().EmitAuditEvent(events.SessionLeaveEvent, sessionLeaveEvent)
+	party.s.recorder.GetAuditLog().EmitAuditEvent(events.SessionLeave, sessionLeaveEvent)
 
 	// Notify all members of the party that a new member has left over the
 	// "x-teleport-event" channel.
@@ -252,10 +252,11 @@ func (s *SessionRegistry) leaveSession(party *party) error {
 		s.Unlock()
 
 		// send an event indicating that this session has ended
-		sess.recorder.GetAuditLog().EmitAuditEvent(events.SessionEndEvent, events.EventFields{
-			events.SessionEventID: string(sess.id),
-			events.EventUser:      party.user,
-			events.EventNamespace: s.srv.GetNamespace(),
+		sess.recorder.GetAuditLog().EmitAuditEvent(events.SessionEnd, events.EventFields{
+			events.SessionEventID:  string(sess.id),
+			events.SessionServerID: party.ctx.srv.HostUUID(),
+			events.EventUser:       party.user,
+			events.EventNamespace:  s.srv.GetNamespace(),
 		})
 
 		// close recorder to free up associated resources
@@ -266,14 +267,14 @@ func (s *SessionRegistry) leaveSession(party *party) error {
 			s.log.Errorf("Unable to close session %v: %v", sess.id, err)
 		}
 
-		// mark it as inactive in the DB
+		// Remove the session from the backend.
 		if s.srv.GetSessionServer() != nil {
-			False := false
-			s.srv.GetSessionServer().UpdateSession(rsession.UpdateRequest{
-				ID:        sess.id,
-				Active:    &False,
-				Namespace: s.srv.GetNamespace(),
-			})
+			err := s.srv.GetSessionServer().DeleteSession(s.srv.GetNamespace(), sess.id)
+			if err != nil {
+				s.log.Errorf("Failed to remove active session: %v: %v. "+
+					"Access to backend may be degraded, check connectivity to backend.",
+					sess.id, err)
+			}
 		}
 	}
 	go lingerAndDie()
@@ -311,17 +312,18 @@ func (s *SessionRegistry) NotifyWinChange(params rsession.TerminalParams, ctx *S
 
 	// Build the resize event.
 	resizeEvent := events.EventFields{
-		events.EventType:      events.ResizeEvent,
-		events.EventNamespace: s.srv.GetNamespace(),
-		events.SessionEventID: sid,
-		events.EventLogin:     ctx.Identity.Login,
-		events.EventUser:      ctx.Identity.TeleportUser,
-		events.TerminalSize:   params.Serialize(),
+		events.EventType:       events.ResizeEvent,
+		events.EventNamespace:  s.srv.GetNamespace(),
+		events.SessionEventID:  sid,
+		events.SessionServerID: ctx.srv.HostUUID(),
+		events.EventLogin:      ctx.Identity.Login,
+		events.EventUser:       ctx.Identity.TeleportUser,
+		events.TerminalSize:    params.Serialize(),
 	}
 
 	// Report the updated window size to the event log (this is so the sessions
 	// can be replayed correctly).
-	ctx.session.recorder.GetAuditLog().EmitAuditEvent(events.ResizeEvent, resizeEvent)
+	ctx.session.recorder.GetAuditLog().EmitAuditEvent(events.TerminalResize, resizeEvent)
 
 	// Update the size of the server side PTY.
 	err := ctx.session.term.SetWinSize(params)
@@ -608,10 +610,10 @@ func (s *session) start(ch ssh.Channel, ctx *ServerContext) error {
 	params := s.term.GetTerminalParams()
 
 	// emit "new session created" event:
-	s.recorder.GetAuditLog().EmitAuditEvent(events.SessionStartEvent, events.EventFields{
+	s.recorder.GetAuditLog().EmitAuditEvent(events.SessionStart, events.EventFields{
 		events.EventNamespace:  ctx.srv.GetNamespace(),
 		events.SessionEventID:  string(s.id),
-		events.SessionServerID: ctx.srv.ID(),
+		events.SessionServerID: ctx.srv.HostUUID(),
 		events.EventLogin:      ctx.Identity.Login,
 		events.EventUser:       ctx.Identity.TeleportUser,
 		events.LocalAddr:       ctx.Conn.LocalAddr().String(),
@@ -796,11 +798,9 @@ func (s *session) heartbeat(ctx *ServerContext) {
 		case <-tickerCh.C:
 			partyList := s.exportPartyMembers()
 
-			var active = true
 			err := sessionServer.UpdateSession(rsession.UpdateRequest{
 				Namespace: s.getNamespace(),
 				ID:        s.id,
-				Active:    &active,
 				Parties:   &partyList,
 			})
 			if err != nil {

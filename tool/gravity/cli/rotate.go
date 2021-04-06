@@ -196,8 +196,6 @@ func readCertAuthorityFromFile(path string) (utils.TLSArchive, error) {
 	return utils.ReadTLSArchive(bytes.NewBuffer(data))
 }
 
-const renewDuration = "26280h" // 3 years
-
 var certNames = []string{
 	constants.APIServerKeyPair,
 	constants.ETCDKeyPair,

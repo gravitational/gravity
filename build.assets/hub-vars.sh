@@ -8,9 +8,6 @@ binaries:
   tele:
     path: $TELE_OUT
     version: $GRAVITY_VERSION
-  terraform-provider-gravity:
-    path: $TF_PROVIDER_GRAVITY_OUT
-    version: $GRAVITY_VERSION
   tsh:
     path: $TSH_OUT
     version: $TELEPORT_TAG

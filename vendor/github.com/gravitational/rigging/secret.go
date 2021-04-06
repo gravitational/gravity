@@ -16,57 +16,44 @@ package rigging
 
 import (
 	"context"
-	"io"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 // NewSecretControl returns new instance of Secret updater
 func NewSecretControl(config SecretConfig) (*SecretControl, error) {
-	err := config.CheckAndSetDefaults()
+	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rc *v1.Secret
-	if config.Secret != nil {
-		rc = config.Secret
-	} else {
-		rc, err = ParseSecret(config.Reader)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	rc.Kind = KindSecret
 	return &SecretControl{
 		SecretConfig: config,
-		secret:       *rc,
-		Entry: log.WithFields(log.Fields{
-			"secret": formatMeta(rc.ObjectMeta),
+		FieldLogger: log.WithFields(log.Fields{
+			"secret": formatMeta(config.Secret.ObjectMeta),
 		}),
 	}, nil
 }
 
 // SecretConfig  is a Secret control configuration
 type SecretConfig struct {
-	// Reader with daemon set to update, will be used if present
-	Reader io.Reader
-	// Secret is already parsed daemon set, will be used if present
-	Secret *v1.Secret
+	// Secret specifies the existing secret
+	*v1.Secret
 	// Client is k8s client
 	Client *kubernetes.Clientset
 }
 
-func (c *SecretConfig) CheckAndSetDefaults() error {
-	if c.Reader == nil && c.Secret == nil {
-		return trace.BadParameter("missing parameter Reader or Secret")
+func (c *SecretConfig) checkAndSetDefaults() error {
+	if c.Secret == nil {
+		return trace.BadParameter("missing parameter Secret")
 	}
 	if c.Client == nil {
 		return trace.BadParameter("missing parameter Client")
 	}
+	updateTypeMetaSecret(c.Secret)
 	return nil
 }
 
@@ -74,39 +61,45 @@ func (c *SecretConfig) CheckAndSetDefaults() error {
 // adds various operations, like delete, status check and update
 type SecretControl struct {
 	SecretConfig
-	secret v1.Secret
-	*log.Entry
+	log.FieldLogger
 }
 
 func (c *SecretControl) Delete(ctx context.Context, cascade bool) error {
-	c.Infof("delete %v", formatMeta(c.secret.ObjectMeta))
+	c.Infof("delete %v", formatMeta(c.Secret.ObjectMeta))
 
-	err := c.Client.Core().Secrets(c.secret.Namespace).Delete(c.secret.Name, nil)
+	err := c.Client.CoreV1().Secrets(c.Secret.Namespace).Delete(c.Secret.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *SecretControl) Upsert(ctx context.Context) error {
-	c.Infof("upsert %v", formatMeta(c.secret.ObjectMeta))
+	c.Infof("upsert %v", formatMeta(c.Secret.ObjectMeta))
 
-	secrets := c.Client.Core().Secrets(c.secret.Namespace)
-	c.secret.UID = ""
-	c.secret.SelfLink = ""
-	c.secret.ResourceVersion = ""
-	_, err := secrets.Get(c.secret.Name, metav1.GetOptions{})
+	secrets := c.Client.CoreV1().Secrets(c.Secret.Namespace)
+	c.Secret.UID = ""
+	c.Secret.SelfLink = ""
+	c.Secret.ResourceVersion = ""
+	_, err := secrets.Get(c.Secret.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = secrets.Create(&c.secret)
+		_, err = secrets.Create(c.Secret)
 		return ConvertError(err)
 	}
-	_, err = secrets.Update(&c.secret)
+	_, err = secrets.Update(c.Secret)
 	return ConvertError(err)
 }
 
 func (c *SecretControl) Status() error {
-	secrets := c.Client.Core().Secrets(c.secret.Namespace)
-	_, err := secrets.Get(c.secret.Name, metav1.GetOptions{})
+	secrets := c.Client.CoreV1().Secrets(c.Secret.Namespace)
+	_, err := secrets.Get(c.Secret.Name, metav1.GetOptions{})
 	return ConvertError(err)
+}
+
+func updateTypeMetaSecret(r *v1.Secret) {
+	r.Kind = KindSecret
+	if r.APIVersion == "" {
+		r.APIVersion = v1.SchemeGroupVersion.String()
+	}
 }

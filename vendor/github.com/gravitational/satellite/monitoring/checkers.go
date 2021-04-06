@@ -59,17 +59,30 @@ func NodesStatusHealth(config KubeConfig, nodesReadyThreshold int) health.Checke
 	return NewNodesStatusChecker(config, nodesReadyThreshold)
 }
 
+// TimeDriftHealth creates a checker that monitors time difference between cluster nodes.
+func TimeDriftHealth(config TimeDriftCheckerConfig) (c health.Checker, err error) {
+	c, err = NewTimeDriftChecker(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return c, nil
+}
+
 // EtcdHealth creates a checker that checks health of etcd
 func EtcdHealth(config *ETCDConfig) (health.Checker, error) {
 	const name = "etcd-healthz"
 
-	transport, err := config.NewHTTPTransport()
-	if err != nil {
-		return nil, trace.Wrap(err)
+	client := config.Client
+	if client == nil {
+		var err error
+		client, err = config.NewClient()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	createChecker := func(addr string) (health.Checker, error) {
 		endpoint := fmt.Sprintf("%v/health", addr)
-		return NewHTTPHealthzCheckerWithTransport(name, endpoint, transport, etcdChecker), nil
+		return NewHTTPHealthzCheckerWithClient(name, endpoint, client, etcdChecker), nil
 	}
 	var checkers []health.Checker
 	for _, endpoint := range config.Endpoints {

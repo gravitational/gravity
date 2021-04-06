@@ -4,11 +4,15 @@ package proto;
 
 import "google/protobuf/empty.proto";
 import "discovery.proto";
+import "gogo.proto";
 
 // Agent is RPC agent interface
 service Agent {
     // Shutdown requests the agent to shut down
-    rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+    rpc Shutdown(ShutdownRequest) returns (google.protobuf.Empty);
+
+    // Abort requests the agent to clean up the state on this node and shut down
+    rpc Abort(google.protobuf.Empty) returns (google.protobuf.Empty);
 
     // Command executes a command specified with CommandArgs.
     // The output of the command is streamed as a result.
@@ -23,6 +27,15 @@ service Agent {
     rpc PeerLeave(PeerLeaveRequest) returns (google.protobuf.Empty);
 }
 
+// ShutdownRequest describes a request to shut down a report RPC agent
+message ShutdownRequest {
+    // Completed indicates that the operation has been completed.
+    // Agents may choose to prevent restart after receiving the shutdown request
+    // with Completed = true
+    bool completed = 1;
+}
+
+// CommandArgs defines the command execution configuration
 message CommandArgs {
     // Args specify the command to run
     repeated string args = 1;
@@ -31,6 +44,8 @@ message CommandArgs {
     bool self_command = 2;
     // Env sets the environment for the command
     map<string,string> env = 3;
+    // WorkingDir specifies the working directory for the process
+    string working_dir = 4;
 }
 
 // Message is a union of various subtypes of event stream
@@ -103,8 +118,13 @@ message LogEntry {
     repeated string     traces  = 4;
 }
 
+// UninstallRequest is request to uninstall the system on remote node
+message UninstallRequest {
+}
+
 // PeerJoinRequest is request to join from a remote peer.
 message PeerJoinRequest {
+    option (gogoproto.goproto_stringer) = false;
     // Addr is the peer address as host:port
     string addr = 1;
     // Config specifies the peer's runtime configuration
@@ -115,6 +135,7 @@ message PeerJoinRequest {
 
 // PeerLeaveRequest is a request a peer sends when it wants to leave the cluster
 message PeerLeaveRequest {
+    option (gogoproto.goproto_stringer) = false;
     // Addr is the peer address as host:port
     string addr = 1;
     // Config specifies the peer's runtime configuration

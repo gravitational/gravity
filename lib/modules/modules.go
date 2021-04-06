@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,37 +17,47 @@ limitations under the License.
 package modules
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport"
-	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/services"
+
 	"github.com/gravitational/version"
 	helm "k8s.io/helm/pkg/version"
 )
 
-// Modules allows to customize certain behavioral aspects of Telekube
+// Modules allows to customize certain behavioral aspects of Gravity
 type Modules interface {
 	// ProcessModes returns a list of modes gravity process can run in
 	ProcessModes() []string
 	// InstallModes returns a list of modes gravity install supports
 	InstallModes() []string
 	// DefaultAuthPreference returns default authentication preference based on process mode
-	DefaultAuthPreference(processMode string) (teleservices.AuthPreference, error)
-	// SupportedResources returns a list of resources that can be created/viewed
-	SupportedResources() []string
-	// SupportedResourcesToRemoves returns a list of resources that can be removed
-	SupportedResourcesToRemove() []string
+	DefaultAuthPreference(processMode string) (services.AuthPreference, error)
+	// ProxyFeatures returns additional features Teleport proxy supports based on process mode
+	ProxyFeatures(processMode string) []string
 	// SupportedConnectors returns a list of supported auth connector kinds
 	SupportedConnectors() []string
-	// Version returns the gravity version
-	Version() Version
+	// Version returns the tool version
+	Version() proto.Version
 	// TeleRepository returns the default repository for tele package cache
 	TeleRepository() string
+}
+
+// Resources defines the interface to query tool resource support
+type Resources interface {
+	// SupportedResources returns a list of resources that can be created/viewed
+	SupportedResources() []string
+	// SupportedResourcesToRemove returns a list of resources that can be removed
+	SupportedResourcesToRemove() []string
+	// CanonicalKind translates the specified kind to canonical form.
+	// Returns an empty string if no canonical form exists
+	CanonicalKind(kind string) string
 }
 
 // Messager provides methods for various informational messages
@@ -70,6 +80,20 @@ func Get() Modules {
 	return modules
 }
 
+// GetResources returns the resources interface
+func GetResources() Resources {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return resources
+}
+
+// SetResources sets the resources interface
+func SetResources(r Resources) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	resources = r
+}
+
 type defaultModules struct{}
 
 // ProcessModes returns a list of modes gravity process can run in
@@ -89,36 +113,31 @@ func (m *defaultModules) InstallModes() []string {
 }
 
 // DefaultAuthPreference returns default auth preference based on run mode
-func (m *defaultModules) DefaultAuthPreference(string) (teleservices.AuthPreference, error) {
-	return teleservices.NewAuthPreference(
-		teleservices.AuthPreferenceSpecV2{
+func (m *defaultModules) DefaultAuthPreference(string) (services.AuthPreference, error) {
+	return services.NewAuthPreference(
+		services.AuthPreferenceSpecV2{
 			Type:         teleport.Local,
 			SecondFactor: teleport.OFF,
 		})
 }
 
-// SupportedResources returns a list of resources that can be created/viewed
-func (m *defaultModules) SupportedResources() []string {
-	return storage.SupportedGravityResources
-}
-
-// SupportedResourcesToRemoves returns a list of resources that can be removed
-func (m *defaultModules) SupportedResourcesToRemove() []string {
-	return storage.SupportedGravityResourcesToRemove
+// ProxyFeatures returns additional features Teleport proxy supports based on process mode
+func (m *defaultModules) ProxyFeatures(string) []string {
+	return nil
 }
 
 // SupportedConnectors returns a list of supported auth connector kinds
 func (m *defaultModules) SupportedConnectors() []string {
 	return []string{
-		teleservices.KindOIDCConnector,
-		teleservices.KindGithubConnector,
+		services.KindOIDCConnector,
+		services.KindGithubConnector,
 	}
 }
 
 // Version returns the gravity version
-func (m *defaultModules) Version() Version {
+func (m *defaultModules) Version() proto.Version {
 	ver := version.Get()
-	return Version{
+	return proto.Version{
 		Edition:   "open-source",
 		Version:   ver.Version,
 		GitCommit: ver.GitCommit,
@@ -128,7 +147,7 @@ func (m *defaultModules) Version() Version {
 
 // TeleRepository returns the default repository for tele package cache
 func (m *defaultModules) TeleRepository() string {
-	return fmt.Sprintf("s3://%v", defaults.HubBucket)
+	return defaults.HubAddress
 }
 
 // PostInstallMessage returns message that gets printed to console after
@@ -139,25 +158,26 @@ The cluster is up and running. Please take a look at "cluster management" sectio
 https://gravitational.com/gravity/docs/cluster/`
 }
 
-// Version represents gravity version
-type Version struct {
-	// Edition is the gravity edition, e.g. open-source
-	Edition string `json:"edition"`
-	// Version is the gravity semantic version
-	Version string `json:"version"`
-	// GitCommit is the git commit hash
-	GitCommit string `json:"gitCommit"`
-	// Helm is the built-in Helm version
-	Helm string `json:"helm"`
+type defaultResources struct{}
+
+// SupportedResources returns a list of resources that can be created/viewed
+func (*defaultResources) SupportedResources() []string {
+	return storage.SupportedGravityResources
 }
 
-// String returns human-friendly version string
-func (v Version) String() string {
-	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
-		v.Edition, v.Version, v.GitCommit, v.Helm)
+// SupportedResourcesToRemove returns a list of resources that can be removed
+func (*defaultResources) SupportedResourcesToRemove() []string {
+	return storage.SupportedGravityResourcesToRemove
+}
+
+// CanonicalKind translates the specified kind to canonical form.
+// Returns an empty string if no canonical form exists
+func (*defaultResources) CanonicalKind(kind string) string {
+	return storage.CanonicalKind(kind)
 }
 
 var (
-	mutex           = sync.Mutex{}
-	modules Modules = &defaultModules{}
+	mutex               = sync.Mutex{}
+	modules   Modules   = &defaultModules{}
+	resources Resources = &defaultResources{}
 )

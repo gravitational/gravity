@@ -1,0 +1,81 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+syntax = "proto3";
+
+package agentpb;
+
+// ClusterHealthy represents a change in cluster state to a healthy state.
+message ClusterHealthy {}
+
+// ClusterDegraded represents a change in cluster state to a degraded state.
+message ClusterDegraded {}
+
+// ClusterUpgrade represents a cluster upgrade event.
+// TODO
+message ClusterUpgrade {}
+
+// NodeAdded represents a cluster resize event in which a node is added to the
+// cluster.
+message NodeAdded {
+  // Node specifies the name of the node that was added to the cluster.
+  string node = 1;
+}
+
+// NodeRemoved represents a cluster resize event in which a node is removed from
+// the cluster.
+message NodeRemoved {
+  // Node specifies the name of the node that was removed from the cluster.
+  string node = 1;
+}
+
+// NodeHealthy represents a change in node state to a healthy state.
+message NodeHealthy {
+    // Node specifies name of the node that became healthy.
+    string node = 1;
+}
+
+// NodeDegraded represents a change in node state to a degraded state.
+message NodeDegraded {
+    // Node specifies the name of the node that became degraded.
+    string node = 1;
+}
+
+// ProbeSucceeded represents a probe result that changed from failure to succeessful.
+message ProbeSucceeded {
+    // Node specifies the name of the node that passed the health check.
+    string node = 1;
+    // Probe specifies the name of the probe that succeeded.
+    string probe = 2;
+}
+
+// ProbeFailed represents a probe result that changed from successful to failure.
+message ProbeFailed {
+    // Node specifies the name of the node that failed the health check. 
+    string node = 1;
+    // Probe specifies the name of the probe that failed.
+    string probe = 2;
+}
+
+// LeaderElected represents a change in cluster leadership.
+message LeaderElected {
+    // Prev specifies the name of the node that was the previous leader.
+    string prev = 1;
+    // New specifies the name of the node that's been elected as a new leader.
+    string new = 2;
+}
+
+// UnknownEvent represents an unknown event.
+message UnknownEvent {}

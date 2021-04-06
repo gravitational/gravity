@@ -36,7 +36,10 @@ import (
 
 // NewApp returns executor that runs install and post-install hooks
 func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*hookExecutor, error) {
-	return NewHook(p, operator, apps, schema.HookInstall, schema.HookInstalled)
+	return NewHook(p, operator, apps,
+		schema.HookInstall,
+		schema.HookInstalled,
+		schema.HookStatus)
 }
 
 // NewHook returns executor that runs specified application hooks
@@ -45,7 +48,7 @@ func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications,
 		return nil, trace.BadParameter("service user is required")
 	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -99,6 +102,7 @@ func (p *hookExecutor) runHooks(ctx context.Context, hooks ...schema.HookType) e
 		req := app.HookRunRequest{
 			Application: locator,
 			Hook:        hook,
+			Values:      p.Phase.Data.Values,
 			ServiceUser: storage.OSUser{
 				Name: p.ServiceUser.Name,
 				UID:  strconv.Itoa(p.ServiceUser.UID),

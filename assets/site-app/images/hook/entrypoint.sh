@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -ex
 
 echo "Assuming changeset from the environment: $RIG_CHANGESET"
 # note that rig does not take explicit changeset ID

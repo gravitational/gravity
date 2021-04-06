@@ -17,6 +17,7 @@ limitations under the License.
 package expand
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -50,6 +51,7 @@ type PlanSuite struct {
 	regularAgent    *storage.LoginEntry
 	teleportPackage *loc.Locator
 	planetPackage   *loc.Locator
+	gravityPackage  *loc.Locator
 	appPackage      loc.Locator
 	serviceUser     storage.OSUser
 	cluster         *ops.Site
@@ -75,6 +77,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	app, err := s.services.Apps.GetApp(s.appPackage)
 	c.Assert(err, check.IsNil)
 	s.teleportPackage, err = app.Manifest.Dependencies.ByName(constants.TeleportPackage)
+	c.Assert(err, check.IsNil)
+	s.gravityPackage, err = app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	c.Assert(err, check.IsNil)
 	s.dnsConfig = storage.DNSConfig{
 		Addrs: []string{"127.0.0.3"},
@@ -117,12 +121,13 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 		ClusterName: s.cluster.Domain,
 		Admin:       true,
 	})
+	c.Assert(err, check.IsNil)
 	s.regularAgent, err = s.services.Operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   account.ID,
 		ClusterName: s.cluster.Domain,
 	})
 	c.Assert(err, check.IsNil)
-	s.installOpKey, err = s.services.Operator.CreateSiteInstallOperation(
+	s.installOpKey, err = s.services.Operator.CreateSiteInstallOperation(context.TODO(),
 		ops.CreateSiteInstallOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,
@@ -138,7 +143,8 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			Servers: []storage.Server{s.masterNode},
 		})
 	c.Assert(err, check.IsNil)
-	err = s.services.Operator.SetOperationState(*s.installOpKey,
+	err = s.services.Operator.SetOperationState(context.TODO(),
+		*s.installOpKey,
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateCompleted,
 			Progress: &ops.ProgressEntry{
@@ -150,7 +156,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 			},
 		})
 	c.Assert(err, check.IsNil)
-	s.joinOpKey, err = s.services.Operator.CreateSiteExpandOperation(
+	s.joinOpKey, err = s.services.Operator.CreateSiteExpandOperation(context.TODO(),
 		ops.CreateSiteExpandOperationRequest{
 			AccountID:   account.ID,
 			SiteDomain:  s.cluster.Domain,
@@ -201,12 +207,14 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		phaseID       string
 		phaseVerifier func(*check.C, storage.OperationPhase)
 	}{
+		{installphases.InitPhase, s.verifyInitPhase},
+		{StartAgentPhase, s.verifyStartAgentPhase},
+		{ChecksPhase, s.verifyChecksPhase},
 		{installphases.ConfigurePhase, s.verifyConfigurePhase},
 		{installphases.BootstrapPhase, s.verifyBootstrapPhase},
 		{installphases.PullPhase, s.verifyPullPhase},
 		{PreHookPhase, s.verifyPreHookPhase},
 		{SystemPhase, s.verifySystemPhase},
-		{StartAgentPhase, s.verifyStartAgentPhase},
 		{EtcdBackupPhase, s.verifyEtcdBackupPhase},
 		{EtcdPhase, s.verifyEtcdPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
@@ -224,12 +232,35 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 	}
 }
 
+func (s *PlanSuite) verifyInitPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: installphases.InitPhase,
+		Data: &storage.OperationPhaseData{
+			Server:  &s.joiningNode,
+			Master:  &s.masterNode,
+			Package: &s.appPackage,
+		},
+	}, phase)
+}
+
+func (s *PlanSuite) verifyChecksPhase(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: ChecksPhase,
+		Data: &storage.OperationPhaseData{
+			Server: &s.joiningNode,
+			Master: &s.masterNode,
+		},
+		Requires: []string{installphases.InitPhase, StartAgentPhase},
+	}, phase)
+}
+
 func (s *PlanSuite) verifyConfigurePhase(c *check.C, phase storage.OperationPhase) {
 	storage.DeepComparePhases(c, storage.OperationPhase{
 		ID: installphases.ConfigurePhase,
 		Data: &storage.OperationPhaseData{
 			ExecServer: &s.joiningNode,
 		},
+		Requires: []string{ChecksPhase},
 	}, phase)
 }
 
@@ -242,7 +273,6 @@ func (s *PlanSuite) verifyBootstrapPhase(c *check.C, phase storage.OperationPhas
 			Package:     &s.appPackage,
 			Agent:       s.adminAgent,
 			ServiceUser: &s.serviceUser,
-			DNSConfig:   &s.dnsConfig,
 		},
 	}, phase)
 }
@@ -255,6 +285,13 @@ func (s *PlanSuite) verifyPullPhase(c *check.C, phase storage.OperationPhase) {
 			ExecServer:  &s.joiningNode,
 			Package:     &s.appPackage,
 			ServiceUser: &s.serviceUser,
+			Pull: &storage.PullData{
+				Packages: []loc.Locator{
+					*s.gravityPackage,
+					*s.teleportPackage,
+					*s.planetPackage,
+				},
+			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
 	}, phase)
@@ -279,19 +316,21 @@ func (s *PlanSuite) verifySystemPhase(c *check.C, phase storage.OperationPhase) 
 			{
 				ID: fmt.Sprintf("%v/teleport", SystemPhase),
 				Data: &storage.OperationPhaseData{
-					Server:     &s.joiningNode,
-					ExecServer: &s.joiningNode,
-					Package:    s.teleportPackage,
+					Server:      &s.joiningNode,
+					ExecServer:  &s.joiningNode,
+					ServiceUser: &s.serviceUser,
+					Package:     s.teleportPackage,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
 			{
 				ID: fmt.Sprintf("%v/planet", SystemPhase),
 				Data: &storage.OperationPhaseData{
-					Server:     &s.joiningNode,
-					ExecServer: &s.joiningNode,
-					Package:    s.planetPackage,
-					Labels:     pack.RuntimePackageLabels,
+					Server:      &s.joiningNode,
+					ExecServer:  &s.joiningNode,
+					Package:     s.planetPackage,
+					ServiceUser: &s.serviceUser,
+					Labels:      pack.RuntimePackageLabels,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
@@ -311,7 +350,6 @@ func (s *PlanSuite) verifyStartAgentPhase(c *check.C, phase storage.OperationPha
 				OpsCenterURL: fmt.Sprintf("https://%v:%v", s.masterNode.AdvertiseIP, defaults.GravitySiteNodePort),
 			},
 		},
-		Requires: []string{SystemPhase},
 	}, phase)
 }
 
@@ -358,6 +396,14 @@ func (s *PlanSuite) verifyWaitPhase(c *check.C, phase storage.OperationPhase) {
 				},
 				Requires: []string{WaitPlanetPhase},
 			},
+			{
+				ID: WaitTeleportPhase,
+				Data: &storage.OperationPhaseData{
+					Server:     &s.joiningNode,
+					ExecServer: &s.joiningNode,
+				},
+				Requires: []string{WaitPlanetPhase},
+			},
 		},
 	}, phase)
 }
@@ -394,4 +440,40 @@ func (s *PlanSuite) verifyElectPhase(c *check.C, phase storage.OperationPhase) {
 		},
 		Requires: []string{installphases.WaitPhase},
 	}, phase)
+}
+
+func (s *PlanSuite) TestFillSteps(c *check.C) {
+	tests := []struct {
+		phasesCount int
+		stepNumbers []int
+	}{
+		{
+			phasesCount: 0,
+			stepNumbers: nil,
+		},
+		{
+			phasesCount: 1,
+			stepNumbers: []int{10},
+		},
+		{
+			phasesCount: 2,
+			stepNumbers: []int{5, 10},
+		},
+		{
+			phasesCount: 13,
+			stepNumbers: []int{0, 1, 2, 3, 3, 4, 5, 6, 6, 7, 8, 9, 10},
+		},
+	}
+	for _, t := range tests {
+		var plan storage.OperationPlan
+		for i := 0; i < t.phasesCount; i++ {
+			plan.Phases = append(plan.Phases, storage.OperationPhase{})
+		}
+		fillSteps(&plan, 10)
+		var stepNumbers []int
+		for _, p := range plan.Phases {
+			stepNumbers = append(stepNumbers, p.Step)
+		}
+		c.Assert(stepNumbers, check.DeepEquals, t.stepNumbers)
+	}
 }

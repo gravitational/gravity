@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
@@ -40,13 +40,14 @@ type SyncRequest struct {
 	AppService   app.Applications
 	ImageService docker.ImageService
 	Package      loc.Locator
-	Progress     utils.Emitter
+	Progress     utils.Printer
+	ScanConfig   *docker.ScanConfig
 }
 
 // CheckAndSetDefaults validates the request and sets some defaults.
 func (r *SyncRequest) CheckAndSetDefaults() error {
 	if r.Progress == nil {
-		r.Progress = utils.NopEmitter()
+		r.Progress = utils.DiscardPrinter
 	}
 	return nil
 }
@@ -72,6 +73,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			ImageService: req.ImageService,
 			Package:      *base,
 			Progress:     req.Progress,
+			ScanConfig:   req.ScanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -86,6 +88,7 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 			ImageService: req.ImageService,
 			Package:      dep.Locator,
 			Progress:     req.Progress,
+			ScanConfig:   req.ScanConfig,
 		})
 		if err != nil {
 			return trace.Wrap(err)

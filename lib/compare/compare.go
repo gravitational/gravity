@@ -77,6 +77,12 @@ func Diff(a, b interface{}) string {
 	return diff.Diff(d.Sdump(a), d.Sdump(b))
 }
 
+// Sdump returns debug-friendly text representation of a
+func Sdump(a interface{}) string {
+	d := &spew.ConfigState{Indent: " ", DisableMethods: true, DisablePointerMethods: true, DisablePointerAddresses: true}
+	return d.Sdump(a)
+}
+
 type deepEqualsChecker struct {
 	*check.CheckerInfo
 }

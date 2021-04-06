@@ -20,11 +20,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/modules"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gogo/protobuf/types"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -40,15 +42,11 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 	log := srv.WithFields(log.Fields{
 		"request": "Command",
 		"args":    req.Args})
-	log.Debug("request received")
+	log.Debug("Request received.")
 
 	if req.SelfCommand {
-		gravityPath, err := os.Executable()
-		if err != nil {
-			return trace.ConvertSystemError(err)
-		}
-
-		req.Args = append([]string{gravityPath}, req.Args...)
+		req.Args = append([]string{utils.Exe.Path}, req.Args...)
+		req.WorkingDir = utils.Exe.WorkingDir
 	}
 
 	return trace.Wrap(srv.command(*req, stream, log))
@@ -56,30 +54,28 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 
 // PeerJoin accepts a new peer
 func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerJoin(%v).", fmt.Sdump(req))
+	srv.WithField("req", req.String()).Info("PeerJoin.")
 	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
 func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	fmt := spew.ConfigState{Indent: "  ", DisableCapacities: true, DisablePointerAddresses: true}
-	srv.Debugf("PeerLeave(%v).", fmt.Sdump(req))
+	srv.WithField("req", req.String()).Info("PeerLeave.")
 	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
 		creds:            srv.Config.Client,
 		reconnectTimeout: srv.Config.ReconnectTimeout,
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, err
 	}
 	return &types.Empty{}, nil
 }
@@ -94,20 +90,16 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 			return nil, trace.Wrap(err)
 		}
 	}
-	var mounts []*pb.Mount
-	for _, mount := range srv.Mounts {
-		mounts = append(mounts, &pb.Mount{Name: mount.Name, Source: mount.Source})
-	}
 	config := &pb.RuntimeConfig{
-		Role:          srv.Role,
+		Role:          srv.RuntimeConfig.Role,
 		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		DockerDevice:  srv.DockerDevice,
-		SystemDevice:  srv.SystemDevice,
-		Mounts:        mounts,
+		SystemDevice:  srv.RuntimeConfig.SystemDevice,
+		Mounts:        srv.RuntimeConfig.Mounts,
 		StateDir:      stateDir,
-		TempDir:       srv.TempDir,
-		KeyValues:     srv.KeyValues,
-		CloudMetadata: srv.CloudMetadata,
+		TempDir:       os.TempDir(),
+		KeyValues:     srv.RuntimeConfig.KeyValues,
+		CloudMetadata: srv.RuntimeConfig.CloudMetadata,
+		SELinux:       srv.RuntimeConfig.SELinux,
 	}
 	return config, nil
 }
@@ -136,29 +128,55 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 	return ts, nil
 }
 
+// GetVersion queries the agent version information
+func (srv *agentServer) GetVersion(ctx context.Context, _ *types.Empty) (*pb.Version, error) {
+	ver := modules.Get().Version()
+	return &ver, nil
+}
+
 // Shutdown requests agent to shut down
-func (srv *agentServer) Shutdown(ctx context.Context, _ *types.Empty) (*types.Empty, error) {
-	srv.Info("Shutdown.")
-	go srv.Stop(ctx)
-	return &types.Empty{}, nil
+func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
+	srv.WithField("req", req).Info("Shutdown.")
+	if srv.StopHandler != nil {
+		err = srv.StopHandler(ctx, req.Completed)
+	}
+	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to shutdown: %v.", err)
+		}
+		cancel()
+	}()
+
+	return &types.Empty{}, trace.Wrap(err)
+}
+
+func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
+	srv.Info("Aborting agent.")
+	if srv.AbortHandler != nil {
+		err = srv.AbortHandler(ctx)
+	}
+	go func() {
+		// Create a separate context from the parent one since the parent
+		// context is canceled once the handler has returned
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := srv.Stop(ctx); err != nil {
+			srv.Warnf("Failed to stop server: %v.", err)
+		}
+		cancel()
+	}()
+	return &types.Empty{}, trace.Wrap(err)
 }
 
 func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			return
-		}
-
-		err = trace.BadParameter("panic for command %+v: %v", req, r)
-	}()
-
-	err = srv.commandExecutor.exec(stream.Context(), stream, req.Args, makeRemoteLogger(stream, srv.FieldLogger))
+	err = srv.commandExecutor.exec(stream.Context(), stream, req, makeRemoteLogger(stream, srv.FieldLogger))
 	if err != nil {
-		stream.Send(pb.ErrorToMessage(err))
-		log.WithError(err).Error("command returned error")
-	} else {
-		log.Debug("completed OK")
+		stream.Send(pb.ErrorToMessage(err)) //nolint:errcheck
+		log.WithError(err).Warn("Command completed with error.")
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(err)
+	log.Debug("Command completed OK.")
+	return nil
 }

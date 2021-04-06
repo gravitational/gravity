@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -33,11 +34,20 @@ import (
 
 // GetInstallOperation returns an install operation for the specified siteKey
 func GetInstallOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
-	op, progress, err = MatchOperation(siteKey, operator, MatchByType(OperationInstall))
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types: []string{OperationInstall},
+	})
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, nil, trace.NotFound("no install operation for %v found", siteKey)
-		}
+		return nil, nil, trace.Wrap(err)
+	}
+
+	if len(operations) == 0 {
+		return nil, nil, trace.NotFound("no install operation found for %v", siteKey)
+	}
+
+	op = (*SiteOperation)(&operations[0])
+	progress, err = operator.GetSiteOperationProgress(op.Key())
+	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return op, progress, nil
@@ -45,11 +55,22 @@ func GetInstallOperation(siteKey SiteKey, operator Operator) (op *SiteOperation,
 
 // GetLastUninstallOperation returns the last uninstall operation for the specified siteKey
 func GetLastUninstallOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
-	op, progress, err = MatchOperation(siteKey, operator, MatchByType(OperationUninstall))
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types: []string{OperationUninstall},
+		Last:  true,
+	})
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, nil, trace.NotFound("no uninstall operation for %v found", siteKey)
-		}
+		return nil, nil, trace.Wrap(err)
+	}
+
+	if len(operations) == 0 {
+		return nil, nil, trace.NotFound("no uninstall operation found for %v", siteKey)
+	}
+
+	// backend is guaranteed to return operations in the last-to-first order
+	op = (*SiteOperation)(&operations[0])
+	progress, err = operator.GetSiteOperationProgress(op.Key())
+	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return op, progress, nil
@@ -57,96 +78,121 @@ func GetLastUninstallOperation(siteKey SiteKey, operator Operator) (op *SiteOper
 
 // GetLastCompletedUpdateOperation returns the last completed update operation
 func GetLastCompletedUpdateOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, err error) {
-	op, _, err = MatchOperation(siteKey, operator, func(op SiteOperation) bool {
-		return op.Type == OperationUpdate && op.IsCompleted()
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types:    []string{OperationUpdate},
+		Last:     true,
+		Complete: true,
 	})
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no update operation for %v found", siteKey)
-		}
 		return nil, trace.Wrap(err)
 	}
-	return op, nil
+
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no completed update operation found for %v", siteKey)
+	}
+
+	return (*SiteOperation)(&operations[0]), nil
 }
 
 // GetCompletedInstallOperation returns a completed install operation for the specified site
 func GetCompletedInstallOperation(siteKey SiteKey, operator Operator) (*SiteOperation, error) {
-	op, entry, err := GetInstallOperation(siteKey, operator)
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types:    []string{OperationInstall},
+		Last:     true,
+		Complete: true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	if entry.IsCompleted() {
-		return op, nil
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no completed install operation found for %v", siteKey)
 	}
-	return nil, trace.NotFound("no completed install operation for %v found", siteKey)
+
+	return (*SiteOperation)(&operations[0]), nil
 }
 
 // GetLastOperation returns the most recent operation and its progress for the specified site
-func GetLastOperation(siteKey SiteKey, operator Operator) (*SiteOperation, *ProgressEntry, error) {
-	operations, err := operator.GetSiteOperations(siteKey)
+func GetLastOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Last: true,
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
+
 	if len(operations) == 0 {
-		return nil, nil, trace.NotFound("no operations found for %v", siteKey)
+		return nil, nil, trace.NotFound("no operation found for %v", siteKey)
 	}
+
 	// backend is guaranteed to return operations in the last-to-first order
-	lastOperation := (*SiteOperation)(&operations[0])
-	progress, err := operator.GetSiteOperationProgress(lastOperation.Key())
+	op = (*SiteOperation)(&operations[0])
+	progress, err = operator.GetSiteOperationProgress(op.Key())
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	return lastOperation, progress, nil
+
+	return op, progress, nil
 }
 
 // GetLastCompletedOperations returns the cluster's last completed operation
-func GetLastCompletedOperation(key SiteKey, operator Operator) (*SiteOperation, *ProgressEntry, error) {
-	operations, err := operator.GetSiteOperations(key)
+func GetLastFinishedOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Last:     true,
+		Finished: true,
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	// more recent operations appear first
-	for _, operation := range operations {
-		op := (*SiteOperation)(&operation)
-		if op.IsFinished() {
-			progress, err := operator.GetSiteOperationProgress(op.Key())
-			if err != nil {
-				return nil, nil, trace.Wrap(err)
-			}
-			return op, progress, nil
-		}
+
+	if len(operations) == 0 {
+		return nil, nil, trace.NotFound("no completed operation found for %v", siteKey)
 	}
-	return nil, nil, trace.NotFound("cluster %v does not have completed operations",
-		key.SiteDomain)
+
+	// backend is guaranteed to return operations in the last-to-first order
+	op = (*SiteOperation)(&operations[0])
+	progress, err = operator.GetSiteOperationProgress(op.Key())
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	return op, progress, nil
 }
 
-// GetLastUpdateOperation returns the last update operation
-//
-// If there're no operations or the last operation is not of type 'update', returns NotFound error
-func GetLastUpdateOperation(siteKey SiteKey, operator Operator) (*SiteOperation, error) {
-	lastOperation, _, err := GetLastOperation(siteKey, operator)
+// GetLastUpgradeOperation returns the most recent upgrade operation or NotFound.
+func GetLastUpgradeOperation(siteKey SiteKey, operator Operator) (*SiteOperation, error) {
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types: []string{OperationUpdate},
+		Last:  true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if lastOperation.Type != OperationUpdate {
-		return nil, trace.NotFound("the last operation is not update: %v", lastOperation)
+
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no upgrade operation found for %v", siteKey)
 	}
-	return lastOperation, nil
+
+	return (*SiteOperation)(&operations[0]), nil
 }
 
 // GetLastShrinkOperation returns the last shrink operation
 //
 // If there're no operations or the last operation is not of type 'shrink', returns NotFound error
 func GetLastShrinkOperation(siteKey SiteKey, operator Operator) (*SiteOperation, error) {
-	lastOperation, _, err := GetLastOperation(siteKey, operator)
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types: []string{OperationShrink},
+		Last:  true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if lastOperation.Type != OperationShrink {
-		return nil, trace.NotFound("the last operation is not shrink: %v", lastOperation)
+
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no shrink operation found for %v", siteKey)
 	}
-	return lastOperation, nil
+
+	return (*SiteOperation)(&operations[0]), nil
 }
 
 // GetOperationWithProgress returns the operation and its progress for the provided operation key
@@ -163,57 +209,45 @@ func GetOperationWithProgress(opKey SiteOperationKey, operator Operator) (*SiteO
 }
 
 // GetActiveOperations returns a list of currently active cluster operations
-func GetActiveOperations(key SiteKey, operator Operator) (active []SiteOperation, err error) {
-	all, err := operator.GetSiteOperations(key)
+func GetActiveOperations(siteKey SiteKey, operator Operator) (active []SiteOperation, err error) {
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Active: true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	for _, op := range all {
-		operation := (*SiteOperation)(&op)
-		if !operation.IsFinished() {
-			active = append(active, *operation)
-		}
+
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no active operation found for %v", siteKey)
 	}
-	if len(active) == 0 {
-		return nil, trace.NotFound("no operations in progress for %v", key)
+
+	for _, op := range operations {
+		active = append(active, SiteOperation(op))
 	}
+
 	return active, nil
 }
 
 // GetActiveOperationsByType returns a list of cluster operations of the specified
 // type that are currently in progress
-func GetActiveOperationsByType(key SiteKey, operator Operator, opType string) (result []SiteOperation, err error) {
-	active, err := GetActiveOperations(key, operator)
+func GetActiveOperationsByType(siteKey SiteKey, operator Operator, opType string) (active []SiteOperation, err error) {
+	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
+		Types:  []string{opType},
+		Active: true,
+	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	for _, op := range active {
-		if op.Type == opType {
-			result = append(result, op)
-		}
-	}
-	return result, nil
-}
 
-// MatchOperation returns an operation that matches given match function.
-// Returns trace.NotFound if no operation matches
-func MatchOperation(siteKey SiteKey, operator Operator, match OperationMatcher) (op *SiteOperation, progress *ProgressEntry, err error) {
-	operations, err := operator.GetSiteOperations(siteKey)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no active operation found for %v with type %v", siteKey, opType)
 	}
+
 	for _, op := range operations {
-		if !match(SiteOperation(op)) {
-			continue
-		}
-		operation := (*SiteOperation)(&op)
-		entry, err := operator.GetSiteOperationProgress(operation.Key())
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
-		return operation, entry, nil
+		active = append(active, SiteOperation(op))
 	}
-	return nil, nil, trace.NotFound("no operation for %v found", siteKey)
+
+	return active, nil
 }
 
 // GetWizardOperation returns the install operation assuming that the
@@ -247,9 +281,26 @@ func GetWizardCluster(operator Operator) (*Site, error) {
 	return &clusters[0], nil
 }
 
+// FailOperationAndResetCluster completes the specified operation and resets
+// cluster state to active
+func FailOperationAndResetCluster(ctx context.Context, key SiteOperationKey, operator Operator, message string) error {
+	err := FailOperation(ctx, key, operator, message)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = operator.ActivateSite(ActivateSiteRequest{
+		AccountID:  key.AccountID,
+		SiteDomain: key.SiteDomain,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 // CompleteOperation marks the specified operation as completed
-func CompleteOperation(key SiteOperationKey, operator Operator) error {
-	return operator.SetOperationState(key, SetOperationStateRequest{
+func CompleteOperation(ctx context.Context, key SiteOperationKey, operator OperationStateSetter) error {
+	return operator.SetOperationState(ctx, key, SetOperationStateRequest{
 		State: OperationStateCompleted,
 		Progress: &ProgressEntry{
 			SiteDomain:  key.SiteDomain,
@@ -264,13 +315,13 @@ func CompleteOperation(key SiteOperationKey, operator Operator) error {
 }
 
 // FailOperation marks the specified operation as failed
-func FailOperation(key SiteOperationKey, operator Operator, message string) error {
+func FailOperation(ctx context.Context, key SiteOperationKey, operator OperationStateSetter, message string) error {
 	if message != "" {
 		message = fmt.Sprintf("Operation failure: %v", message)
 	} else {
 		message = "Operation failure"
 	}
-	return operator.SetOperationState(key, SetOperationStateRequest{
+	return operator.SetOperationState(ctx, key, SetOperationStateRequest{
 		State: OperationStateFailed,
 		Progress: &ProgressEntry{
 			SiteDomain:  key.SiteDomain,
@@ -283,6 +334,21 @@ func FailOperation(key SiteOperationKey, operator Operator, message string) erro
 		},
 	})
 }
+
+// OperationStateSetter defines an interface to set/update operation state
+type OperationStateSetter interface {
+	// SetOperationState updates state of the operation
+	// specified with given operation key
+	SetOperationState(context.Context, SiteOperationKey, SetOperationStateRequest) error
+}
+
+// SetOperationState implements the OperationStateSetter by invoking this handler
+func (r OperationStateFunc) SetOperationState(ctx context.Context, key SiteOperationKey, req SetOperationStateRequest) error {
+	return r(ctx, key, req)
+}
+
+// OperationStateFunc is a function handler for setting the operation state
+type OperationStateFunc func(context.Context, SiteOperationKey, SetOperationStateRequest) error
 
 // VerifyLicense verifies the provided license
 func VerifyLicense(packages pack.PackageService, license string) error {
@@ -303,7 +369,7 @@ func VerifyLicense(packages pack.PackageService, license string) error {
 
 // GetExpandOperation returns the first available expand operation from
 // the provided backend
-func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error) {
+func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -314,10 +380,29 @@ func GetExpandOperation(backend storage.Backend) (*storage.SiteOperation, error)
 	}
 	for _, operation := range operations {
 		if operation.Type == OperationExpand {
-			return &operation, nil
+			return (*SiteOperation)(&operation), nil
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")
+}
+
+// UpsertSystemAccount creates a new system account if one has not been created.
+// Returns the system account
+func UpsertSystemAccount(operator Operator) (*Account, error) {
+	accounts, err := operator.GetAccounts()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for i := range accounts {
+		if accounts[i].Org == defaults.SystemAccountOrg {
+			return &accounts[i], nil
+		}
+	}
+	account, err := operator.CreateAccount(NewAccountRequest{
+		ID:  defaults.SystemAccountID,
+		Org: defaults.SystemAccountOrg,
+	})
+	return account, trace.Wrap(err)
 }
 
 // MatchByType returns an OperationMatcher to match operations by type

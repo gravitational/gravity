@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/tlsca"
 
 	"github.com/gravitational/trace"
 	"github.com/vulcand/predicate/builder"
@@ -54,15 +55,6 @@ type contextAuthorizer struct {
 // Authorize authorizes user based on identity supplied via context
 func (r *contextAuthorizer) Authorize(ctx context.Context) (*AuthContext, error) {
 	return &r.authContext, nil
-}
-
-// NewUserAuthorizer authorizes everyone as predefined local user
-func NewUserAuthorizer(username string, identity services.UserGetter, access services.Access) (Authorizer, error) {
-	authContext, err := contextForLocalUser(username, identity, access)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &contextAuthorizer{authContext: *authContext}, nil
 }
 
 // NewAuthorizer returns new authorizer using backends
@@ -98,6 +90,8 @@ type AuthContext struct {
 	User services.User
 	// Checker is access checker
 	Checker services.AccessChecker
+	// Identity is x509 derived identity.
+	Identity tlsca.Identity
 }
 
 // Authorize authorizes user based on identity supplied via context
@@ -106,6 +100,20 @@ func (a *authorizer) Authorize(ctx context.Context) (*AuthContext, error) {
 		return nil, trace.AccessDenied("missing authentication context")
 	}
 	userI := ctx.Value(ContextUser)
+	userWithIdentity, ok := userI.(IdentityGetter)
+	if !ok {
+		return nil, trace.AccessDenied("unsupported context type %T", userI)
+	}
+	identity := userWithIdentity.GetIdentity()
+	authContext, err := a.fromUser(userI)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	authContext.Identity = identity
+	return authContext, nil
+}
+
+func (a *authorizer) fromUser(userI interface{}) (*AuthContext, error) {
 	switch user := userI.(type) {
 	case LocalUser:
 		return a.authorizeLocalUser(user)
@@ -122,7 +130,7 @@ func (a *authorizer) Authorize(ctx context.Context) (*AuthContext, error) {
 
 // authorizeLocalUser returns authz context based on the username
 func (a *authorizer) authorizeLocalUser(u LocalUser) (*AuthContext, error) {
-	return contextForLocalUser(u.Username, a.identity, a.access)
+	return contextForLocalUser(u, a.identity, a.access)
 }
 
 // authorizeRemoteUser returns checker based on cert authority roles
@@ -138,8 +146,17 @@ func (a *authorizer) authorizeRemoteUser(u RemoteUser) (*AuthContext, error) {
 	if len(roleNames) == 0 {
 		return nil, trace.AccessDenied("no roles mapped for remote user %q from cluster %q", u.Username, u.ClusterName)
 	}
-	log.Debugf("Mapped roles %v of remote user %q to local roles %v.", u.RemoteRoles, u.Username, roleNames)
-	checker, err := services.FetchRoles(roleNames, a.access, nil)
+	// Set "logins" trait and "kubernetes_groups" for the remote user. This allows Teleport to work by
+	// passing exact logins and kubernetes groups to the remote cluster. Note that claims (OIDC/SAML)
+	// are not passed, but rather the exact logins, this is done to prevent
+	// leaking too much of identity to the remote cluster, and instead of focus
+	// on main cluster's interpretation of this identity
+	traits := map[string][]string{
+		teleport.TraitLogins:     u.Principals,
+		teleport.TraitKubeGroups: u.KubernetesGroups,
+	}
+	log.Debugf("Mapped roles %v of remote user %q to local roles %v and traits %v.", u.RemoteRoles, u.Username, roleNames, traits)
+	checker, err := services.FetchRoles(roleNames, a.access, traits)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -149,13 +166,6 @@ func (a *authorizer) authorizeRemoteUser(u RemoteUser) (*AuthContext, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	// Set "logins" trait for the remote user. This allows Teleport to work by
-	// passing exact logins to the remote cluster. Note that claims (OIDC/SAML)
-	// are not passed, but rather the exact logins.
-	traits := map[string][]string{
-		teleport.TraitLogins: u.Principals,
-	}
 	user.SetTraits(traits)
 
 	// Set the list of roles this user has in the remote cluster.
@@ -163,7 +173,7 @@ func (a *authorizer) authorizeRemoteUser(u RemoteUser) (*AuthContext, error) {
 
 	return &AuthContext{
 		User:    user,
-		Checker: checker,
+		Checker: RemoteUserRoleSet{checker},
 	}, nil
 }
 
@@ -440,18 +450,33 @@ func contextForBuiltinRole(clusterName string, clusterConfig services.ClusterCon
 	}, nil
 }
 
-func contextForLocalUser(username string, identity services.UserGetter, access services.Access) (*AuthContext, error) {
-	user, err := identity.GetUser(username)
+func contextForLocalUser(u LocalUser, identity services.UserGetter, access services.Access) (*AuthContext, error) {
+	// User has to be fetched to check if it's a blocked username
+	user, err := identity.GetUser(u.Username)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	checker, err := services.FetchRoles(user.GetRoles(), access, user.GetTraits())
+	roles, traits, err := services.ExtractFromIdentity(identity, &u.Identity)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	checker, err := services.FetchRoles(roles, access, traits)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Override roles and traits from the local user based on the identity roles
+	// and traits, this is done to prevent potential conflict. Imagine a scenairo
+	// when SSO user has left the company, but local user entry remained with old
+	// privileged roles. New user with the same name has been onboarded and would
+	// have derived the roles from the stale user entry. This code prevents
+	// that by extracting up to date identity traits and roles from the user's
+	// certificate metadata.
+	user.SetRoles(roles)
+	user.SetTraits(traits)
+
 	return &AuthContext{
 		User:    user,
-		Checker: checker,
+		Checker: LocalUserRoleSet{checker},
 	}, nil
 }
 
@@ -462,6 +487,19 @@ const ContextUser = "teleport-user"
 type LocalUser struct {
 	// Username is local username
 	Username string
+	// Identity is x509-derived identity used to build this user
+	Identity tlsca.Identity
+}
+
+// GetIdentity returns client identity
+func (l LocalUser) GetIdentity() tlsca.Identity {
+	return l.Identity
+}
+
+// IdentityGetter returns client identity
+type IdentityGetter interface {
+	// GetIdentity  returns x509-derived identity of the user
+	GetIdentity() tlsca.Identity
 }
 
 // BuiltinRole is the role of the Teleport service.
@@ -477,6 +515,14 @@ type BuiltinRole struct {
 
 	// ClusterName is the name of the local cluster
 	ClusterName string
+
+	// Identity is source x509 used to build this role
+	Identity tlsca.Identity
+}
+
+// GetIdentity returns client identity
+func (r BuiltinRole) GetIdentity() tlsca.Identity {
+	return r.Identity
 }
 
 // BuiltinRoleSet wraps a services.RoleSet. The type is used to determine if
@@ -491,6 +537,18 @@ type RemoteBuiltinRoleSet struct {
 	services.RoleSet
 }
 
+// LocalUserRoleSet wraps a services.RoleSet. This type is used to determine
+// if the role is a local user or not.
+type LocalUserRoleSet struct {
+	services.RoleSet
+}
+
+// RemoteUserRoleSet wraps a services.RoleSet. This type is used to determine
+// if the role is a remote user or not.
+type RemoteUserRoleSet struct {
+	services.RoleSet
+}
+
 // RemoteBuiltinRole is the role of the remote (service connecting via trusted cluster link)
 // Teleport service.
 type RemoteBuiltinRole struct {
@@ -502,6 +560,14 @@ type RemoteBuiltinRole struct {
 
 	// ClusterName is the name of the remote cluster.
 	ClusterName string
+
+	// Identity is source x509 used to build this role
+	Identity tlsca.Identity
+}
+
+// GetIdentity returns client identity
+func (r RemoteBuiltinRole) GetIdentity() tlsca.Identity {
+	return r.Identity
 }
 
 // RemoteUser defines encoded remote user.
@@ -518,6 +584,17 @@ type RemoteUser struct {
 
 	// Principals is a list of Unix logins.
 	Principals []string `json:"principals"`
+
+	// KubernetesGroups is a list of Kubernetes groups
+	KubernetesGroups []string `json:"kubernetes_groups"`
+
+	// Identity is source x509 used to build this role
+	Identity tlsca.Identity
+}
+
+// GetIdentity returns client identity
+func (r RemoteUser) GetIdentity() tlsca.Identity {
+	return r.Identity
 }
 
 // GetClusterConfigFunc returns a cached services.ClusterConfig.

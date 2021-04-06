@@ -17,7 +17,10 @@ limitations under the License.
 package proto
 
 import (
-	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 	"golang.org/x/net/context"
@@ -54,7 +57,7 @@ type OutgoingMessageStream interface {
 func EncodeError(err error) *Error {
 	var errWithTraces *trace.TraceErr
 	var ok bool
-	if errWithTraces, ok = err.(*trace.TraceErr); ok {
+	if errWithTraces, ok = err.(*trace.TraceErr); !ok {
 		return &Error{Message: trace.UserMessage(err)}
 	}
 
@@ -68,10 +71,91 @@ func EncodeError(err error) *Error {
 	}
 }
 
+// ErrorToMessage returns a new message using the specified error
 func ErrorToMessage(err error) *Message {
-	return &Message{&Message_Error{EncodeError(err)}}
+	return &Message{Element: &Message_Error{EncodeError(err)}}
 }
 
-func DecodeError(err *Error) error {
-	return errors.New(err.Message)
+// String describes this request as text
+func (r *PeerJoinRequest) String() string {
+	return fmt.Sprintf("PeerJoinRequest(addr=%v, config=%v)", r.Addr, r.Config)
+}
+
+// String describes this request as text
+func (r *PeerLeaveRequest) String() string {
+	return fmt.Sprintf("PeerLeaveRequest(addr=%v, config=%v)", r.Addr, r.Config)
+}
+
+// String describes this configuration as text
+func (r *RuntimeConfig) String() string {
+	var mounts []string
+	for _, m := range r.Mounts {
+		mounts = append(mounts, m.String())
+	}
+	return fmt.Sprintf("RuntimeConfig(role=%v, addr=%v, system-dev=%q, "+
+		"state-dir=%v, temp-dir=%v, token=%v, key-values=%v, mounts=%v, cloud=%v)",
+		r.Role,
+		r.AdvertiseAddr,
+		r.SystemDevice,
+		r.StateDir,
+		r.TempDir,
+		r.Token,
+		r.KeyValues,
+		strings.Join(mounts, ","),
+		r.CloudMetadata,
+	)
+}
+
+// String describes this mount point as text
+func (r Mount) String() string {
+	return fmt.Sprintf("Mount(name=%v, source=%v)", r.Name, r.Source)
+}
+
+// MountsToProto converts list of mounts to protobuf format
+func MountsToProto(mounts []storage.Mount) []*Mount {
+	result := make([]*Mount, 0, len(mounts))
+	for _, mount := range mounts {
+		result = append(result, MountToProto(mount))
+	}
+	return result
+}
+
+// MountsFromProto converts list of mounts from protobuf format
+func MountsFromProto(mounts []*Mount) []storage.Mount {
+	result := make([]storage.Mount, 0, len(mounts))
+	for _, mount := range mounts {
+		result = append(result, MountFromProto(mount))
+	}
+	return result
+}
+
+// MountToProto converts mount to protobuf format
+func MountToProto(mount storage.Mount) *Mount {
+	return &Mount{
+		Name:   mount.Name,
+		Source: mount.Source,
+	}
+}
+
+// MountFromProto converts mount from protobuf format
+func MountFromProto(mount *Mount) storage.Mount {
+	return storage.Mount{
+		Name:   mount.Name,
+		Source: mount.Source,
+	}
+}
+
+// String describes this metadata object as text
+func (r *CloudMetadata) String() string {
+	if r == nil {
+		return "CloudMetadata(<empty>)"
+	}
+	return fmt.Sprintf("CloudMetadata(node=%v, type=%v, id=%v)",
+		r.NodeName, r.InstanceType, r.InstanceId)
+}
+
+// String returns human-friendly version string
+func (v *Version) String() string {
+	return fmt.Sprintf("Edition:\t%v\nVersion:\t%v\nGit Commit:\t%v\nHelm Version:\t%v",
+		v.Edition, v.Version, v.GitCommit, v.Helm)
 }

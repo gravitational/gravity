@@ -2,8 +2,8 @@
 set -e
 
 #
-# the directory where Gravity binaries will be located
+# The directory where Gravity binaries will be located.
 #
 BINDIR=/usr/local/bin
 
-sudo cp -f tele tsh $BINDIR
+sudo cp -f tele tsh gravity $BINDIR

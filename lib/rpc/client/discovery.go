@@ -20,11 +20,12 @@ import (
 	"context"
 	"time"
 
+	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gogo/protobuf/types"
-	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/trace"
+	"github.com/gravitational/trace/trail"
 )
 
 // GetSystemInfo queries remote system information
@@ -65,4 +66,13 @@ func (c *client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 	}
 
 	return &ts, nil
+}
+
+// GetVersion returns agent's version information
+func (c *client) GetVersion(ctx context.Context) (*pb.Version, error) {
+	version, err := c.discovery.GetVersion(ctx, &types.Empty{})
+	if err != nil {
+		return nil, trail.FromGRPC(err)
+	}
+	return version, nil
 }

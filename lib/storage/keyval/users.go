@@ -44,6 +44,9 @@ func (b *backend) GetAllUsers() ([]storage.User, error) {
 	for _, name := range keys {
 		u, err := b.GetUser(name)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				continue
+			}
 			return nil, trace.Wrap(err)
 		}
 		out = append(out, u)
@@ -61,6 +64,9 @@ func (b *backend) GetUsers(accountID string) ([]storage.User, error) {
 	for _, name := range keys {
 		u, err := b.GetUser(name)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				continue
+			}
 			return nil, trace.Wrap(err)
 		}
 		if u.GetAccountID() == accountID || accountID == "" {
@@ -79,6 +85,9 @@ func (b *backend) GetSiteUsers(clusterName string) ([]storage.User, error) {
 	for _, name := range keys {
 		u, err := b.GetUser(name)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				continue
+			}
 			return nil, trace.Wrap(err)
 		}
 		if u.GetClusterName() == clusterName {
@@ -98,7 +107,7 @@ func (b *backend) CreateUser(u storage.User) (storage.User, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = b.createValBytes(b.key(usersP, u.GetName(), valP), data, b.ttl(u.GetExpiry()))
+	err = b.createValBytes(b.key(usersP, u.GetName(), valP), data, b.ttl(u.Expiry()))
 	if err != nil {
 		if trace.IsAlreadyExists(err) {
 			return nil, trace.AlreadyExists("user %q already exists", u)
@@ -113,7 +122,7 @@ func (b *backend) UpsertUser(u storage.User) (storage.User, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = b.upsertValBytes(b.key(usersP, u.GetName(), valP), data, b.ttl(u.GetExpiry()))
+	err = b.upsertValBytes(b.key(usersP, u.GetName(), valP), data, b.ttl(u.Expiry()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -261,6 +270,9 @@ func (b *backend) getUsers() ([]storage.User, error) {
 	for _, key := range keys {
 		u, err := b.GetUser(key)
 		if err != nil {
+			if trace.IsNotFound(err) {
+				continue
+			}
 			return nil, trace.Wrap(err)
 		}
 		out = append(out, u)

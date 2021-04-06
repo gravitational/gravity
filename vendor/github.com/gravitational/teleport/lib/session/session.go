@@ -27,6 +27,7 @@ import (
 
 	"github.com/gravitational/teleport/lib/backend"
 	"github.com/gravitational/teleport/lib/defaults"
+	"github.com/gravitational/teleport/lib/services"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/docker/docker/pkg/term"
@@ -34,65 +35,44 @@ import (
 	"github.com/pborman/uuid"
 )
 
-// ID is a uinique session id that is based on time UUID v1
+// ID is a unique session ID.
 type ID string
 
-// IsZero returns true if this ID is empty
+// IsZero returns true if this ID is empty.
 func (s *ID) IsZero() bool {
 	return len(*s) == 0
 }
 
-// UUID returns byte representation of this ID
-func (s *ID) UUID() uuid.UUID {
-	return uuid.Parse(string(*s))
-}
-
-// String returns string representation of this id
+// String returns string representation of this ID.
 func (s *ID) String() string {
 	return string(*s)
 }
 
-// Set makes ID cli compatible, lets to set value from string
-func (s *ID) Set(v string) error {
-	id, err := ParseID(v)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	*s = *id
-	return nil
-}
-
-// Time returns time portion of this ID
-func (s *ID) Time() time.Time {
-	tm, ok := s.UUID().Time()
-	if !ok {
-		return time.Time{}
-	}
-	sec, nsec := tm.UnixTime()
-	return time.Unix(sec, nsec).UTC()
-}
-
-// Check checks if it's a valid UUID
+// Check will check that the underlying UUID is valid.
 func (s *ID) Check() error {
 	_, err := ParseID(string(*s))
 	return trace.Wrap(err)
 }
 
-// ParseID parses ID and checks if it's correct
+// ParseID parses ID and checks if it's correct.
 func ParseID(id string) (*ID, error) {
 	val := uuid.Parse(id)
 	if val == nil {
-		return nil, trace.BadParameter("'%v' is not a valid Time UUID v1", id)
-	}
-	if ver, ok := val.Version(); !ok || ver != 1 {
-		return nil, trace.BadParameter("'%v' is not a be a valid Time UUID v1", id)
+		return nil, trace.BadParameter("%v not a valid UUID", id)
 	}
 	uid := ID(id)
 	return &uid, nil
 }
 
-// NewID returns new session ID
+// NewID returns new session ID. The session ID is based on UUIDv4.
 func NewID() ID {
+	return ID(uuid.New())
+}
+
+// DELETE IN: 4.1.0.
+//
+// NewLegacyID creates a new session ID in the UUIDv1 legacy format.
+func NewLegacyID() ID {
 	return ID(uuid.NewUUID().String())
 }
 
@@ -109,8 +89,6 @@ type Session struct {
 	TerminalParams TerminalParams `json:"terminal_params"`
 	// Login is a login used by all parties joining the session
 	Login string `json:"login"`
-	// Active indicates if the session is active
-	Active bool `json:"active"`
 	// Created records the information about the time when session
 	// was created
 	Created time.Time `json:"created"`
@@ -216,7 +194,6 @@ func Bool(val bool) *bool {
 type UpdateRequest struct {
 	ID             ID              `json:"id"`
 	Namespace      string          `json:"namespace"`
-	Active         *bool           `json:"active"`
 	TerminalParams *TerminalParams `json:"terminal_params"`
 
 	// Parties allows to update the list of session parties. nil means
@@ -262,6 +239,9 @@ type Service interface {
 	// UpdateSession updates certain session parameters (last_active, terminal
 	// parameters) other parameters will not be updated.
 	UpdateSession(req UpdateRequest) error
+
+	// DeleteSession removes an active session from the backend.
+	DeleteSession(namespace string, id ID) error
 }
 
 type server struct {
@@ -400,9 +380,6 @@ func (s *server) UpdateSession(req UpdateRequest) error {
 	if req.TerminalParams != nil {
 		sess.TerminalParams = *req.TerminalParams
 	}
-	if req.Active != nil {
-		sess.Active = *req.Active
-	}
 	if req.Parties != nil {
 		sess.Parties = *req.Parties
 	}
@@ -410,6 +387,24 @@ func (s *server) UpdateSession(req UpdateRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return nil
+}
+
+// DeleteSession removes an active session from the backend.
+func (s *server) DeleteSession(namespace string, id ID) error {
+	if !services.IsValidNamespace(namespace) {
+		return trace.BadParameter("invalid namespace %q", namespace)
+	}
+	err := id.Check()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	err = s.bk.DeleteKey(activeBucket(namespace), string(id))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -441,6 +436,11 @@ func (d *discardSessionServer) CreateSession(sess Session) error {
 
 // UpdateSession always returns nil, does nothing.
 func (d *discardSessionServer) UpdateSession(req UpdateRequest) error {
+	return nil
+}
+
+// DeleteSession removes an active session from the backend.
+func (d *discardSessionServer) DeleteSession(namespace string, id ID) error {
 	return nil
 }
 

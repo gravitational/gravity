@@ -167,7 +167,7 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	h.POST("/webapi/ssh/certs", httplib.MakeHandler(h.createSSHCert))
 
 	// list available sites
-	h.GET("/webapi/sites", h.WithAuth(h.getSites))
+	h.GET("/webapi/sites", h.WithAuth(h.getClusters))
 
 	// Site specific API
 
@@ -184,7 +184,8 @@ func NewHandler(cfg Config, opts ...HandlerOption) (*RewritingHandler, error) {
 	h.GET("/webapi/sites/:site/namespaces/:namespace/sessions/:sid", h.WithClusterAuth(h.siteSessionGet))  // get active session metadata
 
 	// recorded sessions handlers
-	h.GET("/webapi/sites/:site/events", h.WithClusterAuth(h.siteEventsGet))                                            // get recorded list of sessions (from events)
+	h.GET("/webapi/sites/:site/events", h.WithClusterAuth(h.clusterSearchSessionEvents))                               // get recorded list of sessions (from events)
+	h.GET("/webapi/sites/:site/events/search", h.WithClusterAuth(h.clusterSearchEvents))                               // search site events
 	h.GET("/webapi/sites/:site/namespaces/:namespace/sessions/:sid/events", h.WithClusterAuth(h.siteSessionEventsGet)) // get recorded session's timing information (from events)
 	h.GET("/webapi/sites/:site/namespaces/:namespace/sessions/:sid/stream", h.siteSessionStreamGet)                    // get recorded session's bytes (from events)
 
@@ -345,17 +346,25 @@ func (h *Handler) getUserContext(w http.ResponseWriter, r *http.Request, _ httpr
 		return nil, trace.Wrap(err)
 	}
 
+	// Extract services.RoleSet from certificate.
+	cert, _, err := c.GetCertificates()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roles, traits, err := services.ExtractFromCertificate(clt, cert)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roleset, err := services.FetchRoles(roles, clt, traits)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	user, err := clt.GetUser(c.GetUser())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	userRoleSet, err := services.FetchRoles(user.GetRoles(), clt, user.GetTraits())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	userContext, err := ui.NewUserContext(user, userRoleSet)
+	userContext, err := ui.NewUserContext(user, roleset)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -502,9 +511,10 @@ func (h *Handler) ping(w http.ResponseWriter, r *http.Request, p httprouter.Para
 	}
 
 	return client.PingResponse{
-		Auth:          defaultSettings,
-		Proxy:         h.cfg.ProxySettings,
-		ServerVersion: teleport.Version,
+		Auth:             defaultSettings,
+		Proxy:            h.cfg.ProxySettings,
+		ServerVersion:    teleport.Version,
+		MinClientVersion: teleport.MinClientVersion,
 	}, nil
 }
 
@@ -1267,29 +1277,7 @@ func (h *Handler) createNewU2FUser(w http.ResponseWriter, r *http.Request, p htt
 	return NewSessionResponse(ctx)
 }
 
-type getSitesResponse struct {
-	Sites []site `json:"sites"`
-}
-
-type site struct {
-	Name          string    `json:"name"`
-	LastConnected time.Time `json:"last_connected"`
-	Status        string    `json:"status"`
-}
-
-func convertSites(rs []reversetunnel.RemoteSite) []site {
-	out := make([]site, len(rs))
-	for i := range rs {
-		out[i] = site{
-			Name:          rs[i].GetName(),
-			LastConnected: rs[i].GetLastConnected(),
-			Status:        rs[i].GetStatus(),
-		}
-	}
-	return out
-}
-
-// getSites returns a list of sites
+// getClusters returns a list of clusters
 //
 // GET /v1/webapi/sites
 //
@@ -1297,10 +1285,16 @@ func convertSites(rs []reversetunnel.RemoteSite) []site {
 //
 // {"sites": {"name": "localhost", "last_connected": "RFC3339 time", "status": "active"}}
 //
-func (m *Handler) getSites(w http.ResponseWriter, r *http.Request, p httprouter.Params, c *SessionContext) (interface{}, error) {
-	return getSitesResponse{
-		Sites: convertSites(m.cfg.Proxy.GetSites()),
-	}, nil
+func (h *Handler) getClusters(w http.ResponseWriter, r *http.Request, p httprouter.Params, c *SessionContext) (interface{}, error) {
+	resource, err := h.cfg.ProxyClient.GetClusterName()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	response := ui.NewAvailableClusters(resource.GetClusterName(),
+		h.cfg.Proxy.GetSites())
+
+	return response, nil
 }
 
 type getSiteNamespacesResponse struct {
@@ -1445,7 +1439,9 @@ func (h *Handler) siteSessionGenerate(w http.ResponseWriter, r *http.Request, p 
 	if err := httplib.ReadJSON(r, &req); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	req.Session.ID = session.NewID()
+
+	// DELETE IN 4.2: change from session.NewLegacyID() to session.NewID().
+	req.Session.ID = session.NewLegacyID()
 	req.Session.Created = time.Now().UTC()
 	req.Session.LastActive = time.Now().UTC()
 	req.Session.Namespace = namespace
@@ -1521,7 +1517,7 @@ func (h *Handler) siteSessionGet(w http.ResponseWriter, r *http.Request, p httpr
 
 const maxStreamBytes = 5 * 1024 * 1024
 
-// siteEventsGet allows to search for events on site
+// clusterSearchSessionEvents allows to search for session events on a cluster
 //
 // GET /v1/webapi/sites/:site/events
 //
@@ -1532,7 +1528,7 @@ const maxStreamBytes = 5 * 1024 * 1024
 //             the default backend performs exact search: ?key=value means "event
 //             with a field 'key' with value 'value'
 //
-func (h *Handler) siteEventsGet(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *SessionContext, site reversetunnel.RemoteSite) (interface{}, error) {
+func (h *Handler) clusterSearchSessionEvents(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *SessionContext, site reversetunnel.RemoteSite) (interface{}, error) {
 	query := r.URL.Query()
 
 	clt, err := ctx.GetUserClient(site)
@@ -1566,6 +1562,78 @@ func (h *Handler) siteEventsGet(w http.ResponseWriter, r *http.Request, p httpro
 		return nil, trace.Wrap(err)
 	}
 	return eventsListGetResponse{Events: el}, nil
+}
+
+// clusterSearchEvents returns all audit log events matching the provided criteria
+//
+// GET /v1/webapi/sites/:site/events/search
+//
+// Query parameters:
+//   "from"   : date range from, encoded as RFC3339
+//   "to"     : date range to, encoded as RFC3339
+//   "include": optional semicolon-separated list of event names to return e.g.
+//              include=session.start;session.end, all are returned if empty
+//   "limit"  : optional maximum number of events to return
+//
+func (h *Handler) clusterSearchEvents(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *SessionContext, site reversetunnel.RemoteSite) (interface{}, error) {
+	values := r.URL.Query()
+	from, err := queryTime(values, "from", time.Now().UTC().AddDate(0, -1, 0))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	to, err := queryTime(values, "to", time.Now().UTC())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	limit, err := queryLimit(values, "limit", defaults.EventsIterationLimit)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	query := url.Values{}
+	if include := values.Get("include"); include != "" {
+		query[events.EventType] = strings.Split(include, ";")
+	}
+	clt, err := ctx.GetUserClient(site)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	fields, err := clt.SearchEvents(from, to, query.Encode(), limit)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return eventsListGetResponse{Events: fields}, nil
+}
+
+// queryTime parses the query string parameter with the specified name as a
+// RFC3339 time and returns it.
+//
+// If there's no such parameter, specified default value is returned.
+func queryTime(query url.Values, name string, def time.Time) (time.Time, error) {
+	str := query.Get(name)
+	if str == "" {
+		return def, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, str)
+	if err != nil {
+		return time.Time{}, trace.BadParameter("failed to parse %v as RFC3339 time: %v", name, str)
+	}
+	return parsed, nil
+}
+
+// queryLimit returns the limit parameter with the specified name from the
+// query string.
+//
+// If there's no such parameter, specified default limit is returned.
+func queryLimit(query url.Values, name string, def int) (int, error) {
+	str := query.Get(name)
+	if str == "" {
+		return def, nil
+	}
+	limit, err := strconv.Atoi(str)
+	if err != nil {
+		return 0, trace.BadParameter("failed to parse %v as limit: %v", name, str)
+	}
+	return limit, nil
 }
 
 type siteSessionStreamGetResponse struct {
@@ -1861,17 +1929,17 @@ func (h *Handler) WithClusterAuth(fn ClusterHandler) httprouter.Handle {
 		ctx, err := h.AuthenticateRequest(w, r, true)
 		if err != nil {
 			log.Info(err)
-			// clear session just in case if the authentication request is not valid
-			ClearSession(w)
 			return nil, trace.Wrap(err)
 		}
 		siteName := p.ByName("site")
 		if siteName == currentSiteShortcut {
-			sites := h.cfg.Proxy.GetSites()
-			if len(sites) < 1 {
-				return nil, trace.NotFound("no active sites")
+			res, err := h.cfg.ProxyClient.GetClusterName()
+			if err != nil {
+				log.Warn(err)
+				return nil, trace.Wrap(err)
 			}
-			siteName = sites[0].GetName()
+
+			siteName = res.GetClusterName()
 		}
 		site, err := h.cfg.Proxy.GetSite(siteName)
 		if err != nil {

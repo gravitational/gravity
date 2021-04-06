@@ -19,6 +19,8 @@ limitations under the License.
 package suite
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -26,7 +28,9 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
@@ -44,16 +48,6 @@ type OpsSuite struct {
 	U       users.Users
 	C       *timetools.FreezedTime
 	testApp loc.Locator
-}
-
-type appTuple struct {
-	Name string
-	Path string
-}
-
-type packageTuple struct {
-	Name string
-	Path string
 }
 
 func SetUpTestPackage(c *C, apps app.Applications, packages pack.PackageService) loc.Locator {
@@ -114,17 +108,18 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 		AccountID:  a.ID,
 	}
 	out, err := s.O.GetSite(siteKey)
+	c.Assert(err, IsNil)
 	c.Assert(out, DeepEquals, site)
 
 	sites, err = s.O.GetSites(a.ID)
 	c.Assert(err, IsNil)
 	c.Assert(sites, DeepEquals, []ops.Site{*site})
 
-	operations, err := s.O.GetSiteOperations(siteKey)
+	operations, err := s.O.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	c.Assert(err, IsNil)
 	c.Assert(len(operations), Equals, 0)
 
-	opKey, err := s.O.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.O.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:  a.ID,
 		SiteDomain: site.Domain,
 		Variables:  storage.OperationVariables{},
@@ -148,13 +143,13 @@ func (s *OpsSuite) SitesCRUD(c *C) {
 	c.Assert(logStream.Close(), IsNil)
 
 	// download crashreport
-	reportStream, err := s.O.GetSiteOperationCrashReport(*opKey)
+	reportStream, err := s.O.GetSiteReport(context.TODO(), ops.GetClusterReportRequest{SiteKey: opKey.SiteKey()})
 	c.Assert(err, IsNil)
 	_, err = io.Copy(ioutil.Discard, reportStream)
 	c.Assert(err, IsNil)
 	c.Assert(reportStream.Close(), IsNil)
 
-	operations, err = s.O.GetSiteOperations(siteKey)
+	operations, err = s.O.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	c.Assert(err, IsNil)
 	c.Assert(operations, DeepEquals, ops.SiteOperations{storage.SiteOperation(*op)})
 
@@ -177,16 +172,19 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 	})
 	c.Assert(err, IsNil)
 
+	s.generateInstallToken(c, "install-token", "example.com")
+
 	site, err := s.O.CreateSite(ops.NewSiteRequest{
-		AppPackage: s.testApp.String(),
-		AccountID:  a.ID,
-		Provider:   schema.ProviderOnPrem,
-		DomainName: "example.com",
+		AppPackage:   s.testApp.String(),
+		AccountID:    a.ID,
+		Provider:     schema.ProviderOnPrem,
+		DomainName:   "example.com",
+		InstallToken: "install-token",
 	})
 	c.Assert(err, IsNil)
 	c.Assert(site.State, Equals, ops.SiteStateNotInstalled)
 
-	opKey, err := s.O.CreateSiteInstallOperation(ops.CreateSiteInstallOperationRequest{
+	opKey, err := s.O.CreateSiteInstallOperation(context.TODO(), ops.CreateSiteInstallOperationRequest{
 		AccountID:  a.ID,
 		SiteDomain: site.Domain,
 		Variables:  storage.OperationVariables{},
@@ -194,27 +192,32 @@ func (s *OpsSuite) InstallInstructions(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(opKey, NotNil)
 
-	tokens, err := s.U.GetSiteProvisioningTokens(site.Domain)
+	token, err := s.O.GetExpandToken(site.Key())
 	c.Assert(err, IsNil)
-	var installToken, expandToken *storage.ProvisioningToken
-	for i := range tokens {
-		if tokens[i].Type == storage.ProvisioningTokenTypeInstall {
-			installToken = &tokens[i]
-		} else if tokens[i].Type == storage.ProvisioningTokenTypeExpand {
-			expandToken = &tokens[i]
-		}
-	}
-
-	c.Assert(installToken, NotNil, Commentf("expected install token to exist, got %#v", tokens))
-	c.Assert(expandToken, NotNil, Commentf("expected expand token to exist, got %#v", tokens))
-
-	installInstructions, err := s.O.GetSiteInstructions(
-		installToken.Token, "master", url.Values{})
-	c.Assert(err, IsNil)
-	c.Assert(strings.Contains(installInstructions, "install"), Equals, true)
+	c.Assert(token, compare.DeepEquals, &storage.ProvisioningToken{
+		Token:       "install-token",
+		Type:        storage.ProvisioningTokenTypeExpand,
+		AccountID:   site.AccountID,
+		SiteDomain:  site.Domain,
+		UserEmail:   "agent@example.com",
+		OperationID: opKey.OperationID,
+	}, Commentf("expected expand token to exist, got %#v", token))
 
 	joinInstructions, err := s.O.GetSiteInstructions(
-		expandToken.Token, "master", url.Values{})
+		token.Token, "master", url.Values{})
 	c.Assert(err, IsNil)
 	c.Assert(strings.Contains(joinInstructions, "join"), Equals, true)
+}
+
+func (s *OpsSuite) generateInstallToken(c *C, token, clusterName string) {
+	_, err := s.O.CreateInstallToken(
+		ops.NewInstallTokenRequest{
+			AccountID:   defaults.SystemAccountID,
+			Application: s.testApp.String(),
+			UserType:    storage.AgentUser,
+			UserEmail:   fmt.Sprintf("agent@%v", clusterName),
+			Token:       token,
+		},
+	)
+	c.Assert(err, IsNil)
 }

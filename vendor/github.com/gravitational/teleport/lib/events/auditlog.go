@@ -1,5 +1,5 @@
 /*
-Copyright 2015-2018 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,6 +54,10 @@ const (
 
 	// LogfileExt defines the ending of the daily event log file
 	LogfileExt = ".log"
+
+	// SymlinkFilename is a name of the symlink pointing to the last
+	// current log file
+	SymlinkFilename = "events.log"
 
 	// sessionsMigratedEvent is a sessions migration event used internally
 	sessionsMigratedEvent = "sessions.migrated"
@@ -123,6 +127,9 @@ type AuditLogConfig struct {
 	// Clock is a clock either real one or used in tests
 	Clock clockwork.Clock
 
+	// UIDGenerator is used to generate unique IDs for events
+	UIDGenerator utils.UID
+
 	// GID if provided will be used to set group ownership of the directory
 	// to GID
 	GID *int
@@ -146,7 +153,7 @@ type AuditLogConfig struct {
 	// ExternalLog is a pluggable external log service
 	ExternalLog IAuditLog
 
-	// EventC is evnets channel for testing purposes, not used if emtpy
+	// EventC is evnets channel for testing purposes, not used if empty
 	EventsC chan *AuditLogEvent
 }
 
@@ -168,6 +175,9 @@ func (a *AuditLogConfig) CheckAndSetDefaults() error {
 	}
 	if a.Clock == nil {
 		a.Clock = clockwork.NewRealClock()
+	}
+	if a.UIDGenerator == nil {
+		a.UIDGenerator = utils.NewRealUID()
 	}
 	if a.RotationPeriod == 0 {
 		a.RotationPeriod = defaults.LogRotationPeriod
@@ -242,7 +252,9 @@ func NewAuditLog(cfg AuditLogConfig) (*AuditLog, error) {
 		al.localLog, err = NewFileLog(FileLogConfig{
 			RotationPeriod: al.RotationPeriod,
 			Dir:            auditDir,
+			SymlinkDir:     cfg.DataDir,
 			Clock:          al.Clock,
+			UIDGenerator:   al.UIDGenerator,
 			SearchDirs:     al.auditDirs,
 		})
 		if err != nil {
@@ -282,18 +294,21 @@ func (l *SessionRecording) CheckAndSetDefaults() error {
 	return nil
 }
 
-// UploadSessionRecording uploads session recording to the audit server
-// TODO(klizhentas) add protection against overwrites from different nodes
+// UploadSessionRecording persists the session recording locally or to third
+// party storage.
 func (l *AuditLog) UploadSessionRecording(r SessionRecording) error {
 	if err := r.CheckAndSetDefaults(); err != nil {
 		return trace.Wrap(err)
 	}
+
+	// This function runs on the Auth Server. If no upload handler is defined
+	// (for example, not going to S3) then unarchive it to Auth Server disk.
 	if l.UploadHandler == nil {
-		// unpack the tarball locally to sessions directory
 		err := utils.Extract(r.Recording, filepath.Join(l.DataDir, l.ServerID, SessionLogsDir, r.Namespace))
 		return trace.Wrap(err)
 	}
-	// use upload handler
+
+	// Upload session recording to endpoint defined in file configuration. Like S3.
 	start := time.Now()
 	url, err := l.UploadHandler.Upload(context.TODO(), r.SessionID, r.Recording)
 	if err != nil {
@@ -301,7 +316,7 @@ func (l *AuditLog) UploadSessionRecording(r SessionRecording) error {
 		return trace.Wrap(err)
 	}
 	l.WithFields(log.Fields{"duration": time.Now().Sub(start), "session-id": r.SessionID}).Debugf("Session upload completed.")
-	return l.EmitAuditEvent(SessionUploadEvent, EventFields{
+	return l.EmitAuditEvent(SessionUpload, EventFields{
 		SessionEventID: string(r.SessionID),
 		URL:            url,
 		EventIndex:     math.MaxInt32,
@@ -337,7 +352,7 @@ func (l *AuditLog) processSlice(sl SessionLogger, slice *SessionSlice) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err := l.EmitAuditEvent(chunk.EventType, fields); err != nil {
+		if err := l.EmitAuditEvent(Event{Name: chunk.EventType}, fields); err != nil {
 			return trace.Wrap(err)
 		}
 	}
@@ -830,11 +845,11 @@ func (l *AuditLog) fetchSessionEvents(fileName string, afterN int) ([]EventField
 }
 
 // EmitAuditEvent adds a new event to the log. Part of auth.IAuditLog interface.
-func (l *AuditLog) EmitAuditEvent(eventType string, fields EventFields) error {
+func (l *AuditLog) EmitAuditEvent(event Event, fields EventFields) error {
 	if l.ExternalLog != nil {
-		return l.ExternalLog.EmitAuditEvent(eventType, fields)
+		return l.ExternalLog.EmitAuditEvent(event, fields)
 	}
-	return l.localLog.EmitAuditEvent(eventType, fields)
+	return l.localLog.EmitAuditEvent(event, fields)
 }
 
 // emitEvent emits event for test purposes

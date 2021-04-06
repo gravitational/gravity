@@ -71,7 +71,7 @@ func (b *backend) DeleteAllCertAuthorities(authType teleservices.CertAuthType) e
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (b *backend) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool) (teleservices.CertAuthority, error) {
+func (b *backend) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
 	data, err := b.getValBytes(b.key(authoritiesP, string(id.Type), id.DomainName))
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -83,7 +83,9 @@ func (b *backend) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys b
 		return nil, trace.Wrap(err)
 	}
 	if !loadSigningKeys {
-		ca.SetSigningKeys(nil)
+		if err := ca.SetSigningKeys(nil); err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	return ca, nil
 }

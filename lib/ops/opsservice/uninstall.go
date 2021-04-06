@@ -17,6 +17,8 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -30,7 +32,7 @@ import (
 
 // requestUninstall is called by cluster and makes a request to the remote
 // Ops Center the cluster is connected to to initiate the uninstall operation
-func (s *site) requestUninstall(req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) requestUninstall(ctx context.Context, req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	// check the status of remote access - we can request uninstall only if
 	// the remote support to Ops Center is turned on
 	clusters, err := s.service.cfg.Users.GetTrustedClusters()
@@ -52,11 +54,11 @@ func (s *site) requestUninstall(req ops.CreateSiteUninstallOperationRequest) (*o
 
 	if client == nil {
 		return nil, trace.BadParameter(
-			"this cluster is not connected to any Ops Centers")
+			"this cluster is not connected to a Gravity Hub")
 	}
 
 	// create an uninstall operation for ourselves in the remote Ops Center
-	key, err := client.CreateSiteUninstallOperation(req)
+	key, err := client.CreateSiteUninstallOperation(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -71,7 +73,7 @@ func (s *site) requestUninstall(req ops.CreateSiteUninstallOperationRequest) (*o
 }
 
 // createUninstallOperation initiates uninstall operation and starts it right away
-func (s *site) createUninstallOperation(req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createUninstallOperation(context context.Context, req ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	opInstall, _, err := ops.GetInstallOperation(s.key, s.service)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query install operation")
@@ -83,6 +85,7 @@ func (s *site) createUninstallOperation(req ops.CreateSiteUninstallOperationRequ
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationUninstall,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateUninstallInProgress,
 		Provisioner: opInstall.Provisioner,
@@ -116,7 +119,8 @@ func (s *site) createUninstallOperation(req ops.CreateSiteUninstallOperationRequ
 		}
 	}
 
-	key, err := s.getOperationGroup().createSiteOperation(*op)
+	key, err := s.getOperationGroup().createSiteOperationWithOptions(*op,
+		createOperationOptions{force: req.Force})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

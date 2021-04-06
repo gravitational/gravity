@@ -17,35 +17,90 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+	"time"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	monitoringv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubelabels "k8s.io/apimachinery/pkg/labels"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-// GetRetentionPolicies returns a list of retention policies for the site
-func (o *Operator) GetRetentionPolicies(key ops.SiteKey) ([]monitoring.RetentionPolicy, error) {
-	return o.cfg.Monitoring.GetRetentionPolicies()
+// GetClusterMetrics returns basic CPU/RAM metrics for the specified cluster.
+func (o *Operator) GetClusterMetrics(ctx context.Context, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	return GetClusterMetrics(ctx, o.cfg.Metrics, req)
 }
 
-// UpdateRetentionPolicy configures metrics retention policy
-func (o *Operator) UpdateRetentionPolicy(req ops.UpdateRetentionPolicyRequest) error {
-	err := req.Check()
+// GetClusterMetrics retrieves all cluster metrics from the provided client.
+func GetClusterMetrics(ctx context.Context, metrics monitoring.Metrics, req ops.ClusterMetricsRequest) (*ops.ClusterMetricsResponse, error) {
+	err := req.CheckAndSetDefaults()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
-	return o.cfg.Monitoring.UpdateRetentionPolicy(monitoring.RetentionPolicy{
-		Name:     req.Name,
-		Duration: req.Duration,
+	totalCPUCores, err := metrics.GetTotalCPU(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentCPURate, err := metrics.GetCurrentCPURate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxCPURate, err := metrics.GetMaxCPURate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicCPURate, err := metrics.GetCPURate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
 	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	totalRAMBytes, err := metrics.GetTotalMemory(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentRAMRate, err := metrics.GetCurrentMemoryRate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	maxRAMRate, err := metrics.GetMaxMemoryRate(ctx, req.Interval)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	historicRAMRate, err := metrics.GetMemoryRate(ctx, monitoringv1.Range{
+		Start: time.Now().Add(-req.Interval),
+		End:   time.Now(),
+		Step:  req.Step,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ops.ClusterMetricsResponse{
+		TotalCPUCores:    totalCPUCores,
+		TotalMemoryBytes: totalRAMBytes,
+		CPURates: ops.ClusterMetricsRates{
+			Current:  currentCPURate,
+			Max:      maxCPURate,
+			Historic: historicCPURate,
+		},
+		MemoryRates: ops.ClusterMetricsRates{
+			Current:  currentRAMRate,
+			Max:      maxRAMRate,
+			Historic: historicRAMRate,
+		},
+	}, nil
 }
 
 // GetAlerts returns a list of configured monitoring alerts
@@ -61,7 +116,7 @@ func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -89,7 +144,7 @@ func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error
 }
 
 // UpdateAlert updates the specified monitoring alert
-func (o *Operator) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
+func (o *Operator) UpdateAlert(ctx context.Context, key ops.SiteKey, alert storage.Alert) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -103,12 +158,20 @@ func (o *Operator) UpdateAlert(key ops.SiteKey, alert storage.Alert) error {
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlert,
 	}
-	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	err = updateConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		alert.GetName(), defaults.MonitoringNamespace, string(data), labels)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	events.Emit(ctx, o, events.AlertCreated, events.Fields{
+		events.FieldName: alert.GetName(),
+	})
+	return nil
 }
 
 // DeleteAlert deletes the specified monitoring alert
-func (o *Operator) DeleteAlert(key ops.SiteKey, name string) error {
+func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -120,7 +183,7 @@ func (o *Operator) DeleteAlert(key ops.SiteKey, name string) error {
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.Core().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -136,8 +199,16 @@ func (o *Operator) DeleteAlert(key ops.SiteKey, name string) error {
 		return trace.NotFound("alert %q not found", name)
 	}
 
-	err = client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
-	return trace.Wrap(rigging.ConvertError(err))
+	err = client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
+	if err != nil {
+		return trace.Wrap(rigging.ConvertError(err))
+	}
+
+	events.Emit(ctx, o, events.AlertDeleted, events.Fields{
+		events.FieldName: name,
+	})
+	return nil
+
 }
 
 // GetAlertTargets returns a list of configured monitoring alert targets
@@ -147,7 +218,7 @@ func (o *Operator) GetAlertTargets(key ops.SiteKey) (targets []storage.AlertTarg
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	data, err := getConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -165,7 +236,7 @@ func (o *Operator) GetAlertTargets(key ops.SiteKey) (targets []storage.AlertTarg
 }
 
 // UpdateAlertTarget updates the cluster monitoring alert target
-func (o *Operator) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget) error {
+func (o *Operator) UpdateAlertTarget(ctx context.Context, key ops.SiteKey, target storage.AlertTarget) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -179,22 +250,34 @@ func (o *Operator) UpdateAlertTarget(key ops.SiteKey, target storage.AlertTarget
 	labels := map[string]string{
 		constants.MonitoringType: constants.MonitoringTypeAlertTarget,
 	}
-	return updateConfigMap(client.Core().ConfigMaps(defaults.MonitoringNamespace),
+	err = updateConfigMap(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace),
 		constants.AlertTargetConfigMap, defaults.MonitoringNamespace, string(data), labels)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	events.Emit(ctx, o, events.AlertTargetCreated)
+	return nil
+
 }
 
 // DeleteAlertTarget deletes the cluster monitoring alert target
-func (o *Operator) DeleteAlertTarget(key ops.SiteKey) error {
+func (o *Operator) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
-	if trace.IsNotFound(err) {
-		return trace.NotFound("no alert targets found")
+	err = rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no alert targets found")
+		}
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(err)
+
+	events.Emit(ctx, o, events.AlertTargetDeleted)
+	return nil
 }
 
 func getConfigMap(client corev1.ConfigMapInterface, name string) (string, error) {

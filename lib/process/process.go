@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -44,7 +44,7 @@ import (
 	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/docker"
+	docker "github.com/gravitational/gravity/lib/docker/http"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
@@ -78,28 +78,30 @@ import (
 	telemodules "github.com/gravitational/teleport/lib/modules"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/teleport/lib/service"
-	teleservice "github.com/gravitational/teleport/lib/service"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	teleweb "github.com/gravitational/teleport/lib/web"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
 
 type Process struct {
-	sync.Once
 	sync.Mutex
-	service.Supervisor
+	*service.TeleportProcess
 	logrus.FieldLogger
+	shutdownOnce   sync.Once
 	context        context.Context
+	cancel         context.CancelFunc
 	backend        storage.Backend
 	leader         storage.Leader
 	packages       pack.PackageService
@@ -134,6 +136,10 @@ type Process struct {
 	// a config that gets applied on top of teleport's config the process
 	// was started with)
 	authGatewayConfig storage.AuthGateway
+	// healthServer serves controller's health API
+	healthServer *http.Server
+	// wg defines the wait group for all internal processes
+	wg sync.WaitGroup
 }
 
 // Handlers combines all the process' web and API Handlers
@@ -172,6 +178,11 @@ type ServiceStartedEvent struct {
 	Error error
 }
 
+// String returns event string representation.
+func (e ServiceStartedEvent) String() string {
+	return fmt.Sprintf("ServiceStartedEvent(Error=%v)", e.Error)
+}
+
 // New returns and starts a new instance of gravity, either Site or OpsCenter,
 // including services like teleport proxy and teleport auth
 func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig) (*Process, error) {
@@ -188,13 +199,6 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 	logrus.AddHook(hook)
-
-	if cfg.Profile.HTTPEndpoint != "" {
-		err = StartProfiling(ctx, cfg.Profile.HTTPEndpoint, cfg.Profile.OutputDir)
-		if err != nil {
-			logrus.Warningf("Failed to setup profiling: %v.", trace.DebugReport(err))
-		}
-	}
 
 	backend, err := cfg.CreateBackend()
 	if err != nil {
@@ -237,11 +241,14 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		GetPeer:       peerPool.GetPeer,
 		ID:            processID,
 		AdvertiseAddr: fmt.Sprintf("https://%v", peerAddr.Addr),
-		// TODO: set WriteFactor to the number of controller instances
+		// default WriteFactor to defaults.WriteFactor to avoid blocking
+		// on possibly inaccessible nodes
+		WriteFactor: defaults.WriteFactor,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	clusterObjects.Start()
 
 	packages, err := localpack.New(localpack.Config{
 		Backend:     backend,
@@ -253,8 +260,23 @@ func New(ctx context.Context, cfg processconfig.Config, tcfg telecfg.FileConfig)
 		return nil, trace.Wrap(err)
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer func() {
+		if err != nil {
+			cancel()
+		}
+	}()
+
+	if cfg.Profile.HTTPEndpoint != "" {
+		err = StartProfiling(ctx, cfg.Profile.HTTPEndpoint, cfg.Profile.OutputDir)
+		if err != nil {
+			logrus.WithError(err).Warn("Failed to setup profiling.")
+		}
+	}
+
 	process := &Process{
 		context:        ctx,
+		cancel:         cancel,
 		packages:       packages,
 		backend:        backend,
 		cfg:            cfg,
@@ -311,12 +333,12 @@ func (p *Process) Init(ctx context.Context) error {
 
 // Start initializes the process and starts all services
 func (p *Process) Start() (err error) {
-	p.Supervisor, err = service.NewTeleport(p.teleportConfig)
+	p.TeleportProcess, err = service.NewTeleport(p.teleportConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Supervisor.RegisterFunc("gravity.service", func() (err error) {
-		defer p.Supervisor.BroadcastEvent(service.Event{
+	p.RegisterFunc("gravity.service", func() (err error) {
+		defer p.BroadcastEvent(service.Event{
 			Name:    constants.ServiceStartedEvent,
 			Payload: &ServiceStartedEvent{Error: err},
 		})
@@ -328,7 +350,26 @@ func (p *Process) Start() (err error) {
 		}
 		return nil
 	})
-	return p.Supervisor.Start()
+	return p.TeleportProcess.Start()
+}
+
+// Shutdown initiates graceful shutdown of this process
+func (p *Process) Shutdown(ctx context.Context) {
+	p.cancel()
+	p.shutdownOnce.Do(func() {
+		p.stopClusterServices() //nolint:errcheck
+		if p.clusterObjects != nil {
+			p.clusterObjects.Close()
+		}
+		if p.healthServer != nil {
+			p.healthServer.Shutdown(ctx) //nolint:errcheck
+		}
+		if p.proxy != nil {
+			p.proxy.Close()
+		}
+		p.TeleportProcess.Shutdown(ctx)
+		p.wg.Wait()
+	})
 }
 
 // TeleportConfig returns the process teleport config
@@ -395,12 +436,17 @@ func (p *Process) Config() *processconfig.Config {
 // pending cluster operations
 func (p *Process) StartResumeOperationLoop() {
 	p.resumeOperationCh = make(chan struct{})
-	go p.resumeLastOperationLoop()
+	p.startService(p.resumeLastOperationLoop)
 }
 
 func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error) {
 	if p.cfg.ImportDir == "" {
 		return nil, nil
+	}
+
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
 	importer, err := newImporter(p.cfg.ImportDir)
@@ -409,7 +455,7 @@ func (p *Process) getTeleportConfigFromImportState() (*telecfg.FileConfig, error
 	}
 	defer importer.Close()
 
-	telecfg, err := importer.getMasterTeleportConfig()
+	telecfg, err := importer.getMasterTeleportConfig(cluster.Domain)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -477,11 +523,11 @@ func (p *Process) leaderStatus() (string, bool) {
 func (p *Process) startAutoscale(ctx context.Context) error {
 	_, err := cloudaws.NewLocalInstance()
 	if err != nil {
-		p.Info("Not on AWS, skip autoscaler start.")
+		p.WithError(err).Info("Not on AWS, skip autoscaler start.")
 		return nil
 	}
 	p.Info("Starting AWS autoscaler.")
-	site, err := p.operator.GetLocalSite()
+	site, err := p.operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -503,114 +549,262 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 	}
 
 	// receive and process events from SQS notification service
-	go autoscaler.ProcessEvents(ctx, queueURL, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) {
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.ProcessEvents(localCtx, queueURL, p.operator)
+	})
 	// publish discovery information about this cluster
-	go autoscaler.PublishDiscovery(ctx, p.operator)
+	p.RegisterClusterService(func(ctx context.Context) {
+		localCtx := context.WithValue(ctx, constants.UserContext,
+			constants.ServiceAutoscaler)
+		autoscaler.PublishDiscovery(localCtx, p.operator)
+	})
 	return nil
 }
 
-// startApplicationsSynchronizer starts a service that periodically exports
+// runApplicationsSynchronizer runs a service that periodically exports
 // Docker images of the cluster's application images to the local Docker
 // registry.
 //
 // TODO There may be a lot of apps, may be worth parallelizing this.
-func (p *Process) startApplicationsSynchronizer(ctx context.Context) error {
+func (p *Process) runApplicationsSynchronizer(ctx context.Context) {
 	p.Info("Starting app images synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.AppSyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				apps, err := p.applications.ListApps(app.ListAppsRequest{
-					Repository: defaults.SystemAccountOrg,
-				})
-				if err != nil {
-					p.Errorf("Failed to query applications: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				for _, a := range apps {
-					if a.Manifest.Kind == schema.KindApplication {
-						p.Infof("Exporting app image %v to registry.", a.Package)
-						err = p.applications.ExportApp(app.ExportAppRequest{
-							Package:         a.Package,
-							RegistryAddress: constants.LocalRegistryAddr,
-							CertName:        constants.DockerRegistry,
-						})
-						if err != nil {
-							p.Errorf("Failed to synchronize registry: %v.",
-								trace.DebugReport(err))
-						}
-					}
-				}
-			case <-ctx.Done():
-				p.Info("Stopping app images synchronizer.")
-				return
-			}
-		}
-	}()
-	return nil
-}
-
-// startRegistrySynchronizer starts a goroutine that synchronizes the cluster app
-// with the local registry periodically
-func (p *Process) startRegistrySynchronizer(ctx context.Context) error {
-	p.Info("Starting registry synchronizer.")
-	go func() {
-		ticker := time.NewTicker(defaults.RegistrySyncInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				cluster, err := p.operator.GetLocalSite()
-				if err != nil {
-					p.Errorf("Failed to query local cluster: %v.",
-						trace.DebugReport(err))
-					continue
-				}
-				err = p.applications.ExportApp(app.ExportAppRequest{
-					Package:         cluster.App.Package,
-					RegistryAddress: constants.LocalRegistryAddr,
-					CertName:        constants.DockerRegistry,
-				})
-				if err != nil {
-					p.Errorf("Failed to synchronize registry: %v.",
-						trace.DebugReport(err))
-				}
-			case <-ctx.Done():
-				p.Info("Stopping registry synchronizer.")
-				return
-			}
-		}
-	}()
-	return nil
-}
-
-// startSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
-func (p *Process) startSiteStatusChecker(ctx context.Context) error {
-	site, err := p.operator.GetLocalSite()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	p.Info("Starting cluster status checker.")
-	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	ticker := time.NewTicker(defaults.AppSyncInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			key := ops.SiteKey{
-				AccountID:  site.AccountID,
-				SiteDomain: site.Domain,
+			apps, err := p.applications.ListApps(app.ListAppsRequest{
+				Repository: defaults.SystemAccountOrg,
+			})
+			if err != nil {
+				p.Errorf("Failed to query applications: %v.",
+					trace.DebugReport(err))
+				continue
 			}
-			if err := p.operator.CheckSiteStatus(key); err != nil {
-				p.Errorf("Cluster status check failed: %v.",
+			for _, a := range apps {
+				if a.Manifest.Kind == schema.KindApplication {
+					p.Infof("Exporting app image %v to registry.", a.Package)
+					err = p.applications.ExportApp(app.ExportAppRequest{
+						Package:         a.Package,
+						RegistryAddress: defaults.LocalRegistryAddr,
+						CertName:        defaults.DockerRegistry,
+					})
+					if err != nil {
+						p.Errorf("Failed to synchronize registry: %v.",
+							trace.DebugReport(err))
+					}
+				}
+			}
+		case <-ctx.Done():
+			p.Info("Stopping app images synchronizer.")
+			return
+		}
+	}
+}
+
+// syncClusterState syncs current cluster state to the local backend.
+func (p *Process) syncClusterState() error {
+	backend, err := keyval.NewBolt(keyval.BoltConfig{
+		Path:  filepath.Join(p.cfg.ImportDir, defaults.GravityDBFile),
+		Multi: true,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer func() {
+		if err := backend.Close(); err != nil {
+			p.WithError(err).WithField("path", p.cfg.ImportDir).Warn(
+				"Failed to close backend.")
+		}
+	}()
+	cluster, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	clusterLocal, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if clusterLocal == nil || !clusterLocal.Servers().IsEqualTo(cluster.Servers()) {
+		if err := storage.UpsertCluster(backend, *cluster); err != nil {
+			return trace.Wrap(err)
+		}
+		p.Infof("Synced cluster %v to local backend.", cluster.Domain)
+	}
+	operations, err := p.backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, operation := range operations {
+		operationLocal, err := backend.GetSiteOperation(cluster.Domain, operation.ID)
+		if err != nil && !trace.IsNotFound(err) {
+			return trace.Wrap(err)
+		}
+		if operationLocal == nil || !operationLocal.IsEqualTo(operation) {
+			if err := storage.UpsertOperation(backend, operation); err != nil {
+				return trace.Wrap(err)
+			}
+			p.Infof("Synced operation %v/%v to local backend.", operation.ID, operation.Type)
+		}
+	}
+	return nil
+}
+
+func (p *Process) runClusterStateSynchronizer(ctx context.Context) {
+	if p.cfg.ImportDir == "" {
+		p.Info("Import dir not provided, cluster state synchronizer won't start.")
+		return
+	}
+	p.Info("Starting cluster state synchronizer.")
+	if err := p.syncClusterState(); err != nil { // Sync immediately upon starting.
+		p.WithError(err).Error("Failed to sync cluster state.")
+	}
+	ticker := time.NewTicker(defaults.StateSyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := p.syncClusterState(); err != nil {
+				p.WithError(err).Error("Failed to sync cluster state.")
+			}
+		case <-ctx.Done():
+			p.Info("Stopping cluster state synchronizer.")
+			return
+		}
+	}
+}
+
+// runRegistrySynchronizer runs a service that periodically synchronizes the cluster app
+// with the local registry
+func (p *Process) runRegistrySynchronizer(ctx context.Context) {
+	p.Info("Starting registry synchronizer.")
+	ticker := time.NewTicker(defaults.RegistrySyncInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			cluster, err := p.operator.GetLocalSite(ctx)
+			if err != nil {
+				p.Errorf("Failed to query local cluster: %v.",
+					trace.DebugReport(err))
+				continue
+			}
+			err = p.applications.ExportApp(app.ExportAppRequest{
+				Package:         cluster.App.Package,
+				RegistryAddress: defaults.LocalRegistryAddr,
+				CertName:        defaults.DockerRegistry,
+			})
+			if err != nil {
+				p.Errorf("Failed to synchronize registry: %v.",
 					trace.DebugReport(err))
 			}
 		case <-ctx.Done():
+			p.Info("Stopping registry synchronizer.")
+			return
+		}
+	}
+}
+
+func (p *Process) reconcileNodeLabels(ctx context.Context, client *kubernetes.Clientset) error {
+	cluster, err := p.operator.GetLocalSite(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	nodes, err := utils.GetNodes(client.CoreV1().Nodes())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for ip, node := range nodes {
+		if err := p.reconcileNode(client, *cluster, ip, node); err != nil {
+			p.WithError(err).Errorf("Failed to reconcile labels for node %v/%v.",
+				node.Name, ip)
+		}
+	}
+	return nil
+}
+
+func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
+	server, err := cluster.ClusterState.FindServerByIP(ip)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	missingLabels, err := getMissingLabels(cluster, *server, node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if len(missingLabels) == 0 {
+		return nil
+	}
+	p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
+	for key, val := range missingLabels {
+		node.Labels[key] = val
+	}
+	if _, err := client.CoreV1().Nodes().Update(&node); err != nil {
+		return rigging.ConvertError(err)
+	}
+	return nil
+}
+
+func getMissingLabels(cluster ops.Site, server storage.Server, node v1.Node) (map[string]string, error) {
+	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	missingLabels := make(map[string]string)
+	requiredLabels := server.GetNodeLabels(profile.Labels)
+	for key, val := range requiredLabels {
+		if _, ok := node.Labels[key]; !ok {
+			missingLabels[key] = val
+		}
+	}
+	return missingLabels, nil
+}
+
+func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {
+	return func(ctx context.Context) {
+		p.Info("Starting node labels reconciler.")
+		if err := p.reconcileNodeLabels(ctx, client); err != nil {
+			p.WithError(err).Error("Failed to reconcile node labels.")
+		}
+		ticker := time.NewTicker(defaults.NodeLabelsReconcileInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if err := p.reconcileNodeLabels(ctx, client); err != nil {
+					p.WithError(err).Error("Failed to reconcile node labels.")
+				}
+			case <-ctx.Done():
+				p.Info("Stopping node labels reconciler.")
+				return
+			}
+		}
+	}
+}
+
+// runSiteStatusChecker periodically invokes app status hook; should be run in a goroutine
+func (p *Process) runSiteStatusChecker(ctx context.Context) {
+	p.Info("Starting cluster status checker.")
+	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
+	defer ticker.Stop()
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceStatusChecker)
+	for {
+		select {
+		case <-ticker.C:
+			cluster, err := p.operator.GetLocalSite(ctx)
+			if err != nil {
+				p.WithError(err).Warn("Failed to get local cluster.")
+				continue
+			}
+			if err := p.operator.CheckSiteStatus(localCtx, cluster.Key()); err != nil {
+				p.WithError(err).Warn("Cluster status check failed.")
+			}
+		case <-ctx.Done():
 			p.Info("Stopping cluster status checker.")
-			ticker.Stop()
-			return nil
+			return
 		}
 	}
 }
@@ -646,7 +840,9 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 	var isLeader bool
 	if leaderID, isLeader = p.leaderStatus(); !isLeader {
 		p.Debugf("We are not a leader, the leader is %v.", leaderID)
-		p.stopClusterServices()
+		if err := p.stopClusterServices(); err != nil && !trace.IsNotFound(err) {
+			p.WithError(err).Warn("Failed to stop cluster services.")
+		}
 		return
 	}
 
@@ -656,7 +852,7 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 	}
 
 	// Notify that the service became the leader
-	p.Supervisor.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
+	p.BroadcastEvent(service.Event{Name: constants.ServiceSelfLeaderEvent})
 
 	// attempt to resume last operation
 	select {
@@ -667,17 +863,34 @@ func (p *Process) onSiteLeader(oldLeaderID string) {
 
 	// active master runs various services that periodically check
 	// the cluster and application status, etc.
-	p.startClusterServices(p.clusterServices)
+	if err := p.startClusterServices(); err != nil {
+		// TODO: this should be a retry loop
+		p.WithError(err).Warn("Failed to start cluster services.")
+	}
+}
+
+func (p *Process) startService(service clusterService) {
+	p.startServiceWithContext(p.context, service)
+}
+
+func (p *Process) startServiceWithContext(ctx context.Context, service clusterService) {
+	p.wg.Add(1)
+	go func() {
+		service(ctx)
+		p.wg.Done()
+	}()
 }
 
 // clusterService represents a blocking function that performs some cluster-specific
 // periodic action (e.g. runs status hook) and can be stopped by canceling the
 // provided context
-type clusterService func(context.Context) error
+type clusterService func(context.Context)
 
 // RegisterClusterService adds the service to the list of registered cluster
-// services. Cluster services only run on the leader
+// services to run on the leader
 func (p *Process) RegisterClusterService(service clusterService) {
+	p.Lock()
+	defer p.Unlock()
 	p.clusterServices = append(p.clusterServices, service)
 }
 
@@ -685,7 +898,7 @@ func (p *Process) RegisterClusterService(service clusterService) {
 // active gravity master, like status checker
 //
 // No-op if the services are already running
-func (p *Process) startClusterServices(services []clusterService) error {
+func (p *Process) startClusterServices() error {
 	p.Lock()
 	defer p.Unlock()
 
@@ -696,8 +909,8 @@ func (p *Process) startClusterServices(services []clusterService) error {
 	ctx, cancel := context.WithCancel(p.context)
 	p.cancelServices = cancel
 
-	for _, service := range services {
-		go service(ctx)
+	for _, service := range p.clusterServices {
+		p.startServiceWithContext(ctx, service)
 	}
 
 	return nil
@@ -727,11 +940,11 @@ func (p *Process) clusterServicesRunning() bool {
 
 // resumeLastOperationLoop is a long running process that handles requests to resume
 // last active cluster operations.
-func (p *Process) resumeLastOperationLoop() {
+func (p *Process) resumeLastOperationLoop(ctx context.Context) {
 	for {
 		select {
 		case <-p.resumeOperationCh:
-			site, err := p.operator.GetLocalSite()
+			site, err := p.operator.GetLocalSite(ctx)
 			if err != nil {
 				p.Errorf("Failed to query installed site: %v.", trace.DebugReport(err))
 				return
@@ -742,10 +955,12 @@ func (p *Process) resumeLastOperationLoop() {
 				continue
 			}
 			if trace.IsNotFound(err) {
-				p.Info("No operation to resume found.")
+				p.Debug("No operation to resume found.")
 			} else {
-				p.Errorf("Failed to resume last operation: %v.", trace.DebugReport(err))
+				p.WithError(err).Error("Failed to resume last operation.")
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -761,7 +976,7 @@ func (p *Process) resumeLastOperation(siteKey ops.SiteKey) error {
 			p.Infof("Etcd cluster unavailable: %v.", err)
 			return trace.Wrap(err)
 		default:
-			return &utils.AbortRetry{err}
+			return &utils.AbortRetry{Err: err}
 		}
 	}
 
@@ -789,26 +1004,6 @@ func (p *Process) resumeLastOperation(siteKey ops.SiteKey) error {
 		return wrap(err)
 	})
 	return trace.Wrap(err)
-}
-
-func (p *Process) syncRegistry(site *ops.Site, leaderIP string) error {
-	p.Infof("Syncing registry.")
-	targetRegistry := constants.DockerRegistry
-	if leaderIP != "" {
-		targetRegistry = fmt.Sprintf("%s:%s", leaderIP, constants.DockerRegistryPort)
-	}
-	start := time.Now()
-	// use the cert name of default registry, but connect via IP without relying on DNS
-	err := p.applications.ExportApp(app.ExportAppRequest{
-		Package:         site.App.Package,
-		RegistryAddress: targetRegistry,
-		CertName:        constants.DockerRegistry,
-	})
-	if err != nil {
-		return trace.Wrap(err, "failed syncing registry to %v", targetRegistry)
-	}
-	p.Infof("Synced registry %v in %v.", targetRegistry, time.Now().Sub(start))
-	return nil
 }
 
 // ReportReadiness is an HTTP check that reports whether the system is ready.
@@ -842,11 +1037,14 @@ func (p *Process) ReportHealth(w http.ResponseWriter, r *http.Request) {
 		// TODO(knisbet) This should really be reported through proper metrics collection
 		// for now we just log it. On a good system, worse case scenario is about 15ms
 		// so give some margin, but log if etcd is slightly on the slow side above 25ms.
-		elapsed := time.Now().Sub(started)
+		elapsed := time.Since(started)
 		if elapsed > 25*time.Millisecond {
 			log.WithField("elapsed", elapsed).Error("Backend is slow.")
 		}
-		healthCh <- err
+		select {
+		case healthCh <- err:
+		case <-ctx.Done():
+		}
 	}()
 
 	select {
@@ -912,7 +1110,7 @@ func (p *Process) initCertificateAuthority() error {
 	return nil
 }
 
-func (p *Process) inKubernetes() bool {
+func inKubernetes() bool {
 	return os.Getenv(constants.EnvPodIP) != ""
 }
 
@@ -934,18 +1132,14 @@ func (p *Process) APIAdvertiseHost() string {
 	return host
 }
 
-func (p *Process) teleportProcess() *teleservice.TeleportProcess {
-	return p.Supervisor.(*teleservice.TeleportProcess)
-}
-
 func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *teleauth.Identity) (*teleauth.Client, error) {
-	tlsConfig, err := identity.TLSConfig(p.teleportProcess().Config.CipherSuites)
+	tlsConfig, err := identity.TLSConfig(p.TeleportProcess.Config.CipherSuites)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if p.teleportProcess().Config.ClientTimeout != 0 {
+	if p.TeleportProcess.Config.ClientTimeout != 0 {
 		return teleauth.NewTLSClient(authServers, tlsConfig,
-			teleauth.ClientTimeout(p.teleportProcess().Config.ClientTimeout))
+			teleauth.ClientTimeout(p.TeleportProcess.Config.ClientTimeout))
 	}
 	return teleauth.NewTLSClient(authServers, tlsConfig)
 }
@@ -953,14 +1147,23 @@ func (p *Process) newAuthClient(authServers []teleutils.NetAddr, identity *telea
 func (p *Process) initService(ctx context.Context) (err error) {
 	eventC := make(chan service.Event)
 	p.WaitForEvent(ctx, service.AuthIdentityEvent, eventC)
-	event := <-eventC
+	var event service.Event
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	conn, ok := (event.Payload).(*service.Connector)
 	if !ok {
 		return trace.BadParameter("unsupported Connector type: %T", event.Payload)
 	}
 	p.WaitForEvent(ctx, service.ProxyReverseTunnelReady, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 	reverseTunnel, ok := (event.Payload).(reversetunnel.Server)
 	if !ok {
@@ -969,7 +1172,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	p.reverseTunnel = reverseTunnel
 
 	p.WaitForEvent(ctx, service.ProxyIdentityEvent, eventC)
-	event = <-eventC
+	select {
+	case event = <-eventC:
+	case <-ctx.Done():
+		return trace.Wrap(ctx.Err())
+	}
 	p.Infof("Received %v event.", &event)
 
 	proxyConn, ok := (event.Payload).(*service.Connector)
@@ -984,13 +1191,14 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	p.handlers.WebProxy, err = teleweb.NewHandler(teleweb.Config{
-		Proxy:        reverseTunnel,
-		AuthServers:  p.teleportConfig.AuthServers[0],
-		DomainName:   p.teleportConfig.Hostname,
-		ProxyClient:  proxyConn.Client,
-		DisableUI:    true,
-		ProxySSHAddr: p.teleportConfig.Proxy.SSHAddr,
-		ProxyWebAddr: p.teleportConfig.Proxy.WebAddr,
+		Proxy:         reverseTunnel,
+		AuthServers:   p.teleportConfig.AuthServers[0],
+		DomainName:    p.teleportConfig.Hostname,
+		ProxyClient:   proxyConn.Client,
+		DisableUI:     true,
+		ProxySSHAddr:  p.teleportConfig.Proxy.SSHAddr,
+		ProxyWebAddr:  p.teleportConfig.Proxy.WebAddr,
+		ProxySettings: p.proxySettings(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1038,9 +1246,10 @@ func (p *Process) initService(ctx context.Context) (err error) {
 
 	peerStore := opsservice.NewAgentPeerStore(p.backend, p.identity, p.proxy, p.WithField("process", p.id))
 	p.agentServer, err = rpcserver.New(rpcserver.Config{
+		FieldLogger: p.WithField(trace.Component, "agent-server"),
 		Credentials: *creds,
 		PeerStore:   peerStore,
-	}, logrus.StandardLogger())
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1051,7 +1260,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	if p.cfg.Pack.ReadDir != "" {
 		p.Debugf("Activating read layer: %v.", p.cfg.Pack.ReadDir)
 		readBackend, err := keyval.NewBolt(keyval.BoltConfig{
-			Path: filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Path:     filepath.Join(p.cfg.Pack.ReadDir, defaults.GravityDBFile),
+			Readonly: true,
+			Multi:    true,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -1079,17 +1290,25 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 	p.Debugf("%s.", seedConfig)
 
-	p.handlers.Packages, err = webpack.NewHandler(webpack.Config{
-		Packages:      p.packages,
-		Users:         p.identity,
+	authenticator, err := users.NewAuthenticator(users.AuthenticatorConfig{
+		Identity:      p.identity,
 		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	p.handlers.Packages, err = webpack.NewHandler(webpack.Config{
+		Packages:      p.packages,
+		Users:         p.identity,
+		Authenticator: authenticator,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	var client *kubernetes.Clientset
-	if p.inKubernetes() {
+	if inKubernetes() {
 		client, err = tryGetPrivilegedKubeClient()
 		if err != nil {
 			return trace.Wrap(err)
@@ -1130,10 +1349,11 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 	p.applications = applications
 
-	if p.inKubernetes() {
+	if inKubernetes() {
 		p.handlers.Registry, err = docker.NewRegistry(docker.Config{
-			Context: ctx,
-			Users:   p.identity,
+			Context:       ctx,
+			Users:         p.identity,
+			Authenticator: authenticator,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -1145,23 +1365,32 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Applications:  applications,
 		Packages:      p.packages,
 		Charts:        charts,
-		Authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
-		Devmode:       p.cfg.Devmode,
+		Authenticator: authenticator,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	proxy := opsroute.NewClientPool(opsroute.ClientPoolConfig{
 		Devmode: p.cfg.Devmode,
 		Backend: p.backend,
 	})
 
-	mon, err := monitoring.NewInfluxDB()
+	metrics, err := monitoring.NewInClusterPrometheus()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	var logs opsservice.LogForwardersControl
-	if p.inKubernetes() {
+	var openebs opsservice.OpenEBSControl
+	if inKubernetes() {
 		logs = opsservice.NewLogForwardersControl(client)
+		openebs, err = opsservice.NewOpenEBSControl(opsservice.OpenEBSConfig{
+			Client: client,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	agentService := opsservice.NewAgentService(p.agentServer, peerStore,
@@ -1188,16 +1417,20 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Apps:            applications,
 		Users:           p.identity,
 		TeleportProxy:   teleportProxy,
+		AuthClient:      authClient,
 		Tunnel:          reverseTunnel,
-		Monitoring:      mon,
+		Metrics:         metrics,
 		Local:           p.mode == constants.ComponentSite,
 		Wizard:          p.mode == constants.ComponentInstaller,
 		Proxy:           proxy,
 		SNIHost:         seedConfig.SNIHost,
 		SeedConfig:      *seedConfig,
 		ProcessID:       p.id,
+		PublicAddr:      p.cfg.Pack.GetPublicAddr(),
 		InstallLogFiles: p.cfg.InstallLogFiles,
 		LogForwarders:   logs,
+		OpenEBS:         openebs,
+		AuditLog:        authClient,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1229,7 +1462,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Operator:            p.operator,
 		Applications:        applications,
 		Packages:            p.packages,
-		Authenticator:       p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		Authenticator:       authenticator,
 		Backend:             p.backend,
 		PublicAdvertiseAddr: p.cfg.Pack.GetPublicAddr(),
 	})
@@ -1238,50 +1471,38 @@ func (p *Process) initService(ctx context.Context) (err error) {
 	}
 
 	// site status checker executes status hook periodically
-	p.RegisterClusterService(p.startSiteStatusChecker)
+	p.RegisterClusterService(p.runSiteStatusChecker)
 
 	// a few services that are running only when gravity is started in
 	// local site mode
-	if p.inKubernetes() {
+	if inKubernetes() {
 		if p.leader == nil {
 			return trace.BadParameter(
 				"cluster requires backend with election capability")
 		}
 
 		p.Info("Running inside Kubernetes: starting leader election.")
-		// gravity site leader election
-		if err := p.startElection(); err != nil {
+
+		if err := p.initClusterCertificate(p.context, client); err != nil {
 			return trace.Wrap(err)
 		}
 
-		if err := p.initClusterCertificate(client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startCertificateWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startAuthGatewayWatch(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startWatchingReloadEvents(p.context, client); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startRegistrySynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := p.startApplicationsSynchronizer(p.context); err != nil {
-			return trace.Wrap(err)
-		}
+		p.startService(p.runCertificateWatch(client))
+		p.startService(p.runCertExpirationWatch(client))
+		p.startService(p.runAuthGatewayWatch(client))
+		p.startService(p.runReloadEventsWatch(client))
+		p.startService(p.runRegistrySynchronizer)
+		p.startService(p.runApplicationsSynchronizer)
+		p.startService(p.runNodeLabelsReconciler(client))
+		p.startService(p.runClusterStateSynchronizer)
 
 		if err := p.startAutoscale(p.context); err != nil {
 			return trace.Wrap(err)
 		}
 
+		if err := p.startElection(); err != nil {
+			return trace.Wrap(err)
+		}
 	} else {
 		p.Debug("Not running inside Kubernetes.")
 	}
@@ -1306,7 +1527,7 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Tunnel: reverseTunnel,
 	}
 
-	if p.inKubernetes() {
+	if inKubernetes() {
 		serverVersion, err := client.ServerVersion()
 		if err != nil {
 			return trace.Wrap(err, "failed to query kubernetes server version")
@@ -1324,25 +1545,35 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		return trace.Wrap(err)
 	}
 
-	p.handlers.Web = web.NewHandler(web.WebHandlerConfig{
-		AssetsDir:      assetsDir,
-		Mode:           p.mode,
-		Wizard:         p.mode == constants.ComponentInstaller,
-		TeleportConfig: p.teleportConfig,
-		Identity:       p.identity,
-		Operator:       p.operator,
-		Authenticator:  p.handlers.WebProxy.GetHandler().AuthenticateRequest,
-		Forwarder:      forwarder,
-		Backend:        p.backend,
-		Clients:        clusterClients,
-	})
+	disabledUI := false
+	if p.mode == constants.ComponentSite {
+		site, err := p.backend.GetLocalSite(defaults.SystemAccountID)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		disabledUI = site.DisabledWebUI
+	}
+	if !disabledUI {
+		p.handlers.Web = web.NewHandler(web.WebHandlerConfig{
+			AssetsDir:      assetsDir,
+			Mode:           p.mode,
+			Wizard:         p.mode == constants.ComponentInstaller,
+			TeleportConfig: p.teleportConfig,
+			Identity:       p.identity,
+			Operator:       p.operator,
+			Authenticator:  p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+			Forwarder:      forwarder,
+			Backend:        p.backend,
+			Clients:        clusterClients,
+		})
+	}
 
 	p.handlers.Proxy = newProxyHandler(proxyHandlerConfig{
 		tunnel:        reverseTunnel,
 		operator:      p.operator,
 		users:         p.identity,
 		backend:       p.backend,
-		authenticator: p.handlers.WebProxy.GetHandler().AuthenticateRequest,
+		authenticator: authenticator,
 		forwarder:     forwarder,
 		devmode:       p.cfg.Devmode,
 	})
@@ -1365,8 +1596,8 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Mode:             p.mode,
 		ProxyHost:        sshProxyHost,
 		ServiceUser:      *p.cfg.ServiceUser,
+		InstallToken:     p.cfg.InstallToken,
 	})
-
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1376,6 +1607,9 @@ func (p *Process) initService(ctx context.Context) (err error) {
 		Cluster: p.clusterObjects,
 		Local:   p.localObjects,
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	if seedConfig.Account != nil {
 		account := p.cfg.OpsCenter.SeedConfig.Account
@@ -1425,9 +1659,14 @@ func (p *Process) ServeHealth() error {
 	healthMux := &httprouter.Router{}
 	healthMux.HandlerFunc("GET", "/readyz", p.ReportReadiness)
 	healthMux.HandlerFunc("GET", "/healthz", p.ReportHealth)
+	p.healthServer = &http.Server{
+		Addr:    p.cfg.HealthAddr.Addr,
+		Handler: healthMux,
+	}
 	p.RegisterFunc("gravity.healthz", func() error {
 		p.Infof("Start healthcheck server on %v.", p.cfg.HealthAddr)
-		return trace.Wrap(http.ListenAndServe(p.cfg.HealthAddr.Addr, healthMux))
+		// TODO(dmitri): add a cancelation point for p.context
+		return trace.Wrap(p.healthServer.ListenAndServe())
 	})
 	return nil
 }
@@ -1489,8 +1728,10 @@ func (p *Process) initMux(ctx context.Context) error {
 
 	mux := &httprouter.Router{}
 	for _, method := range httplib.Methods {
-		mux.Handler(method, "/web", p.handlers.Web) // to handle redirect
-		mux.Handler(method, "/web/*web", p.handlers.Web)
+		if p.handlers.Web != nil {
+			mux.Handler(method, "/web", p.handlers.Web) // to handle redirect
+			mux.Handler(method, "/web/*web", p.handlers.Web)
+		}
 		mux.Handler(method, "/proxy/*proxy", http.StripPrefix("/proxy", p.handlers.WebProxy))
 		mux.Handler(method, "/v1/webapi/*webapi", p.handlers.WebProxy)
 		mux.Handler(method, "/portalapi/v1/*portalapi", http.StripPrefix("/portalapi/v1", p.handlers.WebAPI))
@@ -1506,8 +1747,11 @@ func (p *Process) initMux(ctx context.Context) error {
 		mux.HandlerFunc(method, "/readyz", p.ReportReadiness)
 		mux.HandlerFunc(method, "/healthz", p.ReportHealth)
 	}
-	mux.NotFound = p.handlers.Web.NotFound
-
+	if p.handlers.Web != nil {
+		mux.NotFound = p.handlers.Web.NotFound
+	} else {
+		mux.NotFound = p.handlers.WebAPI.NotFound
+	}
 	return trace.Wrap(p.ServeLocal(ctx, httplib.GRPCHandlerFunc(
 		p.agentServer, mux), p.cfg.Pack.ListenAddr.Addr))
 }
@@ -1563,11 +1807,24 @@ func (p *Process) startListening(handler http.Handler, addr string) (net.Listene
 		return nil, trace.Wrap(err)
 	}
 
+	server := &http.Server{Handler: handler}
+	p.wg.Add(2)
+	go func() {
+		defer p.wg.Done()
+		<-p.context.Done()
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
+		if err := server.Shutdown(ctx); err != nil {
+			p.Warnf("Failed to shut down server: %v.", err)
+		}
+		cancel()
+	}()
 	go func(listener net.Listener) {
+		defer p.wg.Done()
 		p.Infof("Serving on %v.", addr)
-		err := http.Serve(listener, handler)
+		err := server.Serve(listener)
 		if err != nil && !trace.IsEOF(err) && !utils.IsClosedConnectionError(err) {
-			p.Error(trace.DebugReport(err))
+			// TODO: this should be a retry loop
+			p.WithError(err).Warn("Failed to serve.")
 		}
 	}(webListener)
 
@@ -1580,7 +1837,7 @@ func (p *Process) startListening(handler http.Handler, addr string) (net.Listene
 // retrieved from the cluster-tls secret. Otherwise (or if that fails) it
 // falls back to self-signed certificate and key.
 func (p *Process) getTLSConfig() (*tls.Config, error) {
-	if p.inKubernetes() {
+	if inKubernetes() {
 		config, err := p.tryGetTLSConfig()
 		if err == nil {
 			return config, nil
@@ -1612,7 +1869,7 @@ func (p *Process) tryGetTLSConfig() (*tls.Config, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	err = p.initClusterCertificate(client)
+	err = p.initClusterCertificate(p.context, client)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1660,6 +1917,30 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 		teleutils.DefaultLRUCapacity)
 	config.NextProtos = []string{"h2"}
 
+	// When running inside a deployed cluster, configure client certificate
+	// authentication so clients such as tele can authenticate with the API
+	// using certificates issued by Teleport.
+	if inKubernetes() {
+		// This setting will prompt the server to send a certificate request
+		// to connecting clients which will make clients to optionally provide
+		// a certificate.
+		//
+		// If provided, the server will verify the certificate using the pool
+		// configured below.
+		config.ClientAuth = tls.VerifyClientCertIfGiven
+		// Obtain the client certificate pool from the Teleport auth server.
+		//
+		// This pool will contain CAs used by Teleport to issue user certificates
+		// which will then be used by the connecting clients.
+		//
+		// TODO(r0mant): Implement config.GetConfigForClient() instead to refresh
+		// the pool on each connection in case CAs are rotated?
+		config.ClientCAs, err = p.GetAuthServer().ClientCertPool("")
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	return config, nil
 }
 
@@ -1667,8 +1948,8 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 // and private key
 //
 // It is a no-op if the secret already exists.
-func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
-	site, err := p.operator.GetLocalSite()
+func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes.Clientset) error {
+	site, err := p.operator.GetLocalSite(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1678,11 +1959,15 @@ func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 	if len(cert) != 0 && len(key) != 0 {
-		p.Info("Cluster certificate is already initialized.")
+		err = p.replaceCertIfAboutToExpire(ctx, p.client)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Info("Cluster web UI certificate is already initialized.")
 		return nil
 	}
 
-	p.Info("Initializing cluster certificate.")
+	p.Infof("Initializing cluster web UI certificate from file: %v...", p.teleportConfig.Proxy.TLSCert)
 
 	certificateData, err := ioutil.ReadFile(p.teleportConfig.Proxy.TLSCert)
 	if err != nil {
@@ -1694,7 +1979,10 @@ func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = p.operator.UpdateClusterCertificate(ops.UpdateCertificateRequest{
+	localCtx := context.WithValue(ctx, constants.UserContext,
+		constants.ServiceSystem)
+
+	_, err = p.operator.UpdateClusterCertificate(localCtx, ops.UpdateCertificateRequest{
 		AccountID:   site.AccountID,
 		SiteDomain:  site.Domain,
 		Certificate: certificateData,
@@ -1704,7 +1992,12 @@ func (p *Process) initClusterCertificate(client *kubernetes.Clientset) error {
 		return trace.Wrap(err)
 	}
 
-	p.Info("Cluster certificate has been initialized.")
+	err = p.replaceCertIfAboutToExpire(ctx, p.client)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	p.Infof("Successfully initialized cluster web UI certificate from file: %v.", p.teleportConfig.Proxy.TLSCert)
 	return nil
 }
 
@@ -1880,10 +2173,6 @@ func (p *Process) initAccount() error {
 		}
 	}
 
-	if err := p.fixOpsCenterRoles(*account); err != nil {
-		p.Errorf("Failed to migrate Ops Center: %v.", trace.DebugReport(err))
-	}
-
 	return nil
 }
 
@@ -1924,7 +2213,7 @@ func (p *Process) ensureClusterState() error {
 		SiteDomain: site.Domain,
 	}
 
-	operations, err := p.operator.GetSiteOperations(siteKey)
+	operations, err := p.operator.GetSiteOperations(siteKey, ops.OperationsFilter{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1962,47 +2251,6 @@ func (p *Process) ensureClusterState() error {
 		return trace.Wrap(err)
 	}
 
-	return nil
-}
-
-// fixOpsCenterRoles fixes use case when cert authorities
-// for remote ops center did not have any roles set to them,
-// so user could not SSH into terminal
-func (p *Process) fixOpsCenterRoles(account users.Account) error {
-	clusters, err := p.backend.GetTrustedClusters()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	currentUser, err := user.Current()
-	if err != nil {
-		p.Warningf("Failed to query current user: %v.", trace.ConvertSystemError(err))
-	}
-	p.Debugf("Going to update certificate authorities for %v.", clusters)
-	for _, cluster := range clusters {
-		certAuthority, err := p.backend.GetCertAuthority(teleservices.CertAuthID{
-			Type:       teleservices.UserCA,
-			DomainName: cluster.GetName(),
-		}, true)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if len(certAuthority.GetRoles()) != 0 {
-			p.Debugf("CA %v has assigned roles.", certAuthority.GetClusterName())
-			continue
-		}
-		p.Debugf("Migrating CA %v.", certAuthority.GetClusterName())
-		role := teleservices.RoleForCertAuthority(certAuthority)
-		role.SetLogins(teleservices.Allow, storage.GetAllowedLogins(currentUser))
-		err = p.backend.UpsertRole(role, storage.Forever)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		certAuthority.SetRoles([]string{role.GetName()})
-		err = p.backend.UpsertCertAuthority(certAuthority)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
 	return nil
 }
 
@@ -2050,55 +2298,25 @@ func (p *Process) getAuthPreference() (teleservices.AuthPreference, error) {
 	return modules.Get().DefaultAuthPreference(p.cfg.Mode)
 }
 
-// loginWithToken logs in the user linked to token specified with tokenID
-func (p *Process) loginWithToken(tokenID string, w http.ResponseWriter, r *http.Request) {
-	p.Infof("Logging in with token %v.", tokenID)
-	fail := func(name string, args ...interface{}) {
-		p.Errorf(name, args...)
-		http.Redirect(w, r, "/web/msg/error/login_failed", http.StatusFound)
-	}
-	token, err := p.identity.GetInstallToken(tokenID)
-	if err != nil {
-		fail("ERROR logging in: %v", err)
-		return
-	}
-	result, err := p.identity.LoginWithInstallToken(tokenID)
-	if err != nil {
-		fail("ERROR logging in: %v", err)
-		return
-	}
-	if err = teleweb.SetSession(w, result.Email, result.SessionID); err != nil {
-		fail("ERROR creating session %v", err)
-		return
-	}
-	// if the token has a site domain, redirect to the site
-	if token.SiteDomain != "" {
-		var installed *ops.SiteOperation
-		siteKey := ops.SiteKey{AccountID: token.AccountID, SiteDomain: token.SiteDomain}
-		installed, err = ops.GetCompletedInstallOperation(siteKey, p.operator)
-		if err != nil && !trace.IsNotFound(err) {
-			fail("ERROR getting install operation %v", err)
-			return
-		}
-		if installed != nil {
-			domainPath := fmt.Sprintf("/web/site/%v", token.SiteDomain)
-			http.Redirect(w, r, domainPath, http.StatusFound)
-		}
-	} else {
-		// TODO: restrict this to only a (subset of) specific URL
-		// like the one to install an application?
-		http.Redirect(w, r, r.URL.Path, http.StatusFound)
-	}
-}
-
 func (p *Process) loadRPCCredentials() (*rpcserver.Credentials, utils.TLSArchive, error) {
-	_, r, err := p.packages.ReadPackage(loc.RPCSecrets)
+	// In case of multi-node install, a gravity-site process may need to
+	// fetch a package blob from the leader which may not be fully
+	// initialized yet so retry a few times.
+	var reader io.ReadCloser
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() (err error) {
+		_, reader, err = p.packages.ReadPackage(loc.RPCSecrets)
+		if err != nil {
+			p.Warnf("Failed to read package %v: %v.", loc.RPCSecrets, trace.Wrap(err))
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	defer r.Close()
+	defer reader.Close()
 
-	tlsArchive, err := utils.ReadTLSArchive(r)
+	tlsArchive, err := utils.ReadTLSArchive(reader)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -2140,7 +2358,7 @@ func initSelfSignedHTTPSCert(cfg *service.Config, hostname string) (err error) {
 	if hostname != "" {
 		hosts = append(hosts, hostname)
 	}
-	creds, err := teleutils.GenerateSelfSignedCert(hosts)
+	creds, err := utils.GenerateSelfSignedCert(hosts)
 	if err != nil {
 		return trace.Wrap(err)
 	}

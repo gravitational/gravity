@@ -37,3 +37,16 @@ func (b *backend) SetDNSConfig(config storage.DNSConfig) error {
 	err := b.upsertVal(b.key(systemP, dnsP), &config, forever)
 	return trace.Wrap(err)
 }
+
+// GetSELinux returns whether SELinux support is on
+func (b *backend) GetSELinux() (enabled bool, err error) {
+	if err := b.getVal(b.key(systemP, seLinuxP), &enabled); err != nil {
+		return false, trace.Wrap(err)
+	}
+	return enabled, nil
+}
+
+// SetSELinux sets SELinux support
+func (b *backend) SetSELinux(enabled bool) error {
+	return b.upsertVal(b.key(systemP, seLinuxP), &enabled, forever)
+}

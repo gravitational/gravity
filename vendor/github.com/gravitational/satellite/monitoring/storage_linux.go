@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2017-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gravitational/satellite/agent/health"
@@ -34,16 +35,19 @@ import (
 	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/dustin/go-humanize"
 	"github.com/gravitational/trace"
-	syscall "golang.org/x/sys/unix"
 )
 
 // NewStorageChecker creates a new instance of the volume checker
 // using the specified checker as configuration
-func NewStorageChecker(config StorageConfig) health.Checker {
+func NewStorageChecker(config StorageConfig) (health.Checker, error) {
+	if err := config.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return &storageChecker{
 		StorageConfig: config,
 		osInterface:   &realOS{},
-	}
+	}, nil
 }
 
 // storageChecker verifies volume requirements
@@ -84,7 +88,8 @@ func (c *storageChecker) check(ctx context.Context, reporter health.Reporter) er
 
 	return trace.NewAggregate(c.checkFsType(ctx, reporter),
 		c.checkCapacity(ctx, reporter),
-		c.checkHighWatermark(ctx, reporter),
+		c.checkOwner(reporter),
+		c.checkDiskUsage(ctx, reporter),
 		c.checkWriteSpeed(ctx, reporter))
 }
 
@@ -143,7 +148,75 @@ func (c *storageChecker) checkFsType(ctx context.Context, reporter health.Report
 	return nil
 }
 
-func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health.Reporter) error {
+// checkOwner verifies that the configured path is owned by the correct user/group.
+func (c *storageChecker) checkOwner(reporter health.Reporter) error {
+	if c.UID == nil && c.GID == nil {
+		return nil
+	}
+	uid, gid, err := c.osInterface.getUIDGID(c.Path)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if c.UID != nil {
+		data := PathUIDCheckerData{
+			Path:        c.Path,
+			ExpectedUID: *c.UID,
+			ActualUID:   uid,
+		}
+		bytes, err := json.Marshal(data)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if *c.UID != uid {
+			reporter.Add(&pb.Probe{
+				Checker:     PathUIDCheckerID,
+				CheckerData: bytes,
+				Status:      pb.Probe_Failed,
+				Severity:    pb.Probe_Warning,
+				Detail:      data.FailureMessage(),
+			})
+		} else {
+			reporter.Add(&pb.Probe{
+				Checker:     PathUIDCheckerID,
+				CheckerData: bytes,
+				Status:      pb.Probe_Running,
+				Detail:      data.SuccessMessage(),
+			})
+		}
+	}
+	if c.GID != nil {
+		data := PathGIDCheckerData{
+			Path:        c.Path,
+			ExpectedGID: *c.GID,
+			ActualGID:   gid,
+		}
+		bytes, err := json.Marshal(data)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		if *c.GID != gid {
+			reporter.Add(&pb.Probe{
+				Checker:     PathGIDCheckerID,
+				CheckerData: bytes,
+				Status:      pb.Probe_Failed,
+				Severity:    pb.Probe_Warning,
+				Detail:      data.FailureMessage(),
+			})
+		} else {
+			reporter.Add(&pb.Probe{
+				Checker:     PathGIDCheckerID,
+				CheckerData: bytes,
+				Status:      pb.Probe_Running,
+				Detail:      data.SuccessMessage(),
+			})
+		}
+	}
+	return nil
+}
+
+// checkDiskUsage checks the disk usage. A warning or critical probe will be
+// reported if the usage percentage is above the set thresholds.
+func (c *storageChecker) checkDiskUsage(ctx context.Context, reporter health.Reporter) error {
 	if c.HighWatermark == 0 {
 		return nil
 	}
@@ -155,6 +228,7 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 		return trace.BadParameter("disk capacity at %v is 0", c.path)
 	}
 	checkerData := HighWatermarkCheckerData{
+		LowWatermark:   c.LowWatermark,
 		HighWatermark:  c.HighWatermark,
 		Path:           c.Path,
 		TotalBytes:     totalBytes,
@@ -164,21 +238,38 @@ func (c *storageChecker) checkHighWatermark(ctx context.Context, reporter health
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if float64(totalBytes-availableBytes)/float64(totalBytes)*100 > float64(c.HighWatermark) {
+
+	diskUsagePercent := float64(totalBytes-availableBytes) / float64(totalBytes) * 100
+
+	if diskUsagePercent > float64(checkerData.HighWatermark) {
 		reporter.Add(&pb.Probe{
 			Checker:     DiskSpaceCheckerID,
-			Detail:      checkerData.FailureMessage(),
+			Detail:      checkerData.CriticalMessage(),
 			CheckerData: checkerDataBytes,
 			Status:      pb.Probe_Failed,
+			Severity:    pb.Probe_Critical,
 		})
-	} else {
+		return nil
+	}
+
+	if diskUsagePercent > float64(checkerData.LowWatermark) {
 		reporter.Add(&pb.Probe{
 			Checker:     DiskSpaceCheckerID,
-			Detail:      checkerData.SuccessMessage(),
+			Detail:      checkerData.WarningMessage(),
 			CheckerData: checkerDataBytes,
-			Status:      pb.Probe_Running,
+			Status:      pb.Probe_Failed,
+			Severity:    pb.Probe_Warning,
 		})
+		return nil
 	}
+
+	reporter.Add(&pb.Probe{
+		Checker:     DiskSpaceCheckerID,
+		Detail:      checkerData.SuccessMessage(),
+		CheckerData: checkerDataBytes,
+		Status:      pb.Probe_Running,
+	})
+
 	return nil
 }
 
@@ -325,6 +416,22 @@ func (r realOS) diskCapacity(path string) (bytesAvail, bytesTotal uint64, err er
 	return bytesAvail, bytesTotal, nil
 }
 
+// getUIDGID returns the specified path's owner uid and gid.
+func (r realOS) getUIDGID(path string) (uid uint32, gid uint32, err error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0, 0, trace.Wrap(err)
+	}
+	if fi.Sys() == nil {
+		return 0, 0, trace.BadParameter("fileinfo is missing sysinfo: %v", fi)
+	}
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0, trace.BadParameter("fileinfo unexpected sysinfo type: %[1]v %[1]T", fi.Sys())
+	}
+	return stat.Uid, stat.Gid, nil
+}
+
 func writeN(ctx context.Context, file *os.File, buf []byte, n int) error {
 	for i := 0; i < n; i++ {
 		_, err := file.Write(buf)
@@ -348,4 +455,5 @@ type osInterface interface {
 	mountInfo
 	diskSpeed(ctx context.Context, path, name string) (bps uint64, err error)
 	diskCapacity(path string) (bytesAvailable, bytesTotal uint64, err error)
+	getUIDGID(path string) (uid uint32, gid uint32, err error)
 }

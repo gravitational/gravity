@@ -4,7 +4,8 @@ metadata:
   name: opscenter
   resourceVersion: "GRAVITY_VERSION"
   hidden: true
-logo: file://logo.svg
+  description: |
+    Remote cluster management and operations center
 endpoints:
   - name: "Ops Center Control Panel"
     description: "Gravity Ops Center"
@@ -57,7 +58,7 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: hook
-                image: quay.io/gravitational/debian-tall:0.0.1
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/usr/local/bin/kubectl", "delete", "services", "-l", "app=gravity-opscenter", "--ignore-not-found"]
 systemOptions:
   docker:

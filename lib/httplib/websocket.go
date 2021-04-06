@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -92,11 +91,11 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if !ok {
 		transport = &http.Transport{}
 	}
-	dial := transport.Dial
+	dial := transport.DialContext
 	if dial == nil {
-		dial = net.Dial
+		dial = (&net.Dialer{}).DialContext
 	}
-	conn, err := dial("tcp", u.Host)
+	conn, err := dial(ctx, "tcp", u.Host)
 	if err != nil {
 		// try to dial using local resolver in case of error
 		log.Warningf("got error, re-dialing with local resolver: %v", trace.DebugReport(err))
@@ -115,8 +114,7 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 
 	tlsConn := tls.Client(conn, wscfg.TlsConfig)
 	errC := make(chan error, 2)
-	var timer *time.Timer // for canceling TLS handshake
-	timer = time.AfterFunc(defaults.DialTimeout, func() {
+	timer := time.AfterFunc(defaults.DialTimeout, func() {
 		errC <- trace.ConnectionProblem(nil, "handshake timeout")
 	})
 	go func() {
@@ -129,15 +127,6 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if err := <-errC; err != nil {
 		conn.Close()
 		return nil, trace.Wrap(err)
-	}
-	if !tlsConfig.InsecureSkipVerify {
-		if tlsConfig.ServerName == "" {
-			tlsConfig.ServerName, err = utils.URLHostname(u.Host)
-		}
-		if err := tlsConn.VerifyHostname(tlsConfig.ServerName); err != nil {
-			conn.Close()
-			return nil, trace.Wrap(err)
-		}
 	}
 	clt, err := websocket.NewClient(wscfg, tlsConn)
 	if err != nil {

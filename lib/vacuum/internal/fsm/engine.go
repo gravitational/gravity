@@ -22,14 +22,16 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	libpack "github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	libphase "github.com/gravitational/gravity/lib/vacuum/internal/phases"
-	"github.com/gravitational/gravity/lib/vacuum/prune/pack"
 
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
@@ -78,6 +80,13 @@ func (r *Config) checkAndSetDefaults() (err error) {
 	if r.Spec == nil {
 		r.Spec = configToExecutor(*r)
 	}
+	if r.FieldLogger == nil {
+		r.FieldLogger = &libfsm.Logger{
+			FieldLogger: log.WithField(trace.Component, "gc"),
+			Key:         r.Operation.Key(),
+			Operator:    r.Operator,
+		}
+	}
 	return nil
 }
 
@@ -88,9 +97,9 @@ type Config struct {
 	// Packages is the cluster package service
 	Packages libpack.PackageService
 	// App references the cluster application
-	App *pack.Application
+	App *storage.Application
 	// RemoteApps lists optional applications from remote clusters
-	RemoteApps []pack.Application
+	RemoteApps []storage.Application
 	// Apps is the cluster application service
 	Apps app.Applications
 	// Operator is the cluster operator service
@@ -104,11 +113,9 @@ type Config struct {
 	// Spec specifies the function that resolves to an executor
 	Spec libfsm.FSMSpecFunc
 	// Runner specifies the remote command runner
-	Runner libfsm.RemoteRunner
+	Runner rpc.RemoteRunner
 	// Silent controls whether the process outputs messages to stdout
 	localenv.Silent
-	// Emitter outputs progress messages to stdout
-	utils.Emitter
 }
 
 // UpdateProgress creates an appropriate progress entry in the operator
@@ -143,23 +150,15 @@ func (r *engine) UpdateProgress(ctx context.Context, params libfsm.Params) error
 
 // Complete marks the operation as either completed or failed based
 // on the state of the operation plan
-func (r *engine) Complete(fsmErr error) error {
+func (r *engine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := r.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	if libfsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(r.Operation.Key(), r.Operator)
-	} else {
-		err = ops.FailOperation(r.Operation.Key(), r.Operator, trace.Unwrap(fsmErr).Error())
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	r.Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an new changelog entry
@@ -190,8 +189,8 @@ func (r *engine) GetExecutor(params libfsm.ExecutorParams, remote libfsm.Remote)
 
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
-func (r *engine) RunCommand(ctx context.Context, runner libfsm.RemoteRunner, server storage.Server, params libfsm.Params) error {
-	args := []string{"gc", "--phase", params.PhaseID}
+func (r *engine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, params libfsm.Params) error {
+	args := []string{"plan", "execute", "--phase", params.PhaseID}
 	if params.Force {
 		args = append(args, "--force")
 	}
@@ -218,25 +217,30 @@ type engine struct {
 // to a phase executor
 func configToExecutor(config Config) libfsm.FSMSpecFunc {
 	return func(params libfsm.ExecutorParams, remote libfsm.Remote) (libfsm.PhaseExecutor, error) {
+		logger := &libfsm.Logger{
+			FieldLogger: log.WithFields(log.Fields{
+				constants.FieldPhase: params.Phase.ID,
+			}),
+			Key:      params.Key(),
+			Operator: config.Operator,
+		}
 		switch {
 		case strings.HasPrefix(params.Phase.ID, libphase.Journal):
-			return libphase.NewJournal(params, config.RuntimePath, config.Emitter)
+			return libphase.NewJournal(params, config.RuntimePath, config.Silent, logger)
 
 		case params.Phase.ID == libphase.ClusterPackages:
 			return libphase.NewPackages(
 				params,
 				*config.App,
-				config.RemoteApps,
 				config.Packages,
-				config.Emitter)
+				config.Silent, logger)
 
 		case strings.HasPrefix(params.Phase.ID, libphase.Packages):
 			return libphase.NewPackages(
 				params,
 				*config.App,
-				config.RemoteApps,
 				config.LocalPackages,
-				config.Emitter)
+				config.Silent, logger)
 
 		case strings.HasPrefix(params.Phase.ID, libphase.Registry):
 			return libphase.NewRegistry(
@@ -244,7 +248,7 @@ func configToExecutor(config Config) libfsm.FSMSpecFunc {
 				config.App.Locator,
 				config.Apps,
 				config.Packages,
-				config.Emitter)
+				config.Silent, logger)
 
 		default:
 			return nil, trace.BadParameter("unknown phase %q", params.Phase.ID)

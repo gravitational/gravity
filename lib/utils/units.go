@@ -151,3 +151,8 @@ func DurationPtr(v time.Duration) *teleservices.Duration {
 	d := teleservices.NewDuration(v)
 	return &d
 }
+
+// StringPtr returns a pointer to the provided string
+func StringPtr(s string) *string {
+	return &s
+}

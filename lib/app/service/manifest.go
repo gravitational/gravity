@@ -41,7 +41,7 @@ import (
 // to remove the directory after it is no longer needed using the returned cleanup handler.
 // The resulting cleanup handler is guaranteed to be non-nil so it's always safe to call
 func manifestFromUnpackedSource(source io.Reader) (manifest []byte, dir string, cleanup cleanup, err error) {
-	dir, cleanup, err = unpackedSource(source, false)
+	dir, cleanup, err = unpackedSource(source)
 	if err != nil {
 		return nil, "", cleanup, trace.Wrap(err)
 	}
@@ -52,32 +52,6 @@ func manifestFromUnpackedSource(source io.Reader) (manifest []byte, dir string, 
 	}
 
 	return manifest, dir, cleanup, nil
-}
-
-// manifestFromSource reads an application manifest from the specified tarball
-// without unpacking it.
-func manifestFromSource(source io.Reader) (manifest []byte, err error) {
-	decompressed, err := dockerarchive.DecompressStream(source)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	reader := tar.NewReader(decompressed)
-	root := "."
-	if err = archive.TarGlob(reader, root, []string{"*.*"}, func(match string, file io.Reader) (err error) {
-		if filepath.Base(match) == defaults.ManifestFileName {
-			manifest, err = ioutil.ReadAll(file)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-		}
-		return nil
-	}); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if manifest == nil {
-		return nil, trace.NotFound("no application manifest %v found in tarball", defaults.ManifestFileName)
-	}
-	return manifest, nil
 }
 
 func manifestFromDir(dir string) (manifest []byte, err error) {
@@ -100,9 +74,10 @@ func manifestFromDir(dir string) (manifest []byte, err error) {
 // It is caller's responsibility to remove the directory after it is no longer needed
 // using the returned cleanup handler.
 // The resulting cleanup handler is guaranteed to be non-nil so it's always safe to call
-func unpackedSource(source io.Reader, excludeRegistry bool) (dir string, cleanup cleanup, err error) {
+func unpackedSource(source io.Reader) (dir string, cleanup cleanup, err error) {
 	dir, err = ioutil.TempDir("", "gravity")
-	log.Infof("creating temp directory %q", dir)
+	logger := log.WithField("dir", dir)
+	logger.Info("Create temporary directory.")
 	if err != nil {
 		return "", emptyCleanup, trace.Wrap(trace.ConvertSystemError(err),
 			"failed to create directory %q", dir)
@@ -110,19 +85,44 @@ func unpackedSource(source io.Reader, excludeRegistry bool) (dir string, cleanup
 	cleanup = func() {
 		err := os.RemoveAll(dir)
 		if err != nil {
-			log.Warningf("failed to remove directory %q: %v", dir, err)
+			logger.WithError(err).Warn("Failed to remove directory.")
 		}
 	}
-
-	tarOptions := archive.DefaultOptions()
-	if excludeRegistry {
-		tarOptions.ExcludePatterns = []string{"registry"}
-	}
-
-	if err = dockerarchive.Untar(source, dir, tarOptions); err != nil {
+	if err = dockerarchive.Untar(source, dir, archive.DefaultOptions()); err != nil {
 		return dir, cleanup, trace.Wrap(err)
 	}
 	return dir, cleanup, nil
+}
+
+func unpackedResources(appPackage io.Reader) (rc io.ReadCloser, err error) {
+	decompressed, err := dockerarchive.DecompressStream(appPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reader, writer := io.Pipe()
+	go func() {
+		tarball := archive.NewTarAppender(writer)
+		handler := renderItemFromTarball(tarball)
+		defer func() {
+			tarball.Close()
+			decompressed.Close()
+		}()
+		err := archive.TarGlobWithPrefix(tar.NewReader(decompressed), defaults.ResourcesDir, handler)
+		if err != nil {
+			log.WithError(err).Warn("Failed to unpack resources.")
+		}
+		writer.CloseWithError(err) //nolint:errcheck
+	}()
+	return reader, nil
+}
+
+func renderItemFromTarball(tarball *archive.TarAppender) archive.TarGlobHandler {
+	return func(header *tar.Header, f *tar.Reader) error {
+		return tarball.Add(&archive.Item{
+			Header: *header,
+			Data:   ioutil.NopCloser(f),
+		})
+	}
 }
 
 // toApp translates an application representation from storage format

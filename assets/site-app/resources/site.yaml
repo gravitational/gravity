@@ -65,22 +65,26 @@ rules:
   - get
   - list
   - watch
-# The following permissions are required for Teleport's Kubernetes proxy
-# functionality which uses Kubernetes CSR API for signing client certs.
+# The following permissions are required to allow gravity-site to create the node object when running a join and
+# setting permissions that are restricted by the NodeAuthorizer.
 - apiGroups:
-  - certificates.k8s.io
+  - ""
   resources:
-  - certificatesigningrequests
+  - nodes
   verbs:
   - create
-  - watch
-  - delete
-- apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests/approval
-  verbs:
   - update
+  - patch
+# The following permissions are required for Teleport's Kubernetes proxy
+# functionality which uses Kubernetes Impersonation API.
+- apiGroups:
+  - ""
+  resources:
+  - users
+  - groups
+  - serviceaccounts
+  verbs:
+  - impersonate
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -95,7 +99,7 @@ subjects:
   name: gravity-site
   namespace: kube-system
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
@@ -110,11 +114,13 @@ spec:
     metadata:
       labels:
         app: gravity-site
+        gravitational.io/critical-pod: ''
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
-      serviceAccount: gravity-site
+      priorityClassName: system-cluster-critical
+      serviceAccountName: gravity-site
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -158,11 +164,21 @@ spec:
               configMapKeyRef:
                 name: gravity-opscenter
                 key: teleport.yaml
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: -1
+          seLinuxOptions:
+            type: gravity_container_system_t
         livenessProbe:
           httpGet:
             path: /healthz
             port: 3010
-          initialDelaySeconds: 600
+          initialDelaySeconds: 120
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
@@ -179,6 +195,8 @@ spec:
             containerPort: 3023
           - name: sshtunnel
             containerPort: 3024
+          - name: kubeproxy
+            containerPort: 3026
           - name: teleport
             containerPort: 3080
           - name: profile
@@ -271,5 +289,19 @@ spec:
   - name: web
     port: 3009
     nodePort: 32009
+  selector:
+    app: gravity-site
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gravity-site-auth
+  namespace: kube-system
+spec:
+  type: NodePort
+  ports:
+  - name: auth
+    port: 3025
+    nodePort: 32025
   selector:
     app: gravity-site

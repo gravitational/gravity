@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
@@ -121,7 +122,7 @@ func (m *Handler) validateServers(w http.ResponseWriter, r *http.Request, p http
 	log.Infof("validateServers: %v", req)
 
 	clusterName, operationID := p.ByName("domain"), p.ByName("operation_id")
-	err = ctx.Operator.ValidateServers(ops.ValidateServersRequest{
+	err = opsservice.ValidateServers(ctx.Context, ctx.Operator, ops.ValidateServersRequest{
 		AccountID:   ctx.User.GetAccountID(),
 		SiteDomain:  clusterName,
 		OperationID: operationID,
@@ -154,7 +155,7 @@ func (m *Handler) validateServers(w http.ResponseWriter, r *http.Request, p http
 func (m *Handler) getOperations(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *AuthContext) (interface{}, error) {
 	siteDomain := p[0].Value
 	siteKey := ops.SiteKey{AccountID: context.User.GetAccountID(), SiteDomain: siteDomain}
-	operations, err := context.Operator.GetSiteOperations(siteKey)
+	operations, err := context.Operator.GetSiteOperations(siteKey, ops.FilterFromURLValues(r.URL.Query()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -196,25 +197,6 @@ func init() {
 		{Step: 6, Message: "Verifying Installation"},
 		{Step: 7, Message: "Launching Application"},
 		{Step: 8, Message: "Connecting to Application"},
-	}
-}
-
-type siteOperation struct {
-	ops.SiteOperation
-	// Steps defines the state space for this operation as a sequence of state progressions.
-	// Each element in Steps is a human-readable description of the step
-	Steps []string `json:"steps"`
-}
-
-func formatSiteOperation(operation *ops.SiteOperation) *siteOperation {
-	var steps []string
-	switch operation.Type {
-	case ops.OperationInstall:
-		steps = operationStates[operationInstall].Titles()
-	}
-	return &siteOperation{
-		SiteOperation: *operation,
-		Steps:         steps,
 	}
 }
 

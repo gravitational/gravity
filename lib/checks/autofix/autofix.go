@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"sort"
+	"strings"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/satellite/agent/proto/agentpb"
@@ -44,13 +46,34 @@ func Fix(ctx context.Context, probes []*agentpb.Probe, progress utils.Progress) 
 			continue
 		}
 		if err := fixProbe(ctx, probe, progress); err != nil {
-			logrus.Debugf("Failed to auto-fix probe %#v: %v", *probe, err)
+			if !trace.IsNotImplemented(err) {
+				logrus.Debugf("Failed to auto-fix probe %#v: %v", *probe, err)
+			}
 			unfixed = append(unfixed, probe)
 		} else {
 			fixed = append(fixed, probe)
 		}
 	}
 	return fixed, unfixed
+}
+
+// AutoloadModules generates a systemd modules-load.d file for all kernel modules required by gravity.
+// modules-load.d is smart enough to skip builtin modules, so we just add all modules we require to the list,
+// even if they are added or already running for other reasons.
+func AutoloadModules(ctx context.Context, modules []monitoring.ModuleRequest, progress utils.Progress) {
+	modList := make([]string, 0, len(modules))
+	for _, module := range modules {
+		modList = append(modList, module.Name)
+		if err := utils.EnsureLineInFile(defaults.ModulesPath, module.Name); err != nil && !trace.IsAlreadyExists(err) {
+			progress.PrintWarn(err, "Could not set up kernel module %v to load on boot", module)
+		}
+		for _, altName := range module.Names {
+			if err := utils.EnsureLineInFile(defaults.ModulesPath, altName); err != nil && !trace.IsAlreadyExists(err) {
+				progress.PrintWarn(err, "Could not set up kernel module %v to load on boot", altName)
+			}
+		}
+	}
+	progress.PrintInfo("Enabled kernel module loading on boot: %v", strings.Join(modList, ","))
 }
 
 // GetFixable returns a list of failed probes that can be attempted to auto-fix
@@ -81,7 +104,7 @@ func fixProbe(ctx context.Context, probe *agentpb.Probe, progress utils.Progress
 		if data.Module.Name == "" {
 			return trace.BadParameter("empty probe data: %#v", data)
 		}
-		if err := enableKernelModule(ctx, data.Module.Name, data.Module.Names, progress); err != nil {
+		if err := modprobe(ctx, data.Module.Name, data.Module.Names, progress); err != nil {
 			return trace.Wrap(err)
 		}
 	case monitoring.IPForwardCheckerID, monitoring.NetfilterCheckerID, monitoring.MountsCheckerID:

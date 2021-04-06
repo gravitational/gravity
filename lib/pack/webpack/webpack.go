@@ -25,42 +25,66 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
-	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 )
 
+// Config defines package service web handler configuration.
 type Config struct {
-	Packages      pack.PackageService
-	Users         users.Identity
-	Authenticator httplib.Authenticator
+	// Packages provides access to the package service.
+	Packages pack.PackageService
+	// Users provides access to the users service.
+	Users users.Identity
+	// Authenticator is used to authenticate requests.
+	Authenticator users.Authenticator
+}
+
+// CheckAndSetDefaults validates the request and sets some defaults.
+func (c *Config) CheckAndSetDefaults() error {
+	if c.Packages == nil {
+		return trace.BadParameter("missing parameter Packages")
+	}
+	if c.Users == nil {
+		return trace.BadParameter("missing parameter Users")
+	}
+	if c.Authenticator == nil {
+		c.Authenticator = users.NewAuthenticatorFromIdentity(c.Users)
+	}
+	return nil
 }
 
 type Server struct {
 	httprouter.Router
 	cfg        Config
-	fileServer http.Handler
+	middleware *auth.AuthMiddleware
 }
 
 func NewHandler(cfg Config) (*Server, error) {
-	if cfg.Packages == nil {
-		return nil, trace.BadParameter("missing parameter Packages")
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if cfg.Users == nil {
-		return nil, trace.BadParameter("missing parameter Users")
-	}
+
 	h := &Server{
 		cfg: cfg,
 	}
+
+	// Wrap the router in the authentication middleware which will detect
+	// if the client is trying to authenticate using a client certificate,
+	// extract user information from it and add it to the request context.
+	h.middleware = &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(cfg.Users),
+	}
+	h.middleware.Wrap(&h.Router)
 
 	h.POST("/pack/v1/repositories", h.needsAuth(h.createRepository))
 	h.DELETE("/pack/v1/repositories/:repository", h.needsAuth(h.deleteRepository))
@@ -75,6 +99,12 @@ func NewHandler(cfg Config) (*Server, error) {
 	h.DELETE("/pack/v1/repositories/:repository/packages/:package_name/:package_version", h.needsAuth(h.deletePackage))
 
 	return h, nil
+}
+
+// ServeHTTP lets the authentication middleware serve the request before
+// passing it through to the router.
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.middleware.ServeHTTP(w, r)
 }
 
 func (s *Server) createRepository(w http.ResponseWriter, r *http.Request, p httprouter.Params, service pack.PackageService) error {
@@ -285,84 +315,32 @@ func (s *Server) updatePackageLabels(w http.ResponseWriter, r *http.Request, p h
 
 func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		log.WithFields(log.Fields{
-			"method": r.Method,
-		}).Debugf(r.URL.Path)
+		logger := log.WithFields(fields.FromRequest(r))
 
-		authCreds, err := httplib.ParseAuthHeaders(r)
+		authResult, err := s.cfg.Authenticator.Authenticate(w, r)
 		if err != nil {
-			trace.WriteError(w, err)
+			logger.WithError(err).Warn("Authentication error.")
+			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
 			return
-		}
-		cookie, err := r.Cookie("session")
-		hasCookie := err == nil && cookie != nil && cookie.Value != ""
-		var user storage.User
-		var checker teleservices.AccessChecker
-		if !hasCookie {
-			user, checker, err = s.cfg.Users.AuthenticateUser(*authCreds)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-		} else {
-			if s.cfg.Authenticator == nil {
-				log.Debugf("web sessions are not supported: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("web sessions are not supported"))
-				return
-			}
-			session, err := s.cfg.Authenticator(w, r, true)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			user, err := s.cfg.Users.GetTelekubeUser(session.GetUser())
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			checker, err = s.cfg.Users.GetAccessChecker(user)
-			if err != nil {
-				log.Errorf("failed to fetch roles %v", trace.DebugReport(err))
-				trace.WriteError(
-					w, trace.BadParameter("internal server error"))
-				return
-			}
 		}
 
 		// create a ACL aware wrapper packages service
 		// and pass it to the handlers, so every action will be automatically
 		// checked against current user
-		service := pack.PackagesWithACL(s.cfg.Packages, s.cfg.Users, user, checker)
+		service := pack.PackagesWithACL(s.cfg.Packages, s.cfg.Users, authResult.User, authResult.Checker)
 		if err := fn(w, r, p, service); err != nil {
 			if trace.IsAccessDenied(err) {
-				log.Debugf("access denied: %v", err)
+				logger.WithError(err).Warn("Access denied.")
 			} else if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
-				log.Errorf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Error("Handler error.")
 			}
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
 
 type authHandle func(
 	http.ResponseWriter, *http.Request, httprouter.Params, pack.PackageService) error
-
-type authContext struct {
-	UserName  string
-	AccountID string
-	SiteID    string
-}
 
 type labels struct {
 	AddLabels    map[string]string `json:"add_labels"`

@@ -117,6 +117,7 @@ func (s *StorageSuite) UsersCRUD(c *C) {
 				ClientSecret: "secret",
 				RedirectURL:  "https://gravity",
 			}))
+	c.Assert(err, IsNil)
 
 	u := storage.NewUser("bob@example.com",
 		storage.UserSpecV2{
@@ -238,6 +239,7 @@ func (s *StorageSuite) ConnectorsCRUD(c *C) {
 	compare.DeepCompare(c, conns, []teleservices.OIDCConnector{conn})
 
 	_, publicKey, err := testauthority.New().GenerateKeyPair("")
+	c.Assert(err, IsNil)
 
 	req := teleservices.OIDCAuthRequest{
 		ConnectorID:       conn.GetName(),
@@ -267,8 +269,8 @@ func (s *StorageSuite) SAMLCRUD(c *C) {
 			Namespace: defaults.Namespace,
 		},
 		Spec: teleservices.SAMLConnectorSpecV2{
-			Issuer: "http://example.com",
-			SSO:    "https://example.com/saml/sso",
+			Issuer:                   "http://example.com",
+			SSO:                      "https://example.com/saml/sso",
 			AssertionConsumerService: "https://localhost/acs",
 			Audience:                 "https://localhost/aud",
 			ServiceProviderIssuer:    "https://localhost/iss",
@@ -356,12 +358,13 @@ func (s *StorageSuite) WebSessionsCRUD(c *C) {
 
 	authority := testauthority.New()
 	privateKey, publicKey, err := authority.GenerateKeyPair("")
+	c.Assert(err, IsNil)
 	cert, err := authority.GenerateUserCert(teleservices.UserCertParams{
-		PrivateCASigningKey: privateKey,
-		PublicUserKey:       publicKey,
-		Username:            "user",
-		AllowedLogins:       []string{"admin", "cenots"},
-		TTL:                 time.Hour,
+		PrivateCASigningKey:   privateKey,
+		PublicUserKey:         publicKey,
+		Username:              "user",
+		AllowedLogins:         []string{"admin", "cenots"},
+		TTL:                   time.Hour,
 		PermitAgentForwarding: true,
 	})
 	c.Assert(err, IsNil)
@@ -457,13 +460,13 @@ func (s *StorageSuite) UserTokensCRUD(c *C) {
 	err = s.Backend.DeleteUserTokens(storage.UserTokenTypeReset, u.GetName())
 	c.Assert(err, IsNil)
 
-	storedToken, err = s.Backend.GetUserToken(token3.Token)
+	_, err = s.Backend.GetUserToken(token3.Token)
 	c.Assert(trace.IsNotFound(err), Equals, true)
 
-	storedToken, err = s.Backend.GetUserToken(token2.Token)
+	_, err = s.Backend.GetUserToken(token2.Token)
 	c.Assert(trace.IsNotFound(err), Equals, true)
 
-	storedToken, err = s.Backend.GetUserToken(token1.Token)
+	_, err = s.Backend.GetUserToken(token1.Token)
 	c.Assert(err, IsNil)
 
 	err = s.Backend.DeleteUserToken(token1.Token)
@@ -485,7 +488,10 @@ func (s *StorageSuite) UserInvitesCRUD(c *C) {
 		CreatedBy: "alice@example.com",
 	}
 
-	u.CheckAndSetDefaults()
+	err = u.CheckAndSetDefaults()
+	c.Assert(err, FitsTypeOf, trace.BadParameter(""), Commentf("Should fail on empty roles"))
+
+	u.Roles = []string{"admin"}
 
 	// create
 	out, err := s.Backend.UpsertUserInvite(u)
@@ -1101,6 +1107,7 @@ func (s *StorageSuite) RetrievesApplications(c *C) {
 	c.Assert(actualApps, DeepEquals, apps)
 
 	app, err := s.Backend.GetApplication("example.io", "example-app", "0.0.2")
+	c.Assert(err, IsNil)
 	c.Assert((storage.Package)(*app), DeepEquals, apps[1])
 }
 
@@ -1514,7 +1521,7 @@ func (s *StorageSuite) NodesCRUD(c *C) {
 				Addr:     "localhost:4000",
 				Hostname: "nodea",
 				CmdLabels: map[string]teleservices.CommandLabelV2{
-					"ls": teleservices.CommandLabelV2{
+					"ls": {
 						Period:  teleservices.NewDuration(time.Minute),
 						Command: []string{"ls", "-l"},
 						Result:  "/var /root /tmp",
@@ -1717,7 +1724,7 @@ func (s *StorageSuite) RolesCRUD(c *C) {
 			Namespaces: []string{teledefaults.Namespace},
 			Logins:     []string{"root"},
 			NodeLabels: teleservices.Labels(map[string]teleutils.Strings{
-				teleservices.Wildcard: teleutils.Strings{teleservices.Wildcard},
+				teleservices.Wildcard: {teleservices.Wildcard},
 			}),
 			Rules: []teleservices.Rule{
 				{

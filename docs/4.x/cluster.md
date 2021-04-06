@@ -56,7 +56,7 @@ include:
 * Identity management for integrating cluster access into existing OAuth
   providers.
 
-!!! tip "Note":
+!!! tip "Note"
 	  The list above is not complete. Gravitational Solutions Engineering offers a
 	  wide variety of Kubernetes integration and migration services. Reach out to
 	  `info@gravitational.com` if you have questions.
@@ -65,7 +65,7 @@ include:
 
 Gravity is the tool used to manage the cluster. Gravity is only
 available inside the cluster so you have to `tsh ssh` into the cluster
-to execute `gravity` commands. You can read more about `tsh` in the [remote management](/manage/) section.
+to execute `gravity` commands. You can read more about `tsh` in the [remote management](manage.md) section.
 
 The `gravity` commands allows you to:
 
@@ -109,10 +109,10 @@ status of the cluster named "production":
 $ tsh --cluster=production ssh admin@node gravity status
 ```
 
-!!! tip "Reminder":
+!!! tip "Reminder"
     Keep in mind that `tsh` always uses the Telekube Ops Center as an SSH proxy. This
     means the command above will work with clusters located behind
-    corporate firewalls. You can read more in the [remote management](/manage/) section.
+    corporate firewalls. You can read more in the [remote management](manage.md) section.
 
 ### Cluster Health Endpoint
 
@@ -208,7 +208,7 @@ In this case the response HTTP status code will be `503 Service Unavailable`.
 Telekube provides a way to automatically monitor the application health.
 
 To enable this, define a "status" hook in your Application Manifest (see
-[Application Hooks](/pack/#application-hooks) section for more details on them). The Kubernetes
+[Application Hooks](pack.md#application-hooks) section for more details on them). The Kubernetes
 job defined by the status hook can perform application-specific checks. An example of an
 application-specific status check could be querying a database, or checking that a
 certain pod is running.
@@ -264,7 +264,7 @@ do, or simply use `kubectl --help`.
 
 Each Telekube Cluster also has a graphical UI to explore and manage the Cluster. To log into
 the Cluster Admin UI you need to create an admin user. Please see the
-[Custom Installer Screens](/pack/#custom-installer-screens) chapter for details on how
+[Custom Installer Screens](pack.md#custom-installation-screen) chapter for details on how
 to enable a post-install screen that will let you create a local user.
 
 ## Updating a Cluster
@@ -287,7 +287,7 @@ Telekube update process works:
    update, all data has already been saved locally and disruptions to external
    services, like Docker registries, will not affect the update process.
 
-2. Telekube uses the Kubernetes [rolling update](http://kubernetes.io/docs/user-guide/rolling-updates/)
+2. Telekube uses the Kubernetes [rolling update](https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/)
    mechanism to perform the update.
 
 3. Custom update hooks can be used to perform application specific
@@ -299,7 +299,7 @@ large numbers of remotely running application instances.
 
 !!! warning "Upgrading to 4.23.0+"
     When upgrading a cluster via the Ops Center from pre-4.23.0 to 4.23.0 or
-    higher, refer to [Upgrading to 4.23.0+](/changelog/#instructions-on-upgrading-to-4230)
+    higher, refer to [Upgrading to 4.23.0+](changelog.md#instructions-on-upgrading-to-4230)
 	in the Release Notes for instructions.
 
 ### Uploading an Update
@@ -351,11 +351,11 @@ mode is started by running the following command using the gravity binary:
 $ ./gravity upgrade --manual
 ```
 
-!!! tip:
+!!! tip
     Manual upgrade steps must be executed with the gravity binary included in the upgrade
     tarball to ensure version compatibility. If you don't have an installer tarball (for
     example, when downloading upgrades directly from connected Ops Center), you can obtain
-    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](/quickstart/#getting-the-tools)).
+    the appropriate gravity binary from the distribution Ops Center (see [Getting the Tools](quickstart.md#getting-the-tools)).
 
 Once the upgrade operation has been initiated, the generated operation plan can be viewed
 by running:
@@ -432,7 +432,7 @@ mark the operation as failed and move the cluster into active state.
 
 ### Troubleshooting Automatic Upgrades
 
-!!! tip "Advanced Usage":
+!!! tip "Advanced Usage"
     This section covers the "under the hood" details of the automatic updates.
 
 When a user initiates an automatic update by executing `gravity update`
@@ -537,7 +537,7 @@ In order to scale down resources prior to the upgrade operation, the Application
 With the new `preUpdate` hook, the Telekube Cluster scales down the application resources in preparation for the update. The scaling logic needs to be aware of the cluster size to make appropriate scaling decisions.
 The hook execution is implemented as a separate phase and is executed automatically in automatic upgrade mode.
 
-You can find out more about other hook types on the [Telekube documentation on Packaging and Deployment](/pack/#application-hooks).
+You can find out more about other hook types on the [Telekube documentation on Packaging and Deployment](pack.md#application-hooks).
 
 #### Apply a system taint to the node
 
@@ -856,7 +856,7 @@ Every Telekube cluster can be connected to an Ops Center,
 assuming the cluster is connected to the Internet. This creates an outbound SSH tunnel from the cluster
 to the Ops Center and the operator can use that tunnel to perform remote troubleshooting
 by using the `tsh` tool. You can read more about remote assistance in the
-[remote management](/manage/) section.
+[remote management](manage.md) section.
 
 However, some Telekube Cluster owners may want to disable the SSH tunnel and keep their
 clusters disconnected from the vendor, only enabling this capability when they
@@ -900,7 +900,7 @@ the following order:
 * Security Groups
 * VPC (will delete all associated resources like Internet Gateway, Subnet & Route Table as well)
 
-!!! tip "Resource Groups":
+!!! tip "Resource Groups"
     On AWS you can use `Resource Groups` to get a unified view of all resources matching
     a particular criteria. Create a resource group filtering by an appropriate
     `KubernetesCluster` tag so see all AWS resources for a cluster.
@@ -1018,7 +1018,7 @@ The `hd` scope contains the hosted Google suite domain of the user so in the
 above example, any user who belongs to the "example.com" domain will be
 allowed to log in and granted the admin role.
 
-!!! note:
+!!! note 
     The user must belong to a hosted domain, otherwise the `hd` claim will
     not be populated.
 
@@ -1151,7 +1151,7 @@ $ gravity resource get token --user=alice@example.com
 
 In this example we are going to use `role`, `user` and `token` resources described above to
 provision a user who can publish applications into an Ops Center. For instructions on how
-to setup your own Ops Center see [Setting up an Ops Center](/opscenter).
+to setup your own Ops Center see [Setting up an Ops Center](opscenter.md).
 
 In the following spec we define 3 resources:
 
@@ -1236,7 +1236,7 @@ $ gravity resource create admin.yaml
 The new user can now log into the cluster via the Web UI with the user
 credentials created above.
 
-!!! tip "Password Restrictions":
+!!! tip "Password Restrictions"
     Passwords must be between 6 and 128 characters long.
 
 ### Configuring Log Forwarders
@@ -1292,7 +1292,7 @@ spec:
     -----BEGIN CERTIFICATE-----
 ```
 
-!!! tip "Certificate chain":
+!!! tip "Certificate chain"
     `cert` section should include all intermediate certificate PEM blocks concatenated to function properly!
 
 To update the key pair:
@@ -1355,7 +1355,7 @@ cluster.
 host:port. Typically it is exposed on port `3024`.
 * `spec.web_proxy_addr`: The address which the Ops Center cluster serves its web
 API on. It is the address specified via the `--ops-advertise-addr` parameter
-in the [Manual Provisioning](/opscenter/#manual-provisioning) flow (the first
+in the [Manual Provisioning](opscenter.md#manual-provisioning) flow (the first
 port).
 
 Create the trusted cluster:
@@ -1429,7 +1429,7 @@ Create the resource to update the Ops Center endpoints:
 $ gravity resource create endpoints.yaml
 ```
 
-!!! note:
+!!! note 
     Updating the endpoints resource will result in restart of `gravity-site`
     pods so the changes can take effect.
 
@@ -1557,8 +1557,8 @@ Create it:
 $ gravity resource create auth.yaml
 ```
 
-!!! note:
-    Make sure to configure a proper [OIDC connector](/cluster/#configuring-openid-connect)
+!!! note 
+    Make sure to configure a proper [OIDC connector](cluster.md#configuring-openid-connect)
     when using "oidc" authentication type.
 
 To view the currently configured authentication preference:
@@ -1570,7 +1570,7 @@ Type      ConnectorName     SecondFactor
 local                       off
 ```
 
-!!! note:
+!!! note 
     Currently authentication preference only affects login via web UI,
     `tele login` will add support for it in the future.
 
@@ -1597,7 +1597,7 @@ Signup token has been created and is valid for 1h0m0s hours. Share this URL with
 https://<host>/web/newuser/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the invited user.
 
 ### Reset User Password
@@ -1618,7 +1618,7 @@ Password reset token has been created and is valid for 1h0m0s. Share this URL wi
 https://<host>/web/reset/<token>
 ```
 
-!!! note:
+!!! note 
     Make sure that `<host>` is accessible to the user.
 
 ## Securing a Cluster
@@ -1851,14 +1851,14 @@ With `promiscuous-bridge`, the behavior is similar to that of the kubenet networ
     accept traffic otherwise destined for other interfaces
 
 
-!!! tip "Default hairpin mode":
+!!! tip "Default hairpin mode"
     For 4.x, the default value for `systemOptions.kubelet.hairpinMode` is `hairpin-veth`.
     For 5.x, the default value for `systemOptions.kubelet.hairpinMode` is `promiscuous-bridge`.
 
 
-!!! tip "Kernel module":
+!!! tip "Kernel module"
     In "promiscuous-bridge" mode, the nodes require a kernel module called `ebtable_filter` to manage ebtable rules,
-    see [Kernel Modules](/requirements/#kernel-modules) for details.
+    see [Kernel Modules](requirements.md#kernel-modules) for details.
 
 
 

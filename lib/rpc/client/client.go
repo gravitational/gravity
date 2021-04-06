@@ -37,9 +37,9 @@ import (
 // Client is high level RPC agent interface
 type Client interface {
 	// Command executes the command specified with args remotely
-	Command(ctx context.Context, log logrus.FieldLogger, out io.Writer, args ...string) error
+	Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error
 	// GravityCommand executes the gravity command specified with args remotely
-	GravityCommand(ctx context.Context, log logrus.FieldLogger, out io.Writer, args ...string) error
+	GravityCommand(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error
 	// Validate validates the node against the specified manifest and profile.
 	// Returns the list of failed probes
 	Validate(ctx context.Context, req *validationpb.ValidateRequest) ([]*agentpb.Probe, error)
@@ -49,12 +49,18 @@ type Client interface {
 	GetRuntimeConfig(context.Context) (*pb.RuntimeConfig, error)
 	// GetCurrentTime returns agent's current time as UTC timestamp
 	GetCurrentTime(context.Context) (*time.Time, error)
+	// GetVersion returns agent's version information
+	GetVersion(context.Context) (*pb.Version, error)
 	// CheckPorts executes a network port test
 	CheckPorts(context.Context, *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error)
 	// CheckBandwidth executes a network bandwidth test
 	CheckBandwidth(context.Context, *validationpb.CheckBandwidthRequest) (*validationpb.CheckBandwidthResponse, error)
+	// CheckDisks executes disk performance test
+	CheckDisks(context.Context, *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error)
 	// Shutdown requests remote agent to shut down
-	Shutdown(context.Context) error
+	Shutdown(context.Context, *pb.ShutdownRequest) error
+	// Abort requests remote agent to uninstall
+	Abort(context.Context) error
 	// Close will close communication with remote agent
 	Close() error
 }
@@ -71,11 +77,11 @@ type Config struct {
 // note that if connection is unavailable, it will try to establish it
 // until context provided expires
 func New(ctx context.Context, config Config) (*client, error) {
-	opts := append([]grpc.DialOption{
+	opts := []grpc.DialOption{
 		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(config.Credentials),
-	})
+	}
 
 	conn, err := grpc.DialContext(ctx, config.ServerAddr, opts...)
 	if err != nil {

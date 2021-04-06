@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -88,7 +89,7 @@ func NewHandler(cfg Config) (*Handler, error) {
 		client:     s3.New(cfg.Session),
 	}
 	start := time.Now()
-	h.Infof("Setting up bucket %q.", h.Bucket)
+	h.Infof("Setting up bucket %q, sessions path %q in region %q.", h.Bucket, h.Path, h.Region)
 	if err := h.ensureBucket(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -113,7 +114,7 @@ func (l *Handler) Close() error {
 }
 
 // Upload uploads object to S3 bucket, reads the contents of the object from reader
-// and returns the target S3 bucket path in case of successfull upload.
+// and returns the target S3 bucket path in case of successful upload.
 func (l *Handler) Upload(ctx context.Context, sessionID session.ID, reader io.Reader) (string, error) {
 	path := l.path(sessionID)
 	_, err := l.uploader.UploadWithContext(ctx, &s3manager.UploadInput{
@@ -128,12 +129,23 @@ func (l *Handler) Upload(ctx context.Context, sessionID session.ID, reader io.Re
 	return fmt.Sprintf("%v://%v/%v", teleport.SchemeS3, l.Bucket, path), nil
 }
 
-// Download downloads recorded session from S3 bucket and writes the results into writer
-// return trace.NotFound error is object is not found
+// Download downloads recorded session from S3 bucket and writes the results
+// into writer return trace.NotFound error is object is not found.
 func (l *Handler) Download(ctx context.Context, sessionID session.ID, writer io.WriterAt) error {
+	// Get the oldest version of this object. This has to be done because S3
+	// allows overwriting objects in a bucket. To prevent corruption of recording
+	// data, get all versions and always return the first.
+	versionID, err := l.getOldestVersion(l.Bucket, l.path(sessionID))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	l.Debugf("Downloading %v/%v [%v].", l.Bucket, l.path(sessionID), versionID)
+
 	written, err := l.downloader.DownloadWithContext(ctx, writer, &s3.GetObjectInput{
-		Bucket: aws.String(l.Bucket),
-		Key:    aws.String(l.path(sessionID)),
+		Bucket:    aws.String(l.Bucket),
+		Key:       aws.String(l.path(sessionID)),
+		VersionId: aws.String(versionID),
 	})
 	if err != nil {
 		return ConvertS3Error(err)
@@ -142,6 +154,48 @@ func (l *Handler) Download(ctx context.Context, sessionID session.ID, writer io.
 		return trace.NotFound("recording for %v is not found", sessionID)
 	}
 	return nil
+}
+
+// versionID is used to store versions of a key to allow sorting by timestamp.
+type versionID struct {
+	// ID is the version ID.
+	ID string
+
+	// Timestamp is the last time the object was modified.
+	Timestamp time.Time
+}
+
+// getOldestVersion returns the oldest version of the object.
+func (l *Handler) getOldestVersion(bucket string, prefix string) (string, error) {
+	var versions []versionID
+
+	// Get all versions of this object.
+	err := l.client.ListObjectVersionsPages(&s3.ListObjectVersionsInput{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}, func(page *s3.ListObjectVersionsOutput, lastPage bool) bool {
+		for _, v := range page.Versions {
+			versions = append(versions, versionID{
+				ID:        *v.VersionId,
+				Timestamp: *v.LastModified,
+			})
+		}
+
+		// Returning false stops iteration, stop iteration upon last page.
+		return !lastPage
+	})
+	if err != nil {
+		return "", ConvertS3Error(err)
+	}
+	if len(versions) == 0 {
+		return "", trace.NotFound("%v/%v not found", bucket, prefix)
+	}
+
+	// Sort the versions slice so the first entry is the oldest and return it.
+	sort.Slice(versions, func(i int, j int) bool {
+		return versions[i].Timestamp.Before(versions[j].Timestamp)
+	})
+	return versions[0].ID, nil
 }
 
 // delete bucket deletes bucket and all it's contents and is used in tests

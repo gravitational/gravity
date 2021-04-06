@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/run"
 	"github.com/gravitational/gravity/lib/utils"
@@ -137,7 +137,12 @@ func (r *layerExporter) pushCmd(name, tag string) error {
 		Tag:  tag,
 	}
 	r.Infof("Pushing %v.", opts)
-	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{})
+	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
+	// auth headers are set.
+	// https://github.com/moby/moby/issues/10983
+	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
+		Password: "not-a-real-password",
+	})
 }
 
 func (r *layerExporter) removeTagCmd(name, tag string) error {
@@ -183,20 +188,21 @@ func parseImageNameTag(image string) (name, tag string, err error) {
 }
 
 // pullMissingRemoteImages downloads a subset of remote images missing locally
-func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.FieldLogger, progressReporter utils.Progress) error {
+func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.FieldLogger, req VendorRequest) error {
 	log.Infof("Pulling: %s.", image)
 	present, err := puller.IsImagePresent(image)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if !present {
-		progressReporter.PrintSubStep("Pulling remote image %v", image)
-		if err = puller.Pull(image); err != nil {
-			return trace.Wrap(err)
-		}
-	} else {
-		progressReporter.PrintSubStep("Using local image %v", image)
+		req.ProgressReporter.PrintSubStep("Pulling remote image %v", image)
+		return puller.Pull(image)
 	}
+	if req.Pull {
+		req.ProgressReporter.PrintSubStep("Re-pulling remote image %v.", image)
+		return puller.Pull(image)
+	}
+	req.ProgressReporter.PrintSubStep("Using local image %v", image)
 	return nil
 }
 

@@ -20,23 +20,31 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
+	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/kubernetes"
+	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 )
 
 // createShrinkOperation initiates shrink operation and starts it immediately
-func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createShrinkOperation(context context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Infof("createShrinkOperation: req=%#v", req)
 
 	cluster, err := s.service.GetSite(s.key)
@@ -55,6 +63,7 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,
@@ -98,7 +107,8 @@ func (s *site) createShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (
 		}
 	}
 
-	key, err := s.getOperationGroup().createSiteOperation(*op)
+	key, err := s.getOperationGroup().createSiteOperationWithOptions(*op,
+		createOperationOptions{force: req.Force})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -121,7 +131,7 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 	serverName := req.Servers[0]
 	if len(cluster.ClusterState.Servers) == 1 {
 		return nil, trace.BadParameter(
-			"cannot shrink 1-node cluster, please uninstall it via Ops Center")
+			"cannot shrink 1-node cluster, use --force flag to uninstall")
 	}
 
 	server, err := cluster.ClusterState.FindServer(serverName)
@@ -130,7 +140,7 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 	}
 
 	// check to make sure the server exists and can be found
-	servers, err := s.getTeleportServers()
+	servers, err := s.getAllTeleportServers()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to query teleport servers")
 	}
@@ -157,17 +167,20 @@ func (s *site) validateShrinkRequest(req ops.CreateSiteShrinkOperationRequest, c
 
 // shrinkOperationStart kicks off actuall uninstall process:
 // deprovisions servers, deletes packages
-func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
-	state := ctx.operation.Shrink
-	ctx.serversToRemove = state.Servers
+func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
+	state := opCtx.operation.Shrink
+	opCtx.serversToRemove = state.Servers
 	force := state.Force
+	opKey := opCtx.key()
+	serverName := state.Servers[0].Hostname
+	logger := opCtx.WithField("server", serverName)
 
-	site, err := s.service.GetSite(s.key)
+	cluster, err := s.service.GetSite(s.key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	server, err := site.ClusterState.FindServer(state.Servers[0].Hostname)
+	server, err := cluster.ClusterState.FindServer(serverName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -176,7 +189,7 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	// is running on is being removed, give up the leadership so another process will pick up
 	// and resume the operation
 	if server.AdvertiseIP == os.Getenv(constants.EnvPodIP) {
-		ctx.RecordInfo("this node is being removed, stepping down")
+		opCtx.RecordInfo("this node is being removed, stepping down")
 		s.leader().StepDown()
 		return nil
 	}
@@ -184,19 +197,30 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	// if the operation was resumed, cloud provider might not be set
 	if s.service.getCloudProvider(s.key) == nil {
 		err = s.service.setCloudProviderFromRequest(
-			s.key, ctx.operation.Provisioner, &ctx.operation.Shrink.Vars)
+			s.key, opCtx.operation.Provisioner, &opCtx.operation.Shrink.Vars)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	serverName := server.Hostname
-
 	if force {
-		ctx.RecordInfo("forcing %q removal", serverName)
+		opCtx.RecordInfo("forcing %q removal", serverName)
 	} else {
-		ctx.RecordInfo("starting %q removal", serverName)
+		opCtx.RecordInfo("starting %q removal", serverName)
 	}
+
+	// schedule some clean up actions to run regardless of the outcome of the operation
+	defer func() {
+		// erase cloud provider info for this site which may contain sensitive information
+		// such as API keys
+		s.service.deleteCloudProvider(s.key)
+		ctx, cancel := context.WithTimeout(context.Background(), defaults.AgentStopTimeout)
+		defer cancel()
+		err := s.agentService().StopAgents(ctx, opKey)
+		if err != nil {
+			logger.WithError(err).Warn("Failed to stop shrink agent.")
+		}
+	}()
 
 	// shrink uses a couple of runners for the following purposes:
 	//  * teleport master runner is used to execute system commands that remove
@@ -205,53 +229,42 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 	//    uninstall on it (if the node is online)
 	var masterRunner, agentRunner *serverRunner
 
-	masterRunner, err = s.getMasterRunner(ctx)
+	masterRunner, err = s.pickShrinkMasterRunner(opCtx, *server)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	logger.Infof("Selected %v (%v) as master runner.",
+		masterRunner.server.HostName(),
+		masterRunner.server.Address())
 
 	// determine whether the node being removed is online and, if so, launch
 	// a shrink agent on it
 	online := false
-	var teleserver *teleportServer
 	if !state.NodeRemoved {
-		teleserver, err = s.getTeleportServerNoRetry(ops.Hostname, serverName)
+		_, err := s.getTeleportServerNoRetry(ops.Hostname, serverName)
 		if err != nil {
-			ctx.Warningf("node %q is offline: %v", serverName, trace.DebugReport(err))
+			logger.WithError(err).Warn("Node is offline.")
 		} else {
-			agentRunner, err = s.launchAgent(ctx, *server)
+			logger.Info("Launch shrink agent.")
+			agentRunner, err = s.launchAgent(context.TODO(), opCtx, *server)
 			if err != nil {
 				if !force {
 					return trace.Wrap(err)
 				}
-				ctx.Warningf("failed to launch agent on %q: %v", serverName, trace.DebugReport(err))
+				logger.WithError(err).Warn("Failed to launch agent.")
 			} else {
 				online = true
 			}
 		}
 	}
 
-	opKey := ctx.key()
-
-	// schedule some clean up actions to run regardless of the outcome of the operation
-	defer func() {
-		// erase cloud provider info for this site which may contain sensitive information
-		// such as API keys
-		s.service.deleteCloudProvider(s.key)
-		// stop running shrink agent
-		err := s.agentService().StopAgents(context.TODO(), opKey)
-		if err != nil {
-			ctx.Warningf("failed to stop shrink agent: %v", trace.DebugReport(err))
-		}
-	}()
-
 	if online {
-		ctx.RecordInfo("node %q is online", serverName)
+		opCtx.RecordInfo("node %q is online", serverName)
 	} else {
-		ctx.RecordInfo("node %q is offline", serverName)
+		opCtx.RecordInfo("node %q is offline", serverName)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 10,
 		Message:    "unregistering the node",
@@ -261,106 +274,140 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to unregister the node")
 		}
-		ctx.Warningf("failed to unregister the node, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to unregister the node, force continue.")
+	}
+
+	s.reportProgress(opCtx, ops.ProgressEntry{
+		State:      ops.ProgressStateInProgress,
+		Completion: 15,
+		Message:    "disable planet elections",
+	})
+
+	if err = s.setElectionStatus(*server, false, masterRunner); err != nil {
+		if !force {
+			return trace.Wrap(err, "failed to disable elections on the node")
+		}
+
+		logger.WithError(err).Warn("Failed to disable elections on the node, force continue.")
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoving) {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 20,
 			Message:    "running pre-removal hooks",
 		})
 
-		if err = s.runHook(ctx, schema.HookNodeRemoving); err != nil {
+		if err = s.runHook(opCtx, schema.HookNodeRemoving); err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoving)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoving, trace.DebugReport(err))
+			logger.WithError(err).WithField("hook", schema.HookNodeRemoving).Warn("Failed to run hook, force continue.")
 		}
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
-		State:      ops.ProgressStateInProgress,
-		Completion: 30,
-		Message:    "removing the node from the cluster",
-	})
+	// if the node is online, it needs to leave the serf cluster to
+	// prevent joining back
+	if online {
+		if !force {
+			s.reportProgress(opCtx, ops.ProgressEntry{
+				State:      ops.ProgressStateInProgress,
+				Completion: 30,
+				Message:    "draining the node",
+			})
 
-	// delete node from the cluster
-	if teleserver != nil {
-		runner := s.newTeleportServerRunner(ctx, teleserver)
-		err = s.serfNodeLeave(runner)
+			err = s.drain(*server)
+			if err != nil {
+				return trace.Wrap(err, "failed to drain the node")
+			}
+		}
+
+		s.reportProgress(opCtx, ops.ProgressEntry{
+			State:      ops.ProgressStateInProgress,
+			Completion: 35,
+			Message:    "removing the node from the serf cluster",
+		})
+
+		err = s.serfNodeLeave(agentRunner)
 		if err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to remove the node from the serf cluster")
 			}
-			ctx.Warnf("Failed to remove node %q from serf cluster: %v.", serverName, trace.DebugReport(err))
+			logger.WithError(err).Warn("Failed to remove node from serf cluster.")
 		}
 	}
+
+	s.reportProgress(opCtx, ops.ProgressEntry{
+		State:      ops.ProgressStateInProgress,
+		Completion: 40,
+		Message:    "removing the node from the kubernetes cluster",
+	})
+
+	// delete the Kubernetes node
 	if err = s.removeNodeFromCluster(*server, masterRunner); err != nil {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the cluster")
 		}
-		ctx.Warningf("Failed to remove node %q from the cluster, force continue: %v.",
-			serverName, trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to remove node from the cluster, force continue.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
-		Completion: 40,
+		Completion: 45,
 		Message:    "removing the node from the database",
 	})
 
 	// remove etcd member
-	err = s.removeFromEtcd(ctx, masterRunner, *server)
+	err = s.removeFromEtcd(context.TODO(), opCtx, *server)
 	// the node may be an etcd proxy and not a full member of the etcd cluster
 	if err != nil && !trace.IsNotFound(err) {
 		if !force {
 			return trace.Wrap(err, "failed to remove the node from the database")
 		}
-		ctx.Warningf("failed to remove the node from the database, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to remove the node from the database, force continue.")
 	}
 
 	if online {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 50,
 			Message:    "uninstalling the system software",
 		})
 
-		if err = s.uninstallSystem(ctx, agentRunner); err != nil {
-			ctx.Warningf("error uninstalling the system software: %v", trace.DebugReport(err))
+		if err = s.uninstallSystem(opCtx, agentRunner); err != nil {
+			logger.WithError(err).Warn("Failed to uninstall the system software.")
 		}
 	}
 
-	if isAWSProvisioner(ctx.operation.Provisioner) {
+	if isAWSProvisioner(opCtx.operation.Provisioner) {
 		if !s.app.Manifest.HasHook(schema.HookNodesDeprovision) {
 			return trace.BadParameter("%v hook is not defined",
 				schema.HookNodesDeprovision)
 		}
-		ctx.Infof("using nodes deprovisioning hook")
-		err := s.runNodesDeprovisionHook(ctx)
+		logger.Info("Using nodes deprovisioning hook.")
+		err := s.runNodesDeprovisionHook(opCtx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		ctx.RecordInfo("nodes have been successfully deprovisioned")
+		opCtx.RecordInfo("nodes have been successfully deprovisioned")
 	}
 
 	if s.app.Manifest.HasHook(schema.HookNodeRemoved) {
-		s.reportProgress(ctx, ops.ProgressEntry{
+		s.reportProgress(opCtx, ops.ProgressEntry{
 			State:      ops.ProgressStateInProgress,
 			Completion: 80,
 			Message:    "running post-removal hooks",
 		})
 
-		if err = s.runHook(ctx, schema.HookNodeRemoved); err != nil {
+		if err = s.runHook(opCtx, schema.HookNodeRemoved); err != nil {
 			if !force {
 				return trace.Wrap(err, "failed to run %v hook", schema.HookNodeRemoved)
 			}
-			ctx.Warningf("failed to run %v hook, force continue: %v", schema.HookNodeRemoved, trace.DebugReport(err))
+			logger.WithError(err).WithField("hook", schema.HookNodeRemoved).Warn("Failed to run hook, force continue.")
 		}
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 85,
 		Message:    "cleaning up packages",
@@ -371,24 +418,31 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		if !force {
 			return trace.Wrap(err, "failed to clean up packages")
 		}
-		ctx.Warningf("failed to clean up packages, force continue: %v", trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to clean up packages, force continue.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateInProgress,
 		Completion: 90,
 		Message:    "waiting for operation to complete",
 	})
 
 	if err = s.waitForServerToDisappear(serverName); err != nil {
-		ctx.Warningf("failed to wait for server %v to disappear: %v", serverName, trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to wait for server to disappear.")
+	}
+
+	if err = s.removeObjectPeer(server.ObjectPeerID()); err != nil && !trace.IsNotFound(err) {
+		if !force {
+			return trace.Wrap(err, "failed to remove the object peer for the node")
+		}
+		logger.WithError(err).Warn("Failed to remove the object peer for the node, force continue.")
 	}
 
 	if err = s.removeClusterStateServers([]string{server.Hostname}); err != nil {
 		return trace.Wrap(err)
 	}
 
-	_, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            opKey,
 		expectedStates: []string{ops.OperationStateShrinkInProgress},
 		newOpState:     ops.OperationStateCompleted,
@@ -397,13 +451,30 @@ func (s *site) shrinkOperationStart(ctx *operationContext) (err error) {
 		return trace.Wrap(err)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:      ops.ProgressStateCompleted,
 		Completion: constants.Completed,
 		Message:    fmt.Sprintf("%v removed", serverName),
 	})
 
 	return nil
+}
+
+func (s *site) pickShrinkMasterRunner(ctx *operationContext, removedServer storage.Server) (*serverRunner, error) {
+	masters, err := s.getTeleportServers(schema.ServiceLabelRole, string(schema.ServiceRoleMaster))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Pick any master server except the one that's being removed.
+	for _, master := range masters {
+		if master.IP != removedServer.AdvertiseIP {
+			return &serverRunner{
+				&master, &teleportRunner{ctx, s.domainName, s.teleport()},
+			}, nil
+		}
+	}
+	return nil, trace.NotFound("%v is being removed and no more master nodes are available to execute the operation",
+		removedServer)
 }
 
 func (s *site) waitForServerToDisappear(hostname string) error {
@@ -429,45 +500,54 @@ func (s *site) waitForServerToDisappear(hostname string) error {
 	return trace.Wrap(err)
 }
 
-func (s *site) removeFromEtcd(ctx *operationContext, runner *serverRunner, server storage.Server) error {
-	out, err := runner.Run(s.etcdctlCommand("member", "list")...)
-	if err != nil {
-		return trace.Wrap(err, "failed to list etcd members: %s", out)
-	}
-
-	provisionedServer := ProvisionedServer{Server: server}
-	memberID, err := utils.FindETCDMemberID(
-		string(out), provisionedServer.EtcdMemberName(s.domainName))
-	if err != nil {
+func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, server storage.Server) error {
+	peerURL := server.EtcdPeerURL()
+	logger := opCtx.WithField("peer", peerURL)
+	logger.Info("Remove peer from etcd cluster.")
+	b := utils.NewExponentialBackOff(defaults.EtcdRemoveMemberTimeout)
+	b.MaxInterval = 10 * time.Second
+	return utils.RetryTransient(ctx, b, func() error {
+		client, err := clients.DefaultEtcdMembers()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		members, err := client.List(ctx)
+		logger.WithError(err).WithField("peers", members).Info("Etcd members.")
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		member := utils.EtcdHasMember(members, peerURL)
+		if member == nil {
+			logger.Info("Peer not found.")
+			return nil
+		}
+		err = client.Remove(ctx, member.ID)
+		logger.WithError(err).Info("Removed etcd peer.")
 		return trace.Wrap(err)
-	}
-
-	ctx.Debugf("found member: %v", memberID)
-
-	out, err = runner.Run(s.etcdctlCommand("member", "remove", memberID)...)
-	if err != nil {
-		return trace.Wrap(err, "failed to remove etcd member: %s", out)
-	}
-
-	return nil
+	})
 }
 
 func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
 	commands := [][]string{
-		s.gravityCommand("system", "uninstall", "--confirm"),
+		s.gravityCommand("system", "uninstall",
+			"--confirm",
+			"--system-log-file", defaults.GravitySystemLogPath),
 	}
 
 	for _, command := range commands {
 		out, err := runner.Run(command...)
 		if err != nil {
-			ctx.Warningf("failed to run %v: %v (%s)", command, trace.DebugReport(err), out)
+			ctx.WithError(err).WithFields(log.Fields{
+				"command": command,
+				"output":  string(out),
+			}).Error("Failed to run.")
 		}
 	}
 
 	return nil
 }
 
-func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serverRunner, error) {
+func (s *site) launchAgent(ctx context.Context, opCtx *operationContext, server storage.Server) (*serverRunner, error) {
 	teleportServer, err := s.getTeleportServer(ops.Hostname, server.Hostname)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -475,16 +555,15 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 
 	teleportRunner := &serverRunner{
 		server: teleportServer,
-		runner: &teleportRunner{ctx, s.domainName, s.teleport()},
+		runner: &teleportRunner{opCtx, s.domainName, s.teleport()},
 	}
 
-	tokenID, err := s.createShrinkAgentToken(ctx.operation.ID)
+	tokenID, err := s.createShrinkAgentToken(opCtx.operation.ID)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create shrink agent token")
 	}
 
 	serverAddr := s.service.cfg.Agents.ServerAddr()
-	serviceName := fmt.Sprintf("shrink-%v.service", ctx.operation.ID)
 	command := []string{
 		"ops", "agent", s.packages().PortalURL(),
 		"--advertise-addr", server.AdvertiseIP,
@@ -493,7 +572,7 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		"--vars", fmt.Sprintf("%v:%v", ops.AgentMode, ops.AgentModeShrink),
 		"--service-uid", s.uid(),
 		"--service-gid", s.gid(),
-		"--service-name", serviceName,
+		"--service-name", defaults.GravityRPCAgentServiceName,
 		"--cloud-provider", s.provider,
 	}
 	out, err := teleportRunner.Run(s.gravityCommand(command...)...)
@@ -501,9 +580,16 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 		return nil, trace.Wrap(err, "failed to start shrink agent: %s", out)
 	}
 
-	agentReport, err := s.waitForAgents(context.TODO(), ctx)
+	ctx, cancel := context.WithTimeout(ctx, defaults.AgentConnectTimeout)
+	defer cancel()
+	agentReport, err := s.waitForAgents(ctx, opCtx)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to wait for shrink agent")
+	}
+
+	if len(agentReport.Servers) == 0 {
+		log.Warn(agentReport.Message)
+		return nil, trace.NotFound("failed to wait for shrink agent")
 	}
 
 	info := agentReport.Servers[0]
@@ -512,7 +598,7 @@ func (s *site) launchAgent(ctx *operationContext, server storage.Server) (*serve
 			AdvertiseIP: info.AdvertiseAddr,
 			Hostname:    info.GetHostname(),
 		},
-		runner: &agentRunner{ctx, s.agentService()},
+		runner: &agentRunner{opCtx, s.agentService()},
 	}, nil
 }
 
@@ -536,6 +622,8 @@ func (s *site) createShrinkAgentToken(operationID string) (tokenID string, err e
 	return token, nil
 }
 
+// deletePackages removes stale packages generated for the specified server
+// from the cluster package service after the server had been removed.
 func (s *site) deletePackages(server *ProvisionedServer) error {
 	serverPackages, err := s.serverPackages(server)
 	if err != nil {
@@ -544,17 +632,36 @@ func (s *site) deletePackages(server *ProvisionedServer) error {
 	for _, pkg := range serverPackages {
 		err = s.packages().DeletePackage(pkg)
 		if err != nil && !trace.IsNotFound(err) {
-			return trace.Wrap(err, "failed to delete package %v", pkg)
+			return trace.Wrap(err, "failed to delete package").AddField("package", pkg)
 		}
 	}
 	return nil
 }
 
+func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) {
+	var packages []loc.Locator
+	err := pack.ForeachPackage(s.packages(), func(env pack.PackageEnvelope) error {
+		if env.HasLabel(pack.AdvertiseIPLabel, server.AdvertiseIP) {
+			packages = append(packages, env.Locator)
+			return nil
+		}
+		if s.isTeleportMasterConfigPackageFor(server, env.Locator) ||
+			s.isTeleportNodeConfigPackageFor(server, env.Locator) ||
+			s.isPlanetConfigPackageFor(server, env.Locator) ||
+			s.isPlanetSecretsPackageFor(server, env.Locator) {
+			packages = append(packages, env.Locator)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return packages, nil
+}
+
 // unlabelNode deletes server profile labels from k8s node
 func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
-	role := server.Role
-
-	profile, err := s.app.Manifest.NodeProfiles.ByName(role)
+	profile, err := s.app.Manifest.NodeProfiles.ByName(server.Role)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -565,7 +672,7 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	}
 
 	command := s.planetEnterCommand(defaults.KubectlBin, "label", "nodes",
-		fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID()))
+		fmt.Sprintf("-l=%v=%v", v1.LabelHostname, server.KubeNodeID()))
 	command = append(command, labelFlags...)
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
@@ -576,15 +683,65 @@ func (s *site) unlabelNode(server storage.Server, runner *serverRunner) error {
 	return trace.Wrap(err)
 }
 
+func (s *site) setElectionStatus(server storage.Server, enable bool, runner *serverRunner) error {
+	key := fmt.Sprintf("/planet/cluster/%s/election/%s", s.domainName, server.AdvertiseIP)
+
+	command := s.planetEnterCommand(defaults.EtcdCtlBin,
+		"set", key, fmt.Sprintf("%v", enable))
+
+	out, err := runner.Run(command...)
+	if err != nil {
+		return trace.Wrap(err, "setting leader election on %q to %v: %s", server.AdvertiseIP, enable, out).AddFields(
+			map[string]interface{}{
+				"cluster":      s.domainName,
+				"advertise-ip": server.AdvertiseIP,
+				"hostname":     server.Hostname,
+			})
+	}
+
+	return nil
+}
+
+func (s *site) drain(server storage.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.DrainTimeout)
+	defer cancel()
+
+	err := utils.RetryWithInterval(ctx, backoff.NewConstantBackOff(time.Second), func() error {
+		client, _, err := httplib.GetClusterKubeClient(storage.DefaultDNSConfig.Addr())
+		if err != nil {
+			return trace.Wrap(err, "failed to create Kubernetes client")
+		}
+
+		err = kubernetes.Drain(ctx, client, server.KubeNodeID())
+		if err != nil {
+			return trace.Wrap(err, "failed to drain node").AddFields(
+				map[string]interface{}{
+					"cluster":      s.domainName,
+					"advertise-ip": server.AdvertiseIP,
+					"hostname":     server.Hostname,
+					"kube-node-id": server.KubeNodeID(),
+				})
+		}
+
+		return nil
+	})
+
+	return trace.Wrap(err)
+}
+
+func (s *site) removeObjectPeer(peerID string) error {
+	return trace.Wrap(s.backend().DeletePeer(peerID))
+}
+
 func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner) (err error) {
 	provisionedServer := ProvisionedServer{Server: server}
 	commands := [][]string{
 		s.planetEnterCommand(
 			defaults.KubectlBin, "delete", "nodes", "--ignore-not-found=true",
-			fmt.Sprintf("-l=%v=%v", defaults.KubernetesHostnameLabel, server.KubeNodeID())),
-		// Issue `serf force-leave` from the master node to transition
-		// failed nodes to `left` state in case the node itself failed shutting down
-		s.planetEnterCommand(defaults.SerfBin, "force-leave", provisionedServer.AgentName(s.domainName)),
+			fmt.Sprintf("-l=%v=%v", v1.LabelHostname, server.KubeNodeID())),
+		// Issue `serf force-leave -prune` from the master node to immediately
+		// evict the member from the serf cluster.
+		s.planetEnterCommand(defaults.SerfBin, "force-leave", "-prune", provisionedServer.AgentName(s.domainName)),
 	}
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
@@ -605,7 +762,7 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 func (s *site) serfNodeLeave(runner *serverRunner) error {
 	// Issue `serf leave` from the node to remove the node from the serf cluster
 	command := s.planetEnterCommand(defaults.SerfBin, "leave")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
+	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
 		out, err := runner.Run(command...)
 		if err != nil {
 			return trace.Wrap(err, "command %q failed: %s", command, out)
@@ -613,4 +770,26 @@ func (s *site) serfNodeLeave(runner *serverRunner) error {
 		return nil
 	})
 	return trace.Wrap(err)
+}
+
+func (s *site) isTeleportMasterConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	configPackage := s.teleportMasterConfigPackage(server)
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isTeleportNodeConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	configPackage := s.teleportNodeConfigPackage(server)
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isPlanetConfigPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	// Version omitted on purpose since only repository/name are used for comparison
+	configPackage := s.planetConfigPackage(server, "")
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
+}
+
+func (s *site) isPlanetSecretsPackageFor(server *ProvisionedServer, loc loc.Locator) bool {
+	// Version omitted on purpose since only repository/name are used for comparison
+	configPackage := s.planetSecretsPackage(server, "")
+	return configPackage.Name == loc.Name && configPackage.Repository == loc.Repository
 }

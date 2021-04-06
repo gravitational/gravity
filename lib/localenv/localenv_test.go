@@ -22,9 +22,9 @@ import (
 	"testing"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/gravitational/trace"
 	"gopkg.in/check.v1"
 )
 
@@ -41,7 +41,6 @@ func (s *LocalEnvSuite) TestLocalEnv(c *check.C) {
 		Insecure:         true,
 	})
 	c.Assert(err, check.NotNil)
-
 }
 
 func (s *LocalEnvSuite) TestParsedUnparsedOpsCenters(c *check.C) {
@@ -59,33 +58,33 @@ func (s *LocalEnvSuite) TestParsedUnparsedOpsCenters(c *check.C) {
 		})
 	c.Assert(err, check.IsNil)
 
-	login, err := env.GetLoginEntry(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	login, err := env.Credentials.For(opsCenter)
+	c.Assert(credentials.IsCredentialsNotFoundError(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
-	login, err = env.GetLoginEntry(parsedOpsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	login, err = env.Credentials.For(parsedOpsCenter)
+	c.Assert(credentials.IsCredentialsNotFoundError(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
-	err = env.UpsertLoginEntry(opsCenter, username, password)
+	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(opsCenter)
+	login, err = env.Credentials.For(opsCenter)
 	c.Assert(login, check.NotNil)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(parsedOpsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	login, err = env.Credentials.For(parsedOpsCenter)
+	c.Assert(credentials.IsCredentialsNotFoundError(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
-	err = env.UpsertLoginEntry(parsedOpsCenter, username, password)
+	err = env.Credentials.UpsertLoginEntry(parsedOpsCenter, username, password)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(opsCenter)
+	login, err = env.Credentials.For(opsCenter)
 	c.Assert(login, check.NotNil)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(parsedOpsCenter)
+	login, err = env.Credentials.For(parsedOpsCenter)
 	c.Assert(login, check.NotNil)
 	c.Assert(err, check.IsNil)
 
@@ -119,14 +118,14 @@ func (s *LocalEnvSuite) TestLocalEnvSingleStateDir(c *check.C) {
 		})
 	c.Assert(err, check.IsNil)
 
-	login, err := env.GetLoginEntry(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	login, err := env.Credentials.For(opsCenter)
+	c.Assert(credentials.IsCredentialsNotFoundError(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
-	err = env.UpsertLoginEntry(opsCenter, username, password)
+	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(opsCenter)
+	login, err = env.Credentials.For(opsCenter)
 	c.Assert(login, check.NotNil)
 	c.Assert(err, check.IsNil)
 
@@ -162,14 +161,14 @@ func (s *LocalEnvSuite) TestLocalEnvSeparateStateAndKeyStoreDir(c *check.C) {
 		})
 	c.Assert(err, check.IsNil)
 
-	login, err := env.GetLoginEntry(opsCenter)
-	c.Assert(trace.IsNotFound(err), check.Equals, true)
+	login, err := env.Credentials.For(opsCenter)
+	c.Assert(credentials.IsCredentialsNotFoundError(err), check.Equals, true)
 	c.Assert(login, check.IsNil)
 
-	err = env.UpsertLoginEntry(opsCenter, username, password)
+	err = env.Credentials.UpsertLoginEntry(opsCenter, username, password)
 	c.Assert(err, check.IsNil)
 
-	login, err = env.GetLoginEntry(opsCenter)
+	login, err = env.Credentials.For(opsCenter)
 	c.Assert(login, check.NotNil)
 	c.Assert(err, check.IsNil)
 

@@ -21,9 +21,9 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -46,7 +46,7 @@ func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.Packag
 		return nil, trace.Wrap(err)
 	}
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.LocalRegistryAddr,
+		RegistryAddress: defaults.LocalRegistryAddr,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
@@ -151,7 +151,7 @@ func (p *exportExecutor) exportApp(ctx context.Context, locator loc.Locator) err
 		locator.Name, locator.Version)
 	p.Infof("Exporting application %v:%v to local registry.",
 		locator.Name, locator.Version)
-	_, err := p.ImageService.Sync(ctx, p.registryPath(locator), utils.NopEmitter())
+	_, err := p.ImageService.Sync(ctx, p.registryPath(locator), utils.DiscardPrinter)
 	return trace.Wrap(err)
 }
 

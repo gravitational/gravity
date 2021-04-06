@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
+	"github.com/opencontainers/selinux/go-selinux"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure"
@@ -120,7 +121,7 @@ func unpackPackage(env *localenv.LocalEnvironment, loc loc.Locator, dir, opsCent
 	return nil
 }
 
-func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL, targetPath string, mode os.FileMode) error {
+func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL, targetPath string, mode os.FileMode, label string) error {
 	packageService, err := env.PackageService(opsCenterURL)
 	if err != nil {
 		return trace.Wrap(err)
@@ -137,9 +138,15 @@ func exportPackage(env *localenv.LocalEnvironment, loc loc.Locator, opsCenterURL
 	err = utils.CopyWithRetries(ctx, targetPath, func() (io.ReadCloser, error) {
 		_, rc, err := packageService.ReadPackage(loc)
 		return rc, trace.Wrap(err)
-	}, mode)
+	}, utils.PermOption(mode))
 	if err != nil {
 		return trace.Wrap(err)
+	}
+
+	if selinux.GetEnabled() && label != "" {
+		if err := selinux.SetFileLabel(targetPath, label); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 
 	env.Printf("%v exported to file %v\n", loc, targetPath)

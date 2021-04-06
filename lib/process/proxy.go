@@ -53,10 +53,10 @@ func newTeleportProxyService(cfg teleportProxyConfig) (*teleportProxyService, er
 		FieldLogger: logrus.WithField(trace.Component, "teleproxy"),
 	}
 	proxy.Debugf("Creating teleportProxyService with %#v.", cfg)
+	if err := proxy.initAuthMethods(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	proxy.ctx, proxy.cancel = context.WithCancel(context.TODO())
-	certGeneratedCh := make(chan struct{})
-	go proxy.initAuthMethods(certGeneratedCh)
-	<-certGeneratedCh
 	return proxy, nil
 }
 
@@ -85,22 +85,6 @@ type teleportProxyService struct {
 	logrus.FieldLogger
 }
 
-func (t *teleportProxyService) authServers() ([]teleutils.NetAddr, error) {
-	servers, err := t.authClient.GetAuthServers()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	authServers := make([]teleutils.NetAddr, 0, len(servers))
-	for _, server := range servers {
-		serverAddr, err := teleutils.ParseAddr(server.GetAddr())
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-		authServers = append(authServers, *serverAddr)
-	}
-	return authServers, nil
-}
-
 func (t *teleportProxyService) setAuthMethods(methods []ssh.AuthMethod) {
 	t.Lock()
 	defer t.Unlock()
@@ -115,48 +99,34 @@ func (t *teleportProxyService) getAuthMethods() []ssh.AuthMethod {
 	return out
 }
 
-func (t *teleportProxyService) initAuthMethods(certGeneratedCh chan<- struct{}) error {
+func (t *teleportProxyService) initAuthMethods() error {
 	priv, pub, err := t.generateKeyPair()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	renewCert := func() error {
-		cert, err := t.authClient.GenerateUserCert(pub, constants.OpsCenterUser, defaults.CertTTL, "")
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		signer, err := sshutils.NewSigner(priv, cert)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		t.Debugf("Renewed certificate for %v.", constants.OpsCenterUser)
-		t.setAuthMethods([]ssh.AuthMethod{ssh.PublicKeys(signer)})
-		return nil
-	}
-
 	// try to renew cert right away
-	if err := renewCert(); err != nil {
-		t.Warningf("Failed to generate certificate for %v: %v.",
-			constants.OpsCenterUser, trace.DebugReport(err))
+	if err := t.renewCert(priv, pub); err != nil {
+		t.WithError(err).Warnf("Failed to generate certificate for %v.",
+			constants.OpsCenterUser)
 	}
-	// Notify the listener that the certificate has been renewed
-	close(certGeneratedCh)
 
-	ticker := time.NewTicker(defaults.CertRenewPeriod)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-t.ctx.Done():
-			return nil
-		case <-ticker.C:
-			if err := renewCert(); err != nil {
-				t.Warningf("Failed to renew certificate for %v: %v.",
-					constants.OpsCenterUser, trace.DebugReport(err))
+	go func() {
+		ticker := time.NewTicker(defaults.CertRenewPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-t.ctx.Done():
+				return
+			case <-ticker.C:
+				if err := t.renewCert(priv, pub); err != nil {
+					t.WithError(err).Warnf("Failed to renew certificate for %v.",
+						constants.OpsCenterUser)
+				}
 			}
 		}
-	}
+	}()
+	return nil
 }
 
 func (t *teleportProxyService) Close() error {
@@ -369,7 +339,7 @@ func (t *teleportProxyService) GetServerCount(ctx context.Context, siteName stri
 	return len(servers), nil
 }
 
-func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nodeAddr, command string, out io.Writer) error {
+func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nodeAddr, command string, stdout, stderr io.Writer) error {
 	t.Infof("ExecuteCommand(%v, %v, %v)", siteName, nodeAddr, command)
 	hostChecker, err := t.hostCertChecker()
 	if err != nil {
@@ -396,7 +366,8 @@ func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nod
 		SSHProxyAddr:    t.cfg.SSHProxyAddr,
 		HostPort:        targetPort,
 		Host:            targetHost,
-		Stdout:          out,
+		Stdout:          stdout,
+		Stderr:          stderr,
 		SiteName:        siteName,
 		HostKeyCallback: hostChecker,
 		TLS:             tlsConfig,
@@ -404,6 +375,9 @@ func (t *teleportProxyService) ExecuteCommand(ctx context.Context, siteName, nod
 			defaults.PathEnv: defaults.PathEnvVal,
 		},
 	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	return trace.Wrap(proxyClient.SSH(ctx, strings.Split(command, " "), false))
 }
 
@@ -433,11 +407,15 @@ func (t *teleportProxyService) getTLSConfig(clusterName string) (*tls.Config, er
 		Username: constants.OpsCenterUser,
 		Groups:   []string{defaults.SystemAccountOrg},
 	}
+	subject, err := identity.Subject()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	cert, err := tlsAuthority.GenerateCertificate(
 		tlsca.CertificateRequest{
 			Clock:     clockwork.NewRealClock(),
 			PublicKey: cryptoPublicKey,
-			Subject:   identity.Subject(),
+			Subject:   subject,
 			NotAfter:  time.Now().UTC().Add(defaults.CertTTL),
 		})
 	if err != nil {
@@ -452,10 +430,24 @@ func (t *teleportProxyService) getTLSConfig(clusterName string) (*tls.Config, er
 	return clientKey.ClientTLSConfig()
 }
 
-func (t *teleportProxyService) generateKeyPair() ([]byte, []byte, error) {
+func (t *teleportProxyService) generateKeyPair() (privateKey []byte, publicKey []byte, err error) {
 	keygen, err := native.New()
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	return keygen.GenerateKeyPair("")
+}
+
+func (t *teleportProxyService) renewCert(privateKey, publicKey []byte) error {
+	cert, err := t.authClient.GenerateUserCert(publicKey, constants.OpsCenterUser, defaults.CertTTL, "")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	signer, err := sshutils.NewSigner(privateKey, cert)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	t.Debugf("Renewed certificate for %v.", constants.OpsCenterUser)
+	t.setAuthMethods([]ssh.AuthMethod{ssh.PublicKeys(signer)})
+	return nil
 }

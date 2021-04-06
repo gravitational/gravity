@@ -17,10 +17,13 @@ limitations under the License.
 package systemservice
 
 import (
+	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 )
@@ -28,6 +31,8 @@ import (
 const (
 	// ServiceStatusActivating indicates that service is activating
 	ServiceStatusActivating = "activating"
+	// ServiceStatusDeactivating indicates that service is deactivating
+	ServiceStatusDeactivating = "deactivating"
 	// ServiceStatusFailed means taht service has failed
 	ServiceStatusFailed = "failed"
 	// ServiceStatusActive means that service is active
@@ -35,10 +40,22 @@ const (
 	// ServiceStatusInactive indicates that service is not running
 	// Corresponds to exit code 3
 	ServiceStatusInactive = "inactive"
-	// ServiceStatusUnknown indicates that service does not exist
-	// Corresponds to either exit code 3 or 4 depending on the version of systemd
+	// ServiceStatusUnknown indicates that service does not exist or the status
+	// could not be determined - depending on the command
 	ServiceStatusUnknown = "unknown"
 )
+
+// FullServiceName returns the full service name (incl. the suffix).
+// It will append the service suffix if necessary
+func FullServiceName(serviceName string) (nameWithSuffix string) {
+	if filepath.Ext(serviceName) != ServiceSuffix {
+		return fmt.Sprint(serviceName, ServiceSuffix)
+	}
+	return serviceName
+}
+
+// ServiceSuffix specifies the suffix of the systemd service file
+const ServiceSuffix = ".service"
 
 // IsKnownStatus returns whether passed service status is a known status
 func IsKnownStatus(s string) bool {
@@ -53,10 +70,14 @@ func IsKnownStatus(s string) bool {
 type NewServiceRequest struct {
 	// ServiceSpec defines the service
 	ServiceSpec
-	// Name is a service name, e.g. temp.service
+	// Name is the service name.
+	// It can be the absolute path to the unit file if the file is located
+	// in a non-standard location
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+	// ReloadConfiguration forces a daemon-reload after writing the service file
+	ReloadConfiguration bool `json:"-"`
 }
 
 // NewMountServiceRequest describes a request to create a new systemd mount service
@@ -67,6 +88,18 @@ type NewMountServiceRequest struct {
 	Name string `json:"Name"`
 	// NoBlock means we won't block and wait until service starts
 	NoBlock bool `json:"-"`
+}
+
+// UninstallServiceRequest describes a request to uninstall a service
+type UninstallServiceRequest struct {
+	// Name identifies the service
+	Name string
+}
+
+// DisableServiceRequest describes a request to disable a service
+type DisableServiceRequest struct {
+	// Name identifies the service
+	Name string
 }
 
 // NewPackageServiceRequest specifies parameters needed to create a new service
@@ -89,13 +122,13 @@ type ServiceSpec struct {
 	Dependencies Dependencies `json:"Dependencies"`
 	// StartCommand defines the command to execute when the service starts
 	StartCommand string `json:"StartCommand"`
-	// StartPreCommand defines the command to execute before the service starts
-	StartPreCommand string `json:"StartPreCommand"`
-	// StartPreCommand defines the command to execute after the service starts
+	// StartPreCommand defines the commands to execute before the service starts
+	StartPreCommands []string `json:"StartPreCommands,omitempty"`
+	// StartPostCommand defines the command to execute after the service starts
 	StartPostCommand string `json:"StartPostCommand"`
 	// StopCommand defines the command to execute when the service stops
 	StopCommand string `json:"StopCommand"`
-	// StopPreCommand defines the command to execute after the service stops
+	// StopPostCommand defines the command to execute after the service stops
 	StopPostCommand string `json:"StopPostCommand"`
 	// Timeout is a timeout in seconds
 	Timeout int `json:"Timeout"`
@@ -130,6 +163,16 @@ type ServiceSpec struct {
 	// ConditionPathExists specifies start condition for the service based on existence
 	// of the specified file. Can be negated by prefixing the path with "!"
 	ConditionPathExists string `json:"ConditionPathExists"`
+	// RestartPreventExitStatus lists exit status definitions that, when returned by the main service
+	// process, will prevent automatic service restarts.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#RestartPreventExitStatus=
+	RestartPreventExitStatus string `json:"RestartPreventExitStatus"`
+	// SuccessExitStatus lists exit codes to be considered successful termination.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.service.html#SuccessExitStatus=
+	SuccessExitStatus string `json:"SuccessExitStatus"`
+	// WorkingDirectory sets the working directory for executed processes.
+	// See https://www.freedesktop.org/software/systemd/man/systemd.exec.html#Paths
+	WorkingDirectory string `json:"WorkingDirectory"`
 }
 
 // MountServiceSpec describes specification for a systemd mount service
@@ -143,7 +186,7 @@ type MountServiceSpec struct {
 	Type string `json:"type"`
 	// Options lists mount options to use when mounting
 	// This setting is optional
-	Options []string `json:"options,emitempty"`
+	Options []string `json:"options,omitempty"`
 	// TimeoutSec configures the time to wait for the mount command to finish.
 	// Takes a unit-less value in seconds, or a time span value such as "5min 20s".
 	// Pass "0" to disable the timeout logic.
@@ -186,11 +229,30 @@ type mountServiceTemplate struct {
 
 // PackageServiceStatus provides the status of a running service
 type PackageServiceStatus struct {
-	// Pack lists a package name
+	// Package identifies the package
 	Package loc.Locator
 	// Status is a service status
 	Status string
 }
+
+// ListServiceOptions describes additional configuration for listing
+// services.
+// An empty value of this type is usable
+type ListServiceOptions struct {
+	// All optionally indicates whether to query all units (and not only those in memory)
+	All bool
+	// Type optionally specifies the unit type
+	Type string
+	// State optionally specifies the unit state
+	State string
+	// Pattern optionally specifies the unit pattern
+	Pattern string
+}
+
+const (
+	// UnitTypeService defines the service type of the unit file
+	UnitTypeService = "service"
+)
 
 // ServiceManager is an interface for collaborating with system
 // service managers, e.g. systemd for host packages
@@ -207,8 +269,11 @@ type ServiceManager interface {
 	// DisablePackageService disables service without stopping it
 	DisablePackageService(pkg loc.Locator) error
 
-	// ListPackageServices lists installed services
-	ListPackageServices() ([]PackageServiceStatus, error)
+	// EnablePackageService enables service without starting it
+	EnablePackageService(pkg loc.Locator) error
+
+	// ListPackageServices lists installed package services
+	ListPackageServices(ListServiceOptions) ([]PackageServiceStatus, error)
 
 	// StartPackageService starts package service
 	StartPackageService(pkg loc.Locator, noBlock bool) error
@@ -233,10 +298,10 @@ type ServiceManager interface {
 	InstallMountService(NewMountServiceRequest) error
 
 	// UninstallService uninstalls service
-	UninstallService(name string) error
+	UninstallService(UninstallServiceRequest) error
 
 	// DisableService disables service without stopping it
-	DisableService(name string) error
+	DisableService(DisableServiceRequest) error
 
 	// StartService starts service
 	StartService(name string, noBlock bool) error
@@ -298,4 +363,16 @@ func (r *NewServiceRequest) CheckAndSetDefaults() error {
 		r.RestartSec = defaults.SystemServiceRestartSec
 	}
 	return nil
+}
+
+// IsUnknownServiceError determines whether the err specifies the
+// 'unknown service' error.
+// Note that systemctl status predicates (e.g. `is-active` or `is-enabled`) will never
+// return this status - only commands will
+func IsUnknownServiceError(err error) bool {
+	const errCodeNotInstalled = 5
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil {
+		return *exitCode == errCodeNotInstalled
+	}
+	return false
 }

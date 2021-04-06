@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sync"
 	"time"
 
@@ -31,23 +33,27 @@ import (
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/monitoring"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/cloudflare/cfssl/signer"
-	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
-	"github.com/gravitational/license/authority"
+	"github.com/gravitational/teleport/lib/auth"
+	teleevents "github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/reversetunnel"
 	teleservices "github.com/gravitational/teleport/lib/services"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
@@ -81,14 +87,17 @@ type Config struct {
 	// TeleportProxyService is a teleport proxy service
 	TeleportProxy ops.TeleportProxyService
 
+	// AuthClient is teleport auth server client.
+	AuthClient *auth.Client
+
 	// Tunnel is a reverse tunnel server providing access to remote sites
 	Tunnel reversetunnel.Server
 
 	// Users service provides access to users
 	Users users.Identity
 
-	// Monitoring is the monitoring API provider
-	Monitoring monitoring.Monitoring
+	// Metrics provides interface for cluster metrics collection.
+	Metrics monitoring.Metrics
 
 	// Clock is used to mock time in tests
 	Clock timetools.TimeProvider
@@ -114,12 +123,27 @@ type Config struct {
 	// ProcessID uniquely identifies gravity process
 	ProcessID string
 
+	// PublicAddr is the operator service public advertise address
+	PublicAddr teleutils.NetAddr
+
 	// InstallLogFiles is a list of additional install log files
 	// to add to install and expand operations for local troubleshooting
 	InstallLogFiles []string
 
 	// LogForwarders allows to manage log forwarders via Kubernetes config maps
 	LogForwarders LogForwardersControl
+
+	// OpenEBS provides access to managing OpenEBS in the cluster.
+	OpenEBS OpenEBSControl
+
+	// Client specifies an optional kubernetes client
+	Client *kubernetes.Clientset
+
+	// AuditLog is used to submit events to the audit log
+	AuditLog teleevents.IAuditLog
+
+	// GetHelmClient is a factory method for creating a Helm client.
+	GetHelmClient helm.GetClientFunc
 }
 
 // Operator implements Operator interface
@@ -141,6 +165,11 @@ type Operator struct {
 
 	// FieldLogger allows this operator to log messages
 	log.FieldLogger
+
+	// cachedProvisioningTokenMutex provides a mutex on use of the cached provisioning token.
+	cachedProvisioningTokenMutex sync.RWMutex
+	// cachedProvisioningToken holds an in memory cache of which token is the cluster provisioning token.
+	cachedProvisioningToken string
 }
 
 // New creates an instance of the Operator service
@@ -152,9 +181,9 @@ func New(cfg Config) (*Operator, error) {
 
 	operator := &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		providers:       map[ops.SiteKey]CloudProvider{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}
 	return operator, nil
@@ -170,8 +199,8 @@ func NewLocalOperator(cfg Config) (*Operator, error) {
 	}
 	return &Operator{
 		cfg:             cfg,
-		mu:              sync.Mutex{},
 		operationGroups: map[ops.SiteKey]*operationGroup{},
+		kubeClient:      cfg.Client,
 		FieldLogger:     log.WithField(trace.Component, constants.ComponentOps),
 	}, nil
 }
@@ -198,11 +227,20 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	if cfg.Proxy == nil {
 		return trace.BadParameter("missing Proxy")
 	}
+	if cfg.AuthClient == nil {
+		return trace.BadParameter("missing AuthClient")
+	}
 	if cfg.ProcessID == "" {
 		return trace.BadParameter("missing ProcessID")
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
+	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
+	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
 	}
 	return nil
 }
@@ -225,6 +263,12 @@ func (cfg *Config) CheckRelaxed() error {
 	}
 	if cfg.Clock == nil {
 		cfg.Clock = &timetools.RealTime{}
+	}
+	if cfg.AuditLog == nil {
+		cfg.AuditLog = teleevents.NewDiscardAuditLog()
+	}
+	if cfg.GetHelmClient == nil {
+		cfg.GetHelmClient = helm.NewClient
 	}
 	return nil
 }
@@ -257,10 +301,6 @@ func (o *Operator) packages() pack.PackageService {
 
 func (o *Operator) users() users.Identity {
 	return o.cfg.Users
-}
-
-func (o *Operator) clock() timetools.TimeProvider {
-	return o.cfg.Clock
 }
 
 func (o *Operator) GetAccount(accountID string) (*ops.Account, error) {
@@ -319,13 +359,19 @@ func (o *Operator) DeleteLocalUser(email string) error {
 	return nil
 }
 
-func (o *Operator) CreateAPIKey(req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
+func (o *Operator) CreateAPIKey(ctx context.Context, req ops.NewAPIKeyRequest) (*storage.APIKey, error) {
 	key, err := o.cfg.Users.CreateAPIKey(storage.APIKey{
 		UserEmail: req.UserEmail,
 		Expires:   req.Expires,
 		Token:     req.Token,
 	}, req.Upsert)
-	return key, trace.Wrap(err)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenCreated, events.Fields{
+		events.FieldOwner: key.UserEmail,
+	})
+	return key, nil
 }
 
 func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
@@ -333,10 +379,18 @@ func (o *Operator) GetAPIKeys(userEmail string) ([]storage.APIKey, error) {
 	return keys, trace.Wrap(err)
 }
 
-func (o *Operator) DeleteAPIKey(userEmail, token string) error {
-	return trace.Wrap(o.cfg.Users.DeleteAPIKey(userEmail, token))
+func (o *Operator) DeleteAPIKey(ctx context.Context, userEmail, token string) error {
+	if err := o.cfg.Users.DeleteAPIKey(userEmail, token); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TokenDeleted, events.Fields{
+		events.FieldOwner: userEmail,
+	})
+	return nil
 }
 
+// CreateInstallToken creates a new install token for the specified request.
+// If the token already exists, it returns an existing token
 func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.InstallToken, error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
@@ -358,6 +412,15 @@ func (o *Operator) CreateInstallToken(req ops.NewInstallTokenRequest) (*storage.
 			Token:       req.Token,
 		},
 	)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	if token == nil {
+		token, err = o.cfg.Users.GetInstallToken(req.Token)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 	return token, trace.Wrap(err)
 }
 
@@ -375,6 +438,22 @@ func (o *Operator) CreateProvisioningToken(token storage.ProvisioningToken) erro
 }
 
 func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, error) {
+	o.cachedProvisioningTokenMutex.RLock()
+	cachedToken := o.cachedProvisioningToken
+	o.cachedProvisioningTokenMutex.RUnlock()
+
+	if cachedToken != "" {
+		// security: make sure to re-retrieve the token from the backend in case it's been updated or removed
+		token, err := o.backend().GetProvisioningToken(cachedToken)
+		if err != nil && !trace.IsNotFound(err) {
+			return nil, trace.Wrap(err)
+		}
+
+		if token != nil {
+			return token, nil
+		}
+	}
+
 	tokens, err := o.backend().GetSiteProvisioningTokens(key.SiteDomain)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -383,6 +462,9 @@ func (o *Operator) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, 
 	for _, token := range tokens {
 		// return long-lived join token
 		if token.Type == storage.ProvisioningTokenTypeExpand && token.Expires.IsZero() {
+			o.cachedProvisioningTokenMutex.Lock()
+			o.cachedProvisioningToken = token.Token
+			o.cachedProvisioningTokenMutex.Unlock()
 			return &token, nil
 		}
 	}
@@ -523,15 +605,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	// expand token is used when joining nodes to the cluster
-	expandToken := r.InstallToken
-	if expandToken == "" {
-		expandToken, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-
 	b := o.backend()
 
 	account, err := b.GetAccount(r.AccountID)
@@ -549,24 +622,27 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 	}
 
 	clusterData := &storage.Site{
-		AccountID:    account.ID,
-		Domain:       r.DomainName,
-		Created:      o.cfg.Clock.UtcNow(),
-		CreatedBy:    r.Email,
-		State:        ops.SiteStateNotInstalled,
-		Provider:     r.Provider,
-		License:      r.License,
-		Labels:       labels,
-		App:          app.PackageEnvelope.ToPackage(),
-		Resources:    r.Resources,
-		Location:     r.Location,
-		ServiceUser:  r.ServiceUser,
-		CloudConfig:  r.CloudConfig,
-		DNSOverrides: r.DNSOverrides,
-		DNSConfig:    r.DNSConfig,
+		AccountID:     account.ID,
+		Domain:        r.DomainName,
+		Created:       o.cfg.Clock.UtcNow(),
+		CreatedBy:     r.Email,
+		State:         ops.SiteStateNotInstalled,
+		Provider:      r.Provider,
+		License:       r.License,
+		Labels:        labels,
+		Flavor:        r.Flavor,
+		DisabledWebUI: r.DisabledWebUI,
+		App:           app.PackageEnvelope.ToPackage(),
+		Resources:     r.Resources,
+		Location:      r.Location,
+		ServiceUser:   r.ServiceUser,
+		CloudConfig:   r.CloudConfig,
+		DNSOverrides:  r.DNSOverrides,
+		DNSConfig:     r.DNSConfig,
 		ClusterState: storage.ClusterState{
 			Docker: dockerConfig,
 		},
+		InstallToken: r.InstallToken,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)
@@ -577,10 +653,25 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		clusterData.App.Base = runtimeApp.PackageEnvelope.ToPackagePtr()
 	}
 
+	clusterKey := ops.SiteKey{
+		AccountID:  clusterData.AccountID,
+		SiteDomain: clusterData.Domain,
+	}
 	clusterData, err = b.CreateSite(*clusterData)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err := o.DeleteSite(clusterKey); err != nil {
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"cluster":    clusterKey,
+			}).Warn("Failed to delete cluster.")
+		}
+	}()
 	st, err := newSite(&site{
 		domainName: clusterData.Domain,
 		key:        ops.SiteKey{AccountID: account.ID, SiteDomain: clusterData.Domain},
@@ -589,7 +680,6 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		appService: o.cfg.Apps,
 		app:        app,
 		seedConfig: o.cfg.SeedConfig,
-		resources:  clusterData.Resources,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -598,32 +688,13 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	siteKey := ops.SiteKey{
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-	}
-
-	agent, err := o.cfg.Users.CreateClusterAgent(clusterData.Domain, storage.NewUser(
-		storage.ClusterAgent(clusterData.Domain), storage.UserSpecV2{
-			AccountID: clusterData.AccountID,
-			OpsCenter: opsCenter,
-		}))
+	agent, err := o.upsertAgentUsers(clusterKey, opsCenter)
 	if err != nil {
-		defer o.DeleteSite(siteKey)
 		return nil, trace.Wrap(err)
 	}
 
-	// Create long lived provisioning token that should be used for
-	// expanding the cluster associated with site agent user
-	_, err = o.cfg.Users.CreateProvisioningToken(storage.ProvisioningToken{
-		Token:      expandToken,
-		Type:       storage.ProvisioningTokenTypeExpand,
-		AccountID:  clusterData.AccountID,
-		SiteDomain: clusterData.Domain,
-		UserEmail:  agent.GetName(),
-	})
+	err = o.initTeleportAuthToken(clusterKey)
 	if err != nil {
-		defer o.DeleteSite(siteKey)
 		return nil, trace.Wrap(err)
 	}
 
@@ -633,14 +704,64 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 			UserEmail: agent.GetName(),
 		}, false)
 		if err != nil {
-			if errDelete := o.DeleteSite(siteKey); errDelete != nil {
-				log.Errorf("Failed to remove cluster %v: %v.", siteKey, trace.DebugReport(errDelete))
-			}
 			return nil, trace.Wrap(err)
 		}
 	}
-
 	return convertSite(*clusterData, o.cfg.Apps)
+}
+
+// initTeleportAuthToken creates an auth token for teleport nodes.
+func (o *Operator) initTeleportAuthToken(key ops.SiteKey) error {
+	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = o.backend().CreateProvisioningToken(storage.ProvisioningToken{
+		AccountID:  key.AccountID,
+		SiteDomain: key.SiteDomain,
+		Token:      token,
+		Type:       storage.ProvisioningTokenTypeTeleport,
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (o *Operator) upsertAgentUsers(clusterKey ops.SiteKey, opsCenter string) (agent storage.User, err error) {
+	if err := o.upsertAdminAgent(clusterKey); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	agent, err = o.upsertAgent(clusterKey, opsCenter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
+// upsertAgent creates an agent user for the cluster being installed
+func (o *Operator) upsertAgent(clusterKey ops.SiteKey, opsCenter string) (agent storage.User, err error) {
+	agent, err = o.cfg.Users.CreateClusterAgent(clusterKey.SiteDomain,
+		storage.NewUser(storage.ClusterAgent(clusterKey.SiteDomain), storage.UserSpecV2{
+			AccountID: clusterKey.AccountID,
+			OpsCenter: opsCenter,
+		}))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
+// upsertAdminAgent creates an admin agent user for the cluster being installed
+func (o *Operator) upsertAdminAgent(clusterKey ops.SiteKey) error {
+	_, err := o.cfg.Users.CreateClusterAdminAgent(clusterKey.SiteDomain,
+		storage.NewUser(storage.ClusterAdminAgent(clusterKey.SiteDomain), storage.UserSpecV2{
+			AccountID: clusterKey.AccountID,
+		}))
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
 // GetLocalUser returns local gravity site admin
@@ -683,7 +804,7 @@ func (o *Operator) GetClusterAgent(req ops.ClusterAgentRequest) (*storage.LoginE
 }
 
 // GetLocalSite returns local cluster record for this Ops Center
-func (o *Operator) GetLocalSite() (*ops.Site, error) {
+func (o *Operator) GetLocalSite(context.Context) (*ops.Site, error) {
 	record, err := o.backend().GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -701,6 +822,11 @@ func (o *Operator) GetLocalSite() (*ops.Site, error) {
 // params are optional URL query parameters that can specify additional
 // configuration attributes.
 func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, params url.Values) (string, error) {
+	err := validateGetSiteInstructions(tokenID, serverProfile, params)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
 	token, err := o.backend().GetProvisioningToken(tokenID)
 	if err != nil {
 		return "", trace.Wrap(err)
@@ -709,21 +835,41 @@ func (o *Operator) GetSiteInstructions(tokenID string, serverProfile string, par
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	var instructions string
-	if o.isOpsCenter() && token.Type == storage.ProvisioningTokenTypeInstall {
-		// during Ops Center initiated installation, agents are started using
-		// an "install" command that will reach out to Ops Center to determine
-		// which agent will become installer and which will be joining it
-		instructions, err = s.getInstallInstructions(*token, serverProfile, params)
-	} else {
-		// in other cases, e.g. in install wizard case or in case of expand,
-		// agents are joining the existing operation
-		instructions, err = s.getJoinInstructions(*token, serverProfile, params)
-	}
+	instructions, err := s.getJoinInstructions(*token, serverProfile, params)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 	return instructions, nil
+}
+
+var instructionsAllowedRePattern = `^([a-zA-Z0-9\-\.\_]*)$`
+var instructionsAllowedRe = regexp.MustCompile(instructionsAllowedRePattern)
+
+// validateGetSiteInstructions validates user provided input into bash script generation for install instructions
+// TODO(knisbet) we're going to try and eliminate the bash script generation based on user input, but as a
+// workaround make sure we sanitize any inputs to the current function
+func validateGetSiteInstructions(tokenID string, serverProfile string, params url.Values) error {
+	advertiseAddr := params.Get(schema.AdvertiseAddr)
+	if len(advertiseAddr) > 0 && net.ParseIP(advertiseAddr) == nil {
+		return trace.Wrap(trace.BadParameter("advertise_addr does not appear to be a valid IP address")).
+			AddField("advertise_addr", advertiseAddr)
+	}
+
+	if !instructionsAllowedRe.Match([]byte(tokenID)) {
+		return trace.BadParameter("Token format validation failed").AddFields(trace.Fields{
+			"token":       tokenID,
+			"allow_regex": instructionsAllowedRePattern,
+		})
+	}
+
+	if !instructionsAllowedRe.Match([]byte(serverProfile)) {
+		return trace.BadParameter("ServerProfile format validation failed").AddFields(trace.Fields{
+			"server_profile": serverProfile,
+			"allow_regex":    instructionsAllowedRePattern,
+		})
+	}
+
+	return nil
 }
 
 // SignTLSKey signs X509 Public Key with X509 certificate authority of this site
@@ -741,42 +887,30 @@ func (o *Operator) SignSSHKey(req ops.SSHSignRequest) (*ops.SSHSignResponse, err
 	if req.TTL <= 0 || req.TTL > constants.MaxInteractiveSessionTTL {
 		req.TTL = constants.MaxInteractiveSessionTTL
 	}
-	proxy := o.cfg.TeleportProxy
-	cert, err := proxy.GenerateUserCert(req.PublicKey, req.User, req.TTL)
+	sshCert, tlsCert, err := o.cfg.AuthClient.GenerateUserCerts(req.PublicKey, req.User, req.TTL, "")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// TODO(klizhentas) filter out proxies this user does not have access to
-	authorities, err := proxy.GetCertAuthorities(teleservices.HostCA)
+	authorities, err := o.cfg.AuthClient.GetCertAuthorities(teleservices.HostCA, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authorityDomain, err := o.users().GetClusterName()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	ca, err := proxy.GetCertAuthority(teleservices.CertAuthID{
+	ca, err := o.cfg.TeleportProxy.GetCertAuthority(teleservices.CertAuthID{
 		Type:       teleservices.HostCA,
-		DomainName: authorityDomain.GetClusterName(),
-	}, true)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	tlsCert, err := authority.ProcessCSR(signer.SignRequest{
-		Request: string(req.CSR),
-	}, req.TTL, ca)
+		DomainName: o.cfg.TeleportProxy.GetLocalAuthorityDomain(),
+	}, false)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &ops.SSHSignResponse{
-		Cert: cert,
+		Cert:                   sshCert,
 		TrustedHostAuthorities: authorities,
 		TLSCert:                tlsCert,
 		CACert:                 ca.CertPEM,
 	}, nil
 }
 
-func (o *Operator) GetSiteOperations(key ops.SiteKey) (ops.SiteOperations, error) {
+func (o *Operator) GetSiteOperations(key ops.SiteKey, f ops.OperationsFilter) (ops.SiteOperations, error) {
 	_, err := o.openSite(key)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -785,7 +919,10 @@ func (o *Operator) GetSiteOperations(key ops.SiteKey) (ops.SiteOperations, error
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return ops.SiteOperations(operations), nil
+
+	filtered := f.Filter(ops.SiteOperations(operations))
+
+	return filtered, nil
 }
 
 // GetsiteOperation returns the operation information based on it's key
@@ -859,7 +996,7 @@ func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	return trace.Wrap(err)
 }
 
-func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteInstallOperation(ctx context.Context, r ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -868,14 +1005,14 @@ func (o *Operator) CreateSiteInstallOperation(r ops.CreateSiteInstallOperationRe
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createInstallOperation(r)
+	key, err := site.createInstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteExpandOperation(ctx context.Context, r ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -884,14 +1021,14 @@ func (o *Operator) CreateSiteExpandOperation(r ops.CreateSiteExpandOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createExpandOperation(r)
+	key, err := site.createExpandOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteShrinkOperation(ctx context.Context, r ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -900,35 +1037,35 @@ func (o *Operator) CreateSiteShrinkOperation(r ops.CreateSiteShrinkOperationRequ
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createShrinkOperation(r)
+	key, err := site.createShrinkOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteAppUpdateOperation(r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteAppUpdateOperation(ctx context.Context, r ops.CreateSiteAppUpdateOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	key, err := site.createUpdateOperation(r)
+	key, err := site.createUpdateOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateSiteUninstallOperation(ctx context.Context, r ops.CreateSiteUninstallOperationRequest) (*ops.SiteOperationKey, error) {
 	site, err := o.openSite(ops.SiteKey{AccountID: r.AccountID, SiteDomain: r.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if o.cfg.Local {
 		// if we're a cluster, create uninstall operation in the Ops Center we're connected to
-		return site.requestUninstall(r)
+		return site.requestUninstall(ctx, r)
 	}
-	key, err := site.createUninstallOperation(r)
+	key, err := site.createUninstallOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -936,7 +1073,7 @@ func (o *Operator) CreateSiteUninstallOperation(r ops.CreateSiteUninstallOperati
 }
 
 // CreateClusterGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *Operator) CreateClusterGarbageCollectOperation(ctx context.Context, r ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
 	err := r.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -947,14 +1084,14 @@ func (o *Operator) CreateClusterGarbageCollectOperation(r ops.CreateClusterGarba
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := cluster.createGarbageCollectOperation(r)
+	key, err := cluster.createGarbageCollectOperation(ctx, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
+func (o *Operator) SetOperationState(ctx context.Context, key ops.SiteOperationKey, req ops.SetOperationStateRequest) error {
 	o.Infof("%#v", req)
 	site, err := o.openSite(key.SiteKey())
 	if err != nil {
@@ -962,7 +1099,7 @@ func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperat
 	}
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err = site.compareAndSwapOperationState(swap{
+	_, err = site.compareAndSwapOperationState(ctx, swap{
 		key:        key,
 		newOpState: req.State,
 	})
@@ -978,15 +1115,15 @@ func (o *Operator) SetOperationState(key ops.SiteOperationKey, req ops.SetOperat
 	return nil
 }
 
-func (o *Operator) GetSiteInstallOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	return o.getSiteOperationAgentReport(key)
+func (o *Operator) GetSiteInstallOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	return o.getSiteOperationAgentReport(ctx, key)
 }
 
-func (o *Operator) GetSiteExpandOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
-	return o.getSiteOperationAgentReport(key)
+func (o *Operator) GetSiteExpandOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
+	return o.getSiteOperationAgentReport(ctx, key)
 }
 
-func (o *Operator) getSiteOperationAgentReport(key ops.SiteOperationKey) (*ops.AgentReport, error) {
+func (o *Operator) getSiteOperationAgentReport(ctx context.Context, key ops.SiteOperationKey) (*ops.AgentReport, error) {
 	cluster, err := o.openSite(ops.SiteKey{AccountID: key.AccountID, SiteDomain: key.SiteDomain})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -995,12 +1132,12 @@ func (o *Operator) getSiteOperationAgentReport(key ops.SiteOperationKey) (*ops.A
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	ctx, err := cluster.newOperationContext(*op)
+	opCtx, err := cluster.newOperationContext(*op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	defer ctx.Close()
-	return cluster.agentReport(context.TODO(), ctx)
+	defer opCtx.Close()
+	return cluster.agentReport(ctx, opCtx)
 }
 
 func (o *Operator) SiteInstallOperationStart(key ops.SiteOperationKey) error {
@@ -1044,32 +1181,13 @@ func (o *Operator) CreateLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) 
 	return site.createLogEntry(key, entry)
 }
 
-func (o *Operator) GetSiteOperationCrashReport(key ops.SiteOperationKey) (io.ReadCloser, error) {
-	site, err := o.openSite(key.SiteKey())
+func (o *Operator) GetSiteReport(ctx context.Context, req ops.GetClusterReportRequest) (io.ReadCloser, error) {
+	cluster, err := o.openSite(req.SiteKey)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	op, err := site.getSiteOperation(key.OperationID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	switch op.Type {
-	case ops.OperationInstall:
-		return site.getSiteOperationCrashReport(*op)
-	default:
-		return site.getSiteReport()
-	}
-}
-
-func (o *Operator) GetSiteReport(key ops.SiteKey) (io.ReadCloser, error) {
-	site, err := o.openSite(key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return site.getSiteReport()
+	return cluster.getClusterReport(ctx, req.Since)
 }
 
 func (o *Operator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {
@@ -1321,15 +1439,7 @@ func (o *Operator) GetAppInstaller(req ops.AppInstallerRequest) (io.ReadCloser, 
 
 // GetClusterNodes returns a real-time information about cluster nodes
 func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
-	remote, err := o.cfg.Tunnel.GetSite(key.SiteDomain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	client, err := remote.GetClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	nodes, err := client.GetNodes(defaults.Namespace)
+	nodes, err := o.backend().GetNodes(defaults.Namespace)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1342,9 +1452,32 @@ func (o *Operator) GetClusterNodes(key ops.SiteKey) ([]ops.Node, error) {
 			PublicIP:     labels[defaults.TeleportPublicIPv4Label],
 			Profile:      labels[ops.AppRole],
 			InstanceType: labels[ops.InstanceType],
+			Role:         labels[schema.ServiceLabelRole],
 		})
 	}
 	return result, nil
+}
+
+// EmitAuditEvent saves the provided event in the audit log.
+func (o *Operator) EmitAuditEvent(ctx context.Context, req ops.AuditEventRequest) error {
+	err := req.Check()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	o.Infof("%s.", req)
+	if o.cfg.AuditLog != nil {
+		err = o.cfg.AuditLog.EmitAuditEvent(req.Event, req.Fields)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// GetVersion returns the gravity binary version information.
+func (o *Operator) GetVersion(ctx context.Context) (*proto.Version, error) {
+	version := modules.Get().Version()
+	return &version, nil
 }
 
 func (o *Operator) openSite(key ops.SiteKey) (*site, error) {
@@ -1381,26 +1514,9 @@ func (o *Operator) openSiteInternal(data *storage.Site) (*site, error) {
 		appService:  o.cfg.Apps,
 		seedConfig:  o.cfg.SeedConfig,
 		backendSite: data,
-		resources:   data.Resources,
 	})
 
 	return st, trace.Wrap(err)
-}
-
-func (o *Operator) getSpecPath(sitePackage loc.Locator) (string, error) {
-	packagePath := pack.PackagePath(o.cfg.StateDir, sitePackage)
-	// unpack the site package to find the manifest
-	log.Infof("getSpecPath(packagePath=%v)", packagePath)
-	err := pack.Unpack(
-		o.cfg.Packages, sitePackage, packagePath,
-		&archive.TarOptions{
-			NoLchown:        true,
-			ExcludePatterns: []string{"registry"},
-		})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(packagePath, "resources"), nil
 }
 
 // isAWSProvisioner returns true if the provisioner is using AWS
@@ -1477,12 +1593,6 @@ func (o *Operator) RemoteOpsClient(cluster teleservices.TrustedCluster) (*opscli
 		return nil, trace.Wrap(err)
 	}
 	return client, nil
-}
-
-// isOpsCenter returns true if this process is an Ops Center (i.e. not
-// standalone installer and not a cluster)
-func (o *Operator) isOpsCenter() bool {
-	return !o.cfg.Wizard && !o.cfg.Local
 }
 
 // Lock locks the operator mutex

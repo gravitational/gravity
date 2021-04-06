@@ -1,3 +1,8 @@
+---
+title: Common Issues
+description: Frequently encountered issues when running Kubernetes applications in air-gapped or on-premise environments
+---
+
 # Common Issues
 
 ## Conflicting Programs
@@ -26,14 +31,14 @@ sysctl -w net.bridge.bridge-nf-call-iptables=1
 echo net.bridge.bridge-nf-call-iptables=1 >> /etc/sysconf.d/10-bridge-nf-call-iptables.conf
 ```
 
-For more information see the relevant [System Requirements](/requirements/#br_netfilter-module)
+For more information see the relevant [System Requirements](requirements.md#br_netfilter-module)
 section.
 
 ## Overlay Driver
 
 If the application uses overlay or overlay2 Docker storage driver, the
 `overlay` kernel module should be loaded. See the relevant
-[System Requirements](/requirements/#overlay-module) section for details.
+[System Requirements](requirements.md#overlay-module) section for details.
 
 ## D_TYPE Support in Filesystem
 
@@ -69,7 +74,7 @@ firewall-cmd --reload
 systemctl restart firewalld
 ```
 
-Note that pod and service subnet addresses may be [customized at install time](/overview/#automatic-installer).`
+Note that pod and service subnet addresses may be [customized at install time](installation.md#standalone-offline-cli-installation).`
 
 ## Azure Hyper-V Clock Sync
 
@@ -114,3 +119,8 @@ If the installed kernel exposes the option fs.may_detach_mounts we recommend alw
 sysctl -w fs.may_detach_mounts=1
 echo "fs.may_detach_mounts = 1" >> /etc/sysctl.d/10-may_detach_mounts.conf
 ```
+
+## Cluster Status
+
+Gravity provides the `gravity status` command to view [Cluster Status](cluster.md#cluster-status).
+This tool can help identify issues with the Cluster.

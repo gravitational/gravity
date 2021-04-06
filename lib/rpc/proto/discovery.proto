@@ -4,17 +4,34 @@ package proto;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "gogo.proto";
 
 // Discovery provides access to agent's environment and runtime configuration.
 service Discovery {
-    // GetRuntimeConfig returns the agent's runtime configuration 
+    // GetRuntimeConfig returns the agent's runtime configuration
     rpc GetRuntimeConfig(google.protobuf.Empty) returns (RuntimeConfig);
 
     // GetSystemInfo queries system information on the host the agent is running on
     rpc GetSystemInfo(google.protobuf.Empty) returns (SystemInfo);
-    
+
     // GetCurrentTime returns the node's current time as UTC timestamp
     rpc GetCurrentTime(google.protobuf.Empty) returns (google.protobuf.Timestamp);
+
+    // GetVersion returns the agent's version information.
+    rpc GetVersion(google.protobuf.Empty) returns (Version);
+}
+
+// Version represents a gravity version
+message Version {
+    option (gogoproto.goproto_stringer) = false;
+    // Edition is the gravity edition, e.g. open-source
+    string edition = 1;
+    // Version is the gravity semantic version
+    string version = 2;
+    // GitCommit is the git commit hash
+    string git_commit = 3;
+    // Helm is the built-in Helm version
+    string helm = 4;
 }
 
 // SystemInfo groups attributes that describe a system
@@ -25,13 +42,15 @@ message SystemInfo {
 
 // RuntimeConfig decribes agent's runtime configuration
 message RuntimeConfig {
+    option (gogoproto.goproto_stringer) = false;
     // Role specifies the agent's role
     string role = 1;
     // AdvertiseAddr specifies the address the agent is listening on
     string advertise_addr = 2;
     // DockerDevice defines the device to use to setup devicemapper docker storage backend
-    // in direct-lvm mode
-    string docker_device = 3;
+    // in direct-lvm mode.
+    // Deprecated
+    reserved 3;
     // SystemDevice defines the device to use to setup telekube state directory
     string system_device = 4;
     // Mounts lists mount overrides
@@ -49,6 +68,8 @@ message RuntimeConfig {
     // KeyValues specifies additional runtime configuration parameters
     // as key=value pairs
     map<string, string> key_values = 10;
+    // SELinux indicates that the node has SELinux support on
+    bool selinux = 11 [(gogoproto.customname) = "SELinux"];
 }
 
 // Device is a system I/O device
@@ -59,6 +80,7 @@ message Device {
 
 // Mount is mount point
 message Mount {
+    option (gogoproto.goproto_stringer) = false;
     // Name identifies the mount point
     string name = 1;
     // Source specifies the source directory
@@ -67,6 +89,7 @@ message Mount {
 
 // CloudMetadata describes the instance in the cloud
 message CloudMetadata {
+    option (gogoproto.goproto_stringer) = false;
     // NodeName specifies the optional node name override.
     // Can be specified either on command line or derived from cloud environment.
     string node_name = 1;

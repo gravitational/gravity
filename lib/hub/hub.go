@@ -73,7 +73,7 @@ type Hub interface {
 	// List returns a list of applications in the hub
 	List(withPrereleases bool) ([]App, error)
 	// Downloads downloads the specified application installer into provided file
-	Download(*os.File, loc.Locator, utils.Progress) error
+	Download(*os.File, loc.Locator) error
 	// Get returns application installer tarball of the specified version
 	Get(loc.Locator) (io.ReadCloser, error)
 	// GetLatestVersion returns latest version of the specified application
@@ -178,7 +178,7 @@ func (h *s3Hub) List(withPrereleases bool) (items []App, err error) {
 }
 
 // Downloads downloads the specified application installer into provided file
-func (h *s3Hub) Download(f *os.File, locator loc.Locator, progress utils.Progress) (err error) {
+func (h *s3Hub) Download(f *os.File, locator loc.Locator) (err error) {
 	version := locator.Version
 	// in case the provided version is a special 'latest' or 'stable' label,
 	// we need to look into respective bucket to find out the actual version
@@ -191,7 +191,6 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator, progress utils.Progres
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	progress.NextStep(fmt.Sprintf("Downloading %v:%v", locator.Name, locator.Version))
 	h.Infof("Downloading: %v.", h.appPath(locator.Name, locator.Version))
 	n, err := h.downloader.Download(f, &s3.GetObjectInput{
 		Bucket: aws.String(h.Bucket),
@@ -200,7 +199,7 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator, progress utils.Progres
 	if err != nil {
 		err := utils.ConvertS3Error(err)
 		if trace.IsNotFound(err) {
-			return trace.NotFound("application %v:%v not found in %v, use 'tele ls' to see available applications",
+			return trace.NotFound("image %v:%v not found in %v, use 'tele ls -a' to see available images",
 				locator.Name, locator.Version, h.Bucket)
 		}
 		return trace.Wrap(err)
@@ -226,7 +225,7 @@ func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 			}
 		},
 	}
-	err = h.Download(tarFile, locator, utils.NewNopProgress())
+	err = h.Download(tarFile, locator)
 	if err != nil {
 		readCloser.Close()
 		return nil, trace.Wrap(err)

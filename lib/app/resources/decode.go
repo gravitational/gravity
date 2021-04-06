@@ -24,6 +24,7 @@ import (
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
@@ -46,7 +47,7 @@ L:
 				log.Warn(err)
 				continue L
 			}
-			return nil, trace.Wrap(err)
+			return nil, trace.Wrap(err, "decode failure: %v", err)
 		}
 		objects = append(objects, object)
 	}
@@ -124,8 +125,7 @@ func newUniversalDecoder(r io.Reader) *universalDecoder {
 // universalDecoder is a decoder for resources in either JSON or YAML format
 type universalDecoder struct {
 	runtime.Decoder
-	streamDecoder    *yaml.YAMLOrJSONDecoder
-	skipUnrecognized bool
+	streamDecoder *yaml.YAMLOrJSONDecoder
 }
 
 // Decode obtains the next object from the stream.
@@ -134,6 +134,9 @@ func (r *universalDecoder) Decode() (runtime.Object, error) {
 	var unk Unknown
 	if err := r.streamDecoder.Decode(&unk); err != nil {
 		return nil, trace.Wrap(err)
+	}
+	if len(unk.Raw) == 0 {
+		return nil, utils.Continue("skip empty object")
 	}
 	if unk.Kind == "" {
 		// Return unparsed for resources that are pass-through
@@ -191,12 +194,30 @@ func Encode(objects []runtime.Object, encoding encoding, w io.Writer) error {
 	return nil
 }
 
-// Unknown represents an unparsed kubernetes resource with an interpreted TypeMeta
-// field which is used for type recognition
+// ToUnknown attempts to convert the provided generic object to an unknown resource.
+func ToUnknown(object runtime.Object) (*Unknown, error) {
+	bytes, err := json.Marshal(object)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	var unk Unknown
+	if err := json.Unmarshal(bytes, &unk); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &unk, nil
+}
+
+// Unknown represents an unparsed Kubernetes resource with an interpreted
+// TypeMeta and ObjectMeta fields which are used for type recognition.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Unknown struct {
-	runtime.TypeMeta
+	unknown
 	Raw json.RawMessage `json:",inline"`
+}
+
+type unknown struct {
+	runtime.TypeMeta
+	Metadata metav1.ObjectMeta `json:"metadata"`
 }
 
 // GetObjectKind returns the ObjectKind for this Unknown.
@@ -206,11 +227,11 @@ func (r *Unknown) GetObjectKind() schema.ObjectKind {
 }
 
 // UnmarshalJSON consumes the specified data as a binary blob w/o interpreting it
-func (r *Unknown) UnmarshalJSON(data []byte) (err error) {
-	if err = json.Unmarshal(data, &r.TypeMeta); err != nil {
+func (r *Unknown) UnmarshalJSON(data []byte) error {
+	if err := json.Unmarshal(data, &r.unknown); err != nil {
 		return trace.Wrap(err)
 	}
-	if err = r.Raw.UnmarshalJSON(data); err != nil {
+	if err := r.Raw.UnmarshalJSON(data); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

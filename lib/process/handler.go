@@ -56,7 +56,6 @@ import (
 	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opshandler"
 	"github.com/gravitational/gravity/lib/storage"
@@ -79,7 +78,7 @@ type proxyHandlerConfig struct {
 	tunnel        reversetunnel.Server
 	operator      ops.Operator
 	users         users.Identity
-	authenticator httplib.Authenticator
+	authenticator users.Authenticator
 	forwarder     web.Forwarder
 	devmode       bool
 	backend       storage.Backend

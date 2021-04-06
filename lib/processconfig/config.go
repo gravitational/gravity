@@ -166,6 +166,9 @@ type Config struct {
 
 	// ServiceUser specifies the service user to use for wizard-based installation.
 	ServiceUser *systeminfo.User `yaml:"-"`
+
+	// InstallToken specifies the authentication token for the install operation
+	InstallToken string `yaml:"-"`
 }
 
 func (cfg *Config) CheckAndSetDefaults() error {
@@ -228,7 +231,8 @@ func (cfg Config) CreateBackend() (backend storage.Backend, err error) {
 	case constants.BoltBackend:
 		log.Debug("using bolt backend")
 		backend, err = keyval.NewBolt(keyval.BoltConfig{
-			Path: filepath.Join(cfg.DataDir, defaults.GravityDBFile),
+			Path:  filepath.Join(cfg.DataDir, defaults.GravityDBFile),
+			Multi: true,
 		})
 	case constants.ETCDBackend:
 		log.Debug("using ETCD backend")
@@ -244,6 +248,11 @@ func (cfg Config) ProcessID() string {
 		id = strings.Replace(cfg.Pack.GetAddr().Addr, ":", "_", -1)
 	}
 	return id
+}
+
+// WizardAddr returns the address of the wizard endpoint
+func (cfg Config) WizardAddr() (addr string) {
+	return fmt.Sprintf("https://%v", cfg.Pack.GetAddr().Addr)
 }
 
 // ProfileConfig is a profile configuration
@@ -369,21 +378,6 @@ func (c *ChartsConfig) CheckAndSetDefaults() error {
 type OpsCenterConfig struct {
 	// SeedConfig defines optional configuration to apply on OpsCenter start
 	SeedConfig *ops.SeedConfig `yaml:"seed_config"`
-}
-
-type packageLocator loc.Locator
-
-func (r *packageLocator) UnmarshalYAML(unmarshal func(interface{}) error) (err error) {
-	var text string
-	if err = unmarshal(&text); err != nil {
-		return trace.Wrap(err)
-	}
-	locator, err := loc.ParseLocator(text)
-	if err != nil {
-		return trace.Wrap(err, text)
-	}
-	*r = packageLocator(*locator)
-	return nil
 }
 
 type Locators []loc.Locator

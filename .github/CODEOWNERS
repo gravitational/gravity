@@ -1,0 +1,8 @@
+# https://github.blog/2017-07-06-introducing-code-owners/
+# https://help.github.com/en/github/creating-cloning-and-archiving-repositories/about-code-owners
+
+# Global Owners
+*  @gravitational/codeowners-gravity-code
+
+# Web UI
+/web/ @gravitational/codeowners-gravity-web

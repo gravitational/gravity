@@ -17,23 +17,25 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 
+	"github.com/fatih/color"
 	appbase "github.com/gravitational/gravity/lib/app"
 	appclient "github.com/gravitational/gravity/lib/app/client"
-	"github.com/gravitational/gravity/lib/app/docker"
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/blob"
 	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/localenv/credentials"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
@@ -43,9 +45,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/gravity/lib/users/usersservice"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/gravity/tool/common"
 
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
@@ -71,10 +71,23 @@ type LocalEnvironmentArgs struct {
 	// EtcdRetryTimeout specifies the timeout on ETCD transient errors.
 	// Defaults to EtcdRetryInterval if unspecified
 	EtcdRetryTimeout time.Duration
+	// BoltOpenTimeout specifies the timeout on opening the local state database.
+	// Negative value means no timeout.
+	// Defaults to defaults.DBOpenTimeout if unspecified
+	BoltOpenTimeout time.Duration
 	// Reporter controls progress output
 	Reporter pack.ProgressReporter
 	// DNS is the local cluster DNS server configuration
 	DNS DNSConfig
+	// SELinux specifies whether SELinux support is on
+	SELinux bool
+	// ReadonlyBackend specifies if the backend should be opened
+	// read-only.
+	ReadonlyBackend bool
+	// Credentials is the predefined static credentials entry
+	Credentials *credentials.Credentials
+	// Close allows to perform extra cleanup actions
+	Close func() error
 }
 
 // Addr returns the first listen address of the DNS server
@@ -101,7 +114,6 @@ type DNSConfig storage.DNSConfig
 // * access to local OpsCenter
 type LocalEnvironment struct {
 	LocalEnvironmentArgs
-
 	// Backend is the local backend client
 	Backend storage.Backend
 	// Objects is the local objects storage client
@@ -110,24 +122,8 @@ type LocalEnvironment struct {
 	Packages *localpack.PackageServer
 	// Apps is the local application service
 	Apps appbase.Applications
-	// Creds is the local key store
-	Creds *users.KeyStore
-}
-
-// GetLocalKeyStore opens a key store in the specified directory dir. If one does
-// not exist, it will be created. If dir is empty, a default key store location is
-// used.
-func GetLocalKeyStore(dir string) (*users.KeyStore, error) {
-	configPath := ""
-	if dir != "" {
-		configPath = path.Join(dir, defaults.LocalConfigFile)
-	}
-
-	keys, err := usersservice.NewLocalKeyStore(configPath)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return keys, nil
+	// Credentials provides access to user credentials
+	Credentials credentials.Service
 }
 
 // New is a shortcut that creates a local environment from provided state directory
@@ -137,12 +133,13 @@ func New(stateDir string) (*LocalEnvironment, error) {
 
 // NewLocalEnvironment creates a new LocalEnvironment given the specified configuration
 // arguments.
+// It is caller's responsibility to close the environment with Close after use
 func NewLocalEnvironment(args LocalEnvironmentArgs) (*LocalEnvironment, error) {
 	if args.StateDir == "" {
 		return nil, trace.BadParameter("missing parameter StateDir")
 	}
 
-	log.Debugf("Creating local env: %#v.", args)
+	log.WithField("args", args).Debug("Creating local environment.")
 
 	var err error
 	args.StateDir, err = filepath.Abs(args.StateDir)
@@ -165,15 +162,22 @@ func (env *LocalEnvironment) init() error {
 	}
 
 	env.Backend, err = keyval.NewBolt(keyval.BoltConfig{
-		Path:  filepath.Join(env.StateDir, defaults.GravityDBFile),
-		Multi: true,
+		Path:     filepath.Join(env.StateDir, defaults.GravityDBFile),
+		Multi:    true,
+		Readonly: env.ReadonlyBackend,
+		Timeout:  env.BoltOpenTimeout,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	env.SELinux, err = env.Backend.GetSELinux()
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+
 	if env.DNS.IsEmpty() {
-		dns, err := storage.GetDNSConfig(env.Backend, storage.LegacyDNSConfig)
+		dns, err := storage.GetDNSConfig(env.Backend, storage.DefaultDNSConfig)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -196,8 +200,10 @@ func (env *LocalEnvironment) init() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	env.Creds, err = users.NewCredsService(users.CredsConfig{
-		Backend: env.Backend,
+	env.Credentials, err = credentials.New(credentials.Config{
+		LocalKeyStoreDir: env.LocalKeyStoreDir,
+		Backend:          env.Backend,
+		Credentials:      env.LocalEnvironmentArgs.Credentials,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -209,6 +215,10 @@ func (env *LocalEnvironment) init() error {
 // Close closes backend and object storage used in LocalEnvironment
 func (env *LocalEnvironment) Close() error {
 	var errors []error
+	if env.LocalEnvironmentArgs.Close != nil {
+		errors = append(errors, env.LocalEnvironmentArgs.Close())
+		env.LocalEnvironmentArgs.Close = nil
+	}
 	if env.Backend != nil {
 		errors = append(errors, env.Backend.Close())
 		env.Backend = nil
@@ -218,135 +228,33 @@ func (env *LocalEnvironment) Close() error {
 		env.Objects = nil
 	}
 	env.Packages = nil
-	env.Creds = nil
+	env.Credentials = nil
 	return trace.NewAggregate(errors...)
-}
-
-func (env *LocalEnvironment) GetLoginEntry(opsCenterURL string) (*users.LoginEntry, error) {
-	parsedOpsCenterURL := utils.ParseOpsCenterAddress(opsCenterURL, defaults.HTTPSPort)
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err == nil {
-		entry, err := keys.GetLoginEntry(parsedOpsCenterURL)
-		if err == nil {
-			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
-			return entry, nil
-		}
-		entry, err = keys.GetLoginEntry(opsCenterURL)
-		if err == nil {
-			log.Debugf("Found login entry for %v @ %v.", entry.Email, opsCenterURL)
-			return entry, nil
-		}
-	}
-	entry, err := env.Creds.GetLoginEntry(opsCenterURL)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return nil, trace.Wrap(err)
-		}
-		if opsCenterURL == defaults.DistributionOpsCenter {
-			return &users.LoginEntry{
-				OpsCenterURL: opsCenterURL,
-				Email:        defaults.DistributionOpsCenterUsername,
-				Password:     defaults.DistributionOpsCenterPassword,
-			}, nil
-		}
-		return nil, trace.NotFound("Please login to Ops Center: %v",
-			opsCenterURL)
-	}
-	return entry, nil
-}
-
-func (env *LocalEnvironment) UpsertLoginEntry(opsCenterURL, username, password string) error {
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if username == "" && password == "" {
-		username, password, err = common.ReadUserPass()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-	_, err = keys.UpsertLoginEntry(users.LoginEntry{
-		OpsCenterURL: opsCenterURL,
-		Email:        username,
-		Password:     password,
-	})
-	return trace.Wrap(err)
 }
 
 func (env *LocalEnvironment) SelectOpsCenter(opsURL string) (string, error) {
 	if opsURL != "" {
 		return opsURL, nil
 	}
-	keys, err := GetLocalKeyStore(env.LocalKeyStoreDir)
-	if err == nil {
-		opsURL = keys.GetCurrentOpsCenter()
-		if opsURL != "" {
-			return opsURL, nil
-		}
-	}
-	entries, err := env.Creds.GetLoginEntries()
-	if err != nil && !trace.IsNotFound(err) {
+	credentials, err := env.Credentials.Current()
+	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	if len(entries) == 0 {
-		return "", trace.AccessDenied("Please login to Ops Center: %v",
-			opsURL)
-	}
-	if len(entries) != 1 {
-		return "", trace.AccessDenied("Please login to Ops Center: %v",
-			opsURL)
-	}
-	return entries[0].OpsCenterURL, nil
+	return credentials.URL, nil
 }
 
 func (env *LocalEnvironment) SelectOpsCenterWithDefault(opsURL, defaultURL string) (string, error) {
 	url, err := env.SelectOpsCenter(opsURL)
 	if err != nil {
-		if !trace.IsAccessDenied(err) {
+		if !trace.IsNotFound(err) {
 			return "", trace.Wrap(err)
 		}
 		if defaultURL != "" {
 			return defaultURL, nil
 		}
-		return "", trace.AccessDenied("Please login to Ops Center: %v",
-			opsURL)
+		return "", trace.NotFound("no current cluster and no default provided")
 	}
 	return url, nil
-}
-
-// Printf outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Printf(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf(format, args...)
-	}
-	return 0, nil
-}
-
-// Println outputs specified arguments to stdout if the silent mode is not on.
-func (env *LocalEnvironment) Println(args ...interface{}) (n int, err error) {
-	log.Debugln(args...)
-	if !env.Silent {
-		return fmt.Println(args...)
-	}
-	return 0, nil
-}
-
-// PrintStep outputs the message with timestamp to stdout
-func (env *LocalEnvironment) PrintStep(format string, args ...interface{}) (n int, err error) {
-	log.Debugf(format, args...)
-	if !env.Silent {
-		return fmt.Printf("%v\t%v\n", time.Now().UTC().Format(
-			constants.HumanDateFormatSeconds), fmt.Sprintf(format, args...))
-	}
-	return 0, nil
-}
-
-// Write outputs specified arguments to stdout if the silent mode is not on.
-// Write implements io.Writer
-func (env *LocalEnvironment) Write(p []byte) (n int, err error) {
-	return env.Printf(string(p))
 }
 
 func (env *LocalEnvironment) HTTPClient(options ...httplib.ClientOption) *http.Client {
@@ -364,71 +272,29 @@ func (env *LocalEnvironment) PackageService(opsCenterURL string, options ...http
 	if opsCenterURL == "" { // assume local OpsCenter
 		return env.Packages, nil
 	}
-
 	if opsCenterURL == defaults.GravityServiceURL {
 		options = append(options, httplib.WithLocalResolver(env.DNS.Addr()))
 	}
-
-	// otherwise connect to remote OpsCenter
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	httpClient := roundtrip.HTTPClient(env.HTTPClient(options...))
-	client, err := newPackClient(*entry, opsCenterURL, httpClient)
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
+	params := []roundtrip.ClientParam{
+		roundtrip.HTTPClient(env.HTTPClient(options...)),
+	}
+	client, err := newPackClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return client, nil
-}
-
-// CurrentLogin returns the login entry for the cluster this environment
-// is currently logged into
-//
-// If there are no entries or more than a single entry, it returns an error
-func (env *LocalEnvironment) CurrentLogin() (*users.LoginEntry, error) {
-	opsCenterURL, err := env.SelectOpsCenter("")
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return env.GetLoginEntry(opsCenterURL)
-}
-
-// CurrentOperator returns operator for the current login entry
-func (env *LocalEnvironment) CurrentOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewOpsClient(*entry, entry.OpsCenterURL,
-		opsclient.HTTPClient(env.HTTPClient(options...)))
-}
-
-// CurrentPackages returns package service for the current login entry
-func (env *LocalEnvironment) CurrentPackages(options ...httplib.ClientOption) (pack.PackageService, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return newPackClient(*entry, entry.OpsCenterURL,
-		roundtrip.HTTPClient(env.HTTPClient(options...)))
-}
-
-// CurrentApps returns app service for the current login entry
-func (env *LocalEnvironment) CurrentApps(options ...httplib.ClientOption) (appbase.Applications, error) {
-	entry, err := env.CurrentLogin()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return NewAppsClient(*entry, entry.OpsCenterURL,
-		appclient.HTTPClient(env.HTTPClient(options...)))
 }
 
 // CurrentUser returns name of the currently logged in user
 func (env *LocalEnvironment) CurrentUser() string {
-	login, err := env.CurrentLogin()
+	credentials, err := env.Credentials.Current()
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			log.Errorf("Failed to get current login entry: %v.",
@@ -436,7 +302,7 @@ func (env *LocalEnvironment) CurrentUser() string {
 		}
 		return ""
 	}
-	return login.Email
+	return credentials.User
 }
 
 // OperatorService provides access to remote sites and creates new sites
@@ -445,16 +311,18 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
 	params := []opsclient.ClientParam{
 		opsclient.HTTPClient(env.HTTPClient(options...)),
 		opsclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
 	}
-	client, err := NewOpsClient(*entry, opsCenterURL, params...)
+	client, err := NewOpsClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -462,10 +330,10 @@ func (env *LocalEnvironment) OperatorService(opsCenterURL string, options ...htt
 }
 
 // SiteOperator returns Operator for the local gravity site
-func (env *LocalEnvironment) SiteOperator() (*opsclient.Client, error) {
-	operator, err := env.OperatorService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
-	return operator, trace.Wrap(err)
+func (env *LocalEnvironment) SiteOperator(options ...httplib.ClientOption) (*opsclient.Client, error) {
+	return env.OperatorService(defaults.GravityServiceURL, append(options,
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())...)
 }
 
 // LocalCluster queries a local Gravity cluster.
@@ -474,7 +342,7 @@ func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -483,32 +351,59 @@ func (env *LocalEnvironment) LocalCluster() (*ops.Site, error) {
 
 // SiteApps returns Apps service for the local gravity site
 func (env *LocalEnvironment) SiteApps() (appbase.Applications, error) {
-	apps, err := env.AppService(
-		defaults.GravityServiceURL, AppConfig{}, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
-	return apps, trace.Wrap(err)
+	return env.AppService(defaults.GravityServiceURL, AppConfig{},
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 }
 
 // ClusterPackages returns package service for the local cluster
 func (env *LocalEnvironment) ClusterPackages() (pack.PackageService, error) {
 	return env.PackageService(defaults.GravityServiceURL,
-		httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 }
 
 func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, options ...httplib.ClientOption) (appbase.Applications, error) {
 	if opsCenterURL == "" {
 		return env.AppServiceLocal(config)
 	}
-	entry, err := env.GetLoginEntry(opsCenterURL)
+	credentials, err := env.Credentials.For(opsCenterURL)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	client, err := NewAppsClient(*entry, opsCenterURL,
+	if credentials.TLS != nil {
+		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
+	}
+	params := []appclient.ClientParam{
 		appclient.HTTPClient(env.HTTPClient(options...)),
-		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())))
+		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
+	}
+	client, err := NewAppsClient(credentials.Entry, credentials.URL, params...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return client, nil
+}
+
+// AppServiceCluster creates the *local* app service that uses the cluster's
+// backend (etcd) and packages (via HTTP client).
+//
+// The local service is needed to handle cases such as newly introduced
+// manifest field which gravity-site (that may be running the old code)
+// does not recognize.
+func (env *LocalEnvironment) AppServiceCluster() (appbase.Applications, error) {
+	clusterEnv, err := env.NewClusterEnvironment()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	clusterPackages, err := env.ClusterPackages()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env.AppServiceLocal(AppConfig{
+		Backend:  clusterEnv.Backend,
+		Packages: clusterPackages,
+	})
 }
 
 func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.Applications, err error) {
@@ -528,6 +423,12 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	backend := env.Backend
+	if config.Backend != nil {
+		backend = config.Backend
+	}
+
 	var packages pack.PackageService
 	if config.Packages != nil {
 		packages = config.Packages
@@ -536,13 +437,13 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 	}
 
 	return appservice.New(appservice.Config{
-		Backend:      env.Backend,
+		Backend:      backend,
 		Packages:     packages,
 		DockerClient: dockerClient,
 		ImageService: imageService,
 		StateDir:     filepath.Join(env.StateDir, "import"),
-		Devmode:      env.Debug,
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
+		ExcludeDeps:  config.ExcludeDeps,
 		GetClient:    env.getKubeClient,
 	})
 }
@@ -601,42 +502,52 @@ type AppConfig struct {
 	//
 	// This attribute is only applicable in a local planet environment
 	RegistryURL string
-	// Packages allow to override default env.Packages when creating
-	// an app service
+	// Packages allows to override default packages when creating the service
 	Packages pack.PackageService
+	// ExcludeDeps defines a list of dependencies that will be excluded from the app image
+	ExcludeDeps []loc.Locator
+	// Backend allows to override default backend when creating the service
+	Backend storage.Backend
 }
 
 // NewOpsClient creates a new client to Operator service using the specified
 // login entry, address of the Ops Center and a set of optional connection
 // options
 func NewOpsClient(entry users.LoginEntry, opsCenterURL string, params ...opsclient.ClientParam) (client *opsclient.Client, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = opsclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = opsclient.NewBearerClient(opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = opsclient.NewClient(opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
 
 func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundtrip.ClientParam) (client pack.PackageService, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = webpack.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = webpack.NewBearerClient(opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = webpack.NewClient(opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
 
 // NewAppsClient creates a new app service client.
 func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
-	if entry.Email != "" {
+	if entry.Email != "" && entry.Password != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
-	} else {
+	} else if entry.Password != "" {
 		client, err = appclient.NewBearerClient(
 			opsCenterURL, entry.Password, params...)
+	} else {
+		client, err = appclient.NewClient(
+			opsCenterURL, params...)
 	}
 	return client, trace.Wrap(err)
 }
@@ -656,8 +567,9 @@ func ClusterPackages() (pack.PackageService, error) {
 	}
 	defer env.Close()
 
-	packages, err := env.PackageService(
-		defaults.GravityServiceURL, httplib.WithLocalResolver(env.DNS.Addr()), httplib.WithInsecure())
+	packages, err := env.PackageService(defaults.GravityServiceURL,
+		httplib.WithLocalResolver(env.DNS.Addr()),
+		httplib.WithInsecure())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -704,7 +616,7 @@ func LocalCluster() (*ops.Site, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := clusterOperator.GetLocalSite()
+	cluster, err := clusterOperator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -757,43 +669,46 @@ func SiteUnpackedDir() (string, error) {
 }
 
 // Printf outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Printf(format string, args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Printf(format, args...)
+func (r Silent) Printf(format string, args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Printf(format, args...) //nolint:errcheck
 }
 
 // Print outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Print(args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Print(args...)
+func (r Silent) Print(args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Print(args...) //nolint:errcheck
 }
 
 // Println outputs specified arguments to stdout if the silent mode is not on.
-func (r Silent) Println(args ...interface{}) (n int, err error) {
-	if !r {
-		return fmt.Println(args...)
+func (r Silent) Println(args ...interface{}) {
+	if r {
+		return
 	}
-	return 0, nil
+	fmt.Println(args...) //nolint:errcheck
+}
+
+// PrintStep outputs the message with timestamp to stdout
+func (r Silent) PrintStep(format string, args ...interface{}) {
+	if r {
+		return
+	}
+	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+	// nolint:errcheck
+	fmt.Printf("%v\t%v\n", timestamp, fmt.Sprintf(format, args...))
 }
 
 // Write outputs specified arguments to stdout if the silent mode is not on.
 // Write implements io.Writer
 func (r Silent) Write(p []byte) (n int, err error) {
-	return r.Printf(string(p))
+	r.Printf(string(p))
+	return len(p), nil
 }
 
 // Silent implements a silent flag and controls console output.
-// Implements Printer
+// Implements utils.Printer
 type Silent bool
-
-// Printer describes a capability to output to standard output
-type Printer interface {
-	io.Writer
-	Printf(format string, args ...interface{}) (int, error)
-	Print(args ...interface{}) (int, error)
-	Println(args ...interface{}) (int, error)
-}

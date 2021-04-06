@@ -25,6 +25,22 @@ hooks:
               - name: hook
                 image: site-app-hook:0.0.1
                 args: ["update"]
+  postUpdate:
+    job: |
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: site-app-post-update
+      spec:
+        template:
+          metadata:
+            name: site-app-post-update
+          spec:
+            restartPolicy: OnFailure
+            containers:
+              - name: post-update-hook
+                image: quay.io/gravitational/debian-tall:buster
+                command: ["/opt/bin/gravity", "site", "status"]
   rollback:
     job: |
       apiVersion: batch/v1
@@ -57,7 +73,7 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: post-install-hook
-                image: quay.io/gravitational/debian-tall:0.0.1
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/opt/bin/gravity", "site", "status"]
   uninstall:
     job: |
@@ -73,5 +89,5 @@ hooks:
             restartPolicy: OnFailure
             containers:
               - name: uninstall-hook
-                image: quay.io/gravitational/debian-tall:0.0.1
+                image: quay.io/gravitational/debian-tall:buster
                 command: ["/bin/sh", "/var/lib/gravity/resources/uninstall.sh"]

@@ -99,10 +99,11 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 	}
 	p.Progress.NextStep("Connecting to installer")
 
-	clusterClient, err := clients.TeleportAuth(ctx, p.ClusterOperator, "localhost", p.Plan.ClusterName)
+	clusterClient, err := p.getAuthClient(ctx, p.ClusterOperator, "localhost", p.Plan.ClusterName)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer clusterClient.Close()
 	clusterAuthorities, err := p.getAuthorities(clusterClient, p.Plan.ClusterName)
 	if err != nil {
 		return trace.Wrap(err)
@@ -110,10 +111,11 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 
 	installerHost, _ := utils.SplitHostPort(trustedCluster.GetProxyAddress(), "")
 	installerProxyAddr := fmt.Sprintf("%v:%v,%v", installerHost, defaults.WizardPackServerPort, defaults.WizardProxyServerPort)
-	installerClient, err := clients.TeleportAuth(ctx, p.InstallerOperator, installerProxyAddr, trustedCluster.GetName())
+	installerClient, err := p.getAuthClient(ctx, p.InstallerOperator, installerProxyAddr, trustedCluster.GetName())
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	defer installerClient.Close()
 	installerAuthorities, err := p.getAuthorities(installerClient, trustedCluster.GetName())
 	if err != nil {
 		return trace.Wrap(err)
@@ -144,6 +146,19 @@ func (p *connectExecutor) Execute(ctx context.Context) error {
 
 	p.Info("Connected to installer.")
 	return nil
+}
+
+func (p *connectExecutor) getAuthClient(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (client *clients.AuthClient, err error) {
+	// Retry a few times to account for possible network errors.
+	err = utils.RetryOnNetworkError(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
+		client, err = clients.TeleportAuth(ctx, operator, proxyHost, clusterName)
+		if err != nil {
+			logrus.Warnf("Error getting teleport client %v/%v: %v.", proxyHost, clusterName, trace.DebugReport(err))
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	return client, trace.Wrap(err)
 }
 
 // getAuthorities returns user/host authorities for the specified cluster

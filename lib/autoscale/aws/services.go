@@ -17,6 +17,8 @@ limitations under the License.
 package aws
 
 import (
+	"context"
+
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/ops"
 
@@ -43,12 +45,15 @@ type SQS interface {
 // EC2 is an interface representing AWS Elastic Compute cloud
 type EC2 interface {
 	ModifyInstanceAttributeWithContext(aws.Context, *ec2.ModifyInstanceAttributeInput, ...request.Option) (*ec2.ModifyInstanceAttributeOutput, error)
+	DescribeInstancesWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.Option) (*ec2.DescribeInstancesOutput, error)
+	WaitUntilInstanceTerminatedWithContext(aws.Context, *ec2.DescribeInstancesInput, ...request.WaiterOption) error
 }
 
 // Operator is a simplified operator interface to mock in tests
 type Operator interface {
-	GetLocalSite() (*ops.Site, error)
-	CreateSiteShrinkOperation(ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
+	GetLocalSite(context.Context) (*ops.Site, error)
+	CreateSiteShrinkOperation(context.Context, ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error)
+	GetSiteOperationProgress(ops.SiteOperationKey) (*ops.ProgressEntry, error)
 }
 
 type NewLocalInstance func() (*gaws.Instance, error)

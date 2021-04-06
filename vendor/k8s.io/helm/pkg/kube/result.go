@@ -16,7 +16,7 @@ limitations under the License.
 
 package kube // import "k8s.io/helm/pkg/kube"
 
-import "k8s.io/cli-runtime/pkg/genericclioptions/resource"
+import "k8s.io/cli-runtime/pkg/resource"
 
 // Result provides convenience methods for comparing collections of Infos.
 type Result []*resource.Info
@@ -83,5 +83,5 @@ func (r Result) Intersect(rs Result) Result {
 
 // isMatchingInfo returns true if infos match on Name and GroupVersionKind.
 func isMatchingInfo(a, b *resource.Info) bool {
-	return a.Name == b.Name && a.Mapping.GroupVersionKind.Kind == b.Mapping.GroupVersionKind.Kind
+	return a.Name == b.Name && a.Namespace == b.Namespace && a.Mapping.GroupVersionKind.Kind == b.Mapping.GroupVersionKind.Kind
 }

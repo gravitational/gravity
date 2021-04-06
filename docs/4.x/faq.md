@@ -26,14 +26,14 @@ sysctl -w net.bridge.bridge-nf-call-iptables=1
 echo net.bridge.bridge-nf-call-iptables=1 >> /etc/sysconf.d/10-bridge-nf-call-iptables.conf
 ```
 
-For more information see the relevant [System Requirements](/requirements/#br_netfilter-module)
+For more information see the relevant [System Requirements](requirements.md#br_netfilter-module)
 section.
 
 ## Overlay Driver
 
 If the application uses overlay or overlay2 Docker storage driver, the
 `overlay` kernel module should be loaded. See the relevant
-[System Requirements](/requirements/#overlay-module) section for details.
+[System Requirements](requirements.md#overlay-module) section for details.
 
 ## D_TYPE Support in Filesystem
 
@@ -69,7 +69,7 @@ firewall-cmd --reload
 systemctl restart firewalld
 ```
 
-Note that pod and service subnet addresses may be [customized at install time](/overview/#automatic-installer).`
+Note that pod and service subnet addresses may be [customized at install time](installation.md#standalone-offline-cli-installation).`
 
 ## Azure Hyper-V Clock Sync
 

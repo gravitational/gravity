@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	schemadefaults "github.com/gravitational/gravity/lib/schema/defaults"
-	"github.com/gravitational/gravity/lib/schema/v1"
+	v1 "github.com/gravitational/gravity/lib/schema/v1"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
@@ -172,9 +172,7 @@ func CheckAndSetDefaults(manifest *Manifest) error {
 		return trace.NewAggregate(errors...)
 	}
 
-	SetDefaults(manifest)
-
-	return nil
+	return SetDefaults(manifest)
 }
 
 // SetDefaults enforces defaults on fields that require a value
@@ -196,6 +194,12 @@ func SetDefaults(manifest *Manifest) error {
 			manifest.NodeProfiles[i].ServiceRole = ServiceRoleNode
 		} else if manifest.NodeProfiles[i].Labels[constants.MasterLabel] == constants.True {
 			manifest.NodeProfiles[i].ServiceRole = ServiceRoleMaster
+		}
+
+		// Allow using the gravity labels to indicate the service role and not just the kubernetes labels
+		// as the kubernetes labels may have undesireable implications
+		if label, ok := manifest.NodeProfiles[i].Labels[ServiceLabelRole]; ok {
+			manifest.NodeProfiles[i].ServiceRole = ServiceRole(label)
 		}
 	}
 	return nil
@@ -330,8 +334,7 @@ func (m *Manifest) UnmarshalJSON(data []byte) error {
 	switch header.APIVersion {
 	case APIVersionV2, APIVersionV2Cluster, APIVersionV2App:
 		if err := schema.Validate(bytes.NewReader(data)); err != nil {
-			log.Warnf("Failed to validate manifest against schema: %v.",
-				trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to validate manifest against schema.")
 			return trace.Wrap(err, "failed to validate manifest")
 		}
 

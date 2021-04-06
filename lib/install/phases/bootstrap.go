@@ -17,6 +17,7 @@ limitations under the License.
 package phases
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -32,12 +33,13 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,11 +52,8 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 	if p.Phase.Data.Package == nil {
 		return nil, trace.BadParameter("application package is required: %#v", p.Phase.Data)
 	}
-	if p.Phase.Data.DNSConfig == nil {
-		return nil, trace.BadParameter("DNS configuration is required: %#v", p.Phase.Data)
-	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -72,6 +71,11 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 	}
 
 	application, err := apps.GetApp(*p.Phase.Data.Package)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	mounts, err := opsservice.GetMounts(application.Manifest, *p.Phase.Data.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -94,7 +98,10 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ExecutorParams:   p,
 		ServiceUser:      *serviceUser,
 		remote:           remote,
-		dnsConfig:        *p.Phase.Data.DNSConfig,
+		dnsConfig:        p.Plan.DNSConfig,
+		mounts:           mounts,
+		stateDir:         p.Phase.Data.Server.StateDir(),
+		seLinux:          p.Phase.Data.Server.SELinux,
 	}, nil
 }
 
@@ -115,6 +122,12 @@ type bootstrapExecutor struct {
 	dnsConfig storage.DNSConfig
 	// remote specifies the server remote control interface
 	remote fsm.Remote
+	// mounts lists additional application-specific volume mounts
+	mounts []storage.Mount
+	// stateDir specifies the local state directory
+	stateDir string
+	// seLinux indicates whether the node has SELinux support on
+	seLinux bool
 }
 
 // Execute executes the bootstrap phase
@@ -129,7 +142,7 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 			return trace.Wrap(err)
 		}
 	}
-	err = p.configureSystemDirectories()
+	err = p.configureSystemDirectories(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -137,11 +150,15 @@ func (p *bootstrapExecutor) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	err = p.applySELinuxFileContexts(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	err = p.logIntoCluster()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.configureDNS()
+	err = p.configureSystemMetadata()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -180,16 +197,12 @@ func (p *bootstrapExecutor) configureDeviceMapper() error {
 	return nil
 }
 
-// configureSystemDirectories creates necessary system directories with
-// proper permissions
-func (p *bootstrapExecutor) configureSystemDirectories() error {
+// configureSystemDirectories creates the necessary directories under the
+// configured system directory with proper permissions
+func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) error {
 	p.Progress.NextStep("Configuring system directories")
 	p.Info("Configuring system directories.")
-	// make sure we account for possible custom gravity data dir
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	stateDir := p.stateDir
 	mkdirList := []string{
 		filepath.Join(stateDir, "local", "packages", "blobs"),
 		filepath.Join(stateDir, "local", "packages", "unpacked"),
@@ -200,14 +213,20 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "planet", "etcd"),
 		filepath.Join(stateDir, "planet", "registry"),
 		filepath.Join(stateDir, "planet", "docker"),
+		filepath.Join(stateDir, "planet", "kubelet"),
 		filepath.Join(stateDir, "planet", "share", "hooks"),
 		filepath.Join(stateDir, "planet", "log", "journal"),
-		filepath.Join(stateDir, "site", "teleport"),
+		filepath.Join(stateDir, "site", "teleport", "log"),
 		filepath.Join(stateDir, "site", "packages", "unpacked"),
 		filepath.Join(stateDir, "site", "packages", "blobs"),
 		filepath.Join(stateDir, "site", "packages", "tmp"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "logrange"),
+		// names prometheus-db/alertmanager-db are hardcoded subPath values
+		// in prometheus-operator
+		filepath.Join(stateDir, "monitoring", "prometheus-db"),
+		filepath.Join(stateDir, "monitoring", "alertmanager-db"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -219,7 +238,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 	// adjust ownership of the state directory non-recursively
 	p.Infof("Setting ownership on system directory %v to %v:%v.",
 		stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
-	err = os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
+	err := os.Chown(stateDir, p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -232,6 +251,8 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "monitoring"),
+		filepath.Join(stateDir, "logrange"),
 	}
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
@@ -239,7 +260,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v",
 			p.ServiceUser.UID, p.ServiceUser.GID), dir).CombinedOutput()
 		if err != nil {
-			return trace.Wrap(err, "failed to chmod %v: %s", dir, out)
+			return trace.Wrap(err, "failed to chown %v: %s", dir, out)
 		}
 	}
 	chmodList := []string{
@@ -262,12 +283,7 @@ func (p *bootstrapExecutor) configureSystemDirectories() error {
 func (p *bootstrapExecutor) configureApplicationVolumes() error {
 	p.Progress.NextStep("Configuring application-specific volumes")
 	p.Info("Configuring application-specific volumes.")
-	mounts, err := opsservice.GetMounts(
-		p.Application.Manifest, *p.Phase.Data.Server)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, mount := range mounts {
+	for _, mount := range p.mounts {
 		isDir, err := utils.IsDirectory(mount.Source)
 		if mount.SkipIfMissing && trace.IsNotFound(err) {
 			p.Debugf("Skipping non-existent volume %v.", mount.Source)
@@ -284,10 +300,10 @@ func (p *bootstrapExecutor) configureApplicationVolumes() error {
 		uid, gid := mount.UID, mount.GID
 		if !existingDir {
 			if uid == nil {
-				uid = utils.IntPtr(defaults.ServiceUID)
+				uid = utils.IntPtr(p.ServiceUser.UID)
 			}
 			if gid == nil {
-				gid = utils.IntPtr(defaults.ServiceGID)
+				gid = utils.IntPtr(p.ServiceUser.GID)
 			}
 		}
 		// Only chown directories/files if necessary
@@ -325,9 +341,12 @@ func (p *bootstrapExecutor) logIntoCluster() error {
 	return nil
 }
 
-// configureDNS creates local cluster DNS configuration
-func (p *bootstrapExecutor) configureDNS() error {
-	err := p.LocalBackend.SetDNSConfig(p.dnsConfig)
+func (p *bootstrapExecutor) configureSystemMetadata() error {
+	err := p.LocalBackend.SetSELinux(p.seLinux)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = p.LocalBackend.SetDNSConfig(p.dnsConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -354,28 +373,28 @@ func (*bootstrapExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
+func (p *bootstrapExecutor) applySELinuxFileContexts(ctx context.Context) error {
+	if !(selinux.GetEnabled() && p.seLinux) {
+		p.Info("SELinux is disabled.")
+		return nil
+	}
+	paths := []string{p.stateDir}
+	for _, volume := range p.mounts {
+		paths = append(paths, volume.Source)
+	}
+	var out bytes.Buffer
+	// Set file/directory labels as defined by the policy on the state directory
+	if err := libselinux.ApplyFileContexts(ctx, &out, paths...); err != nil {
+		return trace.Wrap(err, "failed to restore file contexts: %s", out.String())
+	}
+	p.WithField("output", out.String()).Info("Restore file contexts.")
+	return nil
+}
+
 func opKey(plan storage.OperationPlan) ops.SiteOperationKey {
 	return ops.SiteOperationKey{
 		AccountID:   plan.AccountID,
 		SiteDomain:  plan.ClusterName,
 		OperationID: plan.OperationID,
 	}
-}
-
-func userFromOSUser(user storage.OSUser) (*systeminfo.User, error) {
-	uid, err := strconv.Atoi(user.UID)
-	if err != nil {
-		return nil, trace.BadParameter("expected a numeric UID but got %v", user.UID)
-	}
-
-	gid, err := strconv.Atoi(user.GID)
-	if err != nil {
-		return nil, trace.BadParameter("expected a numeric GID but got %v", user.GID)
-	}
-
-	return &systeminfo.User{
-		Name: user.Name,
-		UID:  uid,
-		GID:  gid,
-	}, nil
 }

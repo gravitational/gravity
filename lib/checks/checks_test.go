@@ -25,28 +25,28 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
-	. "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 )
 
-func TestChecks(t *testing.T) { TestingT(t) }
+func TestChecks(t *testing.T) { check.TestingT(t) }
 
 type ChecksSuite struct {
 	info ServerInfo
 }
 
-var _ = Suite(&ChecksSuite{})
+var _ = check.Suite(&ChecksSuite{})
 
-func (s *ChecksSuite) SetUpSuite(c *C) {
+func (s *ChecksSuite) SetUpSuite(c *check.C) {
 	sysinfo := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "foo",
 		Filesystems: []storage.Filesystem{
-			storage.Filesystem{
+			{
 				DirName: "/foo/bar",
 				Type:    "tmpfs",
 			},
 		},
 		FilesystemStats: map[string]storage.FilesystemUsage{
-			"/foo/bar": storage.FilesystemUsage{
+			"/foo/bar": {
 				TotalKB: 2,
 				FreeKB:  1,
 			},
@@ -59,23 +59,23 @@ func (s *ChecksSuite) SetUpSuite(c *C) {
 	}
 }
 
-func (s *ChecksSuite) TestCheckCPU(c *C) {
+func (s *ChecksSuite) TestCheckCPU(c *check.C) {
 	enoughCPU := schema.CPU{Min: 4}
-	c.Assert(checkCPU(s.info, enoughCPU), IsNil)
+	c.Assert(checkCPU(s.info, enoughCPU), check.IsNil)
 
 	notEnoughCPU := schema.CPU{Min: 5}
-	c.Assert(checkCPU(s.info, notEnoughCPU), NotNil)
+	c.Assert(checkCPU(s.info, notEnoughCPU), check.NotNil)
 }
 
-func (s *ChecksSuite) TestCheckRAM(c *C) {
+func (s *ChecksSuite) TestCheckRAM(c *check.C) {
 	enoughRAM := schema.RAM{Min: 800}
-	c.Assert(checkRAM(s.info, enoughRAM), IsNil)
+	c.Assert(checkRAM(s.info, enoughRAM), check.IsNil)
 
 	notEnoughRAM := schema.RAM{Min: 1100}
-	c.Assert(checkRAM(s.info, notEnoughRAM), NotNil)
+	c.Assert(checkRAM(s.info, notEnoughRAM), check.NotNil)
 }
 
-func (s *ChecksSuite) TestTime(c *C) {
+func (s *ChecksSuite) TestTime(c *check.C) {
 	server := storage.NewSystemInfo(storage.SystemSpecV2{
 		Hostname: "node-1",
 	})
@@ -87,7 +87,7 @@ func (s *ChecksSuite) TestTime(c *C) {
 	})
 
 	now := time.Date(2016, 12, 1, 2, 3, 40, 5000, time.UTC)
-	c.Assert(checkTime(now, nil), IsNil)
+	c.Assert(checkTime(now, nil), check.IsNil)
 	// anchor time is the time on the first server
 	anchorTime := time.Date(2016, 12, 1, 2, 3, 4, 5000, time.UTC)
 	// we have received the first info 10 seconds ago
@@ -95,7 +95,7 @@ func (s *ChecksSuite) TestTime(c *C) {
 	err := checkTime(now, []Server{
 		{ServerInfo: ServerInfo{ServerTime: anchorTime, LocalTime: localTime}}},
 	)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 
 	// we have received the second info 9 seconds ago
 	server2LocalTime := now.Add(-9 * time.Second)
@@ -104,7 +104,7 @@ func (s *ChecksSuite) TestTime(c *C) {
 		{ServerInfo: ServerInfo{ServerTime: anchorTime, LocalTime: localTime}},
 		{ServerInfo: ServerInfo{ServerTime: server2Time, LocalTime: server2LocalTime}},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 
 	// we have received the third info 8 seconds ago
 	server3LocalTime := now.Add(-8 * time.Second)
@@ -114,45 +114,5 @@ func (s *ChecksSuite) TestTime(c *C) {
 		{ServerInfo: ServerInfo{System: server2, ServerTime: server2Time, LocalTime: server2LocalTime}},
 		{ServerInfo: ServerInfo{System: server3, ServerTime: server3Time, LocalTime: server3LocalTime}},
 	})
-	c.Assert(trace.IsBadParameter(err), Equals, true, Commentf("expected BadParameter, got %v", err))
-}
-
-func (s *ChecksSuite) TestCheckSameOS(c *C) {
-	infos := []Server{
-		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-1",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.1",
-					},
-				}),
-			},
-		},
-		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-2",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.2",
-					},
-				}),
-			},
-		},
-		{
-			ServerInfo: ServerInfo{
-				System: storage.NewSystemInfo(storage.SystemSpecV2{
-					Hostname: "node-3",
-					OS: storage.OSInfo{
-						ID:      "centos",
-						Version: "7.2",
-					},
-				}),
-			},
-		},
-	}
-	c.Assert(checkSameOS(infos[:2]), NotNil)
-	c.Assert(checkSameOS(infos[1:]), IsNil)
+	c.Assert(trace.IsBadParameter(err), check.Equals, true, check.Commentf("expected BadParameter, got %v", err))
 }

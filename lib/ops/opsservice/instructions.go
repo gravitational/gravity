@@ -33,57 +33,30 @@ import (
 )
 
 var (
-	// gravityTemplateSource is a bash script that downloads gravity binary
-	// from an Ops Center and installs it into /usr/bin
-	gravityTemplateSource = `
-#!/bin/bash
-set -e
-
-CURL_OPTS="--retry 100 --retry-delay 0 --connect-timeout 10 --max-time 300 --tlsv1.2 --silent --show-error --http1.0"
-echo "$(date) [INFO] Downloading install agent..."
-curl $CURL_OPTS {{if .devmode}}-k{{end}} -H "Authorization: Bearer {{.ops_token}}" {{.gravity_url}} -o {{.gravity_bin_path}}
-chmod 755 {{.gravity_bin_path}}
-
-echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary files"
-`
-
-	// installTemplate is a template for instructions to run on nodes during
-	// Ops Center initiated installation
-	installTemplate = template.Must(
-		template.New("instructions").Parse(fmt.Sprintf(`
-%v
-{{.service_user_env}}={{.service_uid}} \
-{{.service_group_env}}={{.service_gid}} \
-{{.gravity_bin_path}} {{if .devmode}}--insecure{{end}} --debug install \
-    --advertise-addr={{.advertise_addr}} \
-    --token={{.install_token}} \
-    --cluster={{.cluster_name}} \
-    --app={{.app}} \
-    --role={{.profile}} \
-    --mode={{.mode}} \
-    --cloud-provider={{.cloud_provider}} \
-    --operation-id={{.operation_id}} \
-    --ops-url={{.ops_url}} \
-    --ops-token={{.ops_token}} \
-    --ops-sni-host={{.ops_sni_host}} {{if .gce_node_tags}}--gce-node-tags={{.gce_node_tags}} {{end}}\
-    --ops-tunnel-token={{.ops_tunnel_token}} {{if .background}}1>/dev/null 2>&1 &{{end}}
-`, gravityTemplateSource)))
-
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand
 	joinTemplate = template.Must(
 		template.New("instructions").Parse(fmt.Sprintf(`
-%v
+#!/bin/bash
+set -e
+
+BIN=${BIN:-{{.gravity_bin_path}}}
+CURL_OPTS="--retry 100 --retry-delay 0 --connect-timeout 10 --max-time 300 --tlsv1.2 --silent --show-error --http1.0"
+echo "$(date) [INFO] Downloading install agent..."
+curl $CURL_OPTS {{if .devmode}}-k{{end}} -H "Authorization: Bearer {{.ops_token}}" {{.gravity_url}} -o ${BIN}
+chmod 755 {{.gravity_bin_path}}
+
+echo "$(date) [INFO] Install agent will be using ${TMPDIR:-/tmp} for temporary files"
 {{.service_user_env}}={{.service_uid}} \
 {{.service_group_env}}={{.service_gid}} \
-{{.gravity_bin_path}} {{if .devmode}}--insecure{{end}} --debug join {{.ops_url}} \
+${BIN} {{if .devmode}}--insecure{{end}} --debug join {{.ops_url}} \
     --token={{.install_token}} \
     --advertise-addr={{.advertise_addr}} \
     --server-addr={{.agent_server_addr}} \
     --role={{.profile}} \
-    --cloud-provider={{.cloud_provider}} \
+    --cloud-provider={{.cloud_provider}} {{if .selinux}}--selinux{{else}}--no-selinux{{end}} \
     --operation-id={{.operation_id}} {{if .background}}1>/dev/null 2>&1 &{{end}}
-`, gravityTemplateSource)))
+`)))
 
 	downloadInstructionsTemplate = template.Must(
 		template.New("instructions").Parse(`
@@ -103,54 +76,6 @@ func (s *site) getDownloadInstructions(token, serverProfile string) (string, err
 		"devmode": s.shouldUseInsecure(),
 		"url":     url.String(),
 	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return out.String(), nil
-}
-
-// getInstallInstructions returns a bash script source that starts agents
-// for an Ops Center initiated installation
-func (s *site) getInstallInstructions(token storage.ProvisioningToken, serverProfile string, params url.Values) (string, error) {
-	tunnelToken, err := s.service.GetTrustedClusterToken(ops.SiteKey{
-		AccountID:  token.AccountID,
-		SiteDomain: token.SiteDomain,
-	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	agentToken, err := s.service.GetClusterAgent(ops.ClusterAgentRequest{
-		AccountID:   token.AccountID,
-		ClusterName: token.SiteDomain,
-	})
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	vars := map[string]interface{}{
-		"devmode":           s.shouldUseInsecure(),
-		"service_uid":       s.uid(),
-		"service_gid":       s.gid(),
-		"gravity_url":       s.packages().PackageDownloadURL(s.gravityPackage),
-		"advertise_addr":    params.Get(schema.AdvertiseAddr),
-		"install_token":     token.Token,
-		"cluster_name":      token.SiteDomain,
-		"app":               s.app.Package.String(),
-		"profile":           serverProfile,
-		"mode":              constants.InstallModeOpsCenter,
-		"operation_id":      token.OperationID,
-		"ops_url":           s.packages().PortalURL(),
-		"ops_token":         agentToken.Password,
-		"ops_tunnel_token":  tunnelToken.GetName(),
-		"ops_sni_host":      s.service.cfg.SNIHost,
-		"background":        params.Get("bg") == "true",
-		"service_user_env":  constants.ServiceUserEnvVar,
-		"service_group_env": constants.ServiceGroupEnvVar,
-		"gravity_bin_path":  defaults.GravityBin,
-		"gce_node_tags":     s.gceNodeTags(),
-		"cloud_provider":    s.provider,
-	}
-	var out bytes.Buffer
-	err = installTemplate.Execute(&out, vars)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -181,7 +106,7 @@ func (s *site) getJoinInstructions(token storage.ProvisioningToken, serverProfil
 		"background":        params.Get("bg") == "true",
 		"service_user_env":  constants.ServiceUserEnvVar,
 		"service_group_env": constants.ServiceGroupEnvVar,
-		"gravity_bin_path":  defaults.GravityBin,
+		"gravity_bin_path":  defaults.GravityLocalAgentBin,
 		"cloud_provider":    s.provider,
 		"operation_id":      token.OperationID,
 	}

@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -31,10 +31,9 @@ func NewJobControl(config JobConfig) (*JobControl, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	return &JobControl{
 		JobConfig: config,
-		Entry: log.WithFields(log.Fields{
+		FieldLogger: log.WithFields(log.Fields{
 			"job": formatMeta(config.Job.ObjectMeta),
 		}),
 	}, nil
@@ -43,13 +42,13 @@ func NewJobControl(config JobConfig) (*JobControl, error) {
 func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Job.ObjectMeta))
 
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 
-	pods := c.Core().Pods(c.Job.Namespace)
+	pods := c.CoreV1().Pods(c.Job.Namespace)
 	currentPods, err := c.collectPods(currentJob)
 	if err != nil {
 		return trace.Wrap(err)
@@ -75,14 +74,14 @@ func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	if !cascade {
 		c.Info("cascade not set, returning")
 	}
-	err = deletePods(pods, currentPods, *c.Entry)
+	err = deletePods(pods, currentPods, c.FieldLogger)
 	return trace.Wrap(err)
 }
 
 func (c *JobControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Job.ObjectMeta))
 
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
@@ -122,7 +121,7 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 }
 
 func (c *JobControl) Status() error {
-	jobs := c.Batch().Jobs(c.Job.Namespace)
+	jobs := c.BatchV1().Jobs(c.Job.Namespace)
 	job, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
@@ -156,7 +155,7 @@ func (c *JobControl) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 	if job.Spec.Selector != nil {
 		labels = job.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(job.Namespace, labels, c.Entry, c.Clientset, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(job.Namespace, labels, c.FieldLogger, c.Clientset, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindJob && ref.UID == job.UID
 	})
 	return pods, ConvertError(err)
@@ -164,21 +163,28 @@ func (c *JobControl) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 
 type JobControl struct {
 	JobConfig
-	*log.Entry
+	log.FieldLogger
 }
 
 type JobConfig struct {
-	Job *batchv1.Job
+	*batchv1.Job
 	*kubernetes.Clientset
 }
 
 func (c *JobConfig) checkAndSetDefaults() error {
+	if c.Job == nil {
+		return trace.BadParameter("missing parameter Job")
+	}
 	if c.Clientset == nil {
 		return trace.BadParameter("missing parameter Clientset")
 	}
-	c.Job.Kind = KindJob
-	if c.Job.APIVersion == "" {
-		c.Job.APIVersion = BatchAPIVersion
-	}
+	updateTypeMetaJob(c.Job)
 	return nil
+}
+
+func updateTypeMetaJob(r *batchv1.Job) {
+	r.Kind = KindJob
+	if r.APIVersion == "" {
+		r.APIVersion = batchv1.SchemeGroupVersion.String()
+	}
 }

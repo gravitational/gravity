@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2017-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/defaults"
@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/utils"
 
+	phttp "github.com/coreos/go-oidc/http"
 	"github.com/coreos/go-oidc/jose"
 	"github.com/coreos/go-oidc/oauth2"
 	"github.com/coreos/go-oidc/oidc"
@@ -112,7 +113,7 @@ func (s *AuthServer) CreateOIDCAuthRequest(req services.OIDCAuthRequest) (*servi
 		req.RedirectURL = u.String()
 	}
 
-	log.Debugf("[OIDC] Redirect URL: %v", req.RedirectURL)
+	log.Debugf("OIDC redirect URL: %v.", req.RedirectURL)
 
 	err = s.Identity.CreateOIDCAuthRequest(req, defaults.OIDCAuthRequestTTL)
 	if err != nil {
@@ -127,13 +128,14 @@ func (s *AuthServer) CreateOIDCAuthRequest(req services.OIDCAuthRequest) (*servi
 func (a *AuthServer) ValidateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, error) {
 	re, err := a.validateOIDCAuthCallback(q)
 	if err != nil {
-		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		a.EmitAuditEvent(events.UserSSOLoginFailure, events.EventFields{
 			events.LoginMethod:        events.LoginMethodOIDC,
 			events.AuthAttemptSuccess: false,
-			events.AuthAttemptErr:     err.Error(),
+			// log the original internal error in audit log
+			events.AuthAttemptErr: trace.Unwrap(err).Error(),
 		})
 	} else {
-		a.EmitAuditEvent(events.UserLoginEvent, events.EventFields{
+		a.EmitAuditEvent(events.UserSSOLogin, events.EventFields{
 			events.EventUser:          re.Username,
 			events.AuthAttemptSuccess: true,
 			events.LoginMethod:        events.LoginMethodOIDC,
@@ -175,12 +177,19 @@ func (a *AuthServer) validateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 	}
 
 	// extract claims from both the id token and the userinfo endpoint and merge them
-	claims, err := a.getClaims(oidcClient, connector.GetIssuerURL(), code)
+	claims, err := a.getClaims(oidcClient, connector.GetIssuerURL(), connector.GetScope(), code)
 	if err != nil {
-		return nil, trace.OAuth2(
-			oauth2.ErrorUnsupportedResponseType, "unable to construct claims", q)
+		return nil, trace.WrapWithMessage(
+			// preserve the original error message, to avoid leaking
+			// server errors to the user in the UI, but override
+			// user message to the high level instruction to check audit log for details
+			trace.OAuth2(
+				oauth2.ErrorUnsupportedResponseType, err.Error(), q),
+			"unable to construct claims, check audit log for details",
+		)
 	}
-	log.Debugf("[OIDC] Claims: %v", claims)
+
+	log.Debugf("OIDC claims: %v.", claims)
 
 	// if we are sending acr values, make sure we also validate them
 	acrValue := connector.GetACR()
@@ -189,7 +198,7 @@ func (a *AuthServer) validateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		log.Debugf("[OIDC] ACR values %q successfully validated", acrValue)
+		log.Debugf("OIDC ACR values %q successfully validated.", acrValue)
 	}
 
 	ident, err := oidc.IdentityFromClaims(claims)
@@ -197,68 +206,57 @@ func (a *AuthServer) validateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 		return nil, trace.OAuth2(
 			oauth2.ErrorUnsupportedResponseType, "unable to convert claims to identity", q)
 	}
-	log.Debugf("[OIDC] %q expires at: %v", ident.Email, ident.ExpiresAt)
+	log.Debugf("OIDC user %q expires at: %v.", ident.Email, ident.ExpiresAt)
 
-	response := &OIDCAuthResponse{
-		Identity: services.ExternalIdentity{ConnectorID: connector.GetName(), Username: ident.Email},
-		Req:      *req,
+	if len(connector.GetClaimsToRoles()) == 0 {
+		return nil, trace.BadParameter("no claims to roles mapping, check connector documentation")
+	}
+	log.Debugf("Applying %v OIDC claims to roles mappings.", len(connector.GetClaimsToRoles()))
+
+	// Calculate (figure out name, roles, traits, session TTL) of user and
+	// create the user in the backend.
+	params, err := a.calculateOIDCUser(connector, claims, ident, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	user, err := a.createOIDCUser(params)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
 
-	log.Debugf("[OIDC] Applying %v claims to roles mappings", len(connector.GetClaimsToRoles()))
-	if len(connector.GetClaimsToRoles()) != 0 {
-		if err := a.createOIDCUser(connector, ident, claims); err != nil {
-			return nil, trace.Wrap(err)
-		}
+	// Auth was successful, return session, certificate, etc. to caller.
+	response := &OIDCAuthResponse{
+		Req: *req,
+		Identity: services.ExternalIdentity{
+			ConnectorID: params.connectorName,
+			Username:    params.username,
+		},
+		Username: user.GetName(),
 	}
 
 	if !req.CheckUser {
 		return response, nil
 	}
 
-	user, err := a.Identity.GetUserByOIDCIdentity(services.ExternalIdentity{
-		ConnectorID: req.ConnectorID, Username: ident.Email})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	response.Username = user.GetName()
-
-	var roles services.RoleSet
-	roles, err = services.FetchRoles(user.GetRoles(), a.Access, user.GetTraits())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	sessionTTL := roles.AdjustSessionTTL(utils.ToTTL(a.clock, ident.ExpiresAt))
-	bearerTokenTTL := utils.MinTTL(BearerTokenTTL, sessionTTL)
-
+	// If the request is coming from a browser, create a web session.
 	if req.CreateWebSession {
-		sess, err := a.NewWebSession(user.GetName())
+		session, err := a.createWebSession(user, params.sessionTTL)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		// session will expire based on identity TTL and allowed session TTL
-		sess.SetExpiryTime(a.clock.Now().UTC().Add(sessionTTL))
-		// bearer token will expire based on the expected session renewal
-		sess.SetBearerTokenExpiryTime(a.clock.Now().UTC().Add(bearerTokenTTL))
-		if err := a.UpsertWebSession(user.GetName(), sess); err != nil {
-			return nil, trace.Wrap(err)
-		}
-		response.Session = sess
+
+		response.Session = session
 	}
 
+	// If a public key was provided, sign it and return a certificate.
 	if len(req.PublicKey) != 0 {
-		certTTL := utils.MinTTL(utils.ToTTL(a.clock, ident.ExpiresAt), req.CertTTL)
-		certs, err := a.generateUserCert(certRequest{
-			user:          user,
-			roles:         roles,
-			ttl:           certTTL,
-			publicKey:     req.PublicKey,
-			compatibility: req.Compatibility,
-		})
+		sshCert, tlsCert, err := a.createSessionCert(user, params.sessionTTL, req.PublicKey, req.Compatibility)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		response.Cert = certs.ssh
-		response.TLSCert = certs.tls
+
+		response.Cert = sshCert
+		response.TLSCert = tlsCert
 
 		// Return the host CA for this cluster only.
 		authority, err := a.GetCertAuthority(services.CertAuthID{
@@ -270,6 +268,7 @@ func (a *AuthServer) validateOIDCAuthCallback(q url.Values) (*OIDCAuthResponse, 
 		}
 		response.HostSigners = append(response.HostSigners, authority)
 	}
+
 	return response, nil
 }
 
@@ -322,71 +321,96 @@ func claimsToTraitMap(claims jose.Claims) map[string][]string {
 	return traits
 }
 
-func (a *AuthServer) createOIDCUser(connector services.OIDCConnector, ident *oidc.Identity, claims jose.Claims) error {
-	roles, err := a.buildOIDCRoles(connector, claims)
-	if err != nil {
-		return trace.Wrap(err)
+func (a *AuthServer) calculateOIDCUser(connector services.OIDCConnector, claims jose.Claims, ident *oidc.Identity, request *services.OIDCAuthRequest) (*createUserParams, error) {
+	var err error
+
+	p := createUserParams{
+		connectorName: connector.GetName(),
+		username:      ident.Email,
 	}
 
-	traits := claimsToTraitMap(claims)
+	p.roles, err = a.buildOIDCRoles(connector, claims)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	p.traits = claimsToTraitMap(claims)
 
-	log.Debugf("[OIDC] Generating dynamic identity %v/%v with roles: %v", connector.GetName(), ident.Email, roles)
+	// Pick smaller for role: session TTL from role or requested TTL.
+	roles, err := services.FetchRoles(p.roles, a.Access, p.traits)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	roleTTL := roles.AdjustSessionTTL(defaults.MaxCertDuration)
+	p.sessionTTL = utils.MinTTL(roleTTL, request.CertTTL)
+
+	return &p, nil
+}
+
+func (a *AuthServer) createOIDCUser(p *createUserParams) (services.User, error) {
+	expires := a.GetClock().Now().UTC().Add(p.sessionTTL)
+
+	log.Debugf("Generating dynamic OIDC identity %v/%v with roles: %v.", p.connectorName, p.username, p.roles)
 	user, err := services.GetUserMarshaler().GenerateUser(&services.UserV2{
 		Kind:    services.KindUser,
 		Version: services.V2,
 		Metadata: services.Metadata{
-			Name:      ident.Email,
+			Name:      p.username,
 			Namespace: defaults.Namespace,
+			Expires:   &expires,
 		},
 		Spec: services.UserSpecV2{
-			Roles:   roles,
-			Traits:  traits,
-			Expires: ident.ExpiresAt,
+			Roles:  p.roles,
+			Traits: p.traits,
 			OIDCIdentities: []services.ExternalIdentity{
-				{
-					ConnectorID: connector.GetName(),
-					Username:    ident.Email,
+				services.ExternalIdentity{
+					ConnectorID: p.connectorName,
+					Username:    p.username,
 				},
 			},
 			CreatedBy: services.CreatedBy{
 				User: services.UserRef{Name: "system"},
-				Time: time.Now().UTC(),
+				Time: a.clock.Now().UTC(),
 				Connector: &services.ConnectorRef{
 					Type:     teleport.ConnectorOIDC,
-					ID:       connector.GetName(),
-					Identity: ident.Email,
+					ID:       p.connectorName,
+					Identity: p.username,
 				},
 			},
 		},
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	// check if a user exists already
-	existingUser, err := a.GetUser(ident.Email)
+	// Get the user to check if it already exists or not.
+	existingUser, err := a.GetUser(p.username)
 	if err != nil {
 		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
+			return nil, trace.Wrap(err)
 		}
 	}
 
-	// check if existing user is a non-oidc user, if so, return an error
+	// Overwrite exisiting user if it was created from an external identity provider.
 	if existingUser != nil {
-		ref := user.GetCreatedBy().Connector
-		if !ref.IsSameProvider(existingUser.GetCreatedBy().Connector) {
-			return trace.AlreadyExists("user %q already exists and is not OIDC user, remove local user and try again",
-				existingUser.GetName())
+		connectorRef := existingUser.GetCreatedBy().Connector
+
+		// If the exisiting user is a local user, fail and advise how to fix the problem.
+		if connectorRef == nil {
+			return nil, trace.AlreadyExists("local user with name '%v' already exists. Either change "+
+				"email in OIDC identity or remove local user and try again.", existingUser.GetName())
 		}
+
+		log.Debugf("Overwriting exisiting user '%v' created with %v connector %v.",
+			existingUser.GetName(), connectorRef.Type, connectorRef.ID)
 	}
 
-	// no non-oidc user exists, create or update the exisiting oidc user
+	// Upsert the new user creating or updating whatever is in the database.
 	err = a.UpsertUser(user)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	return nil
+	return user, nil
 }
 
 // claimsFromIDToken extracts claims from the ID token.
@@ -401,7 +425,7 @@ func claimsFromIDToken(oidcClient *oidc.Client, idToken string) (jose.Claims, er
 		return nil, trace.Wrap(err)
 	}
 
-	log.Debugf("[OIDC] Extracting claims from ID token")
+	log.Debugf("Extracting OIDC claims from ID token.")
 
 	claims, err := jwt.Claims()
 	if err != nil {
@@ -443,7 +467,7 @@ func claimsFromUserInfo(oidcClient *oidc.Client, issuerURL string, accessToken s
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Debugf("[OIDC] Fetching claims from UserInfo endpoint: %q", endpoint)
+	log.Debugf("Fetching OIDC claims from UserInfo endpoint: %q.", endpoint)
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -470,6 +494,138 @@ func claimsFromUserInfo(oidcClient *oidc.Client, issuerURL string, accessToken s
 	return claims, nil
 }
 
+func (a *AuthServer) claimsFromGSuite(oidcClient *oidc.Client, issuerURL string, userEmail string, accessToken string) (jose.Claims, error) {
+	client, err := a.newGsuiteClient(oidcClient, issuerURL, userEmail, accessToken)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return client.fetchGroups()
+}
+
+func (a *AuthServer) newGsuiteClient(oidcClient *oidc.Client, issuerURL string, userEmail string, accessToken string) (*gsuiteClient, error) {
+	err := isHTTPS(issuerURL)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	oac, err := oidcClient.OAuthClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	u, err := url.Parse(teleport.GSuiteGroupsEndpoint)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &gsuiteClient{
+		Client:      oac.HttpClient(),
+		url:         *u,
+		userEmail:   userEmail,
+		accessToken: accessToken,
+		auditLog:    a,
+	}, nil
+}
+
+type gsuiteClient struct {
+	phttp.Client
+	url         url.URL
+	userEmail   string
+	accessToken string
+	auditLog    events.IAuditLog
+}
+
+// fetchGroups fetches GSuite groups a user belongs to and returns
+// "groups" claim with
+func (g *gsuiteClient) fetchGroups() (jose.Claims, error) {
+	count := 0
+	var groups []string
+	var nextPageToken string
+collect:
+	for {
+		if count > MaxPages {
+			warningMessage := "Truncating list of teams used to populate claims: " +
+				"hit maximum number pages that can be fetched from GSuite."
+
+			// Print warning to Teleport logs as well as the Audit Log.
+			log.Warnf(warningMessage)
+			g.auditLog.EmitAuditEvent(events.UserSSOLoginFailure, events.EventFields{
+				events.LoginMethod:        events.LoginMethodOIDC,
+				events.AuthAttemptMessage: warningMessage,
+			})
+			break collect
+		}
+		response, err := g.fetchGroupsPage(nextPageToken)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		groups = append(groups, response.groups()...)
+		if response.NextPageToken == "" {
+			break collect
+		}
+		count++
+		nextPageToken = response.NextPageToken
+	}
+	return jose.Claims{"groups": groups}, nil
+}
+
+func (g *gsuiteClient) fetchGroupsPage(pageToken string) (*gsuiteGroups, error) {
+	// copy URL to avoid modifying the same url
+	// with query parameters
+	u := g.url
+	q := u.Query()
+	q.Set("userKey", g.userEmail)
+	if pageToken != "" {
+		q.Set("pageToken", pageToken)
+	}
+	u.RawQuery = q.Encode()
+	endpoint := u.String()
+
+	log.Debugf("Fetching OIDC claims from GSuite groups endpoint: %q.", endpoint)
+
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", g.accessToken))
+
+	resp, err := g.Do(req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, trace.AccessDenied("bad status code: %v %v", resp.StatusCode, string(bytes))
+	}
+	var response gsuiteGroups
+	if err := json.Unmarshal(bytes, &response); err != nil {
+		return nil, trace.BadParameter("failed to parse response: %v", err)
+	}
+	return &response, nil
+}
+
+type gsuiteGroups struct {
+	NextPageToken string        `json:"nextPageToken"`
+	Groups        []gsuiteGroup `json:"groups"`
+}
+
+func (g gsuiteGroups) groups() []string {
+	groups := make([]string, len(g.Groups))
+	for i, group := range g.Groups {
+		groups[i] = group.Email
+	}
+	return groups
+}
+
+type gsuiteGroup struct {
+	Email string `json:"email"`
+}
+
 // mergeClaims merges b into a.
 func mergeClaims(a jose.Claims, b jose.Claims) (jose.Claims, error) {
 	for k, v := range b {
@@ -483,7 +639,7 @@ func mergeClaims(a jose.Claims, b jose.Claims) (jose.Claims, error) {
 }
 
 // getClaims gets claims from ID token and UserInfo and returns UserInfo claims merged into ID token claims.
-func (a *AuthServer) getClaims(oidcClient *oidc.Client, issuerURL string, code string) (jose.Claims, error) {
+func (a *AuthServer) getClaims(oidcClient *oidc.Client, issuerURL string, scope []string, code string) (jose.Claims, error) {
 	var err error
 
 	oac, err := oidcClient.OAuthClient()
@@ -498,21 +654,21 @@ func (a *AuthServer) getClaims(oidcClient *oidc.Client, issuerURL string, code s
 
 	idTokenClaims, err := claimsFromIDToken(oidcClient, t.IDToken)
 	if err != nil {
-		log.Debugf("[OIDC] Unable to fetch ID token claims: %v", err)
+		log.Debugf("Unable to fetch OIDC ID token claims: %v.", err)
 		return nil, trace.Wrap(err)
 	}
-	log.Debugf("[OIDC] ID Token claims: %v", idTokenClaims)
+	log.Debugf("OIDC ID Token claims: %v.", idTokenClaims)
 
 	userInfoClaims, err := claimsFromUserInfo(oidcClient, issuerURL, t.AccessToken)
 	if err != nil {
 		if trace.IsNotFound(err) {
-			log.Debugf("[OIDC] Provider doesn't offer UserInfo endpoint. Returning token claims: %v", idTokenClaims)
+			log.Debugf("OIDC provider doesn't offer UserInfo endpoint. Returning token claims: %v.", idTokenClaims)
 			return idTokenClaims, nil
 		}
-		log.Debugf("[OIDC] Unable to fetch UserInfo claims: %v", err)
+		log.Debugf("Unable to fetch UserInfo claims: %v.", err)
 		return nil, trace.Wrap(err)
 	}
-	log.Debugf("[OIDC] UserInfo claims: %v", userInfoClaims)
+	log.Debugf("UserInfo claims: %v.", userInfoClaims)
 
 	// make sure that the subject in the userinfo claim matches the subject in
 	// the id token otherwise there is the possibility of a token substitution attack.
@@ -521,22 +677,46 @@ func (a *AuthServer) getClaims(oidcClient *oidc.Client, issuerURL string, code s
 	var uisub string
 	var exists bool
 	if idsub, exists, err = idTokenClaims.StringClaim("sub"); err != nil || !exists {
-		log.Debugf("[OIDC] unable to extract sub from ID token")
+		log.Debugf("Unable to extract OIDC sub claim from ID token.")
 		return nil, trace.Wrap(err)
 	}
 	if uisub, exists, err = userInfoClaims.StringClaim("sub"); err != nil || !exists {
-		log.Debugf("[OIDC] unable to extract sub from UserInfo")
+		log.Debugf("Unable to extract OIDC sub claim from UserInfo.")
 		return nil, trace.Wrap(err)
 	}
 	if idsub != uisub {
-		log.Debugf("[OIDC] Claim subjects don't match %q != %q", idsub, uisub)
+		log.Debugf("OIDC claim subjects don't match '%v' != '%v'.", idsub, uisub)
 		return nil, trace.BadParameter("invalid subject in UserInfo")
 	}
 
 	claims, err := mergeClaims(idTokenClaims, userInfoClaims)
 	if err != nil {
-		log.Debugf("[OIDC] Unable to merge claims: %v", err)
+		log.Debugf("Unable to merge OIDC claims: %v.", err)
 		return nil, trace.Wrap(err)
+	}
+
+	// for GSuite users, fetch extra data from the proprietary google API
+	// only if scope includes admin groups readonly scope
+	if issuerURL == teleport.GSuiteIssuerURL && utils.SliceContainsStr(scope, teleport.GSuiteGroupsScope) {
+		email, _, err := claims.StringClaim("email")
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		gsuiteClaims, err := a.claimsFromGSuite(oidcClient, issuerURL, email, t.AccessToken)
+		if err != nil {
+			if !trace.IsNotFound(err) {
+				return nil, trace.Wrap(err)
+			}
+			log.Debugf("Found no GSuite claims.")
+		} else {
+			if gsuiteClaims != nil {
+				log.Debugf("Got GSuiteclaims: %v.", gsuiteClaims)
+			}
+			claims, err = mergeClaims(claims, gsuiteClaims)
+			if err != nil {
+				return nil, trace.Wrap(err)
+			}
+		}
 	}
 
 	return claims, nil
@@ -548,7 +728,7 @@ func (a *AuthServer) getClaims(oidcClient *oidc.Client, issuerURL string, code s
 func (a *AuthServer) validateACRValues(acrValue string, identityProvider string, claims jose.Claims) error {
 	switch identityProvider {
 	case teleport.NetIQ:
-		log.Debugf("[OIDC] Validating ACR values with %q rules", identityProvider)
+		log.Debugf("Validating OIDC ACR values with '%v' rules.", identityProvider)
 
 		tokenAcr, ok := claims["acr"]
 		if !ok {
@@ -579,11 +759,11 @@ func (a *AuthServer) validateACRValues(acrValue string, identityProvider string,
 			}
 		}
 		if !acrValueMatched {
-			log.Debugf("[OIDC] No ACR match found for %q in %q", acrValue, tokenAcrValues)
+			log.Debugf("No OIDC ACR match found for '%v' in '%v'.", acrValue, tokenAcrValues)
 			return trace.BadParameter("acr claim does not match")
 		}
 	default:
-		log.Debugf("[OIDC] Validating ACR values with default rules")
+		log.Debugf("Validating OIDC ACR values with default rules.")
 
 		claimValue, exists, err := claims.StringClaim("acr")
 		if !exists {
@@ -593,7 +773,7 @@ func (a *AuthServer) validateACRValues(acrValue string, identityProvider string,
 			return trace.Wrap(err)
 		}
 		if claimValue != acrValue {
-			log.Debugf("[OIDC] No ACR match found %q != %q", acrValue, claimValue)
+			log.Debugf("No OIDC ACR match found '%v' != '%v'.", acrValue, claimValue)
 			return trace.BadParameter("acr claim does not match")
 		}
 	}

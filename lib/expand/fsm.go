@@ -18,15 +18,15 @@ package expand
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -52,7 +52,7 @@ type FSMConfig struct {
 	// LocalApps is local apps service of the joining node
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// JoinBackend is the local backend that stores join-specific data
 	JoinBackend storage.Backend
 	// Spec is the FSM spec
@@ -60,13 +60,11 @@ type FSMConfig struct {
 	// Credentials is the credentials for gRPC agents
 	Credentials credentials.TransportCredentials
 	// Runner is optional runner to use when running remote commands
-	Runner fsm.AgentRepository
+	Runner rpc.AgentRepository
 	// DebugMode turns on FSM debug mode
 	DebugMode bool
 	// Insecure turns on FSM insecure mode
 	Insecure bool
-	// DNSConfig is the node DNS configuration
-	DNSConfig storage.DNSConfig
 }
 
 // CheckAndSetDefaults validates expand FSM configuration and sets defaults
@@ -93,11 +91,8 @@ func (c *FSMConfig) CheckAndSetDefaults() error {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
-	if c.DNSConfig.IsEmpty() {
-		return trace.BadParameter("missing DNSConfig")
-	}
 	if c.Credentials == nil {
-		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)
+		c.Credentials, err = install.ClientCredentials(c.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -138,8 +133,6 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 type fsmEngine struct {
 	// FSMConfig is the expand FSM configuration
 	FSMConfig
-	// operation is the ongoing expand operation
-	operation ops.SiteOperation
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 }
@@ -161,6 +154,7 @@ func (e *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 
 // ChangePhaseState updates the phase state based on the provided parameters
 func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange) error {
+	logger := e.WithField("change", change)
 	planChange := storage.PlanChange{
 		ID:          uuid.New(),
 		ClusterName: e.OperationKey.SiteDomain,
@@ -176,55 +170,46 @@ func (e *fsmEngine) ChangePhaseState(ctx context.Context, change fsm.StateChange
 	}
 	err = e.Operator.CreateOperationPlanChange(e.OperationKey, planChange)
 	if err != nil {
-		e.Warnf("Failed to create changelog entry %v: %v.", change,
-			trace.DebugReport(err))
+		logger.WithError(err).Warn("Failed to create changelog entry.")
 	}
-	e.Debugf("Applied %s.", change)
+	logger.Debug("Applied.")
 	return nil
 }
 
 // GetPlan returns the up-to-date operation plan
 func (e *fsmEngine) GetPlan() (*storage.OperationPlan, error) {
-	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey.SiteDomain,
-		e.OperationKey.OperationID)
+	return fsm.GetOperationPlan(e.JoinBackend, e.OperationKey)
 }
 
 // RunCommand executes the phase specified by params on the specified
 // server using the provided runner
-func (e *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, node storage.Server, p fsm.Params) error {
-	args := []string{"join", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
+func (e *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, node storage.Server, p fsm.Params) error {
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", p.OperationID,
+	}
 	if e.DebugMode {
-		args = append([]string{"--debug"}, args...)
+		args = append(args, "--debug")
 	}
 	if e.Insecure {
-		args = append([]string{"--insecure"}, args...)
+		args = append(args, "--insecure")
+	}
+	if p.Force {
+		args = append(args, "--force")
 	}
 	return runner.Run(ctx, node, args...)
 }
 
 // Complete is called to mark operation complete
-func (e *fsmEngine) Complete(fsmErr error) error {
+func (e *fsmEngine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := e.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(e.OperationKey, e.Operator)
-	} else {
-		var message string
-		if fsmErr != nil {
-			message = trace.Unwrap(fsmErr).Error()
-		}
-		err = ops.FailOperation(e.OperationKey, e.Operator, message)
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	e.WithFields(logrus.Fields{
-		constants.FieldSuccess: fsm.IsCompleted(plan),
-		constants.FieldError:   fsmErr,
-	}).Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, e.Operator, fsmErr.Error())
 }
 
 // UpdateProgress reports operation progress to the cluster's operator

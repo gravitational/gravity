@@ -17,7 +17,7 @@ build:
 test:
 	go test -v -test.parallel=0 ./ ./tool/...
 
-BUILDBOX := quay.io/gravitational/debian-venti:go1.10.3-stretch
+BUILDBOX := quay.io/gravitational/debian-venti:go1.12.9-buster
 
 # Directory with sources inside the container
 DST := /gopath/src/github.com/gravitational/rigging

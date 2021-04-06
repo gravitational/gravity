@@ -28,31 +28,27 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
-	"github.com/gravitational/version"
-	"github.com/sirupsen/logrus"
 )
 
 // Syncer synchronizes the local package cache from a (remote) repository
 type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
-	Sync(*Builder, *semver.Version) error
-	// SelectRuntime picks an appropriate runtime for the application that's
-	// being built
-	SelectRuntime(*Builder) (*semver.Version, error)
+	Sync(*Engine, *schema.Manifest, *semver.Version) error
 }
 
 // NewSyncerFunc defines function that creates syncer for a builder
-type NewSyncerFunc func(*Builder) (Syncer, error)
+type NewSyncerFunc func(*Engine) (Syncer, error)
 
 // NewSyncer returns a new syncer instance for the provided builder
 //
 // Satisfies NewSyncerFunc type.
-func NewSyncer(b *Builder) (Syncer, error) {
+func NewSyncer(b *Engine) (Syncer, error) {
 	return newS3Syncer()
 }
 
@@ -73,43 +69,9 @@ func newS3Syncer() (*s3Syncer, error) {
 	}, nil
 }
 
-// SelectRuntime picks an appropriate runtime for the application that's
-// being built
-func (s *s3Syncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
-	// determine version of this binary
-	teleVersion, err := semver.NewVersion(version.Get().Version)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine tele version")
-	}
-	// determine the latest runtime compatible with this tele
-	releases, err := s.hub.List(true)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var latest *semver.Version
-	for _, release := range releases {
-		ver, err := semver.NewVersion(release.Version)
-		if err != nil {
-			logrus.Warnf("Failed to parse release version: %v %v.", release, err)
-			continue
-		}
-		if ver.Major != teleVersion.Major || ver.Minor != teleVersion.Minor {
-			continue
-		}
-		if latest == nil || latest.LessThan(*ver) {
-			latest = ver
-		}
-	}
-	if latest == nil {
-		return nil, trace.NotFound("could not find compatible runtime for "+
-			"this tele version %v", teleVersion)
-	}
-	return latest, nil
-}
-
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
-func (s *s3Syncer) Sync(builder *Builder, runtimeVersion *semver.Version) error {
+func (s *s3Syncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
 	tarball, err := s.hub.Get(loc.Locator{
 		Repository: defaults.SystemAccountOrg,
 		Name:       defaults.TelekubePackage,
@@ -134,7 +96,7 @@ func (s *s3Syncer) Sync(builder *Builder, runtimeVersion *semver.Version) error 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+	cacheApps, err := engine.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -143,13 +105,13 @@ func (s *s3Syncer) Sync(builder *Builder, runtimeVersion *semver.Version) error 
 		return trace.Wrap(err)
 	}
 	return service.PullAppDeps(service.AppPullRequest{
-		FieldLogger: builder.FieldLogger,
+		FieldLogger: log,
 		SrcPack:     env.Packages,
 		SrcApp:      tarballApps,
-		DstPack:     builder.Env.Packages,
+		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
-		Parallel:    builder.VendorReq.Parallel,
-	}, builder.Manifest)
+		Parallel:    engine.Parallel,
+	}, *manifest)
 }
 
 // packSyncer synchronizes local package cache with pack/apps services
@@ -168,36 +130,20 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 	}
 }
 
-// SelectRuntime picks an appropriate runtime for the application that's
-// being built
-func (s *packSyncer) SelectRuntime(builder *Builder) (*semver.Version, error) {
-	// determine version of this binary
-	teleVersion, err := semver.NewVersion(version.Get().Version)
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to determine tele version")
-	}
-	// determine the latest runtime compatible with this tele
-	runtime, err := pack.FindLatestCompatiblePackage(s.pack, loc.Runtime, *teleVersion)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return runtime.SemVer()
-}
-
 // Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(builder *Builder, runtimeVersion *semver.Version) error {
-	cacheApps, err := builder.Env.AppServiceLocal(localenv.AppConfig{})
+func (s *packSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+	cacheApps, err := engine.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	err = service.PullAppDeps(service.AppPullRequest{
 		SrcPack:     s.pack,
 		SrcApp:      s.apps,
-		DstPack:     builder.Env.Packages,
+		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
-		Parallel:    builder.VendorReq.Parallel,
-		FieldLogger: builder.FieldLogger,
-	}, builder.Manifest)
+		Parallel:    engine.Parallel,
+		FieldLogger: log,
+	}, *manifest)
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+

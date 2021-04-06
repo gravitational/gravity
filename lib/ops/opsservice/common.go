@@ -20,10 +20,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -124,7 +122,7 @@ func (s *site) createLogEntry(key ops.SiteOperationKey, entry ops.LogEntry) erro
 		return trace.Wrap(err)
 	}
 	defer writer.Close()
-	_, err = fmt.Fprintf(writer, entry.String())
+	_, err = fmt.Fprint(writer, entry.String())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -146,12 +144,11 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 				defer func() { <-semaphoreCh }()
 				err := fn(ctx, server)
 				if err != nil {
-					log.Warnf("Failed to execute operation: %v.",
-						trace.DebugReport(err))
+					log.WithError(err).Warn("Failed to execute operation.")
 				}
 				errCh <- trace.Wrap(err)
 			}(ctx, server)
-		case <-ctx.Done(): // someone has cancelled the operation
+		case <-ctx.Done():
 			return trace.LimitExceeded("cancelled")
 		}
 	}
@@ -163,31 +160,11 @@ func (s *site) executeOnServers(ctx context.Context, servers []remoteServer, fn 
 		case err := <-errCh:
 			errors = append(errors, err)
 		case <-ctx.Done():
-			return trace.BadParameter("cancelled")
+			return trace.LimitExceeded("cancelled")
 		}
 	}
 
 	return trace.NewAggregate(errors...)
-}
-
-func (s *site) getActiveMasterIP(runner *serverRunner) (string, error) {
-	clusterID := s.domainName
-	command := s.planetEnterCommand(
-		defaults.PlanetBin, "leader", "view",
-		fmt.Sprintf("--leader-key=/planet/cluster/%v/master", clusterID),
-		"--etcd-cafile=/var/state/root.cert",
-		"--etcd-certfile=/var/state/etcd.cert",
-		"--etcd-keyfile=/var/state/etcd.key",
-	)
-	out, err := runner.Run(command...)
-	if err != nil {
-		return "", trace.Wrap(err, "failed to query active master: %s", out)
-	}
-	var masterIP string
-	if ip := net.ParseIP(strings.TrimSpace(string(out))); ip != nil {
-		masterIP = ip.String()
-	}
-	return masterIP, nil
 }
 
 func (s *site) reportProgress(ctx *operationContext, p ops.ProgressEntry) {

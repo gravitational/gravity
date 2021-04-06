@@ -17,14 +17,17 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
@@ -36,7 +39,7 @@ func (o *Operator) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	data, err := getSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace))
+	data, err := getSMTPConfig(client.CoreV1().Secrets(defaults.MonitoringNamespace))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -50,27 +53,36 @@ func (o *Operator) GetSMTPConfig(key ops.SiteKey) (storage.SMTPConfig, error) {
 }
 
 // UpdateSMTPConfig updates the cluster SMTP configuration
-func (o *Operator) UpdateSMTPConfig(key ops.SiteKey, config storage.SMTPConfig) error {
+func (o *Operator) UpdateSMTPConfig(ctx context.Context, key ops.SiteKey, config storage.SMTPConfig) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	return updateSMTPConfig(client.Core().Secrets(defaults.MonitoringNamespace), config)
+	err = updateSMTPConfig(client.CoreV1().Secrets(defaults.MonitoringNamespace), config)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.SMTPConfigCreated)
+	return nil
 }
 
 // DeleteSMTPConfig deletes the cluster SMTP configuration
-func (o *Operator) DeleteSMTPConfig(key ops.SiteKey) error {
+func (o *Operator) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.Core().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
-	if trace.IsNotFound(err) {
-		return trace.NotFound("no SMTP configuration found")
+	err = rigging.ConvertError(client.CoreV1().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return trace.NotFound("no SMTP configuration found")
+		}
+		return trace.Wrap(err)
 	}
-	return trace.Wrap(err)
+
+	events.Emit(ctx, o, events.SMTPConfigDeleted)
+	return nil
 }
 
 func getSMTPConfig(client corev1.SecretInterface) ([]byte, error) {

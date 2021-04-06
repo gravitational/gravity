@@ -32,9 +32,10 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/transfer"
+
+	"github.com/coreos/go-semver/semver"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
-
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -66,7 +67,8 @@ func newImporter(dir string) (*importer, error) {
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			trace.Component:    "importer",
 			constants.FieldDir: dir,
-		})}
+		}),
+	}
 	err = func() error {
 		objects, err := fs.New(filepath.Join(dir, defaults.PackagesDir))
 		if err != nil {
@@ -109,14 +111,17 @@ func (i *importer) Close() error {
 }
 
 // getMasterTeleportConfig extracts configuration from teleport package
-func (i *importer) getMasterTeleportConfig() (*telecfg.FileConfig, error) {
-	configPackage, err := pack.FindLatestPackageByName(i.packages,
-		constants.TeleportMasterConfigPackage)
+func (i *importer) getMasterTeleportConfig(clusterName string) (*telecfg.FileConfig, error) {
+	configPackage, err := i.findLatestTeleportConfigPackage(clusterName, *defaults.TeleportVersion)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.Wrap(err,
+				"failed to find latest teleport configuration for %v", clusterName)
+		}
 		return nil, trace.Wrap(err)
 	}
 
-	i.Infof("Using teleport master config from %v.", configPackage)
+	i.WithField("package", configPackage).Info("Use teleport master config.")
 
 	_, reader, err := i.packages.ReadPackage(*configPackage)
 	if err != nil {
@@ -222,4 +227,57 @@ func (i *importer) importSite(b storage.Backend) error {
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+func (i *importer) findLatestTeleportConfigPackage(clusterName string, teleportVersion semver.Version) (*loc.Locator, error) {
+	config, err := pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   i.packages,
+		Repository: clusterName,
+		Match:      MatchTeleportConfigPackage(teleportVersion),
+	})
+	if err == nil {
+		return config, nil
+	}
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	return i.findLatestLegacyTeleportConfigPackage(clusterName)
+}
+
+func (i *importer) findLatestLegacyTeleportConfigPackage(clusterName string) (*loc.Locator, error) {
+	return pack.FindLatestPackageCustom(pack.FindLatestPackageRequest{
+		Packages:   i.packages,
+		Repository: clusterName,
+		Match:      matchLegacyTeleportConfigPackage(),
+	})
+}
+
+// MatchTeleportConfigPackage returns a match function that matches Teleport
+// master configuration package with specified version.
+func MatchTeleportConfigPackage(teleportVersion semver.Version) pack.MatchFunc {
+	return func(env pack.PackageEnvelope) bool {
+		if !env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig) {
+			return false
+		}
+		ver, err := env.Locator.SemVer()
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"package":       env.Locator,
+			}).Warn("Invalid semver.")
+			return false
+		}
+		verBase := semver.Version{
+			Major: ver.Major,
+			Minor: ver.Minor,
+			Patch: ver.Patch,
+		}
+		return verBase.Compare(teleportVersion) == 0
+	}
+}
+
+func matchLegacyTeleportConfigPackage() pack.MatchFunc {
+	return func(env pack.PackageEnvelope) bool {
+		return env.HasLabel(pack.PurposeLabel, pack.PurposeTeleportMasterConfig)
+	}
 }

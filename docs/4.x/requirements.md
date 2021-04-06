@@ -68,7 +68,7 @@ Telekube supports two networking backends in production:
 * VPC and routing tables based network for `AWS` cloud provider.
 * VXLAN based network for `generic` provider to be used on generic linux installations.
 
-See [Application Manifest](/pack/#application-manifest) section for details on how to select network type.
+See [Application Manifest](pack.md#application-manifest) section for details on how to select network type.
 
 #### Air-gapped installs
 
@@ -104,7 +104,7 @@ These ports are used for Cluster operation and should be open between cluster no
 | 3022-3025               | SSH                                     | Teleport internal SSH control panel       |
 | 3080                    | HTTPS                                   | Teleport Web  UI                          |
 | 3008-3012               | HTTPS                                   | Internal Telekube services                |
-| 32009                   | HTTPS                                   | Telekube Cluster/OpsCenter Admin panel UI |
+| 32009                   | HTTPS                                   | Telekube Cluster/OpsCenter Control Panel UI |
 | 3012                    | HTTPS                                   | Telekube RPC  agent                       |
 
 ## Kernel Modules
@@ -160,7 +160,7 @@ for more information about possible network-related issues.
 ### overlay module
 
 The overlay kernel module is required if the application is using overlay or
-overlay2 Docker storage driver (see [Application Manifest](/pack/#application-manifest))
+overlay2 Docker storage driver (see [Application Manifest](pack.md#application-manifest))
 for information on how to configure the storage driver). To check that it's
 loaded:
 
@@ -179,7 +179,7 @@ root$ echo 'overlay' > /etc/modules-load.d/overlay.conf
 ### ebtable_filter module
 
 This kernel module is required if the application is configuring Hairpin NAT
-(see [Hairpin NAT](/cluster/#networking)) to enable services to load-balance to themselves
+(see [Hairpin NAT](cluster.md#networking)) to enable services to load-balance to themselves
 and setting up docker bridge in "promiscuous-bridge" mode.
 
 To see if the module is loaded:

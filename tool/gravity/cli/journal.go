@@ -24,25 +24,29 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/report"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/system"
 	"github.com/gravitational/gravity/lib/system/mount"
+	"github.com/gravitational/gravity/lib/system/signals"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
 
-func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) error {
+func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string, since time.Duration, export bool) error {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	runtimePackage, err := findRuntimePackage(env.Packages)
+	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -58,22 +62,21 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 	if err := m.RoBindMount(logDir, journalDir); err != nil {
 		return trace.Wrap(err)
 	}
-
-	cleanup := func(context.Context) error {
+	defer func() {
 		if errUnmount := m.Unmount(journalDir); errUnmount != nil {
-			log.Warnf("Failed to unmount %v: %v.", journalDir, errUnmount)
+			log.WithFields(logrus.Fields{
+				logrus.ErrorKey: errUnmount,
+				"dir":           journalDir,
+			}).Warn("Failed to unmount.")
 		}
-		return nil
-	}
-	defer cleanup(context.TODO())
-
+	}()
 	logger := log.WithFields(logrus.Fields{
 		"runtime-package": runtimePackage.String(),
 		"rootfs":          rootDir,
 	})
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	go utils.WatchTerminationSignals(ctx, cancel, utils.StopperFunc(cleanup), logger)
+	ctx, cancel := context.WithCancel(context.Background())
+	interrupt := signals.WatchTerminationSignals(ctx, cancel, env)
+	defer interrupt.Close()
 
 	var w io.Writer = os.Stdout
 	if outputFile != "" {
@@ -89,18 +92,22 @@ func exportRuntimeJournal(env *localenv.LocalEnvironment, outputFile string) err
 
 	zip := gzip.NewWriter(w)
 	defer zip.Close()
-	cmd := exec.CommandContext(ctx, utils.Exe.Path, "system", "stream-runtime-journal")
+
+	args := []string{
+		"system", "stream-runtime-journal",
+		"--since", since.String(),
+	}
+	if export {
+		args = append(args, "--export")
+	}
+	cmd := exec.CommandContext(ctx, utils.Exe.Path, args...)
 	cmd.Stdout = zip
 	cmd.Stderr = zip
-	if err = cmd.Run(); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
+	return trace.Wrap(cmd.Run())
 }
 
-func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
-	runtimePackage, err := findRuntimePackage(env.Packages)
+func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration, export bool) error {
+	runtimePackage, err := pack.FindRuntimePackage(env.Packages)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -111,7 +118,7 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 	}
 
 	rootDir := filepath.Join(runtimePath, "rootfs")
-	err = system.DropCapabilitiesForChroot()
+	err = system.DropCapabilitiesForJournalExport()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -120,11 +127,16 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment) error {
 		return trace.Wrap(err)
 	}
 
-	const cmd = defaults.JournalctlBin
+	const cmd = defaults.JournalctlBinHost
 	args := []string{
 		cmd,
-		"--output", "export",
 		"-D", journalDir,
+	}
+	if export {
+		args = append(args, "--output", "export")
+	}
+	if since != 0 {
+		args = append(args, "--since", time.Now().Add(-since).Format(report.JournalDateFormat))
 	}
 	if err := syscall.Exec(cmd, args, nil); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),

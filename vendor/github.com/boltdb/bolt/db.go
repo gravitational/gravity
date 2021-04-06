@@ -39,6 +39,9 @@ const (
 // default page size for db is set to the OS page size.
 var defaultPageSize = os.Getpagesize()
 
+// The time elapsed between consecutive file locking attempts.
+const flockRetryTimeout = 50 * time.Millisecond
+
 // DB represents a collection of buckets persisted to a file on disk.
 // All data access is performed through transactions which can be obtained through the DB.
 // All the functions on DB will return a ErrDatabaseNotOpen if accessed before Open() is called.
@@ -737,9 +740,7 @@ retry:
 
 		// pass success, or bolt internal errors, to all callers
 		for _, c := range b.calls {
-			if c.err != nil {
-				c.err <- err
-			}
+			c.err <- err
 		}
 		break retry
 	}

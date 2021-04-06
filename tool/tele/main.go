@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 	"github.com/gravitational/gravity/tool/tele/cli"
 
 	teleutils "github.com/gravitational/teleport/lib/utils"
-	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -32,9 +31,9 @@ import (
 func main() {
 	teleutils.InitLogger(teleutils.LoggingForCLI, log.WarnLevel)
 	stdlog.SetOutput(log.StandardLogger().Writer())
-	app := kingpin.New("tele", "Gravity tool for building and publishing application bundles")
+	app := kingpin.New("tele", "Gravity tool for building and publishing cluster and application images.")
 	if err := run(app); err != nil {
-		log.Error(trace.DebugReport(err))
+		log.WithError(err).Error("Command failed.")
 		common.PrintError(err)
 		os.Exit(255)
 	}

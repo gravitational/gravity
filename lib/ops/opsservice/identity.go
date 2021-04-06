@@ -17,14 +17,24 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
 )
 
 // UpsertUser creates or updates a user
-func (o *Operator) UpsertUser(key ops.SiteKey, user teleservices.User) error {
-	return o.cfg.Users.UpsertUser(user)
+func (o *Operator) UpsertUser(ctx context.Context, key ops.SiteKey, user teleservices.User) error {
+	if err := o.cfg.Users.UpsertUser(user); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.UserCreated, events.Fields{
+		events.FieldName: user.GetName(),
+	})
+	return nil
 }
 
 // GetUser returns a user by name
@@ -38,13 +48,23 @@ func (o *Operator) GetUsers(key ops.SiteKey) ([]teleservices.User, error) {
 }
 
 // DeleteUser deletes a user by name
-func (o *Operator) DeleteUser(key ops.SiteKey, name string) error {
-	return o.cfg.Users.DeleteUser(name)
+func (o *Operator) DeleteUser(ctx context.Context, key ops.SiteKey, name string) error {
+	if err := o.cfg.Users.DeleteUser(name); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.UserDeleted, events.Fields{
+		events.FieldName: name,
+	})
+	return nil
 }
 
 // UpsertClusterAuthPreference updates cluster authentication preference
-func (o *Operator) UpsertClusterAuthPreference(key ops.SiteKey, auth teleservices.AuthPreference) error {
-	return o.cfg.Users.SetAuthPreference(auth)
+func (o *Operator) UpsertClusterAuthPreference(ctx context.Context, key ops.SiteKey, auth teleservices.AuthPreference) error {
+	if err := o.cfg.Users.SetAuthPreference(auth); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.AuthPreferenceUpdated)
+	return nil
 }
 
 // GetClusterAuthPreference returns cluster authentication preference
@@ -53,8 +73,14 @@ func (o *Operator) GetClusterAuthPreference(key ops.SiteKey) (teleservices.AuthP
 }
 
 // UpsertGithubConnector creates or updates a Github connector
-func (o *Operator) UpsertGithubConnector(key ops.SiteKey, connector teleservices.GithubConnector) error {
-	return o.cfg.Users.UpsertGithubConnector(connector)
+func (o *Operator) UpsertGithubConnector(ctx context.Context, key ops.SiteKey, connector teleservices.GithubConnector) error {
+	if err := o.cfg.Users.UpsertGithubConnector(connector); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.GithubConnectorCreated, events.Fields{
+		events.FieldName: connector.GetName(),
+	})
+	return nil
 }
 
 // GetGithubConnector returns a Github connector by name
@@ -72,6 +98,12 @@ func (o *Operator) GetGithubConnectors(key ops.SiteKey, withSecrets bool) ([]tel
 }
 
 // DeleteGithubConnector deletes a Github connector by name
-func (o *Operator) DeleteGithubConnector(key ops.SiteKey, name string) error {
-	return o.cfg.Users.DeleteGithubConnector(name)
+func (o *Operator) DeleteGithubConnector(ctx context.Context, key ops.SiteKey, name string) error {
+	if err := o.cfg.Users.DeleteGithubConnector(name); err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.GithubConnectorDeleted, events.Fields{
+		events.FieldName: name,
+	})
+	return nil
 }

@@ -82,20 +82,20 @@ is using domain/path components.
 * Add `skipIfMissing` for describing optional mounts.
 * Add ability to define custom preflight checks.
 
-See [Application Manifest Changes](/pack/#application-manifest-changes) for more details.
+See [Application Manifest Changes](pack.md#application-manifest-changes) for more details.
 
 ### 5.1.0-alpha.5
 
 #### Improvements
 
 * Add ability to mount host devices into the Telekube container. See
-[Application Manifest](/pack/#application-manifest) for more details.
+[Application Manifest](pack.md#application-manifest) for more details.
 
 ### 5.1.0-alpha.4
 
 #### Improvements
 
-* Introduce ability to use user-defined base images. See [User-Defined Base Image](/pack/#user-defined-base-image)
+* Introduce ability to use user-defined base images. See [User-Defined Base Image](pack.md#user-defined-base-image)
 for details.
 
 ### 5.2.0-alpha.1
@@ -104,7 +104,7 @@ for details.
 
 * Add `--dns-zone` flag to `gravity install` command to allow overriding upstreams
 for specific DNS zones within the cluster. See flag description in the
-[Installation](installation/#standalone-offline-cli-installation) section for details.
+[Installation](installation.md#standalone-offline-cli-installation) section for details.
 
 ### 5.0.4 LTS
 
@@ -131,7 +131,7 @@ install/upgrade.
 #### Improvements
 
 * Add multi-zone support for GCE clusters.
-* Update preflight checks to check iptables modules. See [requirements](/requirements#iptables-modules)
+* Update preflight checks to check iptables modules. See [requirements](requirements.md#iptables-modules)
 for details.
 * Add timeout to preflight checks on remote nodes.
 
@@ -155,7 +155,7 @@ for details.
 
 #### Improvements
 
-* Add support for GCE cloud provider. See [Installing on Google Compute Engine](/installation/#installing-on-google-compute-engine)
+* Add support for GCE cloud provider. See [Installing on Google Compute Engine](installation.md#installing-on-google-compute-engine)
 for details.
 
 #### Bugfixes
@@ -174,7 +174,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add ability to resume install/update after failure. Check [Resuming](/cluster/#resuming) for details.
+* Add ability to resume install/update after failure. Check [Resuming](cluster.md#resuming) for details.
 * Improve error reporting during install and when viewing operation plan.
 
 #### Bugfixes
@@ -241,21 +241,21 @@ install/upgrade.
 #### Improvements
 
 * Upgrade Kubernetes to `v1.9.6`.
-* Add support for more InfluxDB aggregate functions for use in [rollups](/monitoring/#rollups).
+* Add support for more InfluxDB aggregate functions for use in [rollups](monitoring.md#rollups).
 
 ### 5.0.0-alpha.14
 
 #### Improvements
 
 * Standalone installer now supports installing AWS clusters in CLI mode. See
-[AWS Installer](/cluster/#aws-installer) for more info.
+[AWS Installer](installation.md#aws-installer) for more info.
 
 ### 5.0.0-alpha.13
 
 #### Bugfixes
 
 * Update Kubernetes to version 1.8.10.
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 
 #### Bugfixes
 
@@ -266,7 +266,7 @@ install/upgrade.
 #### Improvements
 
 * Increase lifetime of CA certificates used internally within the cluster.
-* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](/cluster/#configuring-ops-center-endpoints) for details.
+* Add support for separating the endpoint for cluster and user traffic, see [Configuring Ops Center Endpoints](cluster.md#configuring-ops-center-endpoints) for details.
 * Add support for using flags with ./install script.
 
 #### Bugfixes
@@ -290,7 +290,7 @@ install/upgrade.
 
 #### Improvements
 
-* Add support for Helm charts. See [Helm Integration](/pack/#helm-integration)
+* Add support for Helm charts. See [Helm Integration](pack.md#helm-integration)
 for details.
 * Introduce `gravity users add` and `gravity users reset` commands that allow
 to invite users and reset user passwords from CLI.
@@ -343,7 +343,7 @@ to invite users and reset user passwords from CLI.
 
 #### Improvements
 
-* Add support for trusted clusters, see [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters) for details.
+* Add support for trusted clusters, see [Configuring Trusted Clusters](cluster.md#configuring-trusted-clusters) for details.
 * Improve application install resiliency by retrying on transient errors.
 * Improve resiliency when checking for hooks status.
 
@@ -364,8 +364,8 @@ to invite users and reset user passwords from CLI.
 #### Improvements
 
 * Add support for AWS autoscaling groups via [provisioner](https://github.com/gravitational/provisioner#aws-auto-scale-groups-support).
-* Add support for explicit [node roles](/cluster/#node-roles).
-* Add support for [custom taints](/cluster/#custom-taints).
+* Add support for explicit [node roles](cluster.md#node-roles).
+* Add support for [custom taints](cluster.md#custom-taints).
 
 ### 5.0.0-alpha.1
 
@@ -376,7 +376,7 @@ to invite users and reset user passwords from CLI.
 
 ## 4.x Releases
 
-## Instructions on upgrading to 4.23.0+
+### Instructions on upgrading to 4.23.0+
 
 Upgrading clusters to Telekube 4.23.0 works via the command line interface (CLI) only.
 To upgrade a cluster with an application packaged with the Telekube 4.23+
@@ -485,7 +485,7 @@ does not specify OS requirements.
 
 #### Improvements
 
-* Ability to override the service user when installing. Read more [here](/pack/#service-user).
+* Ability to override the service user when installing. Read more [here](pack.md#service-user).
 * Additional preflight checks during installation and update.
 * Remove the 32 characters restriction on the syslog tag in the logging application.
 
@@ -631,8 +631,8 @@ transient error
 
 #### Improvements
 
-* Add support for TLS keypair configuration via resources. Read more [here](/cluster/#configuring-tls-key-pair).
-* Simplify Ops Center [post install configuration](/opscenter/#post-provisioning).
+* Add support for TLS keypair configuration via resources. Read more [here](cluster.md#configuring-tls-key-pair).
+* Simplify Ops Center [post install configuration](opscenter.md#post-provisioning).
 
 #### Bugfixes
 
@@ -645,7 +645,7 @@ transient error
 #### Improvements
 
 * Add ability to provide a custom directory for system data during install/join. See command references in
-  [Automatic Installer](/overview/#automatic-installer) and [Adding a Node](/cluster/#adding-a-node) chapters
+  [Automatic Installer](installation.md#standalone-offline-cli-installation) and [Adding a Node](cluster.md#adding-a-node) chapters
   for more details.
 * Add option to Kubernetes tab in UI to SSH directly into a running container.
 
@@ -653,20 +653,20 @@ transient error
 
 #### Improvements
 
-* Refine update process with new Kubernetes phases, see [Separation of workloads](/cluster#separation-of-workloads) for more details.
+* Refine update process with new Kubernetes phases, see [Separation of workloads](cluster.md#separation-of-workloads) for more details.
 
 ### 4.35.0
 
 #### Improvements
 
-* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](/pack/#application-manifest) for more details.
+* Add ability to provide additional command line arguments to etcd and kubelet via application manifest, see [Application Manifest](pack.md#application-manifest) for more details.
 
 ### 4.34.0
 
 #### Improvements
 
 * Upgrade to Teleport Enterprise 2.3.
-* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](/manage/#controlling-access-to-clusters)
+* Add support for advanced RBAC for cluster access via Ops Centers, see [Cluster RBAC section](manage.md#controlling-access-to-clusters)
   for more information.
 
 ### 4.32.0
@@ -680,7 +680,7 @@ transient error
 #### Improvements
 
 * Upgrade to Kubernetes 1.7.5.
-* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](/cluster#configuring-log-forwarders)
+* Add support for a `logforwarder` resource, see [Configuring Log Forwarders](cluster.md#configuring-log-forwarders)
   for more information.
 
 #### Bugfixes
@@ -724,14 +724,14 @@ transient error
 
 #### Improvements
 
-* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](/cluster/#manual-upgrade-mode).
+* Introduce a redesigned manual upgrade procedure, see [Manual Upgrade Mode](cluster.md#manual-upgrade-mode).
 
 ### 4.21.0
 
 #### Improvements
 
 * New `tele create` command creates clusters via the OpsCenter.
-  See [Creating Remote Clusters](/manage/#creating-remote-clusters) for details.
+  See [Creating Remote Clusters](manage.md#creating-telekube-clusters)) for details.
 
 ### 4.20.0
 
@@ -781,7 +781,7 @@ transient error
 
 #### Improvements
 
-* Add support for new resources `user` and `token`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for new resources `user` and `token`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.13.0
 
@@ -798,7 +798,7 @@ transient error
 
 #### Improvements
 
-* Add support for a new resource type `role`. See [Configuring a Cluster](/cluster#configuring-a-cluster) for details.
+* Add support for a new resource type `role`. See [Configuring a Cluster](cluster.md#configuring-a-cluster) for details.
 
 ### 4.11.0
 
@@ -827,7 +827,7 @@ transient error
 
 #### Improvements
 
-* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](/cluster/#configuring-cluster)).
+* Introduce a set of `gravity resource` commands for cluster resources management (currently, [only OIDC connectors](cluster.md#configuring-a-cluster)).
 
 ### 4.7.0
 

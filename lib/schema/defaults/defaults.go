@@ -213,6 +213,7 @@ func isEmptyValue(v interface{}) bool {
 }
 
 func shouldReflectField(field reflect.StructField) bool {
+	//nolint:gosimple
 	if field.PkgPath != "" {
 		// Skip unexported fields
 		return false

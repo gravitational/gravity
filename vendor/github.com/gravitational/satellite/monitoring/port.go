@@ -108,10 +108,13 @@ func (c *portChecker) checkProcess(proc process, reporter health.Reporter) bool 
 			continue
 		}
 		switch proc.socket.state() {
-		case TimeWait:
-			// ignore sockets in time-wait state since they're going
-			// away soon
-			log.Debugf("Ignoring %v for program %q(pid=%v).", formatSocket(proc.socket), proc.name, proc.pid)
+		case TimeWait, Close, CloseWait:
+			// ignore sockets in certain terminal states
+			log.WithFields(log.Fields{
+				"socket":  formatSocket(proc.socket),
+				"process": proc.name,
+				"pid":     proc.pid,
+			}).Debug("Ignore lingering socket.")
 			continue
 		}
 

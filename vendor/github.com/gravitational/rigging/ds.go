@@ -16,61 +16,47 @@ package rigging
 
 import (
 	"context"
-	"io"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 )
 
-// NewDSControl returns new instance of DaemonSet updater
-func NewDSControl(config DSConfig) (*DSControl, error) {
-	err := config.CheckAndSetDefaults()
+// NewDaemonSetControl returns new instance of DaemonSet controller
+func NewDaemonSetControl(config DSConfig) (*DSControl, error) {
+	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var ds *appsv1.DaemonSet
-	if config.DaemonSet != nil {
-		ds = config.DaemonSet
-	} else {
-		ds, err = ParseDaemonSet(config.Reader)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	// sometimes existing objects pulled from the API don't have type set
-	ds.Kind = KindDaemonSet
 	return &DSControl{
-		DSConfig:  config,
-		daemonSet: *ds,
-		Entry: log.WithFields(log.Fields{
-			"ds": formatMeta(ds.ObjectMeta),
+		DSConfig: config,
+		FieldLogger: log.WithFields(log.Fields{
+			"daemonset": formatMeta(config.ObjectMeta),
 		}),
 	}, nil
 }
 
 // DSConfig is a DaemonSet control configuration
 type DSConfig struct {
-	// Reader with daemon set to update, will be used if present
-	Reader io.Reader
-	// DaemonSet is already parsed daemon set, will be used if present
-	DaemonSet *appsv1.DaemonSet
+	// DaemonSet specifies the existing resource
+	*appsv1.DaemonSet
 	// Client is k8s client
 	Client *kubernetes.Clientset
 }
 
-func (c *DSConfig) CheckAndSetDefaults() error {
-	if c.Reader == nil && c.DaemonSet == nil {
-		return trace.BadParameter("missing parameter Reader or DaemonSet")
+func (c *DSConfig) checkAndSetDefaults() error {
+	if c.DaemonSet == nil {
+		return trace.BadParameter("missing parameter DaemonSet")
 	}
 	if c.Client == nil {
 		return trace.BadParameter("missing parameter Client")
 	}
+	updateTypeMetaDaemonset(c.DaemonSet)
 	return nil
 }
 
@@ -78,8 +64,7 @@ func (c *DSConfig) CheckAndSetDefaults() error {
 // adds various operations, like delete, status check and update
 type DSControl struct {
 	DSConfig
-	daemonSet appsv1.DaemonSet
-	*log.Entry
+	log.FieldLogger
 }
 
 // collectPods returns pods created by this daemon set
@@ -88,28 +73,28 @@ func (c *DSControl) collectPods(daemonSet *v1beta1.DaemonSet) (map[string]v1.Pod
 	if daemonSet.Spec.Selector != nil {
 		labels = daemonSet.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(daemonSet.Namespace, labels, c.Entry, c.Client, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(daemonSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindDaemonSet && ref.UID == daemonSet.UID
 	})
 	return pods, trace.Wrap(err)
 }
 
 func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
-	c.Infof("delete %v", formatMeta(c.daemonSet.ObjectMeta))
+	c.Infof("delete %v", formatMeta(c.DaemonSet.ObjectMeta))
 
-	daemons := c.Client.Extensions().DaemonSets(c.daemonSet.Namespace)
-	currentDS, err := daemons.Get(c.daemonSet.Name, metav1.GetOptions{})
+	daemons := c.Client.ExtensionsV1beta1().DaemonSets(c.DaemonSet.Namespace)
+	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
-	pods := c.Client.Core().Pods(c.daemonSet.Namespace)
+	pods := c.Client.CoreV1().Pods(c.DaemonSet.Namespace)
 	currentPods, err := c.collectPods(currentDS)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	c.Info("deleting current daemon set")
 	deletePolicy := metav1.DeletePropagationForeground
-	err = daemons.Delete(c.daemonSet.Name, &metav1.DeleteOptions{
+	err = daemons.Delete(c.DaemonSet.Name, &metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
@@ -117,7 +102,7 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	err = waitForObjectDeletion(func() error {
-		_, err := daemons.Get(c.daemonSet.Name, metav1.GetOptions{})
+		_, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
 		return ConvertError(err)
 	})
 	if err != nil {
@@ -127,15 +112,15 @@ func (c *DSControl) Delete(ctx context.Context, cascade bool) error {
 	if !cascade {
 		c.Info("cascade not set, returning")
 	}
-	err = deletePods(pods, currentPods, *c.Entry)
+	err = deletePods(pods, currentPods, c.FieldLogger)
 	return trace.Wrap(err)
 }
 
 func (c *DSControl) Upsert(ctx context.Context) error {
-	c.Infof("upsert %v", formatMeta(c.daemonSet.ObjectMeta))
+	c.Infof("upsert %v", formatMeta(c.DaemonSet.ObjectMeta))
 
-	daemons := c.Client.Apps().DaemonSets(c.daemonSet.Namespace)
-	currentDS, err := daemons.Get(c.daemonSet.Name, metav1.GetOptions{})
+	daemons := c.Client.AppsV1().DaemonSets(c.DaemonSet.Namespace)
+	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
@@ -146,7 +131,7 @@ func (c *DSControl) Upsert(ctx context.Context) error {
 	}
 
 	if currentDS != nil {
-		control, err := NewDSControl(DSConfig{DaemonSet: currentDS, Client: c.Client})
+		control, err := NewDaemonSetControl(DSConfig{DaemonSet: currentDS, Client: c.Client})
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -157,12 +142,12 @@ func (c *DSControl) Upsert(ctx context.Context) error {
 	}
 
 	c.Info("creating new daemon set")
-	c.daemonSet.UID = ""
-	c.daemonSet.SelfLink = ""
-	c.daemonSet.ResourceVersion = ""
+	c.DaemonSet.UID = ""
+	c.DaemonSet.SelfLink = ""
+	c.DaemonSet.ResourceVersion = ""
 
 	err = withExponentialBackoff(func() error {
-		_, err = daemons.Create(&c.daemonSet)
+		_, err = daemons.Create(c.DaemonSet)
 		return ConvertError(err)
 	})
 	return trace.Wrap(err)
@@ -170,15 +155,15 @@ func (c *DSControl) Upsert(ctx context.Context) error {
 
 func (c *DSControl) nodeSelector() labels.Selector {
 	set := make(labels.Set)
-	for key, val := range c.daemonSet.Spec.Template.Spec.NodeSelector {
+	for key, val := range c.DaemonSet.Spec.Template.Spec.NodeSelector {
 		set[key] = val
 	}
 	return set.AsSelector()
 }
 
 func (c *DSControl) Status() error {
-	daemons := c.Client.Extensions().DaemonSets(c.daemonSet.Namespace)
-	currentDS, err := daemons.Get(c.daemonSet.Name, metav1.GetOptions{})
+	daemons := c.Client.ExtensionsV1beta1().DaemonSets(c.DaemonSet.Namespace)
+	currentDS, err := daemons.Get(c.DaemonSet.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
@@ -188,7 +173,7 @@ func (c *DSControl) Status() error {
 		return trace.Wrap(err)
 	}
 
-	nodes, err := c.Client.Core().Nodes().List(metav1.ListOptions{
+	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: c.nodeSelector().String(),
 	})
 	if err != nil {
@@ -201,5 +186,12 @@ func (c *DSControl) Status() error {
 		return nil
 	}
 
-	return checkRunning(currentPods, nodes.Items, c.Entry)
+	return checkRunning(currentPods, nodes.Items, c.FieldLogger)
+}
+
+func updateTypeMetaDaemonset(r *appsv1.DaemonSet) {
+	r.Kind = KindDaemonSet
+	if r.APIVersion == "" {
+		r.APIVersion = v1beta1.SchemeGroupVersion.String()
+	}
 }

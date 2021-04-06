@@ -1,3 +1,8 @@
+---
+title: Gravity Quick Start Guide
+description: Package and deploy a cloud application into an on-premise or air-gapped environment. Use this to deploy cloud apps into 3rd party cloud accounts.
+---
+
 # Introduction
 
 This Quick Start Guide will help you quickly evaluate Gravity by packaging, and installing a multi-node Kubernetes application.
@@ -8,7 +13,7 @@ fairly typical web application and consists of an HTTP request handling process
 which connects to a PostgreSQL instance.
 
 Before we start, you may want to review the
-[Gravity Overview](overview.md) to get familiar with basic concepts of the
+[Gravity Overview](index.md) to get familiar with basic concepts of the
 Gravity system.
 
 ## System Requirements
@@ -18,7 +23,7 @@ of running Kubernetes. For this QuickStart, you will need:
 
 * A x86_64 Linux machine or VM for packaging/building an application bundle.
   Usually it's commonly called "a developer's box".
-* We recommend taking a look at the [list of supported Linux distributions](requirements/#distributions).
+* We recommend taking a look at the [list of supported Linux distributions](requirements.md#distributions).
 * [Docker](https://get.docker.io) version 1.8 or newer. Run `docker info` before continuing to make sure
   you have Docker up and running.
 * You must be a member of the `docker` group. Run `groups` command to make sure

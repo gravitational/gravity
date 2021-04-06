@@ -18,8 +18,11 @@ package proto
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gogo/protobuf/types"
@@ -53,6 +56,75 @@ func (r CheckBandwidthRequest) Check() error {
 	}
 
 	return nil
+}
+
+// CheckAndSetDefaults validates the request and sets defaults.
+func (r *CheckDisksRequest) CheckAndSetDefaults() error {
+	for _, job := range r.Jobs {
+		if err := job.Check(); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	// During operations such as install or join fio binary is placed
+	// in state directory on the nodes so look there if the path
+	// wasn't specified explicitly.
+	if r.FioPath == "" {
+		stateDir, err := state.GetStateDir()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		r.FioPath = filepath.Join(stateDir, constants.FioBin)
+	}
+	if _, err := utils.StatFile(r.FioPath); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// Check validates the fio job spec.
+func (r FioJobSpec) Check() error {
+	// Generally fio does not mandate filename and will generate one if it
+	// is not provided, but we require it to simplify things like cleanup.
+	if r.Filename == "" {
+		return trace.BadParameter("missing file name for %q test", r.Name)
+	}
+	return nil
+}
+
+// Flags returns command-line flags for this fio job spec.
+func (r FioJobSpec) Flags() (flags []string) {
+	if r.Name != "" {
+		flags = append(flags, fmt.Sprint("--name=", r.Name))
+	}
+	if r.ReadWrite != "" {
+		flags = append(flags, fmt.Sprint("--rw=", r.ReadWrite))
+	}
+	if r.IoEngine != "" {
+		flags = append(flags, fmt.Sprint("--ioengine=", r.IoEngine))
+	}
+	if r.Fdatasync {
+		flags = append(flags, "--fdatasync=1")
+	}
+	if r.Filename != "" {
+		flags = append(flags, fmt.Sprint("--filename=", r.Filename))
+	}
+	if r.Size_ != "" {
+		flags = append(flags, fmt.Sprint("--size=", r.Size_))
+	}
+	if r.Runtime != nil {
+		flags = append(flags, fmt.Sprintf("--runtime=%vs", r.Runtime.GetSeconds()))
+	}
+	return flags
+}
+
+// GetWriteIOPS returns number of write iops.
+func (r FioJobResult) GetWriteIOPS() float64 {
+	return r.Write.Iops
+}
+
+// GetFsyncLatency returns 99th percentile of fsync latency in milliseconds.
+func (r FioJobResult) GetFsyncLatency() int64 {
+	return r.Sync.Latency.Percentile[bucket99] / 1000000
 }
 
 // Address returns a text representation of this server
@@ -94,3 +166,6 @@ func DurationFromProto(d *types.Duration) (time.Duration, error) {
 func DurationProto(d time.Duration) *types.Duration {
 	return types.DurationProto(d)
 }
+
+// bucket99 is the name of the fio's 99th percentile bucket.
+const bucket99 = "99.000000"

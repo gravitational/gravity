@@ -1,3 +1,8 @@
+---
+title: Guides and Workshops
+description: Tips and tricks for running Kubernetes applications in air-gapped and on-premise environments
+---
+
 # Gravity Guides
 
 We have learned quite a few Kubernetes tricks while helping our customers adopt

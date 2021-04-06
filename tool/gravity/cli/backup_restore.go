@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/archive"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
@@ -35,7 +34,7 @@ import (
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func backup(env *localenv.LocalEnvironment, tarball string, timeout time.Duration, follow, silent bool) (err error) {
@@ -61,7 +60,9 @@ func backup(env *localenv.LocalEnvironment, tarball string, timeout time.Duratio
 				return trace.Wrap(err)
 			}
 			defer func() {
-				err := apps.DeleteAppHookJob(ctx, *ref)
+				err := apps.DeleteAppHookJob(ctx, app.DeleteAppHookJobRequest{
+					HookRef: *ref,
+				})
 				if err != nil {
 					log.Warningf("failed to delete hook %v: %v",
 						ref, trace.DebugReport(err))
@@ -127,17 +128,17 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 		return trace.Wrap(err)
 	}
 
-	site, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	node, err := findLocalServer(*site)
+	node, err := findLocalServer(cluster.ClusterState.Servers)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	log.Infof("running %v for %v on %v", operation, site.App.Package, node.KubeNodeID())
+	log.Infof("running %v for %v on %v", operation, cluster.App.Package, node.KubeNodeID())
 
 	id, err := teleutils.CryptoRandomHex(3)
 	if err != nil {
@@ -145,7 +146,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 	}
 
 	req := &app.HookRunRequest{
-		Application: site.App.Package,
+		Application: cluster.App.Package,
 		Volumes: []v1.Volume{{
 			Name: hooks.VolumeBackup,
 			VolumeSource: v1.VolumeSource{
@@ -159,7 +160,7 @@ func runBackupRestore(env *localenv.LocalEnvironment, operation string,
 			MountPath: hooks.ContainerBackupDir,
 		}},
 		NodeSelector: map[string]string{
-			defaults.KubernetesHostnameLabel: node.KubeNodeID(),
+			v1.LabelHostname: node.KubeNodeID(),
 		},
 	}
 

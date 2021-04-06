@@ -115,7 +115,7 @@ func SetGrafanaHeaders(h http.Header, clusterName string, path string, expired b
 		Secure:   true,
 	}
 
-	if expired == true {
+	if expired {
 		// MaxAge<0 means delete cookie now
 		c.MaxAge = -1
 	}

@@ -17,17 +17,33 @@ limitations under the License.
 package expand
 
 import (
+	"net/url"
+	"strings"
+
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	systemstate "github.com/gravitational/gravity/lib/system/state"
+	"github.com/gravitational/gravity/lib/system/environ"
 
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 )
 
-// bootstrap initializes the local peer data
-func (p *Peer) bootstrap() error {
+// init initializes the peer after a successful connect
+func (p *Peer) init(ctx operationContext) (*rpcserver.PeerServer, error) {
+	err := p.initEnviron(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return p.startAgent(ctx)
+}
+
+func (p *Peer) initEnviron(ctx operationContext) error {
 	if err := p.clearLogins(); err != nil {
 		return trace.Wrap(err)
 	}
@@ -35,6 +51,12 @@ func (p *Peer) bootstrap() error {
 		return trace.Wrap(err)
 	}
 	if err := p.configureStateDirectory(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.ensureServiceUserAndBinary(ctx); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.downloadFio(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -73,7 +95,7 @@ func (p *Peer) configureStateDirectory() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = systemstate.ConfigureStateDirectory(stateDir, p.SystemDevice)
+	err = environ.ConfigureStateDirectory(stateDir, p.SystemDevice)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -89,27 +111,34 @@ func (p *Peer) ensureServiceUserAndBinary(ctx operationContext) error {
 	return nil
 }
 
-// syncOperation synchronizes operation-related data to the local join backend
-func (p *Peer) syncOperation(ctx operationContext) error {
-	// sync cluster
-	err := p.JoinBackend.DeleteSite(ctx.Cluster.Domain)
-	if err != nil && !trace.IsNotFound(err) {
-		return trace.Wrap(err)
-	}
-	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(ctx.Cluster))
+// downloadFio downloads fio binary from the installer's package service.
+func (p *Peer) downloadFio(ctx operationContext) error {
+	locator, err := ctx.Cluster.App.Manifest.Dependencies.ByName(constants.FioPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// sync operation
-	operation, err := ctx.Operator.GetSiteOperation(ctx.Operation.Key())
+	path, err := state.InStateDir(constants.FioBin)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = p.JoinBackend.CreateSiteOperation(storage.SiteOperation(*operation))
+	var label string
+	if p.RuntimeConfig.SELinux {
+		label = defaults.GravityFileLabel
+	}
+	err = pack.ExportExecutable(ctx.Packages, *locator, path, label)
+	if err != nil {
+		return trace.Wrap(err, "failed to export fio binary")
+	}
+	p.Infof("Exported fio v%v to %v.", locator.Version, path)
+	return nil
+}
+
+// syncOperationPlan synchronizes operation and plan data to the local join backend
+func (p *Peer) syncOperationPlan(ctx operationContext) error {
+	err := p.syncOperation(ctx.Operator, ctx.Cluster, ctx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// sync operation plan
 	plan, err := ctx.Operator.GetOperationPlan(ctx.Operation.Key())
 	if err != nil {
 		return trace.Wrap(err)
@@ -118,6 +147,84 @@ func (p *Peer) syncOperation(ctx operationContext) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Debug("Synchronized operation to the local backend.")
+	p.Debug("Synchronized operation plan to the local backend.")
 	return nil
+}
+
+// syncOperation synchronizes operation-related data to the local join backend
+func (p *Peer) syncOperation(operator ops.Operator, cluster ops.Site, operationKey ops.SiteOperationKey) error {
+	// sync cluster
+	err := p.JoinBackend.DeleteSite(cluster.Domain)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	_, err = p.JoinBackend.CreateSite(ops.ConvertOpsSite(cluster))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// sync operation
+	operation, err := operator.GetSiteOperation(operationKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = p.JoinBackend.CreateSiteOperation(storage.SiteOperation(*operation))
+	return trace.Wrap(err)
+}
+
+// startAgent starts a new RPC agent using the specified operation context.
+// The agent will signal p.errC once it has terminated
+func (p *Peer) startAgent(ctx operationContext) (*rpcserver.PeerServer, error) {
+	agent, err := p.newAgent(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	go func() {
+		p.errC <- agent.Serve()
+	}()
+	return agent, nil
+}
+
+// newAgent returns an instance of the RPC agent to handle remote calls
+func (p *Peer) newAgent(ctx operationContext) (*rpcserver.PeerServer, error) {
+	peerAddr, token, err := getPeerAddrAndToken(ctx, p.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	p.RuntimeConfig.Token = token
+	agent, err := install.NewAgent(install.AgentConfig{
+		FieldLogger: p.WithFields(log.Fields{
+			trace.Component: "rpc:peer",
+			"addr":          p.AdvertiseAddr,
+		}),
+		AdvertiseAddr: p.AdvertiseAddr,
+		CloudProvider: ctx.Cluster.Provider,
+		ServerAddr:    peerAddr,
+		Credentials:   ctx.Creds,
+		RuntimeConfig: p.RuntimeConfig,
+		WatchCh:       p.WatchCh,
+		StopHandler:   p.server.ManualStop,
+		AbortHandler:  p.server.Interrupted,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return agent, nil
+}
+
+// getPeerAddrAndToken returns the peer address and token for the specified role
+func getPeerAddrAndToken(ctx operationContext, role string) (peerAddr, token string, err error) {
+	peerAddr = ctx.Peer
+	if strings.HasPrefix(peerAddr, "http") { // peer may be an URL
+		peerURL, err := url.Parse(ctx.Peer)
+		if err != nil {
+			return "", "", trace.Wrap(err)
+		}
+		peerAddr = peerURL.Host
+	}
+	instructions, ok := ctx.Operation.InstallExpand.Agents[role]
+	if !ok {
+		return "", "", trace.BadParameter("no agent instructions for role %q: %v",
+			role, ctx.Operation.InstallExpand)
+	}
+	return peerAddr, instructions.Token, nil
 }

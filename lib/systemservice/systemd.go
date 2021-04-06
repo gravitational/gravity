@@ -25,14 +25,15 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
+
+var log = logrus.WithField(trace.Component, "systemd")
 
 type systemdManager struct{}
 
@@ -50,18 +51,21 @@ Description={{.Description}}
 TimeoutStartSec={{.Timeout}}
 {{if .Type}}Type={{.Type}}{{end}}
 {{if .User}}User={{.User}}{{end}}
-ExecStart={{.StartCommand}}
-{{if .StartPreCommand}}ExecStartPre={{.StartPreCommand}}{{end}}
+ExecStart={{.StartCommand}}{{range .StartPreCommands}}
+ExecStartPre={{.}}{{end}}
 {{if .StartPostCommand}}ExecStartPost={{.StartPostCommand}}{{end}}
 {{if .StopCommand}}ExecStop={{.StopCommand}}{{end}}
 {{if .StopPostCommand}}ExecStopPost={{.StopPostCommand}}{{end}}
-{{if .LimitNoFile}}LimitNOFILE={{.LimitNoFile}}{{end}}
+{{if .LimitNoFile}}LimitNOFILE={{.LimitNoFile}}{{else}}LimitNOFILE=100000{{end}}
 {{if .KillMode}}KillMode={{.KillMode}}{{end}}
 {{if .KillSignal}}KillSignal={{.KillSignal}}{{end}}
 {{if .Restart}}Restart={{.Restart}}{{end}}
 {{if .TimeoutStopSec}}TimeoutStopSec={{.TimeoutStopSec}}{{end}}
 {{if .RestartSec}}RestartSec={{.RestartSec}}{{end}}
 {{if .RemainAfterExit}}RemainAfterExit=yes{{end}}
+{{if .RestartPreventExitStatus}}RestartPreventExitStatus={{.RestartPreventExitStatus}}{{end}}
+{{if .SuccessExitStatus}}SuccessExitStatus={{.SuccessExitStatus}}{{end}}
+{{if .WorkingDirectory}}WorkingDirectory={{.WorkingDirectory}}{{end}}
 {{range $k, $v := .Environment}}Environment={{$k}}={{$v}}
 {{end}}
 {{if .TasksMax}}TasksMax={{.TasksMax}}{{end}}
@@ -71,11 +75,6 @@ ExecStart={{.StartCommand}}
 WantedBy={{.WantedBy}}
 {{end}}
 `
-
-	// Should we make the target configurable too?
-	systemdUnitFileDir = "/etc/systemd/system/"
-
-	systemdUnitFileSuffix = ".service"
 
 	systemdServiceDelimiter = "__"
 )
@@ -105,7 +104,7 @@ type systemdUnit struct {
 }
 
 func parseUnit(unit string) *loc.Locator {
-	unit = strings.TrimSuffix(unit, systemdUnitFileSuffix)
+	unit = strings.TrimSuffix(unit, ServiceSuffix)
 	parts := strings.Split(unit, systemdServiceDelimiter)
 	if len(parts) != 4 {
 		return nil
@@ -121,36 +120,32 @@ func parseUnit(unit string) *loc.Locator {
 func (u *systemdUnit) serviceName() string {
 	return strings.Join([]string{
 		servicePrefix, u.pkg.Repository, u.pkg.Name, u.pkg.Version},
-		systemdServiceDelimiter) + systemdUnitFileSuffix
+		systemdServiceDelimiter) + ServiceSuffix
 }
 
-func (u *systemdUnit) servicePath() string {
-	return filepath.Join(systemdUnitFileDir, u.serviceName())
-}
-
-func (s *systemdManager) installService(service serviceTemplate, noBlock bool) error {
-	service.Environment = map[string]string{
-		defaults.PathEnv: defaults.PathEnvVal,
+func (s *systemdManager) installService(service serviceTemplate, req NewServiceRequest) error {
+	if service.Environment == nil {
+		service.Environment = make(map[string]string)
+	}
+	if _, ok := service.Environment[defaults.PathEnv]; !ok {
+		service.Environment[defaults.PathEnv] = defaults.PathEnvVal
 	}
 
-	servicePath := filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
-	f, err := os.Create(servicePath)
-	if err != nil {
-		return trace.Wrap(err,
-			"error creating systemd unit file at %v", servicePath)
-	}
-	defer f.Close()
-
-	err = serviceUnitTemplate.Execute(f, service)
-	if err != nil {
-		return trace.Wrap(err, "error rendering template")
+	if err := writeUnitFile(unitPath(req.Name), service); err != nil {
+		return trace.Wrap(err)
 	}
 
-	if err := s.EnableService(service.Name); err != nil {
+	if req.ReloadConfiguration {
+		if out, err := invokeSystemctl("daemon-reload"); err != nil {
+			return trace.Wrap(err, "failed to reload manager's configuration").AddField("output", out)
+		}
+	}
+
+	if err := s.EnableService(req.Name); err != nil {
 		return trace.Wrap(err, "error enabling the service")
 	}
 
-	if err := s.StartService(service.Name, noBlock); err != nil {
+	if err := s.StartService(service.Name, req.NoBlock); err != nil {
 		return trace.Wrap(err, "error starting the service")
 	}
 
@@ -158,7 +153,7 @@ func (s *systemdManager) installService(service serviceTemplate, noBlock bool) e
 }
 
 func (s *systemdManager) installMountService(service mountServiceTemplate, noBlock bool) error {
-	servicePath := filepath.Join(systemdUnitFileDir, SystemdNameEscape(service.Name))
+	servicePath := filepath.Join(defaults.SystemUnitDir, SystemdNameEscape(service.Name))
 	f, err := os.Create(servicePath)
 	if err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
@@ -209,23 +204,31 @@ func (s *systemdManager) InstallPackageService(req NewPackageServiceRequest) err
 		Description: fmt.Sprintf("Auto-generated service for the %v package", req.Package),
 	}
 
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, NewServiceRequest{
+		ServiceSpec: req.ServiceSpec,
+		Name:        unit.serviceName(),
+		NoBlock:     req.NoBlock,
+	}))
 }
 
 // UninstallPackageService uninstalls gravity service implemented as a gravity package command
 func (s *systemdManager) UninstallPackageService(pkg loc.Locator) error {
-	return trace.Wrap(s.UninstallService(newSystemdUnit(pkg).serviceName()))
+	return trace.Wrap(s.UninstallService(UninstallServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	}))
 
 }
 
 // DisablePackageService disables gravity service implemented as a gravity package command
 func (s *systemdManager) DisablePackageService(pkg loc.Locator) error {
-	return s.DisableService(newSystemdUnit(pkg).serviceName())
+	return s.DisableService(DisableServiceRequest{
+		Name: newSystemdUnit(pkg).serviceName(),
+	})
 }
 
 // IsPackageServiceInstalled checks if the package service is installed
 func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error) {
-	units, err := s.ListPackageServices()
+	units, err := s.ListPackageServices(DefaultListServiceOptions)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
@@ -238,10 +241,23 @@ func (s *systemdManager) IsPackageServiceInstalled(pkg loc.Locator) (bool, error
 }
 
 // ListPackageServices lists installed package services
-func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
+func (s *systemdManager) ListPackageServices(opts ListServiceOptions) ([]PackageServiceStatus, error) {
 	var services []PackageServiceStatus
 
-	out, err := invokeSystemctl("list-units", "--plain", "--no-legend")
+	args := []string{"list-units", "--plain", "--no-legend"}
+	if opts.All {
+		args = append(args, "--all")
+	}
+	if opts.Type != "" {
+		args = append(args, "--type", opts.Type)
+	}
+	if opts.State != "" {
+		args = append(args, "--state", opts.State)
+	}
+	if opts.Pattern != "" {
+		args = append(args, opts.Pattern)
+	}
+	out, err := invokeSystemctlQuiet(args...)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to list-units: %v", out)
 	}
@@ -254,8 +270,8 @@ func (s *systemdManager) ListPackageServices() ([]PackageServiceStatus, error) {
 		if pkg == nil {
 			continue
 		}
-		services = append(
-			services, PackageServiceStatus{Package: *pkg, Status: words[2]})
+		services = append(services,
+			PackageServiceStatus{Package: *pkg, Status: words[2]})
 	}
 	return services, nil
 }
@@ -300,11 +316,11 @@ func (s *systemdManager) InstallService(req NewServiceRequest) error {
 		return trace.Wrap(err)
 	}
 	template := serviceTemplate{
-		Name:        req.Name,
+		Name:        serviceName(req.Name),
 		ServiceSpec: req.ServiceSpec,
 		Description: fmt.Sprintf("Auto-generated service for the %v", req.Name),
 	}
-	return trace.Wrap(s.installService(template, req.NoBlock))
+	return trace.Wrap(s.installService(template, req))
 }
 
 // InstalMountService installs a new mount service with the system service manager
@@ -321,32 +337,70 @@ func (s *systemdManager) InstallMountService(req NewMountServiceRequest) error {
 }
 
 // UninstallService uninstalls service
-func (s *systemdManager) UninstallService(name string) error {
-	out, err := invokeSystemctl("disable", name)
+func (s *systemdManager) UninstallService(req UninstallServiceRequest) error {
+	serviceName := serviceName(req.Name)
+	logger := log.WithField("service", serviceName)
+
+	serviceStatus, err := s.StatusService(serviceName)
 	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+		return trace.Wrap(err)
 	}
 
-	out, err = invokeSystemctl("stop", name)
-	if err != nil {
-		return trace.Wrap(err, "error stopping service %v: %s", name, out)
+	if serviceStatus == ServiceStatusFailed {
+		logger.Warn("Service unit is failed, trying to reset.")
+		out, err := invokeSystemctl("reset-failed", serviceName)
+		if err != nil {
+			logger.WithError(err).Errorf("Failed to reset failed service unit: %v.", out)
+		}
 	}
 
-	out, err = invokeSystemctl("is-failed", name)
+	out, err := invokeSystemctl("stop", serviceName)
+	if err != nil {
+		if IsUnknownServiceError(err) {
+			logger.Info("Service not found.")
+			return nil
+		}
+		return trace.Wrap(err, out)
+	}
+
+	out, err = invokeSystemctl("disable", serviceName)
+	if err != nil {
+		return trace.Wrap(err, out)
+	}
+
+	// Returns 0 if the unit is in failed state, non-zero otherwise
+	// See https://www.freedesktop.org/software/systemd/man/systemctl.html#is-failed%20PATTERN%E2%80%A6
+	out, err = invokeSystemctl("is-failed", serviceName)
 	status := strings.TrimSpace(out)
 
+	if exitCode := utils.ExitStatusFromError(err); exitCode != nil && *exitCode != 0 {
+		unitPath := unitPath(req.Name)
+		logger = logger.WithField("path", unitPath)
+		if errDelete := os.Remove(unitPath); errDelete != nil {
+			if !os.IsNotExist(errDelete) {
+				logger.WithError(errDelete).Warn("Failed to remove service unit file.")
+			} else {
+				logger.Info("Service unit file does not exist.")
+			}
+		} else {
+			logger.Info("Removed service unit file.")
+		}
+	}
+
 	switch status {
-	case ServiceStatusInactive:
-		// Ignore the inactive state
+	case ServiceStatusInactive, ServiceStatusUnknown:
+		// Ignore the inactive and unknown states
 		return nil
 	case ServiceStatusFailed:
-		return trace.CompareFailed("error stopping service %v: %s", name, out)
+		return trace.CompareFailed("error stopping service %q: %s", serviceName, out)
 	default:
 		if err != nil {
 			// Results of `systemctl is-failed` are purely informational
 			// beyond the state values we already check above
-			log.Warnf("service %v status: %s", name, out)
-			log.Debug(trace.DebugReport(err))
+			logger.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"output":        out,
+			}).Warn("UninstallService.")
 		}
 	}
 
@@ -354,10 +408,10 @@ func (s *systemdManager) UninstallService(name string) error {
 }
 
 // DisableService disables service without stopping it
-func (s *systemdManager) DisableService(name string) error {
-	out, err := invokeSystemctl("disable", name)
+func (s *systemdManager) DisableService(req DisableServiceRequest) error {
+	out, err := invokeSystemctl("disable", serviceName(req.Name))
 	if err != nil {
-		return trace.Wrap(err, "error disabling service %v: %v", name, out)
+		return trace.Wrap(err, "error disabling service %v: %s", req.Name, out)
 	}
 	return nil
 }
@@ -390,10 +444,16 @@ func (s *systemdManager) RestartService(name string) error {
 func (s *systemdManager) StatusService(name string) (string, error) {
 	out, err := invokeSystemctl("is-active", name)
 	out = strings.TrimSpace(out)
+	// TODO(dmitri): this is a dubious behavior at least w.r.t `unknown` state
+	// which one might consider actually unknown. In fact, the `is-active` predicate
+	// _always_ returns a state for a (arbitrary, even non-existent) service, and a
+	// non-zero exit code if the status is not 'active'
+	//
 	// do not report error in case if status is known
 	switch out {
-	case ServiceStatusActive, ServiceStatusFailed, ServiceStatusActivating,
-		ServiceStatusUnknown, ServiceStatusInactive:
+	case ServiceStatusActive, ServiceStatusInactive,
+		ServiceStatusFailed, ServiceStatusUnknown,
+		ServiceStatusActivating, ServiceStatusDeactivating:
 		return out, nil
 	}
 	return out, err
@@ -429,9 +489,61 @@ func (s *systemdManager) supportsTasksAccounting() bool {
 	return version >= defaults.SystemdTasksMinVersion
 }
 
+func invokeSystemctlQuiet(args ...string) (string, error) {
+	out, err := exec.Command("systemctl", append(args, "--no-pager")...).CombinedOutput()
+	return string(out), trace.Wrap(err)
+}
+
 func invokeSystemctl(args ...string) (string, error) {
+	var out bytes.Buffer
 	cmd := exec.Command("systemctl", append(args, "--no-pager")...)
-	out := &bytes.Buffer{}
-	err := utils.ExecL(cmd, out, log.WithField(trace.Component, constants.ComponentSystem))
+	err := utils.ExecL(cmd, &out, log)
 	return out.String(), trace.Wrap(err)
+}
+
+func writeUnitFile(path string, service serviceTemplate) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return trace.Wrap(err,
+			"error creating systemd unit file at %v", path)
+	}
+	defer f.Close()
+
+	err = serviceUnitTemplate.Execute(f, service)
+	if err != nil {
+		return trace.Wrap(err, "error rendering template")
+	}
+	return nil
+}
+
+// unitPath returns the default path for the systemd unit with the given name.
+// If the name is an absolute path, it is returned verbatim
+func unitPath(name string) (path string) {
+	if filepath.IsAbs(name) {
+		return name
+	}
+	return DefaultUnitPath(name)
+}
+
+// PackageServiceName returns the name of the package service
+// for the specified package locator
+func PackageServiceName(loc loc.Locator) string {
+	return newSystemdUnit(loc).serviceName()
+}
+
+// DefaultUnitPath returns the default path for the specified systemd unit
+func DefaultUnitPath(name string) (path string) {
+	return filepath.Join(defaults.SystemUnitDir, SystemdNameEscape(name))
+}
+
+// DefaultListServiceOptions specifies the default configuration to list package services
+var DefaultListServiceOptions = ListServiceOptions{
+	All:  true,
+	Type: UnitTypeService,
+}
+
+// serviceName returns just the name portion of the unit path.
+// If the name is already a relative service name, it is returned verbatim
+func serviceName(name string) string {
+	return filepath.Base(name)
 }

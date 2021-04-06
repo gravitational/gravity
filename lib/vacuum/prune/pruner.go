@@ -18,8 +18,11 @@ package prune
 
 import (
 	"context"
+	"fmt"
+	"time"
 
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/localenv"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -35,7 +38,9 @@ func (r Config) PrintStep(format string, args ...interface{}) {
 	if r.DryRun {
 		format = "[dry-run] " + format
 	}
-	_, _ = r.Emitter.PrintStep(format, args...)
+	message := fmt.Sprintf(format, args...)
+	r.Silent.Printf("%v\t%v\n", time.Now().UTC().Format(constants.HumanDateFormatSeconds),
+		message)
 }
 
 // Config is the common pruner configuration
@@ -44,6 +49,6 @@ type Config struct {
 	DryRun bool
 	// FieldLogger specifies the logger
 	log.FieldLogger
-	// Emitter specifies the progress output stream
-	Emitter utils.Emitter
+	// Silent specifies the progress output stream
+	Silent localenv.Silent
 }

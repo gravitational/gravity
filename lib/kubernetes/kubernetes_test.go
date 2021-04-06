@@ -30,7 +30,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	extensionsv1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,7 +77,7 @@ func (s *S) SetUpTest(c *C) {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 5 * time.Minute
 	err = utils.RetryWithInterval(context.TODO(), b, func() error {
-		_, err = s.Core().Namespaces().Create(ns)
+		_, err = s.CoreV1().Namespaces().Create(ns)
 		err = retryOnAlreadyExists(err)
 		return err
 	})
@@ -95,7 +95,7 @@ func (s *S) SetUpTest(c *C) {
 }
 
 func (s *S) TearDownTest(c *C) {
-	err := s.Core().Namespaces().Delete(testNamespace, nil)
+	err := s.CoreV1().Namespaces().Delete(testNamespace, nil)
 	c.Assert(err, IsNil)
 
 	client := s.CoreV1().Nodes()
@@ -114,22 +114,23 @@ func (s *S) TestDrainsNode(c *C) {
 
 	// setup
 	pod := newPod("foo")
-	_, err := s.Core().Pods(testNamespace).Create(pod)
+	_, err := s.CoreV1().Pods(testNamespace).Create(pod)
 	c.Assert(err, IsNil)
 
 	d := newDeployment("bar", pod.Spec)
-	_, err = s.Extensions().Deployments(testNamespace).Create(d)
+	_, err = s.ExtensionsV1beta1().Deployments(testNamespace).Create(d)
 	c.Assert(err, IsNil)
 
 	ds := newDaemonSet("qux", pod.Spec)
-	_, err = s.Extensions().DaemonSets(testNamespace).Create(ds)
+	_, err = s.ExtensionsV1beta1().DaemonSets(testNamespace).Create(ds)
 	c.Assert(err, IsNil)
 
-	podList, err := s.Core().Pods(testNamespace).List(
+	podList, err := s.CoreV1().Pods(testNamespace).List(
 		metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
 		})
+	c.Assert(err, IsNil)
 	err = waitForPods(ctx, s.CoreV1(), podList.Items, v1.PodRunning)
 	c.Assert(err, IsNil)
 
@@ -137,14 +138,13 @@ func (s *S) TestDrainsNode(c *C) {
 	err = Drain(ctx, s.Clientset, s.Name)
 	c.Assert(err, IsNil)
 
-	podList, err = s.Core().Pods(testNamespace).List(
+	podList, err = s.CoreV1().Pods(testNamespace).List(
 		metav1.ListOptions{
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": s.Name}).String(),
 			LabelSelector: labels.SelectorFromSet(labels.Set{"test-app": "foo"}).String(),
 		})
-	pendingPods, err := waitForDelete(ctx, s.CoreV1(), podList.Items, usingEviction(false))
 	c.Assert(err, IsNil)
-	c.Assert(pendingPods, HasLen, 0)
+	c.Assert(podList.Items, HasLen, 0)
 
 	// Clean up
 	err = SetUnschedulable(ctx, client, s.Name, false)
@@ -248,7 +248,7 @@ func newPod(name string) *v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:    name,
-					Image:   "apiserver:5000/gravitational/debian-tall:0.0.1",
+					Image:   "apiserver:5000/gravitational/debian-tall:buster",
 					Command: []string{"/bin/sh", "-c", "sleep 3600"},
 				},
 			},
@@ -293,7 +293,6 @@ func waitForPods(ctx context.Context, client corev1.CoreV1Interface, pods []v1.P
 				log.WithFields(podFields(pod)).Debug("waiting")
 				return trace.NotFound("no pod found")
 			}
-			return nil
 		}
 		return nil
 	})

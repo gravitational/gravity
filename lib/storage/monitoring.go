@@ -19,6 +19,7 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
@@ -31,8 +32,18 @@ type Alert interface {
 	teleservices.Resource
 	// CheckAndSetDefaults that the object is valid
 	CheckAndSetDefaults() error
+	// GetGroupName returns the alerting rule group name
+	GetGroupName() string
+	// GetAlertName returns the alerting rule name
+	GetAlertName() string
 	// GetFormula returns the kapacitor formula
 	GetFormula() string
+	// GetDelay returns the delay before alert fires
+	GetDelay() time.Duration
+	// GetLabels returns the alerting rule labels
+	GetLabels() map[string]string
+	// GetAnnotations returns the alerting rule annotations
+	GetAnnotations() map[string]string
 }
 
 // AlertV2 defines a monitoring alert
@@ -47,9 +58,34 @@ type AlertV2 struct {
 	Spec AlertSpecV2 `json:"spec"`
 }
 
+// GetGroupName returns the alerting rule group name
+func (r *AlertV2) GetGroupName() string {
+	return r.Spec.GroupName
+}
+
+// GetAlertName returns the alerting rule name
+func (r *AlertV2) GetAlertName() string {
+	return r.Spec.AlertName
+}
+
 // GetFormula returns alert's kapacitor formula
 func (r *AlertV2) GetFormula() string {
 	return r.Spec.Formula
+}
+
+// GetDelay returns the delay before alert fires
+func (r *AlertV2) GetDelay() time.Duration {
+	return r.Spec.Delay
+}
+
+// GetLabels returns the alerting rule labels
+func (r *AlertV2) GetLabels() map[string]string {
+	return r.Spec.Labels
+}
+
+// GetAnnotations returns the alerting rule annotations
+func (r *AlertV2) GetAnnotations() map[string]string {
+	return r.Spec.Annotations
 }
 
 // CheckAndSetDefaults checks validity of all parameters and sets defaults
@@ -89,6 +125,7 @@ func UnmarshalAlert(data []byte) (*AlertV2, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		alert.Metadata.CheckAndSetDefaults()
 		return &alert, nil
 	}
@@ -103,8 +140,24 @@ func MarshalAlert(alert Alert, opts ...teleservices.MarshalOption) ([]byte, erro
 
 // AlertSpecV2 defines a monitoring alert
 type AlertSpecV2 struct {
+	// GroupName optionally specifies alerting rule group.
+	//
+	// If not specified, group name will be constructed based on
+	// the resource name.
+	GroupName string `json:"group_name,omitempty"`
+	// AlertName optionally specifies alerting rule name.
+	//
+	// If not specified, rule name will be equal to the resource name.
+	AlertName string `json:"alert_name,omitempty"`
 	// Formula defines a formula for kapacitor
 	Formula string `json:"formula"`
+	// Delay is an optional delay before firing an alert.
+	Delay time.Duration `json:"duration,omitempty"`
+	// Labels specifies additional labels to be attached to alert.
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations specifies informational labels that can be used
+	// to store longer additional information.
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // AlertSpecV2Schema is JSON schema for a monitoring alert
@@ -113,7 +166,12 @@ const AlertSpecV2Schema = `{
   "additionalProperties": false,
   "required": ["formula"],
   "properties": {
-    "formula": {"type": "string"}
+    "group_name": {"type": "string"},
+    "alert_name": {"type": "string"},
+    "formula": {"type": "string"},
+    "delay": {"type": "string"},
+    "labels": {"type": "object"},
+    "annotations": {"type": "object"}
   }
 }`
 
@@ -183,6 +241,7 @@ func UnmarshalAlertTarget(data []byte) (*AlertTargetV2, error) {
 		if err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		target.Metadata.CheckAndSetDefaults()
 		return &target, nil
 	}

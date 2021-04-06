@@ -22,10 +22,10 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/codahale/hdrhistogram"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
+	log "github.com/sirupsen/logrus"
 )
 
 // BandwidthWriter is a writer that calculates amount of traffic (bytes)

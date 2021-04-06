@@ -43,7 +43,10 @@ func Validate(accessKey, secretKey, sessionToken, regionName string, probes Prob
 
 // ValidateWithCreds is an overload of Validate accepting specified credentials object.
 func ValidateWithCreds(creds *credentials.Credentials, regionName string, probes Probes, ctx context.Context) (actions Actions, err error) {
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	config := &aws.Config{
 		Credentials: creds,
 		Region:      aws.String(regionName),
@@ -97,7 +100,7 @@ func validateWithContext(clientCtx *clientContext, probes Probes, validator reso
 		}
 	}
 
-	for _ = range probes {
+	for range probes {
 		select {
 		case r := <-resultC:
 			if r.err == nil {
@@ -136,7 +139,7 @@ var AllProbes Probes
 // permission is implicitly required.
 var ActionDependencies = map[Action][]Action{
 	// Adding a role to instance profile implies enabled PassRole permission
-	Action{IAM, "AddRoleToInstanceProfile"}: []Action{{IAM, "PassRole"}},
+	{IAM, "AddRoleToInstanceProfile"}: {{IAM, "PassRole"}},
 }
 
 type Probes []ResourceProbe

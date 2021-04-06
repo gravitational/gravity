@@ -89,7 +89,7 @@ func NewTLSServer(cfg TLSServerConfig) (*TLSServer, error) {
 		return nil, trace.Wrap(err)
 	}
 	// authMiddleware authenticates request assuming TLS client authentication
-	// adds authentication infromation to the context
+	// adds authentication information to the context
 	// and passes it to the API server
 	authMiddleware := &AuthMiddleware{
 		AccessPoint:   cfg.AccessPoint,
@@ -120,13 +120,25 @@ func (t *TLSServer) Serve(listener net.Listener) error {
 // and server's GetConfigForClient reloads the list of trusted
 // local and remote certificate authorities
 func (t *TLSServer) GetConfigForClient(info *tls.ClientHelloInfo) (*tls.Config, error) {
+	var clusterName string
+	var err error
+	if info.ServerName != "" {
+		clusterName, err = DecodeClusterName(info.ServerName)
+		if err != nil {
+			if !trace.IsNotFound(err) {
+				log.Warningf("Client sent unsupported cluster name %q, what resulted in error %v.", info.ServerName, err)
+				return nil, trace.AccessDenied("access is denied")
+			}
+		}
+	}
+
 	// update client certificate pool based on currently trusted TLS
 	// certificate authorities.
 	// TODO(klizhentas) drop connections of the TLS cert authorities
 	// that are not trusted
 	// TODO(klizhentas) what are performance implications of returning new config
 	// per connections? E.g. what happens to session tickets. Benchmark this.
-	pool, err := t.AuthServer.ClientCertPool()
+	pool, err := t.AuthServer.ClientCertPool(clusterName)
 	if err != nil {
 		log.Errorf("failed to retrieve client pool: %v", trace.DebugReport(err))
 		// this falls back to the default config
@@ -158,7 +170,7 @@ func (a *AuthMiddleware) Wrap(h http.Handler) {
 }
 
 // GetUser returns authenticated user based on request metadata set by HTTP server
-func (a *AuthMiddleware) GetUser(r *http.Request) (interface{}, error) {
+func (a *AuthMiddleware) GetUser(r *http.Request) (IdentityGetter, error) {
 	peers := r.TLS.PeerCertificates
 	if len(peers) > 1 {
 		// when turning intermediaries on, don't forget to verify
@@ -180,6 +192,7 @@ func (a *AuthMiddleware) GetUser(r *http.Request) (interface{}, error) {
 			Role:             teleport.RoleNop,
 			Username:         string(teleport.RoleNop),
 			ClusterName:      localClusterName,
+			Identity:         tlsca.Identity{},
 		}, nil
 	}
 	clientCert := peers[0]
@@ -222,18 +235,21 @@ func (a *AuthMiddleware) GetUser(r *http.Request) (interface{}, error) {
 				Role:        *systemRole,
 				Username:    identity.Username,
 				ClusterName: certClusterName,
+				Identity:    *identity,
 			}, nil
 		}
 		return RemoteUser{
-			ClusterName: certClusterName,
-			Username:    identity.Username,
-			Principals:  identity.Principals,
-			RemoteRoles: identity.Groups,
+			ClusterName:      certClusterName,
+			Username:         identity.Username,
+			Principals:       identity.Principals,
+			KubernetesGroups: identity.KubernetesGroups,
+			RemoteRoles:      identity.Groups,
+			Identity:         *identity,
 		}, nil
 	}
 	// code below expects user or service from local cluster, to distinguish between
 	// interactive users and services (e.g. proxies), the code below
-	// checks for presense of system roles issued in certificate identity
+	// checks for presence of system roles issued in certificate identity
 	systemRole := findSystemRole(identity.Groups)
 	// in case if the system role is present, assume this is a service
 	// agent, e.g. Proxy, connecting to the cluster
@@ -243,12 +259,14 @@ func (a *AuthMiddleware) GetUser(r *http.Request) (interface{}, error) {
 			Role:             *systemRole,
 			Username:         identity.Username,
 			ClusterName:      localClusterName,
+			Identity:         *identity,
 		}, nil
 	}
 	// otherwise assume that is a local role, no need to pass the roles
 	// as it will be fetched from the local database
 	return LocalUser{
 		Username: identity.Username,
+		Identity: *identity,
 	}, nil
 }
 
@@ -271,7 +289,8 @@ func (a *AuthMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := a.GetUser(r)
 	if err != nil {
-		trace.WriteError(w, err)
+		log.WithError(err).Warn("Failed to query user.")
+		trace.WriteError(w, trace.Unwrap(err))
 		return
 	}
 

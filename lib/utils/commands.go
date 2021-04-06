@@ -48,8 +48,14 @@ func PlanetCommandSlice(args []string, gravityArgs ...string) []string {
 
 // PlanetEnterCommand returns command that runs in planet using gravity from path
 func PlanetEnterCommand(args ...string) []string {
-	return append([]string{constants.GravityBin, "planet", "enter",
-		"--", "--notty", args[0], "--"}, args[1:]...)
+	return append([]string{constants.GravityBin,
+		"exec", "--no-tty", "--no-interactive"}, args...)
+}
+
+// Self returns the command line for the currently running executable.
+// args specifies additional command line arguments
+func Self(args ...string) []string {
+	return Exe.Self(args...)
 }
 
 // Exe is the Executable for the currently running gravity binary
@@ -83,11 +89,17 @@ func (r Executable) PlanetCommandSlice(args []string, gravityArgs ...string) []s
 
 	gravityCommand := []string{r.Path}
 	gravityCommand = append(gravityCommand, gravityArgs...)
-	gravityCommand = append(gravityCommand, "planet", "enter",
-		"--", "--notty", command, "--")
+	gravityCommand = append(gravityCommand,
+		"exec", "--no-tty", "--no-interactive", command)
 	gravityCommand = append(gravityCommand, commandArgs...)
 
 	return gravityCommand
+}
+
+// Self returns the command line for the currently running executable.
+// args specifies additional command line arguments
+func (r Executable) Self(args ...string) []string {
+	return append([]string{r.Path}, args...)
 }
 
 // NewCurrentExecutable returns a new Executable for the currently running gravity binary
@@ -96,15 +108,22 @@ func NewCurrentExecutable() (*Executable, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, trace.ConvertSystemError(err)
+	}
 	return &Executable{
-		Path: path,
+		Path:       path,
+		WorkingDir: wd,
 	}, nil
 }
 
-// Executable abstracts the specified gravity binary
+// Executable describes a running gravity binary
 type Executable struct {
 	// Path specifies the path to the gravity binary
 	Path string
+	// WorkingDir specifies the working directory of the current process
+	WorkingDir string
 }
 
 func must(exe *Executable, err error) *Executable {

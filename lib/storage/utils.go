@@ -98,22 +98,95 @@ func GetClusterLoginEntry(backend Backend) (*LoginEntry, error) {
 	return entry, nil
 }
 
+// UpsertCluster creates or updates cluster in the provided backend.
+func UpsertCluster(backend Backend, cluster Site) error {
+	_, err := backend.UpdateSite(cluster)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		_, err := backend.CreateSite(cluster)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// UpsertOperation creates or updates operation in the provided backend.
+func UpsertOperation(backend Backend, operation SiteOperation) error {
+	_, err := backend.UpdateSiteOperation(operation)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		_, err := backend.CreateSiteOperation(operation)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
 // GetLastOperation returns the last operation for the local cluster
 func GetLastOperation(backend Backend) (*SiteOperation, error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	operations, err := backend.GetSiteOperations(cluster.Domain)
+	operations, err := GetOperations(backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if len(operations) == 0 {
 		return nil, trace.NotFound("no operations found")
 	}
-
 	return &(operations[0]), nil
+}
+
+// GetOperations returns all operations for the local cluster
+// sorted by time in descending order (with most recent operation first)
+func GetOperations(backend Backend) ([]SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operations, err := backend.GetSiteOperations(cluster.Domain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operations, nil
+}
+
+// GetLastOperationForCluster returns the last operation for the specified cluster
+func GetLastOperationForCluster(backend Backend, clusterName string) (*SiteOperation, error) {
+	operations, err := GetOperationsForCluster(backend, clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if len(operations) == 0 {
+		return nil, trace.NotFound("no operations found")
+	}
+	return &(operations[0]), nil
+}
+
+// GetOperationsForCluster returns all operations for the specified cluster
+// sorted by time in descending order (with most recent operation first)
+func GetOperationsForCluster(backend Backend, clusterName string) ([]SiteOperation, error) {
+	operations, err := backend.GetSiteOperations(clusterName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operations, nil
+}
+
+// GetOperationByID returns the operation with the given ID for the local cluster
+func GetOperationByID(backend Backend, operationID string) (*SiteOperation, error) {
+	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	operation, err := backend.GetSiteOperation(cluster.Domain, operationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return operation, nil
 }
 
 // GetLocalServers returns local cluster state servers
@@ -207,23 +280,37 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 		Type:       teleservices.UserCA,
 		DomainName: name,
 	}, true)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	ca.SetTTL(backend, delay)
-	if err := backend.UpsertCertAuthority(ca); err != nil {
-		return trace.Wrap(err)
+	// User authority may have already been deleted if one of the calls below
+	// failed and this is being retried.
+	if trace.IsNotFound(err) {
+		log.WithField("name", name).Warn("User authority not found.")
+	}
+	if ca != nil {
+		ca.SetTTL(backend, delay)
+		if err := backend.UpsertCertAuthority(ca); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	ca, err = backend.GetCertAuthority(teleservices.CertAuthID{
 		Type:       teleservices.HostCA,
 		DomainName: name,
 	}, true)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	ca.SetTTL(backend, delay)
-	if err := backend.UpsertCertAuthority(ca); err != nil {
-		return trace.Wrap(err)
+	// Host authority may have already been deleted if one of the calls below
+	// failed and this is being retried.
+	if trace.IsNotFound(err) {
+		log.WithField("name", name).Warn("Host authority not found.")
+	}
+	if ca != nil {
+		ca.SetTTL(backend, delay)
+		if err := backend.UpsertCertAuthority(ca); err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	cluster, err := backend.GetTrustedCluster(name)
 	if err != nil {
@@ -240,30 +327,13 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 // if no configuration is available
 func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err error) {
 	config, err = backend.GetDNSConfig()
-	log.Debugf("Backend: dns=%v (%v)", config, err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	if config == nil {
 		config = &fallback
 	}
-
 	return config, nil
-}
-
-// GetClusterDNSConfig returns the DNS configuration from the cluster record.
-// Returns a copy of storage.LegacyDNSConfig if no cluster record is available
-func GetClusterDNSConfig(backend Backend) (*DNSConfig, error) {
-	cluster, err := backend.GetLocalSite(defaults.SystemAccountID)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-	config := LegacyDNSConfig
-	if cluster != nil && !cluster.DNSConfig.IsEmpty() {
-		config = cluster.DNSConfig
-	}
-
-	return &config, nil
 }
 
 // DeepComparePhases compares the actual phase to the expected phase omitting
@@ -273,7 +343,7 @@ func DeepComparePhases(c *check.C, expected, actual OperationPhase) {
 		check.Commentf("phase ID does not match"))
 	c.Assert(expected.Requires, check.DeepEquals, actual.Requires,
 		check.Commentf("field Requires on phase %v does not match", expected.ID))
-	c.Assert(expected.Parallel, check.Equals, actual.Parallel,
+	c.Assert(expected.LimitParallel, check.Equals, actual.LimitParallel,
 		check.Commentf("field Parallel on phase %v does not match", expected.ID))
 	c.Assert(expected.Data, check.DeepEquals, actual.Data,
 		check.Commentf("field Data on phase %v does not match: %v", expected.ID,

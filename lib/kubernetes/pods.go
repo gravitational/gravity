@@ -31,7 +31,7 @@ import (
 
 // DeletePods deletes all pods matching selector using provided client
 func DeletePods(client *kubernetes.Clientset, namespace string, selector map[string]string) error {
-	return rigging.ConvertError(client.Core().Pods(namespace).DeleteCollection(
+	return rigging.ConvertError(client.CoreV1().Pods(namespace).DeleteCollection(
 		nil, metav1.ListOptions{
 			LabelSelector: utils.MakeSelector(selector).String(),
 		}))
@@ -49,6 +49,6 @@ func DeleteSelf(client *kubernetes.Clientset, log logrus.FieldLogger) error {
 		return trace.NotFound("env var %v is not set", constants.EnvPodNamespace)
 	}
 	log.Infof("Deleting pod %v/%v.", selfNamespace, selfName)
-	return rigging.ConvertError(client.Core().Pods(selfNamespace).Delete(
+	return rigging.ConvertError(client.CoreV1().Pods(selfNamespace).Delete(
 		selfName, nil))
 }

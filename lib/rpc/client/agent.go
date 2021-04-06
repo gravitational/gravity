@@ -33,8 +33,8 @@ import (
 )
 
 // Command executes the command specified with args on remote node
-func (c *client) Command(ctx context.Context, log logrus.FieldLogger, w io.Writer, args ...string) error {
-	err := c.command(ctx, log, w, &pb.CommandArgs{
+func (c *client) Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
+	err := c.command(ctx, log, stdout, stderr, &pb.CommandArgs{
 		Args: args,
 	})
 	return trace.Wrap(err)
@@ -42,8 +42,8 @@ func (c *client) Command(ctx context.Context, log logrus.FieldLogger, w io.Write
 
 // GravityCommand executes the gravity command specified with args on remote node.
 // The command uses the same gravity binary that runs the agent.
-func (c *client) GravityCommand(ctx context.Context, log logrus.FieldLogger, w io.Writer, args ...string) error {
-	err := c.command(ctx, log, w, &pb.CommandArgs{
+func (c *client) GravityCommand(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
+	err := c.command(ctx, log, stdout, stderr, &pb.CommandArgs{
 		SelfCommand: true,
 		Args:        args,
 	})
@@ -61,8 +61,8 @@ func (c *client) Validate(ctx context.Context, req *validationpb.ValidateRequest
 }
 
 // Shutdown requests remote agent to quit
-func (c *client) Shutdown(ctx context.Context) error {
-	_, err := c.agent.Shutdown(ctx, &types.Empty{})
+func (c *client) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
+	_, err := c.agent.Shutdown(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -70,7 +70,17 @@ func (c *client) Shutdown(ctx context.Context) error {
 	return trace.Wrap(c.Close())
 }
 
-func (c *client) command(ctx context.Context, log logrus.FieldLogger, w io.Writer, args *pb.CommandArgs) error {
+// Abort requests remote agent to abort operation
+func (c *client) Abort(ctx context.Context) error {
+	_, err := c.agent.Abort(ctx, &types.Empty{})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return trace.Wrap(c.Close())
+}
+
+func (c *client) command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args *pb.CommandArgs) error {
 	if len(args.Args) < 1 {
 		return trace.BadParameter("at least one argument is required")
 	}
@@ -80,7 +90,7 @@ func (c *client) command(ctx context.Context, log logrus.FieldLogger, w io.Write
 		return trace.Wrap(err)
 	}
 
-	err = processStream(out, log, w)
+	err = processStream(out, log, stdout, stderr)
 	return trace.Wrap(err)
 }
 
@@ -89,12 +99,14 @@ type streamContext struct {
 	log      logrus.FieldLogger
 }
 
-func processStream(stream pb.IncomingMessageStream, log logrus.FieldLogger, out io.Writer) error {
+func processStream(stream pb.IncomingMessageStream, log logrus.FieldLogger, stdout, stderr io.Writer) error {
 	streamCtx := &streamContext{map[int32][]string{}, log}
-	if out == nil {
-		out = ioutil.Discard
+	if stdout == nil {
+		stdout = ioutil.Discard
 	}
-
+	if stderr == nil {
+		stderr = ioutil.Discard
+	}
 	for {
 		msg, err := stream.Recv()
 		if err == io.EOF {
@@ -106,7 +118,7 @@ func processStream(stream pb.IncomingMessageStream, log logrus.FieldLogger, out 
 
 		switch elem := msg.Element.(type) {
 		case *pb.Message_ExecOutput:
-			err = trace.Wrap(streamCtx.processExecOutput(elem.ExecOutput, out))
+			err = trace.Wrap(streamCtx.processExecOutput(elem.ExecOutput, stdout, stderr))
 		case *pb.Message_ExecStarted:
 			err = trace.Wrap(streamCtx.processExecStarted(elem.ExecStarted))
 		case *pb.Message_ExecCompleted:
@@ -125,7 +137,7 @@ func processStream(stream pb.IncomingMessageStream, log logrus.FieldLogger, out 
 	}
 }
 
-func (s *streamContext) processExecOutput(msg *pb.ExecOutput, out io.Writer) error {
+func (s *streamContext) processExecOutput(msg *pb.ExecOutput, stdout, stderr io.Writer) error {
 	entry := s.log
 
 	args, ok := s.commands[msg.Seq]
@@ -133,14 +145,16 @@ func (s *streamContext) processExecOutput(msg *pb.ExecOutput, out io.Writer) err
 		entry = s.log.WithField("CMD", fmt.Sprintf("%s#%d", args[0], msg.Seq))
 	}
 
-	if _, err := out.Write(msg.Data); err != nil {
-		entry.WithError(err).Warn("failed to output")
-	}
-
 	switch msg.Fd {
 	case pb.ExecOutput_STDOUT:
+		if _, err := stdout.Write(msg.Data); err != nil {
+			entry.WithError(err).Warn("failed to output to stdout")
+		}
 		entry.Infof("%q", msg.Data)
 	case pb.ExecOutput_STDERR:
+		if _, err := stderr.Write(msg.Data); err != nil {
+			entry.WithError(err).Warn("failed to output to stderr")
+		}
 		entry.Warnf("%q", msg.Data)
 	default:
 		return trace.BadParameter("unexpected output descriptor value %v", msg.Fd)

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import (
 
 	"github.com/gravitational/gravity/lib/storage"
 
-	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // Migrate launches migrations for users and roles
@@ -32,16 +31,23 @@ func (u *UsersService) Migrate() error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	log := logrus.WithField(trace.Component, "migrate")
 	for _, user := range users {
-		m := log.WithFields(log.Fields{"user": user.GetName(), "module": "migrate"})
 		isAgent, err := u.isClusterAgent(user)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 		if isAgent {
-			m.Debugf("creating admin cluster user")
+			log.WithField("user", user.GetName()).Info("Creating admin cluster user.")
 			err = u.insertAdminClusterAgent(user)
 			if err != nil && !trace.IsAlreadyExists(err) {
+				return trace.Wrap(err)
+			}
+		}
+		hasTraits := len(user.GetTraits()) != 0
+		if !hasTraits {
+			err := u.updateUserWithTraits(user, log)
+			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
@@ -57,8 +63,7 @@ func (u *UsersService) Migrate() error {
 		}
 		role, ok := raw.(*storage.RoleV2)
 		if ok {
-			m := log.WithFields(log.Fields{"role": role.Metadata.Name, "module": "migrate"})
-			m.Debugf("migrating V2 role")
+			log.WithField("role", role.Metadata.Name).Info("Migrating V2 role.")
 			err := u.backend.UpsertRole(role.V3(), storage.Forever)
 			if err != nil {
 				return trace.Wrap(err)
@@ -68,18 +73,22 @@ func (u *UsersService) Migrate() error {
 	return nil
 }
 
-func (u *UsersService) updateUserWithRoles(user storage.User, roles ...teleservices.Role) error {
-	for i := range roles {
-		if err := u.backend.UpsertRole(roles[i], storage.Forever); err != nil {
-			return trace.Wrap(err)
-		}
-		user.AddRole(roles[i].GetName())
+// updateUserWithTraits sets traits for the provided user.
+func (u *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldLogger) error {
+	traits, err := u.getUserTraits(user)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	roleNames := user.GetRoles()
-	updateReq := storage.UpdateUserReq{
-		Roles: &roleNames,
+	log.WithFields(logrus.Fields{
+		"user":   user.GetName(),
+		"traits": traits,
+	}).Info("Updating existing user with traits.")
+	user.SetTraits(traits)
+	_, err = u.backend.UpsertUser(user)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return u.backend.UpdateUser(user.GetName(), updateReq)
+	return nil
 }
 
 // insertAdminClusterAgent inserts an admin cluster agent for the specified agent

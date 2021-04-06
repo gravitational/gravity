@@ -30,13 +30,13 @@ import (
 
 // NewOperationPlan returns a new plan for the specified operation
 // and the given set of servers
-func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server) (*storage.OperationPlan, error) {
+func NewOperationPlan(operation ops.SiteOperation, servers []storage.Server, remoteApps []storage.Application) (*storage.OperationPlan, error) {
 	masters, _ := libfsm.SplitServers(servers)
 	if len(masters) == 0 {
 		return nil, trace.NotFound("no master servers found in cluster state")
 	}
 
-	builder := phaseBuilder{}
+	builder := phaseBuilder{remoteApps: remoteApps}
 
 	registry := *builder.registry(masters)
 	packages := *builder.packages(servers)
@@ -92,6 +92,11 @@ func (r phaseBuilder) clusterPackages(parent phase) phase {
 	return phase{
 		ID:          parent.ChildLiteral("cluster"),
 		Description: "Prune unused cluster packages",
+		Data: &storage.OperationPhaseData{
+			GarbageCollect: &storage.GarbageCollectOperationData{
+				RemoteApps: r.remoteApps,
+			},
+		},
 	}
 }
 
@@ -118,7 +123,9 @@ func (r phaseBuilder) node(server storage.Server, parent phase, format string) p
 	}
 }
 
-type phaseBuilder struct{}
+type phaseBuilder struct {
+	remoteApps []storage.Application
+}
 
 // AddSequential will append sub-phases which depend one upon another
 func (p *phase) AddSequential(sub ...phase) {

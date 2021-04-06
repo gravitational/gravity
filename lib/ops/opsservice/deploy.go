@@ -38,11 +38,6 @@ func (s *site) planetEnterCommand(args ...string) []string {
 	return exe.PlanetCommandSlice(args, s.contextArgs()...)
 }
 
-// planetStatusCommand returns a command that outputs planet status
-func (s *site) planetStatusCommand() []string {
-	return s.gravityCommand("planet", "status")
-}
-
 // gravityCommand generates a command line for a gravity sub-command specified with args.
 // It adds additional flags depending on the context.
 func (s *site) gravityCommand(args ...string) []string {
@@ -97,13 +92,20 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("planet", "etcd"),
 		server.InGravity("planet", "registry"),
 		server.InGravity("planet", "docker"),
+		server.InGravity("planet", "kubelet"),
 		server.InGravity("planet", "share", "hooks"),
 		server.InGravity("planet", "log", "journal"),
+		server.InGravity("site", "teleport"),
 		server.InGravity("site", "packages", "blobs"),
 		server.InGravity("site", "packages", "unpacked"),
 		server.InGravity("site", "packages", "tmp"),
-		server.InGravity("site", "teleport"),
+		server.InGravity("secrets"),
 		server.InGravity("backup"),
+		server.InGravity("logrange"),
+		// names prometheus-db/alertmanager-db are hardcoded subPath values
+		// in prometheus-operator
+		server.InGravity("monitoring", "prometheus-db"),
+		server.InGravity("monitoring", "alertmanager-db"),
 	}
 
 	chownList := []string{
@@ -115,7 +117,10 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		server.InGravity("planet", "share"),
 		server.InGravity("planet", "state"),
 		server.InGravity("site"),
+		server.InGravity("secrets"),
 		server.InGravity("backup"),
+		server.InGravity("monitoring"),
+		server.InGravity("logrange"),
 	}
 
 	chmodList := []string{
@@ -146,12 +151,14 @@ func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, m
 		}
 		if mount.UID != nil || mount.GID != nil {
 			expr := chownExpr(mount.UID, mount.GID)
-			commands = append(commands,
-				Cmd([]string{"chown", expr, mount.Source}, "setting ownership of %v to %v", mount.Source, expr),
-			)
+			commands = append(commands, Cmd(
+				[]string{"chown", expr, mount.Source},
+				"setting ownership of %v to %v", mount.Source, expr))
 		} else {
 			// set standard ownership
-			chownList = append(chownList, mount.Source)
+			commands = append(commands, Cmd(
+				[]string{"chown", fmt.Sprintf("%v:%v", uid, gid), mount.Source},
+				"setting ownership of %v to %v:%v", mount.Source, uid, gid))
 		}
 		if mount.Mode != "" {
 			commands = append(commands,

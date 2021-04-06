@@ -17,31 +17,88 @@ limitations under the License.
 package cli
 
 import (
+	"context"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/httplib"
+	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack/webpack"
 	"github.com/gravitational/gravity/lib/processconfig"
+	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 
+	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-// LocalEnv returns an instance of a local environment for the specified
-// command
-func (g *Application) LocalEnv(cmd string) (*localenv.LocalEnvironment, error) {
-	stateDir, err := g.stateDir(cmd)
+// LocalEnvironmentFactory defines an interface for creating operation-specific environments
+type LocalEnvironmentFactory interface {
+	// NewLocalEnv creates a new default environment.
+	// It will use the location pointer file to find the location of the custom state
+	// directory if available and will fall back to defaults.GravityDir otherwise.
+	// All other environments are located under this common root directory
+	NewLocalEnv() (*localenv.LocalEnvironment, error)
+	// TODO(dmitri): generalize operation environment under a single
+	// NewOperationEnv API
+	// NewUpdateEnv creates a new environment for update operations
+	NewUpdateEnv() (*localenv.LocalEnvironment, error)
+	// NewJoinEnv creates a new environment for join operations
+	NewJoinEnv(stateDir string) (*localenv.LocalEnvironment, error)
+}
+
+// NewLocalEnv returns an instance of the local environment.
+func (g *Application) NewLocalEnv() (env *localenv.LocalEnvironment, err error) {
+	localStateDir, err := getLocalStateDir(*g.StateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return g.getEnv(stateDir)
+	return g.getEnv(localStateDir)
 }
 
-// UpgradeEnv returns an instance of the local environment that is used
-// only for upgrades
-func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
+// NewInstallEnv returns an instance of the local environment for commands that
+// initialize cluster environment (i.e. install or join).
+func (g *Application) NewInstallEnv() (env *localenv.LocalEnvironment, err error) {
+	stateDir := *g.StateDir
+	if stateDir == "" {
+		stateDir = defaults.LocalGravityDir
+	} else {
+		stateDir = filepath.Join(stateDir, defaults.LocalDir)
+	}
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
+		StateDir:         stateDir,
+		Insecure:         *g.Insecure,
+		Silent:           localenv.Silent(*g.Silent),
+		Debug:            *g.Debug,
+		EtcdRetryTimeout: *g.EtcdRetryTimeout,
+		// Use DNS configuration from installer command line.
+		// TODO(dmitri): setting this will only be useful for the install operation
+		// as in this case the DNS coniguration will first be set in local state during
+		// boostrapping step and the application service that is created based on this
+		// setting would have otherwise pointed to the legacy DNS configuration which is
+		// incorrect.
+		// This is rather a workaround - proper solution will be more involved and will have
+		// the application service using the kubernetes client (and hence the DNS config
+		// to resolve the names) only for hooks.
+		DNS:      localenv.DNSConfig(g.InstallCmd.DNSConfig()),
+		Reporter: common.ProgressReporter(*g.Silent),
+	})
+}
+
+// NewUpdateEnv returns an instance of the local environment that is used
+// only for updates
+func (g *Application) NewUpdateEnv() (*localenv.LocalEnvironment, error) {
 	dir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -49,24 +106,36 @@ func (g *Application) UpgradeEnv() (*localenv.LocalEnvironment, error) {
 	return g.getEnv(state.GravityUpdateDir(dir))
 }
 
-// JoinEnv returns an instance of local environment where join-specific data is stored
-func (g *Application) JoinEnv() (*localenv.LocalEnvironment, error) {
-	err := os.MkdirAll(defaults.GravityJoinDir, defaults.SharedDirMask)
+// NewJoinEnv returns an instance of local environment where join-specific data is stored
+func (g *Application) NewJoinEnv(stateDir string) (*localenv.LocalEnvironment, error) {
+	const failImmediatelyIfLocked = -1
+	err := os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	return g.getEnv(defaults.GravityJoinDir)
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
+		StateDir:         stateDir,
+		Insecure:         *g.Insecure,
+		Silent:           localenv.Silent(*g.Silent),
+		Debug:            *g.Debug,
+		EtcdRetryTimeout: *g.EtcdRetryTimeout,
+		BoltOpenTimeout:  failImmediatelyIfLocked,
+		Reporter:         common.ProgressReporter(*g.Silent),
+	})
 }
 
 func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error) {
-	args := localenv.LocalEnvironmentArgs{
+	return g.getEnvWithArgs(localenv.LocalEnvironmentArgs{
 		StateDir:         stateDir,
 		Insecure:         *g.Insecure,
 		Silent:           localenv.Silent(*g.Silent),
 		Debug:            *g.Debug,
 		EtcdRetryTimeout: *g.EtcdRetryTimeout,
 		Reporter:         common.ProgressReporter(*g.Silent),
-	}
+	})
+}
+
+func (g *Application) getEnvWithArgs(args localenv.LocalEnvironmentArgs) (*localenv.LocalEnvironment, error) {
 	if *g.StateDir != defaults.LocalGravityDir {
 		args.LocalKeyStoreDir = *g.StateDir
 	}
@@ -79,65 +148,128 @@ func (g *Application) getEnv(stateDir string) (*localenv.LocalEnvironment, error
 	return localenv.NewLocalEnvironment(args)
 }
 
-// stateDir returns the local state directory for the specified command
-func (g *Application) stateDir(cmd string) (string, error) {
-	if g.isInstallCommand(cmd) || g.isJoinCommand(cmd) {
-		// if a custom state directory was provided during install/join, it means
-		// that user wants all gravity data to be stored under this directory
-		if *g.StateDir != "" {
-			err := state.SetStateDir(*g.StateDir)
-			if err != nil {
-				return "", trace.Wrap(err)
-			}
-			return filepath.Join(*g.StateDir, defaults.LocalDir), nil
-		}
-		// otherwise use default state dir
-		return defaults.LocalGravityDir, nil
+// ConfigureNoProxy configures the current process to not use any configured HTTP proxy when connecting to any
+// destination by IP address, or a domain with a suffix of .local. Gravity internally connects to nodes by IP address,
+// and by queries to kubernetes using the .local suffix. The side effect is, connections towards the internet by IP
+// address and not a configured domain name will not be able to invoke a proxy. This should be a reasonable tradeoff,
+// because with a cluster that changes over time, it's difficult for us to accuratly detect what IP addresses need to
+// have no_proxy set.
+func ConfigureNoProxy() {
+	// The golang HTTP proxy env variable detection only uses the first detected http proxy env variable
+	// so we need to grab both to make sure we edit the correct one.
+	// https://github.com/golang/net/blob/c21de06aaf072cea07f3a65d6970e5c7d8b6cd6d/http/httpproxy/proxy.go#L91-L107
+	proxy := map[string]string{
+		"NO_PROXY": os.Getenv("NO_PROXY"),
+		"no_proxy": os.Getenv("no_proxy"),
 	}
 
-	// all other commands should use the state directory that was set by original
-	// install/join command, unless it was specified explicitly
-	if *g.StateDir != "" {
-		return *g.StateDir, nil
+	for k, v := range proxy {
+		if len(v) != 0 {
+			os.Setenv(k, strings.Join([]string{v, "0.0.0.0/0", ".local"}, ","))
+			return
+		}
 	}
-	dir, err := state.GetStateDir()
+
+	os.Setenv("NO_PROXY", strings.Join([]string{"0.0.0.0/0", ".local"}, ","))
+}
+
+func getLocalStateDir(stateDir string) (localStateDir string, err error) {
+	if stateDir != "" {
+		// If state directory has been explicitly specified on command line,
+		// use it
+		return stateDir, nil
+	}
+	stateDir, err = state.GetStateDir()
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
-	return filepath.Join(dir, defaults.LocalDir), nil
+	return filepath.Join(stateDir, defaults.LocalDir), nil
 }
 
-// isInstallCommand returns true if the specified command is
-// a "gravity install" command
-func (g *Application) isInstallCommand(cmd string) bool {
-	switch cmd {
-	case g.InstallCmd.FullCommand():
-		return *g.InstallCmd.Phase == ""
+// findLocalServer searches the provided cluster's state for the server that matches the one
+// the current command is being executed from
+func findLocalServer(servers storage.Servers) (*storage.Server, error) {
+	// collect the machines's IP addresses and search by them
+	ifaces, err := systeminfo.NetworkInterfaces()
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return false
+	if len(ifaces) == 0 {
+		return nil, trace.NotFound("no network interfaces found")
+	}
+
+	var ips []string
+	for _, iface := range ifaces {
+		ips = append(ips, iface.IPv4)
+	}
+
+	server, err := findServer(servers, ips)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return server, nil
 }
 
-// isJoinCommand returns true if the specified command is
-// a "gravity join" command
-func (g *Application) isJoinCommand(cmd string) bool {
-	switch cmd {
-	case g.JoinCmd.FullCommand():
-		return true
+// findServer searches the provided cluster's state for a server that matches one of the provided
+// tokens, where a token can be the server's advertise IP, hostname, cloud specific InstanceID or AWS internal DNS name
+func findServer(servers storage.Servers, tokens []string) (*storage.Server, error) {
+	for _, server := range servers {
+		for _, token := range tokens {
+			if token == "" {
+				continue
+			}
+			switch token {
+			case server.AdvertiseIP, server.Hostname, server.Nodename, server.InstanceID:
+				return &server, nil
+			}
+		}
 	}
-	return false
+	return nil, trace.NotFound("no server matching %v found among registered cluster nodes",
+		tokens)
 }
 
-// isUpgradeCommand returns true if the specified commans is
-// an upgrade related command
-func (g *Application) isUpgradeCommand(cmd string) bool {
-	switch cmd {
-	case g.PlanCmd.FullCommand(),
-		g.UpdateTriggerCmd.FullCommand(),
-		g.RollbackCmd.FullCommand(),
-		g.UpgradeCmd.FullCommand():
-		return true
-	case g.RPCAgentRunCmd.FullCommand():
-		return len(*g.RPCAgentRunCmd.Args) > 0
+func isCancelledError(err error) bool {
+	if err == nil {
+		return false
 	}
-	return false
+	return trace.IsCompareFailed(err) && strings.Contains(err.Error(), "cancelled")
+}
+
+func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
+	go func() {
+		for event := range watchCh {
+			if event.Error == nil {
+				continue
+			}
+			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+			cancel()
+			return
+		}
+	}()
+}
+
+func loadRPCCredentials(ctx context.Context, addr, token string) (*rpcserver.Credentials, error) {
+	// Assume addr to be a complete address if it's prefixed with `http`
+	if !strings.Contains(addr, "http") {
+		host, port := utils.SplitHostPort(addr, strconv.Itoa(defaults.GravitySiteNodePort))
+		addr = fmt.Sprintf("https://%v:%v", host, port)
+	}
+	httpClient := roundtrip.HTTPClient(httplib.GetClient(true))
+	packages, err := webpack.NewBearerClient(addr, token, httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	creds, err := install.LoadRPCCredentials(ctx, packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return creds, nil
+}
+
+func parseArgs(args []string) (*kingpin.ParseContext, error) {
+	app := kingpin.New("gravity", "")
+	app.Terminate(func(int) {})
+	app.Writer(ioutil.Discard)
+	return RegisterCommands(app).ParseContext(args)
 }

@@ -82,7 +82,7 @@ func (hook *remoteHook) Fire(e *logrus.Entry) error {
 		fields[k] = fmt.Sprintf("%v", v)
 	}
 
-	msg := pb.Message{&pb.Message_LogEntry{&pb.LogEntry{
+	msg := pb.Message{Element: &pb.Message_LogEntry{LogEntry: &pb.LogEntry{
 		Level:   level,
 		Message: e.Message,
 		Fields:  fields,

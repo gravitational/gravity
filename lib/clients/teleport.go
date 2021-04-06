@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 
@@ -79,16 +80,41 @@ func TeleportProxy(ctx context.Context, operator ops.Operator, proxyHost, cluste
 }
 
 // TeleportAuth returns a new teleport auth server client
-func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (auth.ClientI, error) {
-	proxyClient, err := TeleportProxy(ctx, operator, proxyHost, clusterName)
+func TeleportAuth(ctx context.Context, operator ops.Operator, proxyHost, clusterName string) (*AuthClient, error) {
+	teleport, err := Teleport(operator, proxyHost, clusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	authClient, err := proxyClient.ConnectToSite(ctx, false)
+	// Teleport auth server prior to version 3.0 didn't support TLS so
+	// do not attempt to connect if there's no TLS information, otherwise
+	// we'll get panic.
+	if teleport.TLS == nil {
+		return nil, trace.BadParameter("auth server %v does not support TLS", proxyHost)
+	}
+	proxyClient, err := teleport.ConnectToProxy(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return authClient, nil
+	authClient, err := proxyClient.ConnectToCurrentCluster(ctx, false)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &AuthClient{
+		ClientI:     authClient,
+		proxyClient: proxyClient,
+	}, nil
+}
+
+// Close closes this client
+func (r *AuthClient) Close() error {
+	return r.proxyClient.Close()
+}
+
+// AuthClient represents the client to the auth server
+type AuthClient struct {
+	io.Closer
+	auth.ClientI
+	proxyClient *client.ProxyClient
 }
 
 func authenticateWithTeleport(operator ops.Operator) ([]ssh.AuthMethod, *tls.Config, error) {

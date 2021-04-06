@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/docker"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport"
@@ -95,7 +95,6 @@ func (s FakeReverseTunnel) Close() error {
 }
 
 func (s FakeReverseTunnel) Wait() {
-	return
 }
 
 func (s FakeReverseTunnel) Shutdown(context.Context) error {
@@ -164,7 +163,6 @@ type AuthClient struct {
 }
 
 func (s *AuthClient) SetAuth(auth.ClientI) {
-	return
 }
 
 func (s *AuthClient) DeleteGithubConnector(id string) error {
@@ -273,6 +271,9 @@ func (s *AuthClient) GenerateHostCert(key []byte, hostID, nodeName string, princ
 func (s *AuthClient) GenerateUserCert(key []byte, user string, ttl time.Duration, compatibility string) ([]byte, error) {
 	return nil, nil
 }
+func (s *AuthClient) GenerateUserCerts(key []byte, user string, ttl time.Duration, compatibility string) ([]byte, []byte, error) {
+	return nil, nil, nil
+}
 func (s *AuthClient) GetSignupTokenData(token string) (user string, otpQRCode []byte, e error) {
 	return "", nil, nil
 }
@@ -294,7 +295,7 @@ func (s *AuthClient) RegisterUsingToken(req auth.RegisterUsingTokenRequest) (*au
 func (s *AuthClient) RegisterNewAuthServer(token string) error {
 	return nil
 }
-func (s *AuthClient) EmitAuditEvent(eventType string, fields events.EventFields) error {
+func (s *AuthClient) EmitAuditEvent(event events.Event, fields events.EventFields) error {
 	return nil
 }
 func (s *AuthClient) PostSessionSlice(events.SessionSlice) error {
@@ -343,6 +344,9 @@ func (s *AuthClient) CreateSession(sess session.Session) error {
 	return nil
 }
 func (s *AuthClient) UpdateSession(req session.UpdateRequest) error {
+	return nil
+}
+func (s *AuthClient) DeleteSession(namespace string, id session.ID) error {
 	return nil
 }
 func (s *AuthClient) GetClusterName() (services.ClusterName, error) {
@@ -398,4 +402,7 @@ func (s *AuthClient) RotateExternalCertAuthority(ca services.CertAuthority) erro
 }
 func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
 	return nil
+}
+func (c *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
+	return nil, nil
 }

@@ -20,16 +20,19 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/alecthomas/template"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
+	"github.com/gravitational/teleport/lib/utils"
+
+	"github.com/alecthomas/template"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -85,24 +88,15 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 	r.Progress.NextStep("Configuring CoreDNS")
 	r.Info("Configuring CoreDNS.")
 
-	// Read the resolv.conf from the host doing installation
-	// it will be used for configuring coredns upstream servers
-	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	conf, err := GenerateCorefile(CorednsConfig{
-		UpstreamNameservers: resolvConf.Servers,
-		Rotate:              resolvConf.Rotate,
-		Hosts:               r.DNSOverrides.Hosts,
-		Zones:               r.DNSOverrides.Zones,
+		Hosts: r.DNSOverrides.Hosts,
+		Zones: r.DNSOverrides.Zones,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(&v1.ConfigMap{
+	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "coredns",
 			Namespace: constants.KubeSystemNamespace,
@@ -110,12 +104,48 @@ func (r *corednsExecutor) Execute(ctx context.Context) error {
 		Data: map[string]string{
 			"Corefile": conf,
 		},
-	})
+	}
+
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	if err == nil {
+		r.Infof("Created config map %v/%v.", configMap.Namespace, configMap.Name)
+		return nil
+	}
+
+	err = rigging.ConvertError(err)
+	if !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
+	}
+
+	_, err = r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Update(configMap)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	r.Infof("Updated config map %v/%v.", configMap.Namespace, configMap.Name)
 	return nil
+}
+
+func mergeUpstreamResolvers(configs ...*storage.ResolvConf) []string {
+	var upstreams []string
+	dedup := make(map[string]bool)
+	for _, config := range configs {
+		if config != nil {
+			for _, nameserver := range config.Servers {
+				if _, ok := dedup[nameserver]; !ok {
+					// Filter out local nameservers to avoid CoreDNS forwarding requests
+					// to itself and triggering loop detection, see for more details:
+					// https://github.com/coredns/coredns/tree/master/plugin/loop#troubleshooting
+					if !utils.IsLocalhost(nameserver) {
+						dedup[nameserver] = true
+						upstreams = append(upstreams, nameserver)
+					}
+				}
+			}
+		}
+	}
+
+	return upstreams
 }
 
 // Rollback deletes the coredns configmap that was created in the execute step
@@ -130,6 +160,34 @@ func (r *corednsExecutor) Rollback(context.Context) error {
 
 // GenerateCorefile will generate a coredns configuration file to be used from within the cluster
 func GenerateCorefile(config CorednsConfig) (string, error) {
+	// Read the resolv.conf from the host doing installation // upgrade
+	// it will be used for configuring coredns upstream servers
+	resolvConf, err := systeminfo.ResolvFromFile("/etc/resolv.conf")
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	// Optionally try and load upstream nameservers from systemd-resolved by reading the compatibility resolv.conf
+	// More Info: https://github.com/gravitational/gravity/issues/606#issuecomment-529171440
+	// TODO(knisbet) is there a better way to pull upstream resolvers directly from systemd?
+	systemdResolvConf, err := systeminfo.ResolvFromFile("/run/systemd/resolve/resolv.conf")
+	if err != nil && !trace.IsNotFound(err) {
+		return "", trace.Wrap(err)
+	}
+
+	config.UpstreamNameservers = mergeUpstreamResolvers(resolvConf, systemdResolvConf)
+	if resolvConf != nil && resolvConf.Rotate {
+		config.Rotate = true
+	}
+	if systemdResolvConf != nil && systemdResolvConf.Rotate {
+		config.Rotate = true
+	}
+
+	result, err := generateCorefile(config)
+	return result, trace.Wrap(err)
+}
+
+func generateCorefile(config CorednsConfig) (string, error) {
 	var coredns bytes.Buffer
 	err := coreDNSTemplate.Execute(&coredns, config)
 	if err != nil {
@@ -174,9 +232,9 @@ const coreDNSTemplateText = `
   proxy {{$zone}} {{range $server := $servers}}{{$server}} {{end}}{
     policy sequential
   }{{end}}
-  forward . {{range $server := .UpstreamNameservers}}{{$server}} {{end}}{
+  {{if .UpstreamNameservers}}forward . {{range $server := .UpstreamNameservers}}{{$server}} {{end}}{
     {{if .Rotate}}policy random{{else}}policy sequential{{end}}
-    health_check 0
-  }
+    health_check 1s
+  }{{end}}
 }
 `

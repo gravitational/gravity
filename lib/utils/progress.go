@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -32,20 +34,30 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Printer describes a capability to output to standard output
+type Printer interface {
+	io.Writer
+	Printf(format string, args ...interface{})
+	Print(args ...interface{})
+	Println(args ...interface{})
+	PrintStep(format string, args ...interface{})
+}
+
+var DiscardPrinter = nopPrinter{}
+
+func (nopPrinter) Write(p []byte) (int, error)                  { return 0, nil }
+func (nopPrinter) Printf(format string, args ...interface{})    {}
+func (nopPrinter) Print(args ...interface{})                    {}
+func (nopPrinter) Println(args ...interface{})                  {}
+func (nopPrinter) PrintStep(format string, args ...interface{}) {}
+
+type nopPrinter struct {
+}
+
 // PrintProgress prints generic progress with stages
 func PrintProgress(current, target int, message string) {
 	fmt.Fprintf(os.Stdout, "\r%v %v%% (%v)      ",
 		ProgressBar(int64(current), int64(target)), current, message)
-}
-
-// PrintStep prints step instead of the progress bar
-func PrintStep(current, target int, message string) {
-	if target > 0 {
-		fmt.Fprintf(os.Stdout, "* [%v/%v] %v\n", current, target, message)
-	} else {
-		fmt.Fprintf(os.Stdout, "%v\t%v\n", time.Now().Format(
-			constants.HumanDateFormatSeconds), message)
-	}
 }
 
 func ProgressBar(current, target int64) string {
@@ -87,8 +99,12 @@ type Progress interface {
 	Stop()
 	// PrintCurrentStep updates and prints current step
 	PrintCurrentStep(message string, args ...interface{})
-	// PrintSubStep outputs the message as a sub-step of the current step
+	// PrintSubStep outputs the message at info level a sub-step.
 	PrintSubStep(message string, args ...interface{})
+	// PrintSubWarn outputs the message at warning level as a sub-step.
+	PrintSubWarn(message string, args ...interface{})
+	// PrintSubDebug outputs the message at debug level as a sub-step.
+	PrintSubDebug(message string, args ...interface{})
 	// Print outputs the specified message in regular color
 	Print(message string, args ...interface{})
 	// PrintInfo outputs the specified info message in color
@@ -104,7 +120,7 @@ type Progress interface {
 // beforehand and the step numbers will not be printed.
 func NewProgress(ctx context.Context, title string, steps int, silent bool) Progress {
 	if silent {
-		return NewNopProgress()
+		return DiscardProgress
 	}
 	return NewConsoleProgress(ctx, title, steps)
 }
@@ -112,19 +128,78 @@ func NewProgress(ctx context.Context, title string, steps int, silent bool) Prog
 // NewConsoleProgress returns new instance of progress reporter
 // steps is the total amount of steps this progress reporter
 // will report.
-func NewConsoleProgress(ctx context.Context, title string, steps int) *ConsoleProgress {
-	return &ConsoleProgress{
-		title:   title,
-		start:   time.Now(),
-		timeout: 10 * time.Second,
-		context: ctx,
-		steps:   steps,
+func NewConsoleProgress(ctx context.Context, title string, steps int) Progress {
+	return NewProgressWithConfig(ctx, title, ProgressConfig{Steps: steps})
+}
+
+// NewProgressWithConfig returns new progress reporter for the given set of options
+func NewProgressWithConfig(ctx context.Context, title string, config ProgressConfig) Progress {
+	if config.Level == ProgressLevelNone {
+		return DiscardProgress
+	}
+	config.setDefaults()
+	p := &progressPrinter{
+		title:     title,
+		start:     time.Now(),
+		context:   ctx,
+		timeout:   config.Timeout,
+		steps:     config.Steps,
+		w:         config.Output,
+		level:     config.Level,
+		printStep: config.StepPrinter,
+	}
+	return p
+}
+
+func (r *ProgressConfig) setDefaults() {
+	const progressMaxTimeout = 10 * time.Second
+	if r.Steps == 0 {
+		r.Steps = -1
+	}
+	if r.Timeout == 0 {
+		r.Timeout = progressMaxTimeout
+	}
+	if r.Output == nil {
+		r.Output = &consoleOutput{}
+	}
+	if r.StepPrinter == nil {
+		r.StepPrinter = DefaultStepPrinter
 	}
 }
 
-// ConsoleProgress is a helper progress printer
-// that prints all the output to the console
-type ConsoleProgress struct {
+// ProgressConfig defines configuration for the progress printer
+type ProgressConfig struct {
+	// Steps specifies the total number of steps.
+	// No steps will be displayed if unspecified
+	Steps int
+	// Timeout specifies the alotted time.
+	// Defaults to progressMaxTimeout if unspecified
+	Timeout time.Duration
+	// Output specifies the output sink.
+	// Defaults to os.Stdout if unspecified
+	Output io.Writer
+	// Level defines the reporting level.
+	Level ProgressLevel
+	// StepPrinter allows to override printer that prints a single step.
+	StepPrinter StepPrinter
+}
+
+// ProgressLevel represents a level at which reporter reports progress.
+type ProgressLevel int32
+
+const (
+	// ProgressLevelNone disables all output.
+	ProgressLevelNone ProgressLevel = -1
+	// ProgressLevelInfo is the level for basic informational messages.
+	ProgressLevelInfo ProgressLevel = iota
+	// ProgressLevelDebug is the level for more detailed information.
+	ProgressLevelDebug
+)
+
+// progressPrinter implements Progress that outputs
+// to the specified writer
+type progressPrinter struct {
+	w io.Writer
 	sync.Mutex
 	title        string
 	currentEntry *entry
@@ -133,21 +208,35 @@ type ConsoleProgress struct {
 	currentStep  int
 	context      context.Context
 	start        time.Time
+	level        ProgressLevel
+	printStep    StepPrinter
 }
 
 // PrintCurrentStep updates message printed for current step that is in progress
-func (p *ConsoleProgress) PrintCurrentStep(message string, args ...interface{}) {
+func (p *progressPrinter) PrintCurrentStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
-	PrintStep(entry.current, p.steps, entry.message)
+	p.printStep(p.w, entry.current, p.steps, entry.message)
 }
 
-// PrintSubStep outputs the message as a sub-step of the current step
-func (p *ConsoleProgress) PrintSubStep(message string, args ...interface{}) {
+// PrintSubWarn outputs the message at info level as a sub-step.
+func (p *progressPrinter) PrintSubStep(message string, args ...interface{}) {
 	entry := p.updateCurrentEntry(message, args...)
-	fmt.Fprintf(os.Stdout, "\t%v\n", entry.message)
+	fmt.Fprintf(p.w, "\t%v\n", entry.message)
 }
 
-func (p *ConsoleProgress) updateCurrentEntry(message string, args ...interface{}) *entry {
+// PrintSubWarn outputs the message at warning level as a sub-step.
+func (p *progressPrinter) PrintSubWarn(message string, args ...interface{}) {
+	p.PrintSubStep(color.YellowString(message, args...))
+}
+
+// PrintSubDebug outputs the message at debug level as a sub-step.
+func (p *progressPrinter) PrintSubDebug(message string, args ...interface{}) {
+	if p.level >= ProgressLevelDebug {
+		p.PrintSubStep(message, args...)
+	}
+}
+
+func (p *progressPrinter) updateCurrentEntry(message string, args ...interface{}) *entry {
 	message = fmt.Sprintf(message, args...)
 	var entry *entry
 	p.Lock()
@@ -158,26 +247,26 @@ func (p *ConsoleProgress) updateCurrentEntry(message string, args ...interface{}
 }
 
 // Print outputs the specified message in regular color
-func (p *ConsoleProgress) Print(message string, args ...interface{}) {
-	PrintStep(0, 0, fmt.Sprintf(message, args...))
+func (p *progressPrinter) Print(message string, args ...interface{}) {
+	p.printStep(p.w, 0, 0, fmt.Sprintf(message, args...))
 }
 
 // PrintInfo outputs the specified info message in color
-func (p *ConsoleProgress) PrintInfo(message string, args ...interface{}) {
-	PrintStep(0, 0, color.BlueString(fmt.Sprintf(message, args...)))
+func (p *progressPrinter) PrintInfo(message string, args ...interface{}) {
+	p.printStep(p.w, 0, 0, color.BlueString(fmt.Sprintf(message, args...)))
 }
 
 // PrintWarn outputs the specified warning message in color and logs the error
-func (p *ConsoleProgress) PrintWarn(err error, message string, args ...interface{}) {
-	PrintStep(0, 0, color.YellowString(fmt.Sprintf(message, args...)))
+func (p *progressPrinter) PrintWarn(err error, message string, args ...interface{}) {
+	p.printStep(p.w, 0, 0, color.YellowString(fmt.Sprintf(message, args...)))
 	if err != nil {
 		logrus.Warnf("%v: %v", fmt.Sprintf(message, args...), err)
 	}
 }
 
-func (p *ConsoleProgress) printPeriodic(current int, message string, ctx context.Context) {
+func (p *progressPrinter) printPeriodic(current int, message string, ctx context.Context) {
 	start := time.Now()
-	PrintStep(current, p.steps, message)
+	p.printStep(p.w, current, p.steps, message)
 
 	go func() {
 		ticker := time.NewTicker(p.timeout)
@@ -186,13 +275,21 @@ func (p *ConsoleProgress) printPeriodic(current int, message string, ctx context
 			select {
 			case <-ticker.C:
 				diff := humanize.RelTime(start, time.Now(), "elapsed", "elapsed")
-				fmt.Fprintf(os.Stdout, "\tStill %v (%v)\n", lowerFirst(message), diff)
+				fmt.Fprintf(p.w, "\tStill %v (%v)\n", lowerFirst(message), diff)
 			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 }
+
+// Write outputs p to console
+func (r *consoleOutput) Write(p []byte) (n int, err error) {
+	return os.Stdout.Write(p)
+}
+
+// consoleOutput outputs to console
+type consoleOutput struct{}
 
 // lowerFirst returns the copy of the provided string with the first
 // character lowercased
@@ -207,7 +304,7 @@ func lowerFirst(s string) string {
 }
 
 // UpdateCurrentStep updates message printed for current step that is in progress
-func (p *ConsoleProgress) UpdateCurrentStep(message string, args ...interface{}) {
+func (p *progressPrinter) UpdateCurrentStep(message string, args ...interface{}) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -219,7 +316,7 @@ func (p *ConsoleProgress) UpdateCurrentStep(message string, args ...interface{})
 
 // NextStep prints information about next step. It also prints
 // updates on the current step if it takes longer than default timeout
-func (p *ConsoleProgress) NextStep(message string, args ...interface{}) {
+func (p *progressPrinter) NextStep(message string, args ...interface{}) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -243,73 +340,87 @@ func (p *ConsoleProgress) NextStep(message string, args ...interface{}) {
 }
 
 // Stop stops printing all updates
-func (p *ConsoleProgress) Stop() {
+func (p *progressPrinter) Stop() {
 	p.Lock()
 	defer p.Unlock()
 
-	if p.currentEntry != nil {
-		p.currentEntry.cancel()
-		if p.steps <= 0 {
-			diff := humanize.RelTime(p.start, time.Now(), "", "")
-			PrintStep(p.currentEntry.current, p.steps, fmt.Sprintf("%v finished in %v", p.title, diff))
-		} else if p.currentEntry.current == p.steps {
-			diff := humanize.RelTime(p.start, time.Now(), "", "")
-			PrintStep(p.currentEntry.current, p.steps, fmt.Sprintf("%v completed in %v", p.title, diff))
-		} else {
-			diff := humanize.RelTime(p.start, time.Now(), "", "")
-			PrintStep(p.currentEntry.current, p.steps, fmt.Sprintf("%v aborted after %v", p.title, diff))
-		}
+	if p.currentEntry == nil {
+		return
+	}
+	p.currentEntry.cancel()
+	if p.steps <= 0 {
+		diff := humanize.RelTime(p.start, time.Now(), "", "")
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v finished in %v", p.title, diff))
+	} else if p.currentEntry.current == p.steps {
+		diff := humanize.RelTime(p.start, time.Now(), "", "")
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v completed in %v", p.title, diff))
+	} else {
+		diff := humanize.RelTime(p.start, time.Now(), "", "")
+		p.printStep(p.w, p.currentEntry.current, p.steps, fmt.Sprintf("%v aborted after %v", p.title, diff))
 	}
 	p.currentEntry = nil
 }
 
-// NewNopProgress returns an instance of discarding output progress reporter
-func NewNopProgress() *NopProgress {
-	return &NopProgress{}
+// StepPrinter prints a single step message.
+type StepPrinter func(out io.Writer, current, target int, message string)
+
+// DefaultStepPrinter outputs the message to out as it is.
+func DefaultStepPrinter(out io.Writer, current, target int, message string) {
+	if target > 0 {
+		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
+	} else {
+		fmt.Fprintf(out, "%v\n", message)
+	}
 }
 
-// NopProgress is a progress printer that reports nothing
-type NopProgress struct{}
+// TimestampedStepPrinter adds timestamps to the printed messages.
+func TimestampedStepPrinter(out io.Writer, current, target int, message string) {
+	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
+	fmt.Fprintf(out, "%v\t%v\n", timestamp, message)
+}
+
+// DiscardProgress is a progress reporter that discards all progress output
+var DiscardProgress Progress = &nopProgress{}
+
+// nopProgress is a progress printer that reports nothing
+type nopProgress struct{}
 
 // UpdateCurrentStep updates message printed for current step that is in progress
-func (*NopProgress) UpdateCurrentStep(message string, args ...interface{}) {}
+func (*nopProgress) UpdateCurrentStep(message string, args ...interface{}) {}
 
 // NextStep prints information about next step. It also prints
 // updates on the current step if it takes longer than default timeout
-func (*NopProgress) NextStep(message string, args ...interface{}) {}
+func (*nopProgress) NextStep(message string, args ...interface{}) {}
 
 // Stop stops printing all updates
-func (*NopProgress) Stop() {}
+func (*nopProgress) Stop() {}
 
 // PrintCurrentStep updates and prints current step
-func (*NopProgress) PrintCurrentStep(message string, args ...interface{}) {}
+func (*nopProgress) PrintCurrentStep(message string, args ...interface{}) {}
 
 // PrintSubStep outputs the message as a sub-step of the current step
-func (*NopProgress) PrintSubStep(message string, args ...interface{}) {}
+func (*nopProgress) PrintSubStep(message string, args ...interface{}) {}
+
+// PrintSubDebug outputs the message at warning level as a sub-step.
+func (*nopProgress) PrintSubWarn(message string, args ...interface{}) {}
+
+// PrintSubDebug outputs the message at debug level as a sub-step.
+func (*nopProgress) PrintSubDebug(message string, args ...interface{}) {}
 
 // Print outputs the specified message in regular color
-func (*NopProgress) Print(message string, args ...interface{}) {}
+func (*nopProgress) Print(message string, args ...interface{}) {}
 
 // PrintInfo outputs the specified info message in color
-func (*NopProgress) PrintInfo(message string, args ...interface{}) {}
+func (*nopProgress) PrintInfo(message string, args ...interface{}) {}
 
 // PrintWarn outputs the specified warning message in color and logs the error
-func (*NopProgress) PrintWarn(err error, message string, args ...interface{}) {}
+func (*nopProgress) PrintWarn(err error, message string, args ...interface{}) {}
 
-// Emitter abstracts a way to emit progess messages within an operation
-type Emitter interface {
-	// PrintStep formats the specified message string to stdout
-	PrintStep(format string, args ...interface{}) (n int, err error)
+// DiscardingLog is a logger that discards output
+var DiscardingLog = newDiscardingLogger()
+
+func newDiscardingLogger() (logger *logrus.Logger) {
+	logger = logrus.New()
+	logger.Out = ioutil.Discard
+	return logger
 }
-
-// NopEmitter returns an emitter that does nothing
-func NopEmitter() Emitter {
-	return nilEmitter{}
-}
-
-// PrintStep is a noop
-func (nilEmitter) PrintStep(format string, args ...interface{}) (n int, err error) {
-	return 0, nil
-}
-
-type nilEmitter struct{}

@@ -24,10 +24,12 @@ import (
 
 	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/gravitational/trace"
 	"github.com/mitchellh/go-ps"
+	log "github.com/sirupsen/logrus"
 )
 
 // New returns a new instance of system information
@@ -158,11 +160,6 @@ func collect() (*storage.SystemSpecV2, error) {
 
 	info.SystemPackages = GetSystemPackages(*osInfo)
 
-	info.LVMSystemDirectory, err = devicemapper.GetSystemDirectory()
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err, "failed to query LVM system directory")
-	}
-
 	userInfo, err := GetRealUser()
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to obtain current user info")
@@ -234,13 +231,40 @@ func queryProcesses() (result []storage.Process, err error) {
 }
 
 func collectFilesystemUsage(fs []storage.Filesystem) (result storage.FilesystemStats, err error) {
+	exceptFstypes := []string{
+		"sysfs",
+		"devtmpfs",
+		"proc",
+		"devpts",
+		"cgroup",
+		"configfs",
+		"selinuxfs",
+		"debugfs",
+	}
+	exceptDirs := []string{
+		"/sys",
+		"/run",
+		"/proc",
+		"/dev",
+	}
 	result = make(map[string]storage.FilesystemUsage, len(fs))
 	for _, mount := range fs {
 		usage := sigar.FileSystemUsage{}
-		if err := usage.Get(mount.DirName); err != nil {
-			return nil, trace.Wrap(err)
+		if utils.HasOneOfPrefixes(mount.DirName, exceptDirs...) {
+			continue
 		}
-		result[mount.DirName] = storage.FilesystemUsage{TotalKB: usage.Total, FreeKB: usage.Free}
+		if utils.StringInSlice(exceptFstypes, mount.Type) {
+			continue
+		}
+		err := usage.Get(mount.DirName)
+		if err == nil {
+			result[mount.DirName] = storage.FilesystemUsage{TotalKB: usage.Total, FreeKB: usage.Free}
+			continue
+		}
+		if !os.IsNotExist(err) {
+			return nil, trace.Wrap(err, "failed to get mount info on %v", mount.DirName)
+		}
+		log.WithField("path", mount.DirName).Warn("Directory for mountpoint not found - skipping.")
 	}
 	return result, nil
 }

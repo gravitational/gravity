@@ -105,7 +105,7 @@ func NewAuthGateway(spec AuthGatewaySpecV1) AuthGateway {
 
 // DefaultAuthGateway returns auth gateway resource with default parameters.
 func DefaultAuthGateway() AuthGateway {
-	var maxConnections int64 = teledefaults.LimiterMaxConnections
+	var maxConnections int64 = 10000
 	maxUsers := teledefaults.LimiterMaxConcurrentUsers
 	clientIdleTimeout := teleservices.NewDuration(0)
 	disconnectExpiredCert := teleservices.NewBool(false)
@@ -295,14 +295,17 @@ func (gw *AuthGatewayV1) ApplyToTeleportConfig(config *teleconfig.FileConfig) {
 			U2F:           u2f,
 		}
 	}
-	config.Auth.PublicAddr = append(config.Auth.PublicAddr,
-		gw.GetSSHPublicAddrs()...)
-	config.Proxy.SSHPublicAddr = append(config.Proxy.SSHPublicAddr,
-		gw.GetSSHPublicAddrs()...)
-	config.Proxy.PublicAddr = append(config.Proxy.PublicAddr,
-		gw.GetWebPublicAddrs()...)
-	config.Proxy.Kube.PublicAddr = append(config.Proxy.Kube.PublicAddr,
-		gw.GetKubernetesPublicAddrs()...)
+	// Make sure user-set values take precedence as Teleport may just
+	// grab first value from the list, for example when advertising
+	// Kubernetes proxy public address.
+	config.Auth.PublicAddr = append(gw.GetSSHPublicAddrs(),
+		config.Auth.PublicAddr...)
+	config.Proxy.SSHPublicAddr = append(gw.GetSSHPublicAddrs(),
+		config.Proxy.SSHPublicAddr...)
+	config.Proxy.PublicAddr = append(gw.GetWebPublicAddrs(),
+		config.Proxy.PublicAddr...)
+	config.Proxy.Kube.PublicAddr = append(gw.GetKubernetesPublicAddrs(),
+		config.Proxy.Kube.PublicAddr...)
 }
 
 // GetMaxConnections returns max connections setting.
@@ -543,7 +546,7 @@ func (gw *AuthGatewayV1) SetTTL(clock clockwork.Clock, ttl time.Duration) {
 func (gw AuthGatewayV1) String() string {
 	var parts []string
 	if gw.Spec.ConnectionLimits != nil {
-		parts = append(parts, fmt.Sprintf("%s", *gw.Spec.ConnectionLimits))
+		parts = append(parts, gw.Spec.ConnectionLimits.String())
 	}
 	if gw.Spec.ClientIdleTimeout != nil {
 		parts = append(parts, fmt.Sprintf("ClientIdleTimeout=%s",

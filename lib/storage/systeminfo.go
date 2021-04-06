@@ -36,6 +36,7 @@ func NewSystemInfo(spec SystemSpecV2) *SystemV2 {
 		Kind:    KindSystemInfo,
 		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
+			Name:      "systeminfo",
 			Namespace: teledefaults.Namespace,
 		},
 		Spec: spec,
@@ -68,8 +69,6 @@ type System interface {
 	GetSystemPackages() []SystemPackage
 	// GetOS identifies the host operating system or distribution
 	GetOS() OSInfo
-	// GetLVMSystemDirectory returns the location of the LVM system directory
-	GetLVMSystemDirectory() string
 	// GetUser returns the information about the user the agent is running under
 	GetUser() OSUser
 }
@@ -96,10 +95,16 @@ func UnmarshalSystemInfo(data []byte) (*SystemV2, error) {
 		var info SystemV2
 		err := teleutils.UnmarshalWithSchema(GetSystemInfoSchema(), &info, jsonData)
 		if err != nil {
-			log.Errorf("Invalid JSON: %s.", jsonData)
+			log.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"source":     string(jsonData),
+			}).Warn("Failed to validate JSON against schema.")
 			return nil, trace.BadParameter(err.Error())
 		}
-		info.Metadata.CheckAndSetDefaults()
+		err = info.Metadata.CheckAndSetDefaults()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 		return &info, nil
 	}
 	return nil, trace.BadParameter(
@@ -170,11 +175,6 @@ func (r *SystemV2) GetOS() OSInfo {
 	return r.Spec.OS
 }
 
-// GetLVMSystemDirectory returns the location of the LVM system directory
-func (r *SystemV2) GetLVMSystemDirectory() string {
-	return r.Spec.LVMSystemDirectory
-}
-
 // GetUser returns the information about the user the agent is running under
 func (r *SystemV2) GetUser() OSUser {
 	return r.Spec.User
@@ -220,6 +220,7 @@ type SystemSpecV2 struct {
 	OS OSInfo `json:"os"`
 	// LVMSystemDirectory specifies the location of the LVM system directory if the
 	// docker storage driver is devicemapper, empty otherwise
+	// DEPRECATED
 	LVMSystemDirectory string `json:"lvm_system_dir"`
 	// User specifies the agent's user identity
 	User OSUser `json:"user"`
@@ -231,14 +232,13 @@ func (r SystemV2) String() string {
 	for name, iface := range r.Spec.NetworkInterfaces {
 		ifaces = append(ifaces, fmt.Sprintf("%v=%v", name, iface.IPv4))
 	}
-	return fmt.Sprintf("sysinfo(hostname=%v, interfaces=%v, cpus=%v, ramMB=%v, OS=%v, user=%v, lvm_dir=%v)",
+	return fmt.Sprintf("sysinfo(hostname=%v, interfaces=%v, cpus=%v, ramMB=%v, OS=%v, user=%v)",
 		r.Spec.Hostname,
 		strings.Join(ifaces, ","),
 		r.Spec.NumCPU,
 		r.Spec.Memory.Total/1000/1000,
 		r.Spec.OS,
 		r.Spec.User,
-		r.Spec.LVMSystemDirectory,
 	)
 }
 
@@ -253,8 +253,8 @@ const SystemSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,
   "required": ["hostname", "interfaces", "filesystem", "filesystem_stats",
-      "memory", "swap", "cpus", "processes", "devices", "system_packages", "os",
-      "lvm_system_dir", "user"],
+      "memory", "swap", "cpus", "processes", "devices", "system_packages",
+      "os", "lvm_system_dir", "user"],
   "properties": {
     "hostname": {"type": "string"},
     "interfaces": {

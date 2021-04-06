@@ -27,7 +27,7 @@ import (
 
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -137,6 +137,8 @@ extensions:
     disabled: true
   configuration:
     disabled: true
+  opsCenter:
+    disabled: true
 systemOptions:
   runtime:
     version: "1.4.6"
@@ -147,7 +149,6 @@ systemOptions:
     args: ["-debug"]
   kubelet:
     args: ["--system-reserved=memory=500Mi"]
-    hairpinMode: promiscuous-bridge
   dependencies:
     runtimePackage: gravitational.io/planet:0.0.1
 `)
@@ -317,7 +318,6 @@ systemOptions:
 			ExternalService: ExternalService{
 				Args: []string{"--system-reserved=memory=500Mi"},
 			},
-			HairpinMode: constants.HairpinModePromiscuousBridge,
 		},
 		Dependencies: SystemDependencies{
 			Runtime: &Dependency{
@@ -336,6 +336,9 @@ systemOptions:
 			Disabled: true,
 		},
 		Configuration: &ConfigurationExtension{
+			Disabled: true,
+		},
+		OpsCenter: &OpsCenterExtension{
 			Disabled: true,
 		},
 	})
@@ -604,6 +607,12 @@ kind: Bundle
 metadata:
   name: myapp
   resourceVersion: 0.0.1
+ingress:
+  nginx:
+    enabled: false
+storage:
+  openebs:
+    enabled: false
 extensions:
   logs:
     disabled: true
@@ -626,6 +635,10 @@ extensions:
 			skip: true,
 		},
 		{
+			name: defaults.IngressAppName,
+			skip: true,
+		},
+		{
 			name: defaults.TillerAppName,
 			skip: true,
 		},
@@ -635,6 +648,10 @@ extensions:
 		},
 		{
 			name: defaults.BandwagonPackageName,
+			skip: true,
+		},
+		{
+			name: defaults.StorageAppName,
 			skip: true,
 		},
 	}

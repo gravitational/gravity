@@ -18,7 +18,6 @@ package phases
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -31,10 +30,12 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/systeminfo"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 )
@@ -45,8 +46,11 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
 	}
+	if p.Phase.Data.Pull == nil {
+		return nil, trace.BadParameter("phase does not contain pull data")
+	}
 
-	serviceUser, err := userFromOSUser(*p.Phase.Data.ServiceUser)
+	serviceUser, err := systeminfo.UserFromOSUser(*p.Phase.Data.ServiceUser)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -79,6 +83,7 @@ func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack 
 		LocalApps:      localApps,
 		ExecutorParams: p,
 		ServiceUser:    *serviceUser,
+		Pull:           *p.Phase.Data.Pull,
 		runtimePackage: *runtimePackage,
 		remote:         remote,
 	}, nil
@@ -97,6 +102,8 @@ type pullExecutor struct {
 	LocalApps app.Applications
 	// ServiceUser is the user used for services and system storage
 	ServiceUser systeminfo.User
+	// Pull contains applications and packages to pull
+	Pull storage.PullData
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
 	// remote specifies the server remote control interface
@@ -107,15 +114,23 @@ type pullExecutor struct {
 
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
-	err := p.pullUserApplication()
+	if len(p.Pull.Packages) != 0 {
+		err := p.pullPackages(p.Pull.Packages)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if len(p.Pull.Apps) != 0 {
+		err := p.pullApps(p.Pull.Apps)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	err := p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	err = p.applyPackageLabels()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = p.pullConfiguredPackages()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -130,28 +145,47 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 	err = utils.Chown(filepath.Join(stateDir, defaults.LocalDir),
-		fmt.Sprintf("%v", p.ServiceUser.UID),
-		fmt.Sprintf("%v", p.ServiceUser.GID))
+		p.ServiceUser.UID, p.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-func (p *pullExecutor) pullUserApplication() error {
-	p.Progress.NextStep("Pulling user application")
-	p.Info("Pulling user application.")
-	// TODO do not pull user app on regular nodes
-	_, err := service.PullApp(service.AppPullRequest{
-		FieldLogger: p.FieldLogger,
-		SrcPack:     p.WizardPackages,
-		DstPack:     p.LocalPackages,
-		SrcApp:      p.WizardApps,
-		DstApp:      p.LocalApps,
-		Package:     *p.Phase.Data.Package,
-	})
-	if err != nil {
-		return trace.Wrap(err)
+func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling packages")
+	p.Infof("Pulling packages: %v.", locators)
+	for _, locator := range locators {
+		p.Progress.NextStep("Pulling package %v:%v", locator.Name, locator.Version)
+		_, err := service.PullPackage(service.PackagePullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+func (p *pullExecutor) pullApps(locators []loc.Locator) error {
+	p.Progress.NextStep("Pulling applications")
+	p.Infof("Pulling applications: %v.", locators)
+	for _, locator := range locators {
+		p.Progress.NextStep("Pulling application %v:%v", locator.Name, locator.Version)
+		_, err := service.PullApp(service.AppPullRequest{
+			FieldLogger: p.FieldLogger,
+			SrcPack:     p.WizardPackages,
+			DstPack:     p.LocalPackages,
+			SrcApp:      p.WizardApps,
+			DstApp:      p.LocalApps,
+			Package:     locator,
+		})
+		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -161,12 +195,19 @@ func (p *pullExecutor) pullUserApplication() error {
 func (p *pullExecutor) applyPackageLabels() error {
 	packages := []string{
 		constants.TeleportPackage,
+		constants.TeleportNodeConfigPackage,
 		constants.GravityPackage,
 	}
+	purposeLabels := []string{
+		pack.PurposePlanetConfig,
+		pack.PurposePlanetSecrets,
+		pack.PurposeTeleportNodeConfig,
+	}
 	var locators []loc.Locator
-	err := pack.ForeachPackageInRepo(p.LocalPackages, defaults.SystemAccountOrg,
+	err := pack.ForeachPackage(p.LocalPackages,
 		func(e pack.PackageEnvelope) error {
-			if utils.StringInSlice(packages, e.Locator.Name) {
+			if utils.StringInSlice(packages, e.Locator.Name) ||
+				pack.Labels(e.RuntimeLabels).HasPurpose(purposeLabels...) {
 				locators = append(locators, e.Locator)
 			}
 			return nil
@@ -212,8 +253,10 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 			DstPack: p.LocalPackages,
 			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
+			Upsert:  true,
 		})
-		if err != nil {
+		// Ignore already exists as the steps need to be re-entrant
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		if isSecret(e) {
@@ -234,7 +277,7 @@ func (p *pullExecutor) unpackSecrets(e pack.PackageEnvelope) error {
 	dir := filepath.Join(stateDir, defaults.SecretsDir)
 	p.Infof("Unpacking secrets into %v.", dir)
 	return pack.Unpack(p.LocalPackages, e.Locator, dir, &archive.TarOptions{
-		ChownOpts: &archive.TarChownOptions{
+		ChownOpts: &idtools.Identity{
 			UID: p.ServiceUser.UID,
 			GID: p.ServiceUser.GID,
 		},
@@ -248,13 +291,13 @@ func (p *pullExecutor) collectMasterPackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.PurposeLabel: []string{
+				pack.PurposeLabel: {
 					pack.PurposeCA,
 					pack.PurposeExport,
 					pack.PurposeLicense,
 					pack.PurposeResources,
 				},
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -276,7 +319,7 @@ func (p *pullExecutor) collectNodePackages() ([]pack.PackageEnvelope, error) {
 	err := pack.ForeachPackageInRepo(p.WizardPackages, p.Plan.ClusterName,
 		func(e pack.PackageEnvelope) error {
 			pull := e.HasAnyLabel(map[string][]string{
-				pack.AdvertiseIPLabel: []string{
+				pack.AdvertiseIPLabel: {
 					p.Phase.Data.Server.AdvertiseIP,
 				},
 			})
@@ -300,10 +343,10 @@ func (p *pullExecutor) unpackPackages() error {
 		constants.TeleportPackage,
 		constants.WebAssetsPackage,
 	}
-	locators := []loc.Locator{p.runtimePackage}
+	var locators []loc.Locator
 	err := pack.ForeachPackage(p.LocalPackages, func(e pack.PackageEnvelope) error {
 		unpack := e.HasAnyLabel(map[string][]string{
-			pack.PurposeLabel: []string{
+			pack.PurposeLabel: {
 				pack.PurposeCA,
 				pack.PurposePlanetSecrets,
 				pack.PurposePlanetConfig,

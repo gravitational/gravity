@@ -30,20 +30,23 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
-	"k8s.io/helm/pkg/repo"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	"github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/helm/pkg/repo"
+	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 )
 
 // Accounts collection modifies and updates account entries,
@@ -266,13 +269,6 @@ type UserToken struct {
 	URL string `json:"url"`
 }
 
-func dropSpecialChars(r rune) rune {
-	if unicode.IsLetter(r) || unicode.IsDigit(r) {
-		return r
-	}
-	return -1
-}
-
 // CheckUserToken returns nil if the value is correct, error otherwise
 func CheckUserToken(s string) error {
 	switch s {
@@ -297,7 +293,7 @@ type UserInvite struct {
 	CreatedBy string `json:"created_by"`
 	// Created is a time this user invite has been created
 	Created time.Time `json:"created"`
-	// Roles are the roles that will be assgined to invited user
+	// Roles are the roles that will be assigned to invited user
 	Roles []string `json:"roles"`
 	// ExpiresIn sets the token expiry time
 	ExpiresIn time.Duration `json:"expires_in"`
@@ -308,15 +304,15 @@ func (u *UserInvite) CheckAndSetDefaults() error {
 	if err := utils.CheckUserName(u.Name); err != nil {
 		return trace.Wrap(err)
 	}
-
 	if u.CreatedBy == "" {
 		return trace.BadParameter("missing CreatedBy")
 	}
-
 	if u.Created.IsZero() {
 		u.Created = time.Now().UTC()
 	}
-
+	if len(u.Roles) == 0 {
+		return trace.BadParameter("roles can't be empty")
+	}
 	return nil
 }
 
@@ -372,7 +368,7 @@ type Mount struct {
 	Name string `json:"name"`
 	// Source is the directory to mount
 	Source string `json:"source"`
-	// Destination is the mount destination dir
+	// Destination is the mount destination directory
 	Destination string `json:"destination"`
 	// CreateIfMissing is whether to create the source directory if it doesn't exist
 	CreateIfMissing bool `json:"create_if_missing"`
@@ -413,6 +409,8 @@ type SiteOperation struct {
 	Type string `json:"type"`
 	// Created is a time when this operation was created
 	Created time.Time `json:"created"`
+	// CreatedBy specifies the user who created the operation
+	CreatedBy string `json:"created_by,omitempty"`
 	// Updated is a time when this operation was last updated
 	Updated time.Time `json:"updated"`
 	// State represents current operation state
@@ -423,7 +421,7 @@ type SiteOperation struct {
 	// in case of 'install' or 'provision_servers' it will store the
 	// servers that will be added and configured, for 'deprovision_servers'
 	// it will store the servers that will be deleted
-	Servers []Server `json:"servers"`
+	Servers Servers `json:"servers"`
 	// Shrink is set when the operation type is shrink (removing nodes from the cluster)
 	Shrink *ShrinkOperationState `json:"shrink,omitempty"`
 	// InstallExpand is set when the operation is install or expand
@@ -432,6 +430,12 @@ type SiteOperation struct {
 	Uninstall *UninstallOperationState `json:"uninstall,omitempty"`
 	// Update is for updating application on the gravity site
 	Update *UpdateOperationState `json:"update,omitempty"`
+	// UpdateEnviron defines the runtime environment update state
+	UpdateEnviron *UpdateEnvarsOperationState `json:"update_environ,omitempty"`
+	// UpdateConfig defines the state of the cluster configuration update operation
+	UpdateConfig *UpdateConfigOperationState `json:"update_config,omitempty"`
+	// Reconfigure contains reconfiguration operation state
+	Reconfigure *ReconfigureOperationState `json:"reconfigure,omitempty"`
 }
 
 func (s *SiteOperation) Check() error {
@@ -455,7 +459,18 @@ func (s *SiteOperation) Vars() OperationVariables {
 	if s.Uninstall != nil {
 		return s.Uninstall.Vars
 	}
+	if s.Update != nil {
+		return s.Update.Vars
+	}
 	return OperationVariables{}
+}
+
+// IsEqualTo returns true if the operation is equal to the provided operation.
+func (s *SiteOperation) IsEqualTo(other SiteOperation) bool {
+	// Compare a few essential fields only.
+	return s.ID == other.ID && s.AccountID == other.AccountID &&
+		s.SiteDomain == other.SiteDomain && s.Type == other.Type &&
+		s.State == other.State
 }
 
 // SiteOperations colection represents a list of operations performed
@@ -504,6 +519,8 @@ func (r *Reason) Description() string {
 		return "application status check failed"
 	case ReasonClusterDegraded:
 		return "one or more of cluster nodes are not healthy"
+	case "":
+		return ""
 	default:
 		return "unknown reason"
 	}
@@ -555,6 +572,10 @@ type Site struct {
 	Resources []byte `json:"resources"`
 	// Location is a location where the site is deployed, for example AWS region name
 	Location string `json:"location"`
+	// Flavor is the initial cluster flavor.
+	Flavor string `json:"flavor"`
+	// DisabledWebUI specifies whether OpsCenter and WebInstallWizard are disabled
+	DisabledWebUI bool `json:"disabled_web_ui"`
 	// UpdateInterval is how often the site checks for and downloads newer versions of the
 	// installed application
 	UpdateInterval time.Duration `json:"update_interval"`
@@ -572,8 +593,11 @@ type Site struct {
 	DNSOverrides DNSOverrides `json:"dns_overrides"`
 	// DNSConfig defines cluster local DNS configuration
 	DNSConfig DNSConfig `json:"dns_config"`
+	// InstallToken specifies the original token the cluster was installed with
+	InstallToken string `json:"install_token"`
 }
 
+// Check validates the cluster object's fields.
 func (s *Site) Check() error {
 	if s.AccountID == "" {
 		return trace.BadParameter("missing parameter AccountID")
@@ -590,6 +614,11 @@ func (s *Site) Check() error {
 	return nil
 }
 
+// Servers returns the cluster's servers.
+func (s *Site) Servers() Servers {
+	return s.ClusterState.Servers
+}
+
 // ClusterState defines the state of the cluster
 type ClusterState struct {
 	// Servers is a list of servers in the cluster
@@ -597,6 +626,7 @@ type ClusterState struct {
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
 }
+
 type nodeKey struct {
 	profile      string
 	instanceType string
@@ -637,10 +667,10 @@ func (s sortedNodeSpec) Len() int {
 
 // Less stacks latest attempts to the end of the list
 func (s sortedNodeSpec) Less(i, j int) bool {
-	if s[i].Profile == s[i].Profile {
+	if s[i].Profile == s[j].Profile {
 		return s[i].Count < s[j].Count
 	}
-	return s[i].Profile <= s[i].Profile
+	return s[i].Profile <= s[j].Profile
 }
 
 // Swap swaps two attempts
@@ -901,13 +931,13 @@ func (p Package) String() string {
 
 func (p *Package) Check() error {
 	if p.Repository == "" {
-		return trace.BadParameter("missing repository name")
+		return trace.BadParameter("%v missing repository name", p)
 	}
 	if p.Name == "" {
-		return trace.BadParameter("missing package name")
+		return trace.BadParameter("%v missing package name", p)
 	}
 	if p.Version == "" {
-		return trace.BadParameter("missing package name")
+		return trace.BadParameter("%v missing package version", p)
 	}
 	return nil
 }
@@ -1026,14 +1056,14 @@ func (l *LoginEntry) Check() error {
 		return trace.BadParameter("missing parameter Password")
 	}
 	if l.OpsCenterURL == "" {
-		return trace.BadParameter("missing parameter OpsCenterURL")
+		return trace.BadParameter("missing parameter Gravity Hub URL")
 	}
 	return nil
 }
 
 // String returns the login entry string representation
 func (l LoginEntry) String() string {
-	return fmt.Sprintf("LoginEntry(Email=%v, OpsCenter=%v, Created=%v)",
+	return fmt.Sprintf("LoginEntry(Email=%v, GravityHub=%v, Created=%v)",
 		l.Email, l.OpsCenterURL, l.Created.Format(constants.HumanDateFormat))
 }
 
@@ -1047,12 +1077,16 @@ type LoginEntries interface {
 	SetCurrentOpsCenter(string) error
 }
 
-// SystemMetadata stores system-relevant data
+// SystemMetadata stores system-relevant data on the host
 type SystemMetadata interface {
 	// GetDNSConfig returns current DNS configuration
 	GetDNSConfig() (*DNSConfig, error)
 	// SetDNSConfig sets current DNS configuration
 	SetDNSConfig(DNSConfig) error
+	// GetSELinux returns whether SELinux support is on
+	GetSELinux() (enabled bool, err error)
+	// SetSELinux sets SELinux support
+	SetSELinux(enabled bool) error
 }
 
 // DefaultDNSConfig defines the default cluster local DNS configuration
@@ -1064,7 +1098,7 @@ var DefaultDNSConfig = DNSConfig{
 // LegacyDNSConfig defines the local DNS configuration on older clusters
 var LegacyDNSConfig = DNSConfig{
 	Port:  defaults.DNSPort,
-	Addrs: []string{defaults.LegacyDNSListenAddr},
+	Addrs: []string{"127.0.0.1"},
 }
 
 // String returns textual representation of this DNS configuration
@@ -1117,7 +1151,19 @@ func (u PackageChangeset) String() string {
 func (u *PackageChangeset) ReversedChanges() []PackageUpdate {
 	changes := make([]PackageUpdate, len(u.Changes))
 	for i, c := range u.Changes {
-		changes[i] = PackageUpdate{From: c.To, To: c.From}
+		update := PackageUpdate{
+			From:   c.To,
+			To:     c.From,
+			Labels: c.Labels,
+		}
+		if c.ConfigPackage != nil {
+			update.ConfigPackage = &PackageUpdate{
+				From:   c.ConfigPackage.To,
+				To:     c.ConfigPackage.From,
+				Labels: c.ConfigPackage.Labels,
+			}
+		}
+		changes[i] = update
 	}
 	return changes
 }
@@ -1138,11 +1184,20 @@ type PackageUpdate struct {
 	To loc.Locator `json:"to"`
 	// Labels defines optional identifying set of labels
 	Labels map[string]string `json:"labels,omitempty"`
+	// ConfigPackage specifies optional configuration package dependency
+	ConfigPackage *PackageUpdate `json:"config_package,omitempty"`
 }
 
-// String returns the package update string representation
+// String formats this update as human-readable text
 func (u *PackageUpdate) String() string {
-	return fmt.Sprintf("PackageUpdate(%v -> %v)", u.From, u.To)
+	format := func(u *PackageUpdate) string {
+		return fmt.Sprintf("%v -> %v", u.From, u.To)
+	}
+	if u.ConfigPackage == nil {
+		return fmt.Sprintf("update(%v)", format(u))
+	}
+	return fmt.Sprintf("update(%v, config:%v)",
+		format(u), format(u.ConfigPackage))
 }
 
 // PackageChangesets tracks server local package changes - updates and downgrades
@@ -1191,6 +1246,21 @@ func (p *ProvisioningToken) Check() error {
 	return nil
 }
 
+// IsExpand returns true if this is an expand token.
+func (p *ProvisioningToken) IsExpand() bool {
+	return p.Type == ProvisioningTokenTypeExpand
+}
+
+// IsTeleport returns true if this is a teleport token.
+func (p *ProvisioningToken) IsTeleport() bool {
+	return p.Type == ProvisioningTokenTypeTeleport
+}
+
+// IsPersistent returns true if this token does not expire.
+func (p *ProvisioningToken) IsPersistent() bool {
+	return p.Expires.IsZero()
+}
+
 // ProvisioningTokenType specifies token type
 type ProvisioningTokenType string
 
@@ -1199,12 +1269,14 @@ const (
 	ProvisioningTokenTypeInstall = "install"
 	// ProvisioningTokenTypeExpand is used to validate joining nodes
 	ProvisioningTokenTypeExpand = "expand"
+	// ProvisioningTokenTypeTeleport is used by Teleport nodes to authenticate with auth server
+	ProvisioningTokenTypeTeleport = "teleport"
 )
 
 // Check returns nil if the value is correct, error otherwise
 func (s *ProvisioningTokenType) Check() error {
 	switch *s {
-	case ProvisioningTokenTypeInstall, ProvisioningTokenTypeExpand:
+	case ProvisioningTokenTypeInstall, ProvisioningTokenTypeExpand, ProvisioningTokenTypeTeleport:
 		return nil
 	}
 	return trace.BadParameter("unsupported token type: %v", *s)
@@ -1381,14 +1453,22 @@ type Links interface {
 	GetOpsCenterLinks(siteDomain string) ([]OpsCenterLink, error)
 }
 
+// Check validates this object
+func (r *RemoteAccessUser) Check() error {
+	if r.SiteDomain == "" {
+		return trace.BadParameter("Cluster name is required")
+	}
+	return nil
+}
+
 // RemoteAccessUser groups the attributes to identify or create a user to use
-// to connect a site to a remote OpsCenter
+// to connect a cluster to a remote OpsCenter
 type RemoteAccessUser struct {
 	// Email identifies the user
 	Email string `json:"email"`
 	// Token identifies the API key for this user
 	Token string `json:"token"`
-	// SiteDomain identifies the site this user represents
+	// SiteDomain identifies the cluster this user represents
 	SiteDomain string `json:"site_domain"`
 	// OpsCenter defines the OpsCenter on the other side
 	OpsCenter string `json:"ops_center"`
@@ -1536,6 +1616,17 @@ type Server struct {
 	User OSUser `json:"user"`
 	// Created is the timestamp when the server was created
 	Created time.Time `json:"created"`
+	// SELinux specifies whether the node has SELinux support on
+	SELinux bool `json:"selinux,omitempty"`
+}
+
+// IsEqualTo returns true if this and the provided server are the same server.
+func (s *Server) IsEqualTo(other Server) bool {
+	// Compare only a few "main" fields that should give enough confidence
+	// in deciding whether it's the same node or not.
+	return s.AdvertiseIP == other.AdvertiseIP &&
+		s.Hostname == other.Hostname &&
+		s.Role == other.Role
 }
 
 // StateDir returns directory where all gravity data is stored on this server
@@ -1561,9 +1652,71 @@ func (s *Server) KubeNodeID() string {
 	return s.AdvertiseIP
 }
 
+// ObjectPeerID returns the peer ID of this server
+func (s *Server) ObjectPeerID() string {
+	return s.AdvertiseIP
+}
+
+// EtcdPeerURL returns etcd peer advertise URL with the server's IP.
+func (s *Server) EtcdPeerURL() string {
+	return fmt.Sprintf("https://%v:%v", s.AdvertiseIP, defaults.EtcdPeerPort)
+}
+
 // IsMaster returns true if the server has a master role
 func (s *Server) IsMaster() bool {
-	return s.ClusterRole == constants.MasterRole
+	return s.ClusterRole == string(schema.ServiceRoleMaster)
+}
+
+// GetNodeLabels returns a consistent set of labels that should be applied to the node
+func (s *Server) GetNodeLabels(profileLabels map[string]string) map[string]string {
+	labels := map[string]string{
+		defaults.KubernetesAdvertiseIPLabel:            s.AdvertiseIP,
+		defaults.KubernetesRoleLabel:                   s.ClusterRole,
+		v1.LabelHostname:                               s.KubeNodeID(),
+		v1.LabelArchStable:                             "amd64", // Only amd64 is currently supported
+		v1.LabelOSStable:                               "linux", // Only linux is currently supported
+		defaults.FormatKubernetesNodeRoleLabel(s.Role): s.Role,
+	}
+	for k, v := range profileLabels {
+		// Several of the labels applied by default are used internally within gravity or gravity components.
+		// allowing a user to override these labels via the profile creates some risk, that they may overwrite a node
+		// label gravity uses itself. As such, for now, only apply the profile labels if they do not conflict with a
+		// default label.
+		if _, ok := labels[k]; !ok {
+			labels[k] = v
+		}
+	}
+	return labels
+}
+
+// GetKubeletLabels returns the node's labels that can be set by kubelet.
+func (s *Server) GetKubeletLabels(profileLabels map[string]string) map[string]string {
+	allLabels := s.GetNodeLabels(profileLabels)
+	result := make(map[string]string)
+	for key, val := range allLabels {
+		if utils.IsKubernetesLabel(key) {
+			if kubeletapis.IsKubeletLabel(key) {
+				result[key] = val
+			}
+		} else {
+			result[key] = val
+		}
+	}
+	return result
+}
+
+// Fields returns log fields describing the server.
+func (s *Server) Fields() logrus.Fields {
+	return logrus.Fields{"hostname": s.Hostname, "ip": s.AdvertiseIP}
+}
+
+// Strings formats this server as readable text
+func (s Server) String() string {
+	return fmt.Sprintf("Server(AdvertiseIP=%v, Hostname=%v, Role=%v, ClusterRole=%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole)
 }
 
 // Hostnames returns a list of hostnames for the provided servers
@@ -1739,6 +1892,8 @@ type OperationVariables struct {
 	OnPrem OnPremVariables `json:"onprem"`
 	// AWS is a set of AWS-specific variables
 	AWS AWSVariables `json:"aws"`
+	// Values are helm values in a marshaled yaml format
+	Values []byte `json:"values,omitempty"`
 }
 
 // ToMap converts operation variables into a JSON object for easier use in templates
@@ -1885,6 +2040,33 @@ var DefaultSubnets = Subnets{
 // Servers is a list of servers
 type Servers []Server
 
+// Profiles returns a map of node profiles for these servers.
+func (r Servers) Profiles() map[string]string {
+	result := make(map[string]string, len(r))
+	for _, server := range r {
+		result[server.AdvertiseIP] = server.Role
+	}
+	return result
+}
+
+// IsEqualTo returns true if the provided list contains all the same servers
+// as this list.
+func (r Servers) IsEqualTo(other Servers) bool {
+	if len(r) != len(other) {
+		return false
+	}
+	for _, server := range r {
+		otherServer := other.FindByIP(server.AdvertiseIP)
+		if otherServer == nil {
+			return false
+		}
+		if !otherServer.IsEqualTo(server) {
+			return false
+		}
+	}
+	return true
+}
+
 // FindByIP returns a server with the specified IP
 func (r Servers) FindByIP(ip string) *Server {
 	for _, server := range r {
@@ -1903,6 +2085,23 @@ func (r Servers) Masters() (masters []Server) {
 		}
 	}
 	return
+}
+
+// MasterIPs returns a list of advertise IPs of master nodes.
+func (r Servers) MasterIPs() (ips []string) {
+	for _, master := range r.Masters() {
+		ips = append(ips, master.AdvertiseIP)
+	}
+	return ips
+}
+
+// String formats this list of servers as text
+func (r Servers) String() string {
+	var formats []string
+	for _, server := range r {
+		formats = append(formats, server.String())
+	}
+	return strings.Join(formats, ", ")
 }
 
 type AgentProfile struct {
@@ -1929,7 +2128,7 @@ type ShrinkOperationState struct {
 	// NodeRemoved indicates whether the node has already been removed from the cluster
 	// Used in cases where we recieve an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
-	NodeRemoved bool `json:node_removed`
+	NodeRemoved bool `json:"node_removed"`
 }
 
 // UpdateOperationState describes the state of the update operation.
@@ -1946,6 +2145,16 @@ type UpdateOperationState struct {
 	ServerUpdates []ServerUpdate `json:"server_updates,omitempty"`
 	// Manual specifies whether this update operation was created in manual mode
 	Manual bool `json:"manual"`
+	// Vars are variables specific to this operation
+	Vars OperationVariables `json:"vars"`
+}
+
+// UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.
+type UpdateEnvarsOperationState struct {
+	// PrevEnv specifies the previous environment state
+	PrevEnv map[string]string `json:"prev_env,omitempty"`
+	// Env defines new cluster environment variables
+	Env map[string]string `json:"env,omitempty"`
 }
 
 // Package returns the update package locator
@@ -1955,6 +2164,20 @@ func (s UpdateOperationState) Package() (*loc.Locator, error) {
 		return nil, trace.Wrap(err)
 	}
 	return locator, nil
+}
+
+// UpdateConfigOperationState describes the state of the operation to update cluster configuration
+type UpdateConfigOperationState struct {
+	// PrevConfig specifies the previous configuration state
+	PrevConfig []byte `json:"prev_config,omitempty"`
+	// Config specifies the raw configuration resource
+	Config []byte `json:"config,omitempty"`
+}
+
+// ReconfigureOperationState defines the reconfiguration operation state.
+type ReconfigureOperationState struct {
+	// AdvertiseAddr is the advertise address the node's being changed to.
+	AdvertiseAddr string `json:"advertise_addr"`
 }
 
 // ServerUpdate represents server that is being updated

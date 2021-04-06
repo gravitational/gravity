@@ -3,42 +3,22 @@
 <script>
   // Current page data
   var mkdocs_page_name = "{{ page.title }}";
-  var mkdocs_page_input_path = "{{ page.input_path }}";
+  var mkdocs_page_input_path = "{{ page.url }}";
   var mkdocs_page_url = "{{ page.abs_url }}";
 
-  // configure UI components
-  window.grvConfig = window.grvConfig || {
-    docVersions:  ["4.x", "5.x"],
-    docCurrentVer:  "{{ config.extra.version }}"
-  };
+ // configure UI components
+ window.grvConfig = window.grvConfig || {
+      docVersions:  ["4.x","5.x","6.x","7.x"],
+      docCurrentVer:  "{{ config.extra.version }}"
+    };
  </script>
 {% endif %}
+<script>var base_url = '{{ base_url }}';</script>
 
-<script src="{{ base_url }}/src/prettify.js"></script>
-<script src="{{ base_url }}/src/prettify-yaml.js"></script>
-<script src="{{ base_url }}/src/docs.js"></script>
+<script src="{{ path|url }}/src/prettify.js"></script>
+<script src="{{ path|url }}/src/prettify-yaml.js"></script>
+<script src="{{ path|url }}/src/docs.js"></script>
 
+<script src="{{ path|url }}/src/third-party.js"></script>
+<script src="{{ path|url }}/src/main.js"></script>
 
-{%- for path in extra_javascript %}
-<script src="{{ path }}"></script>
-{%- endfor %}
-
-<script src="{{ base_url }}/src/third-party.js"></script>
-
-<!-- GOOGLE CONVERSION -->
-<script>
-    var google_conversion_id = 945443421;
-    var google_conversion_language = "en";
-    var google_conversion_format = "3";
-    var google_conversion_color = "ffffff";
-    var google_conversion_label = "wLRECJ3R-2wQ3aTpwgM";
-    var google_remarketing_only = false;
-</script>
-
-<script src="//www.googleadservices.com/pagead/conversion.js"></script>
-
-<noscript>
-    <div style="display:inline;">
-    <img height="1" width="1" style="border-style:none;" alt="" src="//www.googleadservices.com/pagead/conversion/945443421/?label=wLRECJ3R-2wQ3aTpwgM&amp;guid=ON&amp;script=0"/>
-    </div>
-</noscript>

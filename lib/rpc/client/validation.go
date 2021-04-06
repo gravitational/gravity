@@ -40,3 +40,12 @@ func (c *client) CheckBandwidth(ctx context.Context, req *validationpb.CheckBand
 	}
 	return resp, nil
 }
+
+// CheckDisks executes disk performance test.
+func (c *client) CheckDisks(ctx context.Context, req *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
+	resp, err := c.validation.CheckDisks(ctx, req)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return resp, nil
+}

@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -25,7 +26,8 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -132,7 +134,7 @@ func GetMasters(nodes map[string]v1.Node) (ips []string) {
 			// So we fallback to trying to read this from the hostname. Once we no longer need to support
 			// upgrades from prior to 5.0.0 we can remove this code
 			// TODO(knisbet) remove when no longer required
-			if ip, exists := node.Labels[defaults.KubernetesHostnameLabel]; exists {
+			if ip, exists := node.Labels[v1.LabelHostname]; exists {
 				ips = append(ips, ip)
 			}
 		}
@@ -159,7 +161,7 @@ func GetNodes(client corev1.NodeInterface) (nodes map[string]v1.Node, err error)
 		// So we fallback to trying to read this from the hostname. Once we no longer need to support
 		// upgrades from prior to 5.0.0 we can remove this code
 		// TODO(knisbet) remove when no longer required
-		ip, exists = node.Labels[defaults.KubernetesHostnameLabel]
+		ip, exists = node.Labels[v1.LabelHostname]
 		if exists {
 			nodes[ip] = node
 			continue
@@ -187,4 +189,67 @@ func FlattenVersion(version string) string {
 	return flattener.Replace(version)
 }
 
+// KubeServiceNames returns all possible DNS names a specified Kubernetes
+// service can be accessed by in the specified namespace.
+func KubeServiceNames(serviceName, namespace string) []string {
+	return []string{
+		serviceName,
+		fmt.Sprintf("%v.%v", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc.cluster", serviceName, namespace),
+		fmt.Sprintf("%v.%v.svc.cluster.local", serviceName, namespace),
+	}
+}
+
 var flattener = strings.NewReplacer(".", "", "+", "-")
+
+// IsKubernetesLabel returns true if the provided label key is in Kubernetes
+// namespace.
+//
+// This and getLabelNamespace function below are adopted from:
+//
+// https://github.com/kubernetes/kubernetes/blob/release-1.16/cmd/kubelet/app/options/options.go#L249.
+func IsKubernetesLabel(key string) bool {
+	namespace := getLabelNamespace(key)
+	if namespace == "kubernetes.io" || strings.HasSuffix(namespace, ".kubernetes.io") {
+		return true
+	}
+	if namespace == "k8s.io" || strings.HasSuffix(namespace, ".k8s.io") {
+		return true
+	}
+	return false
+}
+
+// IsHeadlessService return true if the given service is a headless service
+// (explicitly without a cluster IP)
+func IsHeadlessService(service v1.Service) bool {
+	const headlessServiceClusterIP = "None"
+	return service.Spec.ClusterIP == headlessServiceClusterIP
+}
+
+// IsAPIServerService return true if the given service specifies the API server service
+func IsAPIServerService(service v1.Service) bool {
+	const apiServerService = "kubernetes"
+	return service.Name == apiServerService && service.Namespace == metav1.NamespaceDefault
+}
+
+// LoggerWithService returns a new logger with service-relevant metadata
+func LoggerWithService(service v1.Service, logger log.FieldLogger) log.FieldLogger {
+	return logger.WithFields(log.Fields{
+		"service":   FormatMeta(service.ObjectMeta),
+		"type":      service.Spec.Type,
+		"clusterIP": service.Spec.ClusterIP,
+	})
+}
+
+// FormatMeta formats the specified object metadata for output
+func FormatMeta(meta metav1.ObjectMeta) string {
+	return fmt.Sprintf("%v/%v", meta.Namespace, meta.Name)
+}
+
+func getLabelNamespace(key string) string {
+	if parts := strings.SplitN(key, "/", 2); len(parts) == 2 {
+		return parts[0]
+	}
+	return ""
+}

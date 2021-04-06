@@ -18,11 +18,13 @@ package opsservice
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"gopkg.in/check.v1"
 )
@@ -37,22 +39,20 @@ func (s *ReportSuite) TestClusterInfo(c *check.C) {
 		AccountID: defaults.SystemAccountID,
 		License:   "license",
 	}
-	var b bytes.Buffer
-	err := collectSiteInfo(cluster)(func(name string) (io.WriteCloser, error) {
-		return &nopCloser{&b}, nil
-	}, site{})
+	w := &bufferWriter{}
+	err := collectClusterInfo(cluster)(context.TODO(), w, site{})
 	c.Assert(err, check.IsNil)
 	var fromReport storage.Site
-	c.Assert(json.Unmarshal(b.Bytes(), &fromReport), check.IsNil)
+	c.Assert(json.Unmarshal(w.Bytes(), &fromReport), check.IsNil)
 	c.Assert(fromReport.Domain, check.Equals, cluster.Domain)
 	c.Assert(fromReport.AccountID, check.Equals, cluster.AccountID)
 	c.Assert(fromReport.License, check.Equals, "redacted")
 }
 
-type nopCloser struct {
-	io.Writer
+type bufferWriter struct {
+	bytes.Buffer
 }
 
-func (b *nopCloser) Close() error {
-	return nil
+func (b *bufferWriter) NewWriter(name string) (io.WriteCloser, error) {
+	return utils.NopWriteCloser(&b.Buffer), nil
 }

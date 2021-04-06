@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: upgrade
+spec:
+  template:
+    metadata:
+      name: upgrade
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: upgrade
+          image: quay.io/gravitational/debian-tall:stretch
+          command:
+            - /usr/local/bin/helm
+            - upgrade
+             - --set
+             - server.image.registry=leader.telekube.local:5000
+             - --set
+             - client.image.registry=leader.telekube.local:5000
+            - tensorflow-serving
+            - /var/lib/gravity/resources/charts/tensorflow-resnet

@@ -19,28 +19,39 @@ package common
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
 )
 
-// PrintError prints the red error message to the console
+// PrintError prints the red error message to stderr
 func PrintError(err error) {
-	color.Red("[ERROR]: %v\n", trace.UserMessage(err))
+	fmt.Fprint(os.Stderr, color.RedString("[ERROR]: %v\n", trace.UserMessage(err)))
 }
 
-// PrintHeader formats the provided string as a header and prints it to the console
+// PrintWarn outputs a warning message to stdout
+func PrintWarn(message string, args ...interface{}) {
+	fmt.Println(color.YellowString("[WARN] "+message, args...))
+}
+
+// PrintHeader formats the provided string as a header and prints it to stdout
 func PrintHeader(val string) {
 	fmt.Printf("\n[%v]\n%v\n", val, strings.Repeat("-", len(val)+2))
 }
 
 // PrintTableHeader prints header of a table
 func PrintTableHeader(w io.Writer, cols []string) {
-	dots := make([]string, len(cols))
+	PrintCustomTableHeader(w, cols, "-")
+}
+
+// PrintCustomTableHeader outputs headers using split as a separator
+func PrintCustomTableHeader(w io.Writer, headers []string, split string) {
+	dots := make([]string, len(headers))
 	for i := range dots {
-		dots[i] = strings.Repeat("-", len(cols[i]))
+		dots[i] = strings.Repeat(split, len(headers[i]))
 	}
-	fmt.Fprint(w, strings.Join(cols, "\t")+"\n")
+	fmt.Fprint(w, strings.Join(headers, "\t")+"\n")
 	fmt.Fprint(w, strings.Join(dots, "\t")+"\n")
 }

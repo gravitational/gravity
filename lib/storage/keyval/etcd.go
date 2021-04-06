@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/cenkalti/backoff"
@@ -63,6 +64,9 @@ func NewETCD(cfg ETCDConfig) (*electingBackend, error) {
 		Backend: &backend{
 			Clock:    clock,
 			kvengine: engine,
+
+			cachedCompleteOperations: make(map[string]*storage.SiteOperation),
+			cachedPlanChange:         make(map[string]*storage.PlanChange),
 		},
 		Leader: leader,
 		client: engine.client,
@@ -449,7 +453,7 @@ func (e *engine) getKeys(key key) ([]string, error) {
 	for _, n := range re.Node.Nodes {
 		vals = append(vals, suffix(n.Key))
 	}
-	sort.Sort(sort.StringSlice(vals))
+	sort.Strings(vals)
 	return vals, nil
 }
 
@@ -476,6 +480,7 @@ func convertErr(e error) error {
 }
 
 func isDir(n *client.Node) bool {
+	//nolint:gosimple
 	return n != nil && n.Dir == true
 }
 
@@ -572,11 +577,11 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 	err = backoff.Retry(func() (err error) {
 		resp, err = fn()
 		if utils.IsTransientClusterError(err) {
-			log.Debugf("retrying on transient etcd error: %v", err)
+			log.WithError(err).Debug("Retry on transient etcd error.")
 			return trace.Wrap(err)
 		}
 		if err != nil {
-			return &backoff.PermanentError{err}
+			return &backoff.PermanentError{Err: err}
 		}
 		return nil
 	}, b)

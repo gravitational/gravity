@@ -66,9 +66,29 @@ type Application struct {
 	LeaveCmd LeaveCmd
 	// RemoveCmd removes the specified node from the cluster
 	RemoveCmd RemoveCmd
-	// PlanCmd displays current operation plan
+	// StopCmd stops all gravity services on the node
+	StopCmd StopCmd
+	// StartCmd starts all gravity services on the node
+	StartCmd StartCmd
+	// PlanCmd manages an operation plan
 	PlanCmd PlanCmd
-	// RollbackCmd rolls back the specified operation plan phase
+	// UpdatePlanInitCmd creates a new update operation plan
+	UpdatePlanInitCmd UpdatePlanInitCmd
+	// PlanDisplayCmd displays plan of an operation
+	PlanDisplayCmd PlanDisplayCmd
+	// PlanExecuteCmd executes a phase of an active operation
+	PlanExecuteCmd PlanExecuteCmd
+	// PlanRollbackCmd rolls back a phase of an active operation
+	PlanRollbackCmd PlanRollbackCmd
+	// PlanSetCmd sets the specified phase state without executing it
+	PlanSetCmd PlanSetCmd
+	// ResumeCmd resumes active operation
+	ResumeCmd ResumeCmd
+	// PlanResumeCmd resumes active operation
+	PlanResumeCmd PlanResumeCmd
+	// PlanCompleteCmd completes the operation plan
+	PlanCompleteCmd PlanCompleteCmd
+	// RollbackCmd performs operation rollback
 	RollbackCmd RollbackCmd
 	// UpdateCmd combines app update related commands
 	UpdateCmd UpdateCmd
@@ -84,10 +104,18 @@ type Application struct {
 	UpdateSystemCmd UpdateSystemCmd
 	// UpgradeCmd launches app upgrade
 	UpgradeCmd UpgradeCmd
-	// StatusCmd displays cluster status
+	// StatusCmd combines subcommands for displaying status information
 	StatusCmd StatusCmd
+	// StatusClusterCmd displays the current cluster status
+	StatusClusterCmd StatusClusterCmd
+	// StatusHistoryCmd displays the cluster status history
+	StatusHistoryCmd StatusHistoryCmd
 	// StatusResetCmd resets the cluster to active state
 	StatusResetCmd StatusResetCmd
+	// RegistryCmd allows to interact with the cluster private registry
+	RegistryCmd RegistryCmd
+	// RegistryListCmd displays images from the registry
+	RegistryListCmd RegistryListCmd
 	// BackupCmd launches app backup hook
 	BackupCmd BackupCmd
 	// RestoreCmd launches app restore hook
@@ -222,8 +250,14 @@ type Application struct {
 	RPCAgentInstallCmd RPCAgentInstallCmd
 	// RPCAgentRunCmd runs RPC agent
 	RPCAgentRunCmd RPCAgentRunCmd
+	// RPCAgentStatusCmd requests RPC agent statuses
+	RPCAgentStatusCmd RPCAgentStatusCmd
 	// SystemCmd combines system subcommands
 	SystemCmd SystemCmd
+	// SystemTeleportCmd combines internal Teleport commands
+	SystemTeleportCmd SystemTeleportCmd
+	// SystemTeleportShowConfigCmd displays Teleport config
+	SystemTeleportShowConfigCmd SystemTeleportShowConfigCmd
 	// SystemRotateCertsCmd renews cluster certificates on local node
 	SystemRotateCertsCmd SystemRotateCertsCmd
 	// SystemExportCACmd exports cluster CA
@@ -238,6 +272,8 @@ type Application struct {
 	SystemReinstallCmd SystemReinstallCmd
 	// SystemHistoryCmd displays system update history
 	SystemHistoryCmd SystemHistoryCmd
+	// SystemClusterInfoCmd dumps cluster info suitable for debugging
+	SystemClusterInfoCmd SystemClusterInfoCmd
 	// SystemStepDownCmd asks active gravity master to step down
 	SystemStepDownCmd SystemStepDownCmd
 	// SystemRollbackCmd rolls back last system update
@@ -248,30 +284,26 @@ type Application struct {
 	SystemServiceInstallCmd SystemServiceInstallCmd
 	// SystemServiceUninstallCmd uninstalls systemd service
 	SystemServiceUninstallCmd SystemServiceUninstallCmd
-	// SystemServiceStatusCmd displays status of systemd service
+	// SystemServiceStatusCmd queries the runtime status of a package service
 	SystemServiceStatusCmd SystemServiceStatusCmd
 	// SystemServiceListCmd lists systemd services
 	SystemServiceListCmd SystemServiceListCmd
+	// SystemServiceStopCmd stops a package service
+	SystemServiceStopCmd SystemServiceStopCmd
+	// SystemServiceStartCmd stops or restarts a package service
+	SystemServiceStartCmd SystemServiceStartCmd
+	// SystemServiceJournalCmd queries the system journal of a package service
+	SystemServiceJournalCmd SystemServiceJournalCmd
 	// SystemReportCmd generates tarball with system diagnostics information
 	SystemReportCmd SystemReportCmd
 	// SystemStateDirCmd shows local state directory
 	SystemStateDirCmd SystemStateDirCmd
-	// SystemDevicemapperCmd combines devicemapper related subcommands
-	SystemDevicemapperCmd SystemDevicemapperCmd
-	// SystemDevicemapperMountCmd configures devicemapper environment
-	SystemDevicemapperMountCmd SystemDevicemapperMountCmd
-	// SystemDevicemapperUnmountCmd removes devicemapper environment
-	SystemDevicemapperUnmountCmd SystemDevicemapperUnmountCmd
-	// SystemDevicemapperSystemDirCmd show LVM system directory
-	SystemDevicemapperSystemDirCmd SystemDevicemapperSystemDirCmd
-	// SystemEnablePromiscModeCmd puts network interface into promiscuous mode
-	SystemEnablePromiscModeCmd SystemEnablePromiscModeCmd
-	// SystemDisablePromiscModeCmd removes promiscuous mode from interface
-	SystemDisablePromiscModeCmd SystemDisablePromiscModeCmd
 	// SystemExportRuntimeJournalCmd exports runtime journal to a file
 	SystemExportRuntimeJournalCmd SystemExportRuntimeJournalCmd
 	// SystemStreamRuntimeJournalCmd streams contents of the runtime journal to a file
 	SystemStreamRuntimeJournalCmd SystemStreamRuntimeJournalCmd
+	// SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
+	SystemSelinuxBootstrapCmd SystemSelinuxBootstrapCmd
 	// SystemGCJournalCmd cleans up stale journal files
 	SystemGCJournalCmd SystemGCJournalCmd
 	// SystemGCPackageCmd removes unused packages
@@ -301,6 +333,8 @@ type Application struct {
 	ResourceRemoveCmd ResourceRemoveCmd
 	// ResourceGetCmd shows specified resource
 	ResourceGetCmd ResourceGetCmd
+	// TopCmd displays cluster metrics in terminal
+	TopCmd TopCmd
 }
 
 // VersionCmd displays the binary version
@@ -344,8 +378,6 @@ type InstallCmd struct {
 	Wizard *bool
 	// Mode is installation mode
 	Mode *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// Mounts is a list of additional app mounts
@@ -364,16 +396,6 @@ type InstallCmd struct {
 	DockerStorageDriver *dockerStorageDriver
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
-	// Phase specifies the install phase ID to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Force forces phase execution
-	Force *bool
-	// Resume resumes failed install operation
-	Resume *bool
-	// Manual puts install operation in manual mode
-	Manual *bool
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
@@ -384,6 +406,23 @@ type InstallCmd struct {
 	DNSHosts *[]string
 	// DNSZones is a list of DNS zone overrides
 	DNSZones *[]string
+	// Remote specifies whether the host should not be part of the cluster
+	Remote *bool
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
+	// AcceptEULA allows to auto-accept end-user license agreement.
+	AcceptEULA *bool
 }
 
 // JoinCmd joins to the installer or existing cluster
@@ -397,8 +436,6 @@ type JoinCmd struct {
 	Token *string
 	// Role is local node profile
 	Role *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// ServerAddr is RPC server address
@@ -407,20 +444,17 @@ type JoinCmd struct {
 	Mounts *configure.KeyVal
 	// CloudProvider turns on cloud provider integration
 	CloudProvider *string
-	// Manual turns on manual phases execution mode
-	Manual *bool
-	// Phase specifies the operation phase to execute
-	Phase *string
-	// PhaseTimeout is phase execution timeout
-	PhaseTimeout *time.Duration
-	// Resume resumes failed join operation
-	Resume *bool
-	// Force forces phase execution
-	Force *bool
-	// Complete marks join operation complete
-	Complete *bool
 	// OperationID is the ID of the operation created via UI
 	OperationID *string
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The agent runs the install/join code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // AutoJoinCmd uses cloud provider info to join existing cluster
@@ -430,12 +464,25 @@ type AutoJoinCmd struct {
 	ClusterName *string
 	// Role is new node profile
 	Role *string
-	// DockerDevice is device to use for Docker data
-	DockerDevice *string
 	// SystemDevice is device to use for system data
 	SystemDevice *string
 	// Mounts is additional app mounts
 	Mounts *configure.KeyVal
+	// ServiceAddr specifies the service URL of the cluster to join
+	ServiceAddr *string
+	// AdvertiseAddr is local node advertise IP address
+	AdvertiseAddr *string
+	// Token is join token
+	Token *string
+	// SELinux specifies whether to run with SELinux support.
+	// This flag makes the installer run in its own SELinux domain
+	SELinux *bool
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The agent runs the install/join code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
 }
 
 // LeaveCmd removes the current node from the cluster
@@ -458,17 +505,99 @@ type RemoveCmd struct {
 	Confirm *bool
 }
 
-// PlanCmd displays operation plan
-type PlanCmd struct {
+// ResumeCmd resumes active operation
+type ResumeCmd struct {
 	*kingpin.CmdClause
-	// Init initializes the plan
-	Init *bool
-	// Sync the operation plan from etcd to local
-	Sync *bool
-	// Output is output format
-	Output *constants.Format
 	// OperationID is optional ID of operation to show the plan for
 	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanCmd manages an operation plan
+type PlanCmd struct {
+	*kingpin.CmdClause
+	// OperationID is optional ID of operation to show the plan for
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+}
+
+// PlanDisplayCmd displays plan of a specific operation
+type PlanDisplayCmd struct {
+	*kingpin.CmdClause
+	// Output is output format
+	Output *constants.Format
+	// Short is a shorthand for short output format
+	Short *bool
+	// Follow allows to follow the operation plan progress
+	Follow *bool
+}
+
+// PlanExecuteCmd executes a phase of an active operation
+type PlanExecuteCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to execute
+	Phase *string
+	// Force forces execution of the given phase
+	Force *bool
+	// PhaseTimeout is the execution timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanRollbackCmd rolls back a phase of an active operation
+type PlanRollbackCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to rollback
+	Phase *string
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+}
+
+// PlanSetCmd sets the specified phase state without executing it
+type PlanSetCmd struct {
+	*kingpin.CmdClause
+	// Phase is the phase to set state for
+	Phase *string
+	// State is the new phase state
+	State *string
+}
+
+// PlanResumeCmd resumes active operation
+type PlanResumeCmd struct {
+	*kingpin.CmdClause
+	// Force forces rollback of the phase given in Phase
+	Force *bool
+	// PhaseTimeout is the rollback timeout
+	PhaseTimeout *time.Duration
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
+}
+
+// PlanCompleteCmd completes the operation plan
+type PlanCompleteCmd struct {
+	*kingpin.CmdClause
+}
+
+// RollbackCmd performs operation rollback
+type RollbackCmd struct {
+	*kingpin.CmdClause
+	// PhaseTimeout is the individual phase rollback timeout
+	PhaseTimeout *time.Duration
+	// OperationID is optional ID of operation to rollback
+	OperationID *string
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
+	// DryRun prints rollback phases without actually performing them
+	DryRun *bool
 }
 
 // InstallPlanCmd combines subcommands for install plan
@@ -495,19 +624,6 @@ type UpgradePlanDisplayCmd struct {
 	Output *constants.Format
 }
 
-// RollbackCmd rolls back the specified operation plan phase
-type RollbackCmd struct {
-	*kingpin.CmdClause
-	// Phase is the phase to rollback
-	Phase *string
-	// PhaseTimeout is the rollback timeout
-	PhaseTimeout *time.Duration
-	// Force forces rollback
-	Force *bool
-	// SkipVersionCheck suppresses version mismatch errors
-	SkipVersionCheck *bool
-}
-
 // UpdateCmd combines update related subcommands
 type UpdateCmd struct {
 	*kingpin.CmdClause
@@ -527,6 +643,14 @@ type UpdateTriggerCmd struct {
 	App *string
 	// Manual starts operation in manual mode
 	Manual *bool
+	// SkipVersionCheck suppresses version mismatch errors
+	SkipVersionCheck *bool
+	// Force forces update
+	Force *bool
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
 // UpdateUploadCmd uploads new app version to local cluster
@@ -556,6 +680,16 @@ type UpdateSystemCmd struct {
 	RuntimePackage *loc.Locator
 }
 
+// UpdatePlanInitCmd creates a new update operation plan
+type UpdatePlanInitCmd struct {
+	*kingpin.CmdClause
+
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
+}
+
 // UpgradeCmd launches app upgrade
 type UpgradeCmd struct {
 	*kingpin.CmdClause
@@ -569,16 +703,29 @@ type UpgradeCmd struct {
 	Timeout *time.Duration
 	// Force forces phase execution
 	Force *bool
-	// Complete marks upgrade as complete
-	Complete *bool
 	// Resume resumes failed upgrade
 	Resume *bool
 	// SkipVersionCheck suppresses version mismatch errors
 	SkipVersionCheck *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
+	// Block indicates whether the command should run in foreground or as a systemd unit
+	Block *bool
+	// SkipWorkers configures whether to skip upgrading worker nodes
+	SkipWorkers *bool
+	// ParallelWorkers configures the number of workers that can be upgraded in parallel
+	ParallelWorkers *int
 }
 
-// StatusCmd displays cluster status
+// StatusCmd combines subcommands for displaying status information
 type StatusCmd struct {
+	*kingpin.CmdClause
+}
+
+// StatusClusterCmd displays current cluster status
+type StatusClusterCmd struct {
 	*kingpin.CmdClause
 	// Token displays only join token
 	Token *bool
@@ -592,9 +739,36 @@ type StatusCmd struct {
 	Output *constants.Format
 }
 
+// StatusHistoryCmd displays cluster status history
+type StatusHistoryCmd struct {
+	*kingpin.CmdClause
+}
+
 // StatusResetCmd resets cluster to active state
 type StatusResetCmd struct {
 	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
+}
+
+// RegistryCmd allows to interact with the cluster private registry
+type RegistryCmd struct {
+	*kingpin.CmdClause
+}
+
+// RegistryListCmd lists images in the registry
+type RegistryListCmd struct {
+	*kingpin.CmdClause
+	// Registry is the address of registry to list contents in
+	Registry *string
+	// CAPath is path to registry CA certificate
+	CAPath *string
+	// CertPath is path to registry client certificate
+	CertPath *string
+	// KeyPath is path to registry client private key
+	KeyPath *string
+	// Format is the output format
+	Format *constants.Format
 }
 
 // BackupCmd launches app backup hook
@@ -628,11 +802,17 @@ type CheckCmd struct {
 	Profile *string
 	// AutoFix enables automatic fixing of some failed checks
 	AutoFix *bool
+	// ImagePath is path to unpacked cluster image
+	ImagePath *string
+	// Timeout is the time allotted to run preflight checks
+	Timeout *time.Duration
 }
 
 // AppCmd combines subcommands for app service
 type AppCmd struct {
 	*kingpin.CmdClause
+	// TillerNamespace specifies namespace where Tiller server is running.
+	TillerNamespace *string
 }
 
 // AppInstallCmd installs an application from an application image.
@@ -656,11 +836,19 @@ type AppInstallCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppListCmd shows all application releases.
 type AppListCmd struct {
 	*kingpin.CmdClause
+	// All displays releases with all possible statuses.
+	All *bool
 }
 
 // AppUpgradeCmd upgrades a release.
@@ -682,6 +870,12 @@ type AppUpgradeCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
 }
 
 // AppRollbackCmd rolls back a release.
@@ -720,6 +914,17 @@ type AppSyncCmd struct {
 	RegistryCert *string
 	// RegistryKey is a registry client private key path.
 	RegistryKey *string
+	// RegistryUsername is registry username for basic auth.
+	RegistryUsername *string
+	// RegistryPassword is registry password for basic auth.
+	RegistryPassword *string
+	// RegistryPrefix is registry prefix when pushing images.
+	RegistryPrefix *string
+	// ScanningRepository is a docker repository to push a copy of all vendored images
+	// Used internally so the registry can scan those images and report on vulnerabilities
+	ScanningRepository *string
+	// ScanningTagPrefix is a prefix to add to each tag when pushed to help identify the image from the scan results
+	ScanningTagPrefix *string
 }
 
 // AppSearchCmd searches for applications.
@@ -882,10 +1087,26 @@ type AppUnpackCmd struct {
 // WizardCmd starts installer in UI mode
 type WizardCmd struct {
 	*kingpin.CmdClause
+	// Path is the state directory path
+	Path *string
 	// ServiceUID is system user ID
 	ServiceUID *string
 	// ServiceGID is system user group ID
 	ServiceGID *string
+	// AdvertiseAddr specifies the advertise address for the wizard
+	AdvertiseAddr *string
+	// Token is unique install token
+	Token *string
+	// FromService specifies whether this process runs in service mode.
+	//
+	// The installer runs the main installer code in service mode, while
+	// the client will simply connect to the service and stream its output and errors
+	// and control whether it should stop
+	FromService *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
 }
 
 // AppPackageCmd displays the name of app in installer tarball
@@ -986,6 +1207,8 @@ type PackExportCmd struct {
 	OpsCenterURL *string
 	// FileMask is file mask for exported package
 	FileMask *string
+	// FileLabel optionally specifies SELinux label
+	FileLabel *string
 }
 
 // PackListCmd lists packages
@@ -1158,6 +1381,10 @@ type ReportCmd struct {
 	*kingpin.CmdClause
 	// FilePath is the report tarball path
 	FilePath *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SiteCmd combines cluster related subcommands
@@ -1229,8 +1456,12 @@ type RPCAgentCmd struct {
 // RPCAgentDeployCmd deploys RPC agents on cluster nodes
 type RPCAgentDeployCmd struct {
 	*kingpin.CmdClause
-	// Args is additional arguments to the agent
-	Args *[]string
+	// LeaderArgs is additional arguments to the leader agent
+	LeaderArgs *string
+	// NodeArgs is additional arguments to the regular agent
+	NodeArgs *string
+	// Version specifies the version of the agent to be deployed
+	Version *string
 }
 
 // RPCAgentShutdownCmd requests RPC agents to shut down
@@ -1252,9 +1483,26 @@ type RPCAgentRunCmd struct {
 	Args *[]string
 }
 
+// RPCAgentStatusCmd requests RPC agent statuses
+type RPCAgentStatusCmd struct {
+	*kingpin.CmdClause
+}
+
 // SystemCmd combines system subcommands
 type SystemCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemTeleportCmd combines internal Teleport commands
+type SystemTeleportCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemTeleportShowConfigCmd displays Teleport config from specified package
+type SystemTeleportShowConfigCmd struct {
+	*kingpin.CmdClause
+	// Package is the package to show config from
+	Package *string
 }
 
 // SystemRotateCertsCmd renews cluster certificates on local node
@@ -1275,6 +1523,24 @@ type SystemExportCACmd struct {
 	ClusterName *string
 	// CAPath is path to export CA to
 	CAPath *string
+}
+
+// StopCmd stops all Gravity services on the node.
+type StopCmd struct {
+	*kingpin.CmdClause
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
+}
+
+// StartCmd starts all Gravity services on the node.
+type StartCmd struct {
+	*kingpin.CmdClause
+	// AdvertiseAddr is the new node advertise address.
+	AdvertiseAddr *string
+	// FromService indicates that the command is running as a systemd service.
+	FromService *bool
+	// Confirmed suppresses confirmation prompt.
+	Confirmed *bool
 }
 
 // SystemUninstallCmd uninstalls all gravity services from local node
@@ -1315,10 +1581,18 @@ type SystemReinstallCmd struct {
 	ServiceName *string
 	// Labels defines the labels to identify the package with
 	Labels *configure.KeyVal
+	// ClusterRole is the node's cluster role (master or node)
+	ClusterRole *string
 }
 
 // SystemHistoryCmd displays system update history
 type SystemHistoryCmd struct {
+	*kingpin.CmdClause
+}
+
+// SystemClusterInfoCmd dumps kubernetes cluster info suitable for debugging.
+// It is a convenience wrapper around 'kubectl cluster-info dump --all-namespaces'
+type SystemClusterInfoCmd struct {
 	*kingpin.CmdClause
 }
 
@@ -1381,18 +1655,43 @@ type SystemServiceUninstallCmd struct {
 	Name *string
 }
 
-// SystemServiceStatusCmd displays status of systemd service
+// SystemServiceStatusCmd queries the runtime status of a package service
 type SystemServiceStatusCmd struct {
 	*kingpin.CmdClause
-	// Package is system service package locator
-	Package *loc.Locator
-	// Name is service name
-	Name *string
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
 }
 
 // SystemServiceListCmd lists systemd services
 type SystemServiceListCmd struct {
 	*kingpin.CmdClause
+}
+
+// SystemServiceStartCmd starts or restart a package service
+type SystemServiceStartCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+}
+
+// SystemServiceStopCmd stops a running package service
+type SystemServiceStopCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+}
+
+// SystemServiceJournalCmd queries the system journal of a package service
+type SystemServiceJournalCmd struct {
+	*kingpin.CmdClause
+	// Package specifies the service either a package locator
+	// or a partial unique pattern (i.e. 'planet')
+	Package *string
+	// Args optionally lists additional arguments to journalctl
+	Args *[]string
 }
 
 // SystemReportCmd generates tarball with system diagnostics information
@@ -1402,6 +1701,12 @@ type SystemReportCmd struct {
 	Filter *[]string
 	// Compressed allows to gzip the tarball
 	Compressed *bool
+	// Output optionally specifies output file path
+	Output *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
 }
 
 // SystemStateDirCmd shows local state directory
@@ -1409,52 +1714,38 @@ type SystemStateDirCmd struct {
 	*kingpin.CmdClause
 }
 
-// SystemDevicemapperCmd combines devicemapper related subcommands
-type SystemDevicemapperCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemDevicemapperMountCmd configures devicemapper environment
-type SystemDevicemapperMountCmd struct {
-	*kingpin.CmdClause
-	// Disk is devicemapper device
-	Disk *string
-}
-
-// SystemDevicemapperUnmountCmd removes devicemapper environment
-type SystemDevicemapperUnmountCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemDevicemapperSystemDirCmd show LVM system directory
-type SystemDevicemapperSystemDirCmd struct {
-	*kingpin.CmdClause
-}
-
-// SystemEnablePromiscModeCmd puts network interface into promiscuous mode
-type SystemEnablePromiscModeCmd struct {
-	*kingpin.CmdClause
-	// Iface is interface to turn promiscuous mode on for
-	Iface *string
-}
-
-// SystemDisablePromiscModeCmd removes promiscuous mode from interface
-type SystemDisablePromiscModeCmd struct {
-	*kingpin.CmdClause
-	// Iface is interface to turn promiscuous mode off for
-	Iface *string
-}
-
 // SystemExportRuntimeJournalCmd exports runtime journal to a file
 type SystemExportRuntimeJournalCmd struct {
 	*kingpin.CmdClause
 	// OutputFile specifies the path of the resulting tarball
 	OutputFile *string
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
+	// Export serializes the journal into a binary stream.
+	Export *bool
 }
 
 // SystemStreamRuntimeJournalCmd streams contents of the runtime journal
 type SystemStreamRuntimeJournalCmd struct {
 	*kingpin.CmdClause
+	// Since is the duration before now that specifies the start of the time
+	// filter. Only log entries from the start of the time filter until now will
+	// be included in the report.
+	Since *time.Duration
+	// Export serializes the journal into a binary stream.
+	Export *bool
+}
+
+// SystemSelinuxBootstrapCmd configures SELinux file contexts and ports on the node
+type SystemSelinuxBootstrapCmd struct {
+	*kingpin.CmdClause
+	// Path specifies the optional output file where the bootstrap script is saved.
+	// In this case, the command does not execute the script
+	Path *string
+	// VxlanPort optionally specifies the new vxlan port
+	VxlanPort *int
 }
 
 // SystemGCJournalCmd manages cleanup of journal files
@@ -1493,19 +1784,11 @@ type SystemGCRegistryCmd struct {
 // GarbageCollectCmd prunes unused cluster resources
 type GarbageCollectCmd struct {
 	*kingpin.CmdClause
-	// Phase is the specific phase to run
-	Phase *string
-	// PhaseTimeout is the phase execution timeout
-	PhaseTimeout *time.Duration
-	// Resume is whether to resume a failed garbage collection
-	Resume *bool
 	// Manual is whether the operation is not executed automatically
 	Manual *bool
 	// Confirmed is whether the user has confirmed the removal of custom docker
 	// images
 	Confirmed *bool
-	// Force forces phase execution
-	Force *bool
 }
 
 // GarbageCollectPlanCmd displays the plan of the garbage collection operation
@@ -1569,6 +1852,12 @@ type ResourceCreateCmd struct {
 	Upsert *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceRemoveCmd removes specified resource
@@ -1582,6 +1871,12 @@ type ResourceRemoveCmd struct {
 	Force *bool
 	// User is resource owner
 	User *string
+	// Manual controls whether an operation is created in manual mode.
+	// If resource is managed with the help of a cluster operation,
+	// setting this to true will not cause the operation to start automatically
+	Manual *bool
+	// Confirmed suppresses confirmation prompt
+	Confirmed *bool
 }
 
 // ResourceGetCmd shows specified resource
@@ -1597,4 +1892,13 @@ type ResourceGetCmd struct {
 	WithSecrets *bool
 	// User is resource owner
 	User *string
+}
+
+// TopCmd displays cluster metrics in terminal.
+type TopCmd struct {
+	*kingpin.CmdClause
+	// Interval is the interval to display metrics for.
+	Interval *time.Duration
+	// Step is the max time b/w two datapoints.
+	Step *time.Duration
 }

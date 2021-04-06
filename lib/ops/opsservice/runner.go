@@ -35,7 +35,7 @@ type remoteRunner interface {
 	// Run runs the provided command on the specified server
 	Run(server remoteServer, args ...string) ([]byte, error)
 	// RunStream runs the provided command on the specified server and streams output to w
-	RunStream(server remoteServer, w io.Writer, args ...string) error
+	RunStream(server remoteServer, stdout, stderr io.Writer, args ...string) error
 	// RunCmd runs the provided command on the specified server and logs
 	// its results into the operation context
 	RunCmd(operationContext, remoteServer, Command) ([]byte, error)
@@ -48,22 +48,22 @@ type remoteServer interface {
 }
 
 type teleportRunner struct {
-	recorder   Recorder
+	log.FieldLogger
 	domainName string
 	ops.TeleportProxyService
 }
 
 // RunStream runs the provided command on the specified server and streams output to w
-func (r *teleportRunner) RunStream(server remoteServer, w io.Writer, args ...string) error {
+func (r *teleportRunner) RunStream(server remoteServer, stdout, stderr io.Writer, args ...string) error {
 	command := strings.Join(args, " ")
-	err := r.ExecuteCommand(context.TODO(), r.domainName, server.Address(), command, w)
+	err := r.ExecuteCommand(context.TODO(), r.domainName, server.Address(), command, stdout, stderr)
 
-	entry := r.recorder.WithFields(log.Fields{
+	logger := r.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
 		constants.FieldCommandError:       (err != nil),
 		constants.FieldCommandErrorReport: trace.UserMessage(err),
 	})
-	entry.Info(command)
+	logger.Info(command)
 
 	if err != nil {
 		return trace.Wrap(err)
@@ -73,8 +73,8 @@ func (r *teleportRunner) RunStream(server remoteServer, w io.Writer, args ...str
 
 // Run runs the provided command on the specified server
 func (r *teleportRunner) Run(server remoteServer, args ...string) ([]byte, error) {
-	out := &bytes.Buffer{}
-	err := r.RunStream(server, out, args...)
+	var out bytes.Buffer
+	err := r.RunStream(server, &out, &out, args...)
 	if err != nil {
 		return out.Bytes(), trace.Wrap(err, out.String())
 	}
@@ -97,8 +97,8 @@ type agentRunner struct {
 }
 
 // RunStream runs the provided command on the specified server and streams output to w
-func (r *agentRunner) RunStream(server remoteServer, w io.Writer, args ...string) error {
-	err := r.AgentService.Exec(context.TODO(), r.ctx.key(), server.Address(), args, w)
+func (r *agentRunner) RunStream(server remoteServer, stdout, stderr io.Writer, args ...string) error {
+	err := r.AgentService.ExecNoLog(context.TODO(), r.ctx.key(), server.Address(), args, stdout, stderr)
 
 	entry := r.ctx.WithFields(log.Fields{
 		constants.FieldServer:             server.Address(),
@@ -116,8 +116,8 @@ func (r *agentRunner) RunStream(server remoteServer, w io.Writer, args ...string
 
 // Run runs the provided command on the specified server
 func (r *agentRunner) Run(server remoteServer, args ...string) ([]byte, error) {
-	out := &bytes.Buffer{}
-	err := r.RunStream(server, out, args...)
+	var out bytes.Buffer
+	err := r.RunStream(server, &out, &out, args...)
 	if err != nil {
 		return out.Bytes(), trace.Wrap(err)
 	}
@@ -134,30 +134,15 @@ func (r *agentRunner) RunCmd(ctx operationContext, server remoteServer, cmd Comm
 	return out, nil
 }
 
-func (s *site) newTeleportServerRunner(ctx *operationContext, server remoteServer) *serverRunner {
-	return &serverRunner{
-		runner: &teleportRunner{ctx, s.domainName, s.teleport()},
-		server: server,
-	}
-}
-
-// commandRunner defines interface for running commands
-type commandRunner interface {
-	RunStream(io.Writer, ...string) error
-	Run(...string) ([]byte, error)
-	RunCmd(operationContext, Command) ([]byte, error)
-}
-
 // serverRunner runs commands on the server it was initialized with,
-// implements commandRunner
 type serverRunner struct {
 	server remoteServer
 	runner remoteRunner
 }
 
 // RunStream runs the provided command and streams output to w
-func (r *serverRunner) RunStream(w io.Writer, args ...string) error {
-	return r.runner.RunStream(r.server, w, args...)
+func (r *serverRunner) RunStream(stdout, stderr io.Writer, args ...string) error {
+	return r.runner.RunStream(r.server, stdout, stderr, args...)
 }
 
 // Run runs the provided command

@@ -66,7 +66,7 @@ func (o *Operator) StreamOperationLogs(key ops.SiteOperationKey, reader io.Reade
 
 // createInstallOperation initiates install operation for a given site
 // it makes sure that install operation is the first operation too
-func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createInstallOperation(ctx context.Context, req ops.CreateSiteInstallOperationRequest) (*ops.SiteOperationKey, error) {
 	profiles := make(map[string]storage.ServerProfile)
 	for _, profile := range s.app.Manifest.NodeProfiles {
 		profiles[profile.Name] = storage.ServerProfile{
@@ -76,21 +76,30 @@ func (s *site) createInstallOperation(req ops.CreateSiteInstallOperationRequest)
 			Request:     req.Profiles[profile.Name],
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationInstall, ops.OperationStateInstallInitiated, req.Provisioner, req.Variables, profiles)
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationInstall,
+		State:       ops.OperationStateInstallInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
-func (s *site) createInstallExpandOperation(operationType, operationInitialState, provisioner string,
-	variables storage.OperationVariables, profiles map[string]storage.ServerProfile) (*ops.SiteOperationKey, error) {
-	agentUser, err := s.agentUser()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+type createInstallExpandOperationRequest struct {
+	Type        string
+	State       string
+	Provisioner string
+	Vars        storage.OperationVariables
+	Profiles    map[string]storage.ServerProfile
+}
 
-	token, err := users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+func (s *site) createInstallExpandOperation(context context.Context, req createInstallExpandOperationRequest) (*ops.SiteOperationKey, error) {
+	s.WithField("req", req).Debug("createInstallExpandOperation.")
+	operationType := req.Type
+	operationInitialState := req.State
+	provisioner := req.Provisioner
+	variables := req.Vars
+	profiles := req.Profiles
 
 	op := &ops.SiteOperation{
 		ID:          uuid.New(),
@@ -98,17 +107,24 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
+		CreatedBy:   storage.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,
 	}
+
+	token, err := s.newProvisioningToken(*op)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return nil, trace.Wrap(err)
+	}
+	log.WithField("token", token).Info("Create install operation.")
 
 	ctx, err := s.newOperationContext(*op)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	defer ctx.Close()
-	ctx.Debugf("create %v", operationType)
 
 	err = s.updateRequestVars(ctx, &variables, op)
 	if err != nil {
@@ -127,24 +143,6 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 		}
 	}
 
-	tokenType := storage.ProvisioningTokenTypeInstall
-	if op.Type == ops.OperationExpand {
-		tokenType = storage.ProvisioningTokenTypeExpand
-	}
-
-	_, err = s.users().CreateProvisioningToken(storage.ProvisioningToken{
-		Token:       token,
-		AccountID:   s.key.AccountID,
-		SiteDomain:  s.key.SiteDomain,
-		Type:        storage.ProvisioningTokenType(tokenType),
-		Expires:     s.clock().UtcNow().Add(defaults.InstallTokenTTL),
-		OperationID: op.ID,
-		UserEmail:   agentUser.GetName(),
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	systemVars, err := s.systemVars(*op, variables.System)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -152,7 +150,7 @@ func (s *site) createInstallExpandOperation(operationType, operationInitialState
 
 	variables.System = *systemVars
 	agents := make(map[string]storage.AgentProfile, len(profiles))
-	for role, _ := range profiles {
+	for role := range profiles {
 		instructions, err := s.getDownloadInstructions(token, role)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -228,26 +226,26 @@ func (s *site) selectSubnets(operation ops.SiteOperation) (*storage.Subnets, err
 	}
 
 	// machines on AWS will receive IPs from this subnet
-	subnet := operation.GetVars().AWS.SubnetCIDR
-	if subnet == "" {
+	serviceSubnet := operation.GetVars().AWS.VPCCIDR
+	if serviceSubnet == "" {
 		return nil, trace.BadParameter("no subnet CIDR in operation vars: %v", operation)
 	}
 
 	// select the overlay subnet non-overlapping with the machines subnet
-	overlay, err := utils.SelectSubnet([]string{subnet})
+	overlaySubnet, err := utils.SelectSubnet([]string{serviceSubnet})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	// and select the service subnet non-overlapping with the pod/machine subnets
-	service, err := utils.SelectSubnet([]string{subnet, overlay})
+	serviceSubnet, err = utils.SelectSubnet([]string{serviceSubnet, overlaySubnet})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &storage.Subnets{
-		Overlay: overlay,
-		Service: service,
+		Overlay: overlaySubnet,
+		Service: serviceSubnet,
 	}, nil
 }
 
@@ -335,6 +333,8 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			ops.OperationStateInstallInitiated,
 			ops.OperationStateInstallProvisioning,
 			ops.OperationStateReady,
+			ops.OperationStateInstallPrechecks,
+			ops.OperationStateFailed,
 		}
 		newState = ops.OperationStateInstallPrechecks
 	case ops.OperationExpand:
@@ -342,20 +342,22 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			ops.OperationStateExpandInitiated,
 			ops.OperationStateExpandProvisioning,
 			ops.OperationStateReady,
+			ops.OperationStateExpandPrechecks,
+			ops.OperationStateFailed,
 		}
 		newState = ops.OperationStateExpandPrechecks
 	default:
 		return trace.BadParameter("unexpected operation type %v", op.Type)
 	}
 
-	op, err = s.compareAndSwapOperationState(swap{
+	op, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            op.Key(),
 		expectedStates: oldStates,
 		newOpState:     newState,
 	})
 	if err != nil {
 		if trace.IsCompareFailed(err) {
-			log.Warnf("Failed to CAS operation state: %v.", trace.DebugReport(err))
+			log.WithError(err).Warn("Failed to sync operation state.")
 			err = trace.BadParameter("internal operation state out of sync")
 		}
 		return trace.Wrap(err)
@@ -364,14 +366,17 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 	// if prechecks fail, reset the operation state back to "initiated"
 	defer func() {
 		if err != nil {
-			_, casErr := s.compareAndSwapOperationState(swap{
+			_, casErr := s.compareAndSwapOperationState(context.TODO(), swap{
 				key:            op.Key(),
 				expectedStates: []string{newState},
 				newOpState:     oldStates[0],
 			})
 			if casErr != nil {
-				log.Errorf("failed to reset %v state to %q: %v",
-					op, oldStates[0], trace.DebugReport(casErr))
+				log.WithFields(log.Fields{
+					log.ErrorKey: casErr,
+					"op":         op.ID,
+					"to-state":   oldStates[0],
+				}).Warn("Failed to reset operation state.")
 			}
 		}
 	}()
@@ -396,7 +401,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 
 	// update operation state with requested server profiles
 	for role, profileRequest := range req.Profiles {
-		// find the server profile with "role" in manifest
+		// find the server profile with the given role in manifest
 		profile, err := s.app.Manifest.NodeProfiles.ByName(role)
 		if err != nil {
 			return trace.Wrap(err)
@@ -426,13 +431,13 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 			OperationID: op.ID,
 			Servers:     req.Servers,
 		}
-		err = s.service.ValidateServers(validateReq)
+		err = ValidateServers(context.TODO(), s.service, validateReq)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	// check if the customer-provided license is actually valid for this operation
+	// check if the customer-provided license is valid for this operation
 	err = s.checkLicense(cluster, op, req, infos)
 	if err != nil {
 		return trace.Wrap(err)
@@ -464,7 +469,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 }
 
 func (s *site) validateInstall(op *ops.SiteOperation, req *ops.OperationUpdateRequest) error {
-	// for onprem installation verify the provided servers satisfy the selected flavor
+	// for onprem installation verify whether provided servers satisfy the selected flavor
 	if op.Provisioner == schema.ProvisionerOnPrem {
 		err := s.checkOnPremServers(*req)
 		if err != nil {
@@ -503,11 +508,6 @@ func (s *site) checkOnPremServers(req ops.OperationUpdateRequest) error {
 		// verify that there are no servers with unknown roles
 		if !ok {
 			return trace.BadParameter("unknown server role %v for %v", server.Role, server)
-		}
-		if server.SystemState.Device.Path() == server.Docker.Device.Path() && server.Docker.Device.Path() != "" {
-			return trace.BadParameter(
-				"cannot use the same device %q for system and docker configuration",
-				server.Docker.Device)
 		}
 	}
 
@@ -669,12 +669,6 @@ func (s *site) configureOnPremServers(ctx *operationContext, servers []storage.S
 		}
 		servers[i].SystemState.Device = info.GetDevices().GetByName(systemDevice)
 		servers[i].SystemState.StateDir = info.StateDir
-		dockerDevice := server.Docker.Device.Name
-		if dockerDevice.Path() == "" {
-			dockerDevice = storage.DeviceName(info.DockerDevice)
-		}
-		servers[i].Docker.Device = info.GetDevices().GetByName(dockerDevice)
-		servers[i].Docker.LVMSystemDirectory = info.GetLVMSystemDirectory()
 		servers[i].User = info.GetUser()
 		servers[i].Provisioner = schema.ProvisionerOnPrem
 		servers[i].Created = time.Now().UTC()
@@ -718,8 +712,8 @@ func (s *site) waitForInstaller(ctx *operationContext) (ops.Operator, error) {
 	for {
 		select {
 		case <-ticker.C:
-			installer, err := s.service.cfg.Clients.OpsClient(fmt.Sprintf(
-				"%v%v", constants.InstallerTunnelPrefix, s.domainName))
+			installer, err := s.service.cfg.Clients.OpsClient(
+				constants.InstallerClusterName(s.domainName))
 			if err == nil {
 				ctx.Infof("Got installer client.")
 				return installer, nil
@@ -735,14 +729,14 @@ func (s *site) waitForInstaller(ctx *operationContext) (ops.Operator, error) {
 // process using its provided operator and returns when the report contains
 // sufficient number of nodes for the installation
 func (s *site) waitForNodes(ctx *operationContext, installer ops.Operator) error {
-	localCtx, cancel := defaults.WithTimeout(context.TODO())
+	localCtx, cancel := defaults.WithTimeout(context.Background())
 	defer cancel()
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			report, err := installer.GetSiteInstallOperationAgentReport(ctx.key())
+			report, err := installer.GetSiteInstallOperationAgentReport(localCtx, ctx.key())
 			if err != nil {
 				ctx.Warnf("Failed to get agent report: %v.", err)
 				continue
@@ -792,7 +786,7 @@ func (s *site) waitForOperation(ctx *operationContext) error {
 // installOperationStart kicks off actual installation process:
 // resource provisioning, package configuration and deployment
 func (s *site) installOperationStart(ctx *operationContext) error {
-	op, err := s.compareAndSwapOperationState(swap{
+	op, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key: ctx.key(),
 		expectedStates: []string{
 			ops.OperationStateInstallInitiated,
@@ -809,7 +803,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 			return trace.BadParameter("%v hook is not defined",
 				schema.HookClusterProvision)
 		}
-		ctx.Infof("Using cluster provisioning hook.")
+		ctx.Info("Using cluster provisioning hook.")
 		err := s.runClusterProvisionHook(ctx)
 		if err != nil {
 			return trace.Wrap(err)
@@ -839,7 +833,7 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 		Message: "All servers are up",
 	})
 
-	op, err = s.compareAndSwapOperationState(swap{
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
 		key:            ctx.key(),
 		expectedStates: []string{ops.OperationStateInstallProvisioning},
 		newOpState:     ops.OperationStateInstallDeploying,
@@ -849,10 +843,13 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 	}
 
 	// give the installer a green light
-	err = installer.SetOperationState(ctx.key(),
+	err = installer.SetOperationState(context.TODO(), ctx.key(),
 		ops.SetOperationStateRequest{
 			State: ops.OperationStateReady,
 		})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	// wait for it to finish, installer will be reporting progress to us
 	err = s.waitForOperation(ctx)
@@ -861,6 +858,48 @@ func (s *site) installOperationStart(ctx *operationContext) error {
 	}
 
 	return nil
+}
+
+func (s *site) newProvisioningToken(operation ops.SiteOperation) (token string, err error) {
+	agentUser, err := s.agentUser()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	if operation.Type == ops.OperationInstall {
+		// For installation, the install token that was specified on the command line
+		// (or automatically generated during initialization), becomes both the auth token
+		// for the agents and the provisioning token to assign the agent to an operation
+		token = s.installToken()
+	}
+	if token == "" {
+		token, err = users.CryptoRandomToken(defaults.ProvisioningTokenBytes)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+	}
+	tokenRequest := storage.ProvisioningToken{
+		Token:      token,
+		AccountID:  s.key.AccountID,
+		SiteDomain: s.key.SiteDomain,
+		// Always create an expand token
+		Type:        storage.ProvisioningTokenTypeExpand,
+		OperationID: operation.ID,
+		UserEmail:   agentUser.GetName(),
+	}
+	if operation.Type == ops.OperationExpand {
+		// TODO(r0mant): Due to current implementation this TTL is required to
+		// make sure that when a new node joins, it doesn't select this token
+		// for Teleport since it picks non-expiring tokens. Otherwise, Teleport
+		// node won't be authenticate with existing auth servers that initialize
+		// their tokens upon startup: https://github.com/gravitational/gravity/issues/1445.
+		tokenRequest.Expires = s.clock().UtcNow().Add(24 * time.Hour)
+	}
+	_, err = s.users().CreateProvisioningToken(tokenRequest)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		log.WithError(err).Warn("Failed to create provisioning token.")
+		return "", trace.Wrap(err)
+	}
+	return token, nil
 }
 
 // checkLicenseCPU checks if the license supports the provided number of CPUs.
@@ -873,22 +912,36 @@ func checkLicenseCPU(p licenseapi.Payload, numCPU uint) error {
 }
 
 // setClusterRoles assigns cluster roles to servers.
-// If a server has an explicit cluster role assigned, the function will make sure that
-// the maximum number of masters is not exceeded.
 func setClusterRoles(servers []storage.Server, app libapp.Application, masters int) error {
+	// count the number of servers designated as master by the node profile
+	for _, server := range servers {
+		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		if profile.ServiceRole == schema.ServiceRoleMaster {
+			masters++
+		}
+	}
+
+	// assign the servers to their roles
 	for i, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		switch profile.ServiceRole {
-		case schema.ServiceRoleMaster, "":
+		case "":
 			if masters < defaults.MaxMasterNodes {
 				servers[i].ClusterRole = string(schema.ServiceRoleMaster)
 				masters++
 			} else {
 				servers[i].ClusterRole = string(schema.ServiceRoleNode)
 			}
+		case schema.ServiceRoleMaster:
+			servers[i].ClusterRole = string(schema.ServiceRoleMaster)
+			// don't increment masters as this server has already been counted above
 		case schema.ServiceRoleNode:
 			servers[i].ClusterRole = string(schema.ServiceRoleNode)
 		default:

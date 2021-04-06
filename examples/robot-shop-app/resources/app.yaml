@@ -1,0 +1,114 @@
+# Sample application manifest for Robotshop, a end-to-end robot store example utilizing microservices
+
+apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: robot-shop
+  resourceVersion: "1.1.0"
+
+# Note the use of Elastic Blockstore now available for Persistent Volumes since 7.0
+storage:
+ openebs:
+   enabled: true
+
+# This section declares the endpoints Robotshop requires.
+endpoints:
+ - name: "Robot-Shop"
+   description: "Robot-Shop"
+   selector:
+    service: web
+   protocol: http
+
+# This section allows to customize the graphical (web UI) installer
+# for the cluster.
+installer:
+
+  # if 'flavors' section is present, the installer will ask the end user what
+  # type of Kubernetes cluster to create. We are offering either a small
+  # single node, two nodes or 3 nodes configuration.
+  flavors:
+    prompt: "What size install do you want (single, double, or triple)?"
+    # The default flavor
+    default: single
+    # List of flavors:
+    items:
+    - name: "single"
+      description: "Single node install"
+      nodes:
+      - profile: general
+        count: 1
+    - name: "double"
+      description: "Double node install"
+      nodes:
+      - profile: general
+        count: 2
+    - name: "triple"
+      description: "Triple node install"
+      nodes:
+      - profile: general
+        count: 3
+
+# This section allows to define what flavors of servers are required for
+# this cluster. 
+#
+#
+nodeProfiles:
+  - name: general
+    description: "Master node with labels for running database and front-end facing containers"
+    labels:
+      front: "true"
+      db: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: master
+    description: "master node"
+    labels:
+      node-role.kubernetes.io/master: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: front
+    description: "Worker node labeled for Web front-facing containers"
+    labels:
+      front: "true"
+      node-role.kubernetes.io/node: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+  - name: db
+    description: "Worker node labeled for Database containers"
+    labels:
+      db: "true"
+      node-role.kubernetes.io/node: "true"
+    # gravity will validate that the nodes have the requested amounts
+    # of RAM/CPU
+    requirements:
+      cpu:
+        min: 2
+      ram:
+        min: "2GB"
+
+# This section allows you to specify Kubernetes jobs that will be executed
+# inside the cluster when certain cluster lifecycle events happen
+hooks:
+# Will install the Robotshop application
+  install:
+    job: file://install.yaml
+#As new versions of robot shop are realized this upgrade hook will invoke
+# the helm call to upgrade.
+  update:
+    job: file://upgrade.yaml
+

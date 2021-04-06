@@ -46,6 +46,9 @@ func (s *AutoscalerSuite) TestInstanceTerminate(c *check.C) {
 	instance := &gaws.Instance{
 		ID: "instance-1",
 	}
+	ec := newMockEC2(&ec2.Instance{
+		InstanceId: aws.String("instance-1"),
+	})
 	queue := newMockQueue("queue-1")
 	a, err := New(Config{
 		ClusterName: clusterName,
@@ -53,6 +56,7 @@ func (s *AutoscalerSuite) TestInstanceTerminate(c *check.C) {
 			return instance, nil
 		},
 		Queue: queue,
+		Cloud: ec,
 	})
 	c.Assert(err, check.IsNil)
 	c.Assert(a, check.NotNil)
@@ -110,7 +114,9 @@ func (s *AutoscalerSuite) TestInstanceLaunching(c *check.C) {
 		ID: "instance-1",
 	}
 	queue := newMockQueue("queue-1")
-	ec := newMockEC2()
+	ec := newMockEC2(&ec2.Instance{
+		InstanceId: aws.String("instance-1"),
+	})
 	a, err := New(Config{
 		ClusterName: clusterName,
 		NewLocalInstance: func() (*gaws.Instance, error) {
@@ -173,12 +179,14 @@ func newMockQueue(url string) *mockQueue {
 }
 
 type mockEC2 struct {
-	modifyC chan *ec2.ModifyInstanceAttributeInput
+	modifyC  chan *ec2.ModifyInstanceAttributeInput
+	instance *ec2.Instance
 }
 
-func newMockEC2() *mockEC2 {
+func newMockEC2(instance *ec2.Instance) *mockEC2 {
 	return &mockEC2{
-		modifyC: make(chan *ec2.ModifyInstanceAttributeInput, 10),
+		modifyC:  make(chan *ec2.ModifyInstanceAttributeInput, 10),
+		instance: instance,
 	}
 }
 
@@ -191,6 +199,20 @@ func (m *mockEC2) ModifyInstanceAttributeWithContext(ctx aws.Context, input *ec2
 	default:
 		return nil, trace.BadParameter("blocked on channel send")
 	}
+}
+
+func (m *mockEC2) DescribeInstancesWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, opts ...request.Option) (*ec2.DescribeInstancesOutput, error) {
+	return &ec2.DescribeInstancesOutput{
+		Reservations: []*ec2.Reservation{
+			{
+				Instances: []*ec2.Instance{m.instance},
+			},
+		},
+	}, nil
+}
+
+func (m *mockEC2) WaitUntilInstanceTerminatedWithContext(ctx aws.Context, input *ec2.DescribeInstancesInput, opts ...request.WaiterOption) error {
+	return nil
 }
 
 type message struct {
@@ -250,11 +272,11 @@ type mockOperator struct {
 	shrinksC chan *ops.CreateSiteShrinkOperationRequest
 }
 
-func (o *mockOperator) GetLocalSite() (*ops.Site, error) {
+func (o *mockOperator) GetLocalSite(context.Context) (*ops.Site, error) {
 	return &o.site, nil
 }
 
-func (o *mockOperator) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
+func (o *mockOperator) CreateSiteShrinkOperation(ctx context.Context, req ops.CreateSiteShrinkOperationRequest) (*ops.SiteOperationKey, error) {
 	select {
 	case o.shrinksC <- &req:
 	default:
@@ -265,4 +287,8 @@ func (o *mockOperator) CreateSiteShrinkOperation(req ops.CreateSiteShrinkOperati
 		SiteDomain:  o.site.Domain,
 		OperationID: "op-1",
 	}, nil
+}
+
+func (o *mockOperator) GetSiteOperationProgress(key ops.SiteOperationKey) (*ops.ProgressEntry, error) {
+	return nil, nil
 }

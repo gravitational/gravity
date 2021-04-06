@@ -44,10 +44,15 @@ const (
 	PurposePlanetConfig = "planet-config"
 	// PurposeRuntime marks a package as a runtime container package
 	PurposeRuntime = "runtime"
+	// PurposeRuntimeUpgrade marks a package as part of an intermediate upgrade step
+	PurposeRuntimeUpgrade = "intermediate-upgrade"
 	// PurposeTeleportMasterConfig marks package with teleport master config
 	PurposeTeleportMasterConfig = "teleport-master-config"
 	// PurposeTeleportNodeConfig marks package with teleport node config
 	PurposeTeleportNodeConfig = "teleport-node-config"
+	// PurposeLegacyTeleportNodeConfig specifies how the teleport node configuration packages
+	// were marked in previous version
+	PurposeLegacyTeleportNodeConfig = "teleport-config"
 	// PurposeMetadata defines a label to use for application packages
 	// that represent another package on a remote cluster.
 	// A metadata package only contains a metadata block w/o actual contents of the
@@ -57,12 +62,48 @@ const (
 	PurposeRPCCredentials = "rpc-secrets"
 )
 
-// RuntimePackageLabels identifies the runtime package
-var RuntimePackageLabels = map[string]string{
-	PurposeLabel: PurposeRuntime,
-}
+var (
+	// RuntimePackageLabels identifies the runtime package
+	RuntimePackageLabels = map[string]string{
+		PurposeLabel: PurposeRuntime,
+	}
 
-// InstalledLabels defines a label set for an installed package
-var InstalledLabels = map[string]string{
-	InstalledLabel: InstalledLabel,
+	// RuntimeSecretsPackageLabels identifies the runtime secrets package
+	RuntimeSecretsPackageLabels = map[string]string{
+		PurposeLabel: PurposePlanetSecrets,
+	}
+
+	// RuntimeConfigPackageLabels identifies the runtime configuration package
+	RuntimeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposePlanetConfig,
+	}
+
+	// TeleportNodeConfigPackageLabels identifies the teleport node configuration package
+	TeleportNodeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeTeleportNodeConfig,
+	}
+
+	// TeleportLegacyNodeConfigPackageLabels identifies the teleport node configuration package in previous versions.
+	// TODO(dmitri): remove when no longer supported
+	TeleportLegacyNodeConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeLegacyTeleportNodeConfig,
+	}
+
+	// TeleportMasterConfigPackageLabels identifies the teleport master configuration package
+	TeleportMasterConfigPackageLabels = map[string]string{
+		PurposeLabel: PurposeTeleportMasterConfig,
+	}
+
+	// InstalledLabels defines a label set for an installed package
+	InstalledLabels = map[string]string{
+		InstalledLabel: InstalledLabel,
+	}
+)
+
+// RuntimeUpgradeLabels returns the labels to mark a package as part of an upgrade step
+// for the specified runtime version
+func RuntimeUpgradeLabels(version string) Labels {
+	return Labels{
+		PurposeRuntimeUpgrade: version,
+	}
 }

@@ -18,15 +18,15 @@ package cli
 
 import (
 	"context"
-	"time"
 
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/state"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 	"github.com/gravitational/gravity/lib/vacuum/prune/journal"
@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/vacuum/prune/registry"
 
 	"github.com/gravitational/trace"
+	"github.com/gravitational/version"
 	"github.com/sirupsen/logrus"
 )
 
@@ -58,7 +59,7 @@ func garbageCollect(env *localenv.LocalEnvironment, manual, confirmed bool) erro
 
 	ctx := context.TODO()
 	if !manual {
-		err = collector.Run(ctx, false)
+		err = collector.Run(ctx)
 		return trace.Wrap(err)
 	}
 
@@ -76,12 +77,12 @@ $ gravity plan
 To perform the collection, execute each phase in the order it appears in
 the plan by running:
 
-$ sudo gravity gc --phase=<phase-id>
+$ sudo gravity plan execute --phase=<phase-id>
 
 To resume automatic collection from any point, run:
 
-$ gravity gc --resume`)
-	return trace.Wrap(err)
+$ gravity plan resume`)
+	return nil
 }
 
 func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
@@ -100,12 +101,12 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	teleportClient, err := env.TeleportClient(constants.Localhost)
+	teleportClient, err := env.TeleportClient(context.TODO(), constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
 	}
@@ -115,7 +116,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		return nil, trace.Wrap(err, "failed to connect to teleport proxy")
 	}
 
-	key, err := operator.CreateClusterGarbageCollectOperation(
+	key, err := operator.CreateClusterGarbageCollectOperation(context.TODO(),
 		ops.CreateClusterGarbageCollectOperationRequest{
 			AccountID:   cluster.AccountID,
 			ClusterName: cluster.Domain,
@@ -171,9 +172,10 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	ctx := context.TODO()
 	req := deployAgentsRequest{
 		clusterState: cluster.ClusterState,
-		clusterName:  cluster.Domain,
+		cluster:      *cluster,
 		clusterEnv:   clusterEnv,
 		proxy:        proxy,
+		version:      version.Get().Version,
 	}
 	creds, err := deployAgents(ctx, env, req)
 	if err != nil {
@@ -182,7 +184,7 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	runner := libfsm.NewAgentRunner(creds)
 
 	collector, err := vacuum.New(vacuum.Config{
-		App: &pack.Application{
+		App: &storage.Application{
 			Locator:  cluster.App.Package,
 			Manifest: cluster.App.Manifest,
 		},
@@ -197,7 +199,6 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 		RuntimePath:   runtimePath,
 		Silent:        env.Silent,
 		Runner:        runner,
-		Emitter:       env,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -205,71 +206,70 @@ func newCollector(env *localenv.LocalEnvironment) (*vacuum.Collector, error) {
 	return collector, nil
 }
 
-func garbageCollectPhase(env *localenv.LocalEnvironment, phase string, phaseTimeout time.Duration, force bool) error {
+func getGarbageCollector(env *localenv.LocalEnvironment, operation ops.SiteOperation) (*vacuum.Collector, error) {
 	clusterPackages, err := env.ClusterPackages()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	clusterApps, err := env.SiteApps()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	operator, err := env.SiteOperator()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	operation, _, err := ops.GetLastOperation(cluster.Key(), operator)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	remoteApps, err := collectRemoteApplications(operator, cluster.Key())
-	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 
 	runtimePath, err := getAnyRuntimePackagePath(env.Packages)
 	if err != nil {
-		return trace.Wrap(err, "failed to fetch the path to the container's rootfs")
+		return nil, trace.Wrap(err, "failed to fetch the path to the container's rootfs")
 	}
 
 	creds, err := libfsm.GetClientCredentials()
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	runner := libfsm.NewAgentRunner(creds)
 
-	collector, err := vacuum.New(vacuum.Config{
-		App: &pack.Application{
+	return vacuum.New(vacuum.Config{
+		App: &storage.Application{
 			Locator:  cluster.App.Package,
 			Manifest: cluster.App.Manifest,
 		},
-		RemoteApps:    remoteApps,
 		Apps:          clusterApps,
 		Packages:      clusterPackages,
 		LocalPackages: env.Packages,
 		Operator:      operator,
-		Operation:     operation,
+		Operation:     &operation,
 		Servers:       cluster.ClusterState.Servers,
 		ClusterKey:    cluster.Key(),
 		RuntimePath:   runtimePath,
 		Silent:        env.Silent,
 		Runner:        runner,
 	})
+}
+
+func executeGarbageCollectPhaseForOperation(env *localenv.LocalEnvironment, params PhaseParams, operation ops.SiteOperation) error {
+	collector, err := getGarbageCollector(env, operation)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	return collector.RunPhase(context.TODO(), params.PhaseID, params.Timeout, params.Force)
+}
 
-	err = collector.RunPhase(context.TODO(), phase, phaseTimeout, force)
-	return trace.Wrap(err)
+func setGarbageCollectPhaseForOperation(env *localenv.LocalEnvironment, params SetPhaseParams, operation ops.SiteOperation) error {
+	collector, err := getGarbageCollector(env, operation)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return collector.SetPhase(context.TODO(), params.PhaseID, params.State)
 }
 
 func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) error {
@@ -296,14 +296,14 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		return trace.Wrap(err)
 	}
 
-	cluster, err := clusterEnv.Operator.GetLocalSite()
+	cluster, err := clusterEnv.Operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-		RegistryAddress: constants.LocalRegistryAddr,
-		CertName:        constants.DockerRegistry,
+		RegistryAddress: defaults.LocalRegistryAddr,
+		CertName:        defaults.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 		ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
 		ClientKeyPath:   state.Secret(stateDir, "kubelet.key"),
@@ -320,7 +320,7 @@ func removeUnusedImages(env *localenv.LocalEnvironment, dryRun, confirmed bool) 
 		Config: prune.Config{
 			DryRun:      dryRun,
 			FieldLogger: logrus.WithField(trace.Component, "gc/registry"),
-			Emitter:     env,
+			Silent:      env.Silent,
 		},
 	}
 	pruner, err := registry.New(config)
@@ -338,12 +338,8 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 		return trace.Wrap(err)
 	}
 
-	cluster, err := operator.GetLocalSite()
+	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err = validateCanPrunePackages(*cluster); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -353,7 +349,7 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 	}
 
 	config := pack.Config{
-		App: &pack.Application{
+		App: &storage.Application{
 			Locator:  cluster.App.Package,
 			Manifest: cluster.App.Manifest,
 		},
@@ -362,7 +358,7 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 		Config: prune.Config{
 			DryRun:      dryRun,
 			FieldLogger: logrus.WithField(trace.Component, "gc:registry"),
-			Emitter:     env,
+			Silent:      env.Silent,
 		},
 	}
 	pruner, err := pack.New(config)
@@ -399,8 +395,7 @@ func removeUnusedPackages(env *localenv.LocalEnvironment, dryRun, pruneClusterPa
 	return nil
 }
 
-func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) ([]pack.Application, error) {
-	var remoteApps []pack.Application
+func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) (remoteApps []storage.Application, err error) {
 	accounts, err := operator.GetAccounts()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -415,27 +410,13 @@ func collectRemoteApplications(operator ops.Operator, clusterKey ops.SiteKey) ([
 				remoteCluster.Domain == clusterKey.SiteDomain {
 				continue
 			}
-			remoteApps = append(remoteApps, pack.Application{
+			remoteApps = append(remoteApps, storage.Application{
 				Locator:  remoteCluster.App.Package,
 				Manifest: remoteCluster.App.Manifest,
 			})
 		}
 	}
 	return remoteApps, nil
-}
-
-func validateCanPrunePackages(cluster ops.Site) error {
-	// Use the cluster state to determine the operation progress to account
-	// for older clusters where update operation was not explicitly completed.
-	// TODO(dmitri): remove when there's no more need to support this legacy case
-	switch cluster.State {
-	case ops.SiteStateActive, ops.SiteStateDegraded:
-	default:
-		return trace.CompareFailed("Package pruning can only run on an active or degraded cluster. " +
-			"Please complete any pending operations and try again.")
-	}
-
-	return nil
 }
 
 func removeUnusedJournalFiles(env *localenv.LocalEnvironment, machineIDFile, logDir string) (err error) {
@@ -451,7 +432,7 @@ func removeUnusedJournalFiles(env *localenv.LocalEnvironment, machineIDFile, log
 		MachineIDFile: machineIDFile,
 		Config: prune.Config{
 			FieldLogger: logrus.WithField(trace.Component, "gc:journal"),
-			Emitter:     env,
+			Silent:      env.Silent,
 		},
 	})
 	if err != nil {

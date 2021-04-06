@@ -17,8 +17,8 @@ limitations under the License.
 package opshandler
 
 import (
-	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
@@ -31,44 +31,40 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-/* getRetentionPolicies returns a list of retention policies for a site
+/* getClusterMetrics returns basic CPU/RAM metrics for the cluster.
 
-     GET /portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention
-
-   Success Response:
-
-     []ops.RetentionPolicy
-*/
-func (h *WebHandler) getRetentionPolicies(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	policies, err := context.Operator.GetRetentionPolicies(siteKey(p))
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	roundtrip.ReplyJSON(w, http.StatusOK, policies)
-	return nil
-}
-
-/* updateRetentionPolicy updates retention policies for a site
-
-     PUT /portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention
+     GET /portal/v1/accounts/:account_id/sites/:site_domain/monitoring/metrics
 
    Success Response:
 
-     {
-       "message": "retention policy updated"
-     }
+     ops.ClusterMetricsResponse
 */
-func (h *WebHandler) updateRetentionPolicy(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	var req ops.UpdateRetentionPolicyRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
+func (h *WebHandler) getClusterMetrics(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	err := r.ParseForm()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = context.Operator.UpdateRetentionPolicy(req)
+	var interval, step time.Duration
+	if i := r.Form.Get("interval"); i != "" {
+		if interval, err = time.ParseDuration(i); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	if s := r.Form.Get("step"); s != "" {
+		if step, err = time.ParseDuration(s); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	metrics, err := context.Operator.GetClusterMetrics(r.Context(),
+		ops.ClusterMetricsRequest{
+			SiteKey:  siteKey(p),
+			Interval: interval,
+			Step:     step,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("retention policy updated"))
+	roundtrip.ReplyJSON(w, http.StatusOK, metrics)
 	return nil
 }
 
@@ -113,7 +109,7 @@ func (h *WebHandler) updateAlert(w http.ResponseWriter, r *http.Request, p httpr
 		alert.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateAlert(siteKey(p), alert)
+	err = context.Operator.UpdateAlert(r.Context(), siteKey(p), alert)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -132,7 +128,7 @@ func (h *WebHandler) updateAlert(w http.ResponseWriter, r *http.Request, p httpr
      }
 */
 func (h *WebHandler) deleteAlert(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteAlert(siteKey(p), p.ByName("name"))
+	err := context.Operator.DeleteAlert(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -183,7 +179,7 @@ func (h *WebHandler) updateAlertTarget(w http.ResponseWriter, r *http.Request, p
 		target.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateAlertTarget(siteKey(p), target)
+	err = context.Operator.UpdateAlertTarget(r.Context(), siteKey(p), target)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -202,7 +198,7 @@ func (h *WebHandler) updateAlertTarget(w http.ResponseWriter, r *http.Request, p
      }
 */
 func (h *WebHandler) deleteAlertTarget(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteAlertTarget(siteKey(p))
+	err := context.Operator.DeleteAlertTarget(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}

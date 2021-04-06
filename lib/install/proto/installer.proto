@@ -1,0 +1,145 @@
+/*
+Copyright 2019 Gravitational, Inc.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+syntax = "proto3";
+
+package installer;
+
+import "google/protobuf/empty.proto";
+import "gogo.proto";
+
+// Agent defines a service to install a cluster
+service Agent {
+    // Execute runs the operation specified with request.
+    // If the client drops disconnects in the middle of the operation,
+    // it can reconnect later and continue receiving progress updates
+    // until the operation has completed
+    rpc Execute(ExecuteRequest) returns (stream ProgressResponse);
+
+    // Complete marks the operation as completed
+    rpc Complete(CompleteRequest) returns (google.protobuf.Empty);
+
+    // SetState sets the specified phase state without executing it
+    rpc SetState(SetStateRequest) returns (google.protobuf.Empty);
+
+    // Abort requests that the installer service aborts
+    rpc Abort(AbortRequest) returns (google.protobuf.Empty);
+
+    // Shutdown requests that the installer service shuts down gracefully
+    rpc Shutdown(ShutdownRequest) returns (google.protobuf.Empty);
+
+    // GenerateDebugReport requests the installer to generate a debug report
+    rpc GenerateDebugReport(DebugReportRequest) returns (google.protobuf.Empty);
+}
+
+// Phase represents an operation plan phase
+message Phase {
+    // ID specifies the phase ID
+    string id = 1 [(gogoproto.customname) = "ID"];
+    // Key identifies the operation
+    OperationKey key = 2;
+    // Rollback specifies whether this is a rollback
+    bool rollback = 3;
+    // Force specifies whether the phase execution/rollback should be rerun
+    // regardless of phase state
+    bool force = 4;
+}
+
+// ExecuteRequest describes a request to execute install operation
+message ExecuteRequest {
+    // Phase optionally specifies the configuration for executing or rolling
+    // back a specific phase.
+    // If unspecified, the operation is executed from the beginning
+    Phase phase = 1;
+}
+
+// SetStateRequest describes a request to explicitly set phase state
+message SetStateRequest {
+    // Phase describes the phase to set the state for
+    Phase phase = 1;
+    // State is the new phase state
+    string state = 2;
+}
+
+// CompleteRequest describes a request to manually complete the operation
+message CompleteRequest {
+    // Key identifies the operation
+    OperationKey key = 1;
+}
+
+// AbortRequest describes a request to abort the operation and clean up
+message AbortRequest {
+}
+
+// ShutdownRequest describes a request to shut down the server
+message ShutdownRequest {
+    // Completed indicates that the operation has been successfully completed
+    bool completed = 1;
+    // ExitCode optionally specifies the exit code for the service.
+    // 0 value is considered success
+    int32 exitCode = 2;
+}
+
+// DebugReportRequest describes a request to generate debug report
+message DebugReportRequest {
+    // Path specifies the path to the report file
+    string path = 1;
+}
+
+// ProgressResponse describes a single progress step
+message ProgressResponse {
+    // Message specifies the progress message
+    string message = 1;
+    // Status defines the status of this progress message.
+    // If the status is one of (StatusCompleted, StatusCompletedPending, StatusAborted), this response is the last response sent
+    enum Status {
+        option (gogoproto.goproto_enum_prefix) = false;
+        option (gogoproto.goproto_enum_stringer) = false;
+        option (gogoproto.enum_customname) = "Status";
+
+        // StatusUnknown indicates the unknown progress
+        UNKNOWN = 0 [(gogoproto.enumvalue_customname) = "StatusUnknown"];
+        // StatusCompleted status indicates that the operation has successfully completed.
+        // This status is terminal - no more progress messages will follow
+        COMPLETED = 1 [(gogoproto.enumvalue_customname) = "StatusCompleted"];
+        // StatusCompletedPending status indicates that the operation has successfully completed
+        // but the installer process will continue running to enable post-install tasks.
+        // This status is terminal - no more progress messages will follow
+        COMPLETED_PENDING = 2 [(gogoproto.enumvalue_customname) = "StatusCompletedPending"];
+        // StatusAborted status indicates that the operation has been aborted.
+        // This status is terminal - no more progress messages will follow
+        ABORTED = 3 [(gogoproto.enumvalue_customname) = "StatusAborted"];
+    }
+    // Status describes the status of this response
+    Status status = 2;
+    // Error specifies the error for this progress step
+    Error error = 3;
+}
+
+// Error represents an error in the operation
+message Error {
+    // Message specifies the error message
+    string message = 1;
+}
+
+// OperationKey describes a cluster operation
+message OperationKey {
+    // AccountID refers to the account this operation belongs to
+    string account_id = 1 [(gogoproto.customname) = "AccountID"];
+    // ClusterName identifies the cluster for the operation
+    string cluster_name = 2 [(gogoproto.customname) = "ClusterName"];
+    // ID specifies the operation ID
+    string id = 3 [(gogoproto.customname) = "ID"];
+}

@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
@@ -83,44 +82,34 @@ func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
 	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
 }
 
-// Stream runs a kubectl command specified with args and streams stdout and stderr to the provided io.Writers
-func Stream(ctx context.Context, out io.Writer, err io.Writer, args ...string) error {
-	cmd := exec.CommandContext(ctx, defaults.KubectlBin, args...)
-	log.Debugf("executing %v", cmd)
-	cmd.Stdout = out
-	cmd.Stderr = err
-
-	return cmd.Run()
-}
-
 // GetNamespaces fetches the names of all namespaces
-func GetNamespaces(runner utils.CommandRunner) ([]string, error) {
+func GetNamespaces(ctx context.Context, runner utils.CommandRunner) ([]string, error) {
 	cmd := Command("get", "namespaces", "--output", "jsonpath={.items..metadata.name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(&buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query namespaces: %s", stderr.String())
 	}
 
-	namespaces := strings.Fields(strings.TrimSpace(buf.String()))
+	namespaces := strings.Fields(strings.TrimSpace(stdout.String()))
 
 	return namespaces, nil
 }
 
 // GetPods fetches the names of the pods from the given namespace
-func GetPods(namespace string, runner utils.CommandRunner) ([]string, error) {
+func GetPods(ctx context.Context, namespace string, runner utils.CommandRunner) ([]string, error) {
 	cmd := Command("get", "pods",
 		"--namespace", namespace,
 		"--output", "jsonpath={.items..metadata.name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(&buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query pods: %s", stderr.String())
 	}
 
-	trimmed := strings.TrimSpace(string(buf.String()))
+	trimmed := strings.TrimSpace(string(stdout.String()))
 	if strings.HasPrefix(trimmed, noResourcesPrefix) {
 		return nil, nil
 	}
@@ -132,18 +121,19 @@ func GetPods(namespace string, runner utils.CommandRunner) ([]string, error) {
 
 // GetPodContainers fetches the names of the containers from the specified pod
 // in the given namespace
-func GetPodContainers(namespace, pod string, runner utils.CommandRunner) ([]string, error) {
+func GetPodContainers(ctx context.Context, namespace, pod string, runner utils.CommandRunner) ([]string, error) {
 	cmd := Command("get", "pod", pod,
 		"--namespace", namespace,
 		"--output", "jsonpath={.status.containerStatuses..name}")
-	var buf bytes.Buffer
+	var stdout, stderr bytes.Buffer
 
-	err := runner.RunStream(&buf, cmd.Args()...)
+	err := runner.RunStream(ctx, &stdout, &stderr, cmd.Args()...)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.Wrap(err, "failed to query containers for pod %v/%v: %s",
+			namespace, pod, stderr.String())
 	}
 
-	containers := strings.Fields(strings.TrimSpace(buf.String()))
+	containers := strings.Fields(strings.TrimSpace(stdout.String()))
 
 	return containers, nil
 }
@@ -155,7 +145,7 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 		`jsonpath={.items[*].status.addresses[?(@.type=="InternalIP")].address}`))
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
-	cmd.Stderr = utils.StderrLogger(log.StandardLogger().WithField("cmd", "kubectl get nodes"))
+	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get nodes"))
 
 	out, err := cmd.Output()
 	if err != nil {

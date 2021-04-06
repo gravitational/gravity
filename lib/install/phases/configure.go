@@ -36,10 +36,18 @@ func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (*configureExecut
 		Key:      opKey(p.Plan),
 		Operator: operator,
 	}
+	var env map[string]string
+	var config []byte
+	if p.Phase.Data != nil && p.Phase.Data.Install != nil {
+		env = p.Phase.Data.Install.Env
+		config = p.Phase.Data.Install.Config
+	}
 	return &configureExecutor{
 		FieldLogger:    logger,
 		Operator:       operator,
 		ExecutorParams: p,
+		env:            env,
+		config:         config,
 	}, nil
 }
 
@@ -50,16 +58,18 @@ type configureExecutor struct {
 	Operator ops.Operator
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
+	env    map[string]string
+	config []byte
 }
 
 // Execute executes the configure phase
 func (p *configureExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Configuring cluster packages")
 	p.Info("Configuring cluster packages.")
-	err := p.Operator.ConfigurePackages(ops.SiteOperationKey{
-		AccountID:   p.Plan.AccountID,
-		SiteDomain:  p.Plan.ClusterName,
-		OperationID: p.Plan.OperationID,
+	err := p.Operator.ConfigurePackages(ops.ConfigurePackagesRequest{
+		SiteOperationKey: fsm.OperationKey(p.Plan),
+		Env:              p.env,
+		Config:           p.config,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -68,7 +78,7 @@ func (p *configureExecutor) Execute(ctx context.Context) error {
 }
 
 // Rollback is no-op for this phase
-func (*configureExecutor) Rollback(ctx context.Context) error {
+func (p *configureExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 

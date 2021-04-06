@@ -16,7 +16,16 @@ limitations under the License.
 
 package storage
 
-import teleservices "github.com/gravitational/teleport/lib/services"
+import (
+	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/ghodss/yaml"
+	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/trace"
+	serializer "k8s.io/apimachinery/pkg/runtime/serializer/json"
+)
 
 const (
 	// KindCluster is a resource kind for gravity clusters
@@ -56,13 +65,110 @@ const (
 	KindEndpoints = "endpoints"
 	// KindAuthGateway defines the auth gateway resource type
 	KindAuthGateway = "authgateway"
+	// KindRuntimeEnvironment defines the resource that manages cluster environment variables
+	KindRuntimeEnvironment = "runtimeenvironment"
+	// KindClusterConfiguration defines the resource that manages cluster configuration
+	KindClusterConfiguration = "clusterconfiguration"
+	// KindPersistentStorage is the resource for managing persistent storage in the cluster
+	KindPersistentStorage = "persistentstorage"
+	// KindOperation is the cluster operation resource type.
+	KindOperation = "operation"
+	// KindRelease defines the application release resource type
+	KindRelease = "release"
+	// KindInvite defines the user invite token.
+	KindInvite = "invite"
 )
+
+// CanonicalKind translates the specified kind to canonical form.
+// Returns the kind unmodified if it did not match any known resource
+func CanonicalKind(kind string) string {
+	switch strings.ToLower(kind) {
+	case teleservices.KindGithubConnector:
+		return teleservices.KindGithubConnector
+	case teleservices.KindAuthConnector, "auth":
+		return teleservices.KindAuthConnector
+	case teleservices.KindUser, "users":
+		return teleservices.KindUser
+	case KindToken, "tokens":
+		return KindToken
+	case KindLogForwarder, "logforwarders":
+		return KindLogForwarder
+	case KindTLSKeyPair, "tlskeypairs", "tls":
+		return KindTLSKeyPair
+	case teleservices.KindClusterAuthPreference, "authpreference", "cap":
+		return teleservices.KindClusterAuthPreference
+	case KindSMTPConfig, "smtps":
+		return KindSMTPConfig
+	case KindAlert, "alerts":
+		return KindAlert
+	case KindAlertTarget, "alerttargets":
+		return KindAlertTarget
+	case KindRuntimeEnvironment, "environment", "env":
+		return KindRuntimeEnvironment
+	case KindClusterConfiguration, "config":
+		return KindClusterConfiguration
+	case KindPersistentStorage, "storage", "ps":
+		return KindPersistentStorage
+	case KindAuthGateway, "gw":
+		return KindAuthGateway
+	case KindOperation, "operations", "op", "ops":
+		return KindOperation
+	}
+	return kind
+}
+
+// UnknownResource represents an unparsed resource with an interpreted ResourceHeader.
+// The embedded resource can either be a Kubernetes or a Gravity resource.
+// The struct implements both json.Marshaler/json.Unmarshaler
+type UnknownResource struct {
+	// ResourceHeader describes the resource by providing the metadata common to all resources
+	teleservices.ResourceHeader
+	// Raw is the unparsed resource data.
+	Raw json.RawMessage `json:",inline"`
+}
+
+// UnmarshalJSON consumes the specified data as a binary blob w/o interpreting it
+func (r *UnknownResource) UnmarshalJSON(data []byte) (err error) {
+	if err = json.Unmarshal(data, &r.ResourceHeader); err != nil {
+		return trace.Wrap(err)
+	}
+	if err = r.Raw.UnmarshalJSON(data); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// MarshalJSON returns the raw message
+func (r UnknownResource) MarshalJSON() ([]byte, error) {
+	return r.Raw.MarshalJSON()
+}
+
+// Encode YAML-encodes the specified list of resources into w
+func Encode(resources []UnknownResource, w io.Writer) error {
+	w = serializer.YAMLFramer.NewFrameWriter(w)
+	for _, resource := range resources {
+		jsonBytes, err := json.Marshal(resource)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		data, err := yaml.JSONToYAML(jsonBytes)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		_, err = w.Write(data)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
 
 // SupportedGravityResources is a list of resources supported by
 // "gravity resource create/get" subcommands
 var SupportedGravityResources = []string{
 	teleservices.KindClusterAuthPreference,
 	teleservices.KindGithubConnector,
+	teleservices.KindAuthConnector,
 	teleservices.KindUser,
 	KindToken,
 	KindLogForwarder,
@@ -71,10 +177,14 @@ var SupportedGravityResources = []string{
 	KindAlertTarget,
 	KindTLSKeyPair,
 	KindAuthGateway,
+	KindRuntimeEnvironment,
+	KindClusterConfiguration,
+	KindPersistentStorage,
+	KindOperation,
 }
 
 // SupportedGravityResourcesToRemove is a list of resources supported by
-// "gravity resource remove" subcommand
+// "gravity resource rm" subcommand
 var SupportedGravityResourcesToRemove = []string{
 	teleservices.KindGithubConnector,
 	teleservices.KindUser,
@@ -84,6 +194,8 @@ var SupportedGravityResourcesToRemove = []string{
 	KindAlert,
 	KindAlertTarget,
 	KindTLSKeyPair,
+	KindRuntimeEnvironment,
+	KindClusterConfiguration,
 }
 
 // MetadataSchema is a copy of teleport/lib/services.MetadataSchema but with

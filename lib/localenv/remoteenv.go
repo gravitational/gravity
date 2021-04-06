@@ -17,11 +17,13 @@ limitations under the License.
 package localenv
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
@@ -30,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/pack/webpack"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
@@ -55,11 +58,12 @@ type RemoteEnvironment struct {
 
 // NewRemoteEnvironment creates a new remote environment
 func NewRemoteEnvironment() (*RemoteEnvironment, error) {
-	err := os.MkdirAll(defaults.WizardDir, defaults.SharedDirMask)
+	stateDir := state.GravityInstallDir("wizard")
+	err := os.MkdirAll(stateDir, defaults.SharedDirMask)
 	if err != nil {
 		return nil, trace.ConvertSystemError(err)
 	}
-	env, err := newRemoteEnvironment(defaults.WizardDir)
+	env, err := newRemoteEnvironment(stateDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -67,12 +71,12 @@ func NewRemoteEnvironment() (*RemoteEnvironment, error) {
 }
 
 // LoginWizard creates remote environment and logs into it as a wizard user
-func LoginWizard(addr string) (*RemoteEnvironment, error) {
+func LoginWizard(addr, token string) (*RemoteEnvironment, error) {
 	env, err := NewRemoteEnvironment()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	_, err = env.LoginWizard(addr)
+	_, err = env.LoginWizard(addr, token)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -117,7 +121,7 @@ func newRemoteEnvironment(stateDir string) (*RemoteEnvironment, error) {
 
 // Login logs this environment into the Ops Center with specified credentials
 func (w *RemoteEnvironment) Login(url, token string) error {
-	w.Debugf("Logging into Ops Center: %v.", url)
+	w.Debugf("Logging into Gravity Hub: %v.", url)
 	_, err := w.login(storage.LoginEntry{
 		Password:     token,
 		OpsCenterURL: url,
@@ -136,13 +140,13 @@ func (w *RemoteEnvironment) LoginCluster(url, token string) error {
 }
 
 // LoginWizard logs this environment into wizard with specified address
-func (w *RemoteEnvironment) LoginWizard(addr string) (entry *storage.LoginEntry, err error) {
+func (w *RemoteEnvironment) LoginWizard(addr, token string) (entry *storage.LoginEntry, err error) {
 	wizardPort := strconv.Itoa(defaults.WizardPackServerPort)
 	var host, port string
 	if strings.HasPrefix(addr, "https") {
 		host, port, err = utils.URLSplitHostPort(addr, wizardPort)
 		if err != nil {
-			return nil, trace.Wrap(err, "invalid Ops Center URL %q, expected [https://]host[:port]", addr)
+			return nil, trace.Wrap(err, "invalid Gravity Hub URL %q, expected [https://]host[:port]", addr)
 		}
 	} else {
 		host, port = utils.SplitHostPort(addr, wizardPort)
@@ -155,9 +159,25 @@ func (w *RemoteEnvironment) LoginWizard(addr string) (entry *storage.LoginEntry,
 	}
 	return w.login(storage.LoginEntry{
 		Email:        defaults.WizardUser,
-		Password:     defaults.WizardPassword,
+		Password:     token,
 		OpsCenterURL: url,
 	})
+}
+
+// WaitForOperator blocks until the configured operator becomes available or context expires.
+func (w *RemoteEnvironment) WaitForOperator(ctx context.Context) error {
+	err := utils.RetryFor(ctx, time.Minute, func() error {
+		if err := w.Operator.Ping(ctx); err != nil {
+			w.Infof("Operator isn't available yet: %v.", err)
+			return trace.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	w.Info("Operator is available.")
+	return nil
 }
 
 func (w *RemoteEnvironment) login(entry storage.LoginEntry) (*storage.LoginEntry, error) {
@@ -262,7 +282,7 @@ func (w *RemoteEnvironment) wizardEntry() (*storage.LoginEntry, error) {
 // closed afterwards
 func (w *RemoteEnvironment) withBackend(fn func(storage.Backend) error) (err error) {
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
-		Path: filepath.Join(w.StateDir, "wizard.db"),
+		Path: filepath.Join(w.StateDir, defaults.InstallerDBFile),
 	})
 	if err != nil {
 		return trace.Wrap(err)

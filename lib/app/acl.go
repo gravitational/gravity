@@ -212,11 +212,11 @@ func (r *ApplicationsACL) WaitAppHook(ctx context.Context, ref HookRef) error {
 }
 
 // DeleteAppHookJob deletes app hook job to complete or fail
-func (r *ApplicationsACL) DeleteAppHookJob(ctx context.Context, ref HookRef) error {
-	if err := r.check(ref.Application.Repository, teleservices.VerbRead); err != nil {
+func (r *ApplicationsACL) DeleteAppHookJob(ctx context.Context, req DeleteAppHookJobRequest) error {
+	if err := r.check(req.Application.Repository, teleservices.VerbRead); err != nil {
 		return trace.Wrap(err)
 	}
-	return r.applications.DeleteAppHookJob(ctx, ref)
+	return r.applications.DeleteAppHookJob(ctx, req)
 }
 
 // StreamAppHookLogs streams app hook logs to output writer, this is a blocking call

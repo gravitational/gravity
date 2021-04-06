@@ -17,25 +17,34 @@ limitations under the License.
 package install
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
+	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsservice"
+	resourceutil "github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // PlanBuilder builds operation plan phases
 type PlanBuilder struct {
+	// Cluster is the cluster being installed
+	Cluster storage.Site
+	// Operation is the operation the builder is for
+	Operation ops.SiteOperation
 	// Application is the app being installed
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
@@ -46,6 +55,8 @@ type PlanBuilder struct {
 	RBACPackage loc.Locator
 	// GravitySitePackage is the gravity-site app package
 	GravitySitePackage loc.Locator
+	// GravityPackage is the gravity binary package
+	GravityPackage loc.Locator
 	// DNSAppPackage is the dns-app app package
 	DNSAppPackage loc.Locator
 	// Masters is the list of master nodes
@@ -60,17 +71,85 @@ type PlanBuilder struct {
 	RegularAgent storage.LoginEntry
 	// ServiceUser is the cluster system user
 	ServiceUser storage.OSUser
-	// DNSConfig specifies the custom cluster DNS configuration
-	DNSConfig storage.DNSConfig
+	// env specifies optional cluster environment variables to add during install
+	env map[string]string
+	// config specifies the optional cluster configuration
+	config []byte
+	// resources specifies the optional Kubernetes resources to create
+	resources []byte
+	// gravityResources specifies the optional Gravity resources to create upon successful install
+	gravityResources []storage.UnknownResource
 	// InstallerTrustedCluster represents the trusted cluster for installer process
 	InstallerTrustedCluster storage.TrustedCluster
+	// PersistentStorage is persistent storage resource optionally provided by
+	// user at install time.
+	PersistentStorage storage.PersistentStorage
+}
+
+// NumParallel limits the number of parallel phases that can be run during install
+const NumParallel = 10
+
+// AddInitPhase appends initialization phase to the provided plan
+func (b *PlanBuilder) AddInitPhase(plan *storage.OperationPlan) {
+	var initPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		initPhases = append(initPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.InitPhase, node.Hostname),
+			Description: fmt.Sprintf("Initialize operation on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:            phases.InitPhase,
+		Description:   "Initialize operation on all nodes",
+		Phases:        initPhases,
+		LimitParallel: NumParallel,
+		Step:          0,
+	})
+}
+
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *PlanBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	var bootstrapPhases []storage.OperationPhase
+	allNodes := append(b.Masters, b.Nodes...)
+	for i, node := range allNodes {
+		if !node.SELinux {
+			continue
+		}
+		bootstrapPhases = append(bootstrapPhases, storage.OperationPhase{
+			ID:          fmt.Sprintf("%v/%v", phases.BootstrapSELinuxPhase, node.Hostname),
+			Description: fmt.Sprintf("Configure SELinux on node %v", node.Hostname),
+			Data: &storage.OperationPhaseData{
+				Server:     &allNodes[i],
+				ExecServer: &allNodes[i],
+				Package:    &b.Application.Package,
+			},
+			Step: 0,
+		})
+	}
+	if len(bootstrapPhases) == 0 {
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:            phases.BootstrapSELinuxPhase,
+		Description:   "Configure SELinux",
+		Phases:        bootstrapPhases,
+		LimitParallel: NumParallel,
+	})
 }
 
 // AddChecksPhase appends preflight checks phase to the provided plan
 func (b *PlanBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ChecksPhase,
-		Description: "Execute preflight checks",
+		Description: "Execute pre-flight checks",
+		Requires:    []string{phases.InitPhase},
 		Data: &storage.OperationPhaseData{
 			Package: &b.Application.Package,
 		},
@@ -84,7 +163,13 @@ func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
 		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
-		Step:        3,
+		Data: &storage.OperationPhaseData{
+			Install: &storage.InstallOperationData{
+				Env:    b.env,
+				Config: b.config,
+			},
+		},
+		Step: 3,
 	})
 }
 
@@ -111,22 +196,21 @@ func (b *PlanBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 				Package:     &b.Application.Package,
 				Agent:       agent,
 				ServiceUser: &b.ServiceUser,
-				DNSConfig:   &b.DNSConfig,
 			},
 			Step: 3,
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.BootstrapPhase,
-		Description: "Bootstrap all nodes",
-		Phases:      bootstrapPhases,
-		Parallel:    true,
-		Step:        3,
+		ID:            phases.BootstrapPhase,
+		Description:   "Bootstrap all nodes",
+		Phases:        bootstrapPhases,
+		LimitParallel: NumParallel,
+		Step:          3,
 	})
 }
 
 // AddPullPhase appends package download phase to the provided plan
-func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
+func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) error {
 	var pullPhases []storage.OperationPhase
 	allNodes := append(b.Masters, b.Nodes...)
 	for i, node := range allNodes {
@@ -136,6 +220,10 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 		} else {
 			description = "Pull packages on node %v"
 		}
+		pullData, err := b.getPullData(node)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		pullPhases = append(pullPhases, storage.OperationPhase{
 			ID:          fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname),
 			Description: fmt.Sprintf(description, node.Hostname),
@@ -144,19 +232,48 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) {
 				ExecServer:  &allNodes[i],
 				Package:     &b.Application.Package,
 				ServiceUser: &b.ServiceUser,
+				Pull:        pullData,
 			},
-			Requires: []string{phases.ConfigurePhase, phases.BootstrapPhase},
+			Requires: fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
 			Step:     3,
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.PullPhase,
-		Description: "Pull configured packages",
-		Phases:      pullPhases,
-		Requires:    []string{phases.ConfigurePhase, phases.BootstrapPhase},
-		Parallel:    true,
-		Step:        3,
+		ID:            phases.PullPhase,
+		Description:   "Pull configured packages",
+		Phases:        pullPhases,
+		Requires:      fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
+		LimitParallel: NumParallel,
+		Step:          3,
 	})
+	return nil
+}
+
+// getPullData returns package and application locators that should be pulled
+// during the operation on the provided node.
+func (b *PlanBuilder) getPullData(node storage.Server) (*storage.PullData, error) {
+	// Master nodes pull the entire application to be able to invoke an
+	// install hook from any master node local state.
+	if node.ClusterRole == string(schema.ServiceRoleMaster) {
+		return &storage.PullData{
+			Apps: []loc.Locator{
+				b.Application.Package,
+			},
+		}, nil
+	}
+	// Regular nodes pull only packages required for runtime such as planet
+	// or teleport. The planet package also depends on the node role.
+	planetPackage, err := b.Application.Manifest.RuntimePackageForProfile(node.Role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &storage.PullData{
+		Packages: []loc.Locator{
+			b.GravityPackage,
+			b.TeleportPackage,
+			*planetPackage,
+		},
+	}, nil
 }
 
 // AddMastersPhase appends master nodes system installation phase to the provided plan
@@ -177,9 +294,10 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Masters[i],
-						ExecServer: &b.Masters[i],
-						Package:    &b.TeleportPackage,
+						Server:      &b.Masters[i],
+						ExecServer:  &b.Masters[i],
+						Package:     &b.TeleportPackage,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -189,10 +307,11 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on master node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Masters[i],
-						ExecServer: &b.Masters[i],
-						Package:    planetPackage,
-						Labels:     pack.RuntimePackageLabels,
+						Server:      &b.Masters[i],
+						ExecServer:  &b.Masters[i],
+						Package:     planetPackage,
+						Labels:      pack.RuntimePackageLabels,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -203,12 +322,12 @@ func (b *PlanBuilder) AddMastersPhase(plan *storage.OperationPlan) error {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.MastersPhase,
-		Description: "Install system software on master nodes",
-		Phases:      masterPhases,
-		Requires:    []string{phases.PullPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.MastersPhase,
+		Description:   "Install system software on master nodes",
+		Phases:        masterPhases,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 	return nil
 }
@@ -231,9 +350,10 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						b.TeleportPackage.Name, b.TeleportPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Nodes[i],
-						ExecServer: &b.Nodes[i],
-						Package:    &b.TeleportPackage,
+						Server:      &b.Nodes[i],
+						ExecServer:  &b.Nodes[i],
+						Package:     &b.TeleportPackage,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -243,10 +363,11 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 					Description: fmt.Sprintf("Install system package %v:%v on node %v",
 						planetPackage.Name, planetPackage.Version, node.Hostname),
 					Data: &storage.OperationPhaseData{
-						Server:     &b.Nodes[i],
-						ExecServer: &b.Nodes[i],
-						Package:    planetPackage,
-						Labels:     pack.RuntimePackageLabels,
+						Server:      &b.Nodes[i],
+						ExecServer:  &b.Nodes[i],
+						Package:     planetPackage,
+						Labels:      pack.RuntimePackageLabels,
+						ServiceUser: &b.ServiceUser,
 					},
 					Requires: []string{fmt.Sprintf("%v/%v", phases.PullPhase, node.Hostname)},
 					Step:     4,
@@ -257,12 +378,12 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.NodesPhase,
-		Description: "Install system software on regular nodes",
-		Phases:      nodePhases,
-		Requires:    []string{phases.PullPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.NodesPhase,
+		Description:   "Install system software on regular nodes",
+		Phases:        nodePhases,
+		Requires:      []string{phases.PullPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 	return nil
 }
@@ -271,7 +392,7 @@ func (b *PlanBuilder) AddNodesPhase(plan *storage.OperationPlan) error {
 func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.WaitPhase,
-		Description: "Wait for kubernetes to become available",
+		Description: "Wait for Kubernetes to become available",
 		Requires:    fsm.RequireIfPresent(plan, phases.MastersPhase, phases.NodesPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
@@ -307,6 +428,82 @@ func (b *PlanBuilder) AddRBACPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddOpenEBSPhase appends phase that creates OpenEBS configuration.
+func (b *PlanBuilder) AddOpenEBSPhase(plan *storage.OperationPlan) (err error) {
+	var bytes []byte
+	if b.PersistentStorage != nil {
+		bytes, err = storage.MarshalPersistentStorage(b.PersistentStorage)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.OpenEBSPhase,
+		Description: "Create OpenEBS configuration",
+		Data: &storage.OperationPhaseData{
+			Server:  &b.Master,
+			Storage: bytes,
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+	return nil
+}
+
+// AddSystemResourcesPhase appends phase that creates system Kubernetes
+// resources to the provided plan.
+func (b *PlanBuilder) AddSystemResourcesPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.SystemResourcesPhase,
+		Description: "Create system Kubernetes resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+}
+
+// AddUserResourcesPhase appends K8s resources initialization phase to the provided plan
+func (b *PlanBuilder) AddUserResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.resources) == 0 {
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.UserResourcesPhase,
+		Description: "Create user-supplied Kubernetes resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				Resources: b.resources,
+			},
+		},
+		Requires: []string{phases.RBACPhase},
+		Step:     4,
+	})
+}
+
+// AddGravityResourcesPhase appends Gravity resources initialization phase to the provided plan
+func (b *PlanBuilder) AddGravityResourcesPhase(plan *storage.OperationPlan) {
+	if len(b.gravityResources) == 0 {
+		// Nothing to add
+		return
+	}
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.GravityResourcesPhase,
+		Description: "Create user-supplied Gravity resources",
+		Data: &storage.OperationPhaseData{
+			Server: &b.Master,
+			Install: &storage.InstallOperationData{
+				GravityResources: b.gravityResources,
+			},
+		},
+		Requires: []string{phases.EnableElectionPhase},
+		Step:     10,
+	})
+}
+
 // AddInstallOverlayPhase appends a phase to install a non-flannel overlay network
 func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locator *loc.Locator) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -335,20 +532,6 @@ func (b *PlanBuilder) AddCorednsPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddResourcesPhase appends K8s resources initialization phase to the provided plan
-func (b *PlanBuilder) AddResourcesPhase(plan *storage.OperationPlan, resources []byte) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ResourcesPhase,
-		Description: "Create user-supplied Kubernetes resources",
-		Data: &storage.OperationPhaseData{
-			Server:    &b.Master,
-			Resources: resources,
-		},
-		Requires: []string{phases.RBACPhase},
-		Step:     4,
-	})
-}
-
 // AddExportPhase appends Docker images export phase to the provided plan
 func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 	var exportPhases []storage.OperationPhase
@@ -367,12 +550,12 @@ func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 		})
 	}
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.ExportPhase,
-		Description: "Export applications layers to Docker registries",
-		Phases:      exportPhases,
-		Requires:    []string{phases.WaitPhase},
-		Parallel:    true,
-		Step:        4,
+		ID:            phases.ExportPhase,
+		Description:   "Export applications layers to Docker registries",
+		Phases:        exportPhases,
+		Requires:      []string{phases.WaitPhase},
+		LimitParallel: NumParallel,
+		Step:          4,
 	})
 }
 
@@ -426,6 +609,7 @@ func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
 				Server:      &b.Master,
 				Package:     &applicationLocators[i],
 				ServiceUser: &b.ServiceUser,
+				Values:      b.Operation.GetVars().Values,
 			},
 			Requires: []string{phases.RuntimePhase},
 			Step:     6,
@@ -473,20 +657,25 @@ func (b *PlanBuilder) AddEnableElectionPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// skipDependency returns true if the dependency package specified by dep
+// should be skipped when installing the provided application
+func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
+	if dep.Name == constants.BootstrapConfigPackage {
+		return true // rbac-app is installed separately
+	}
+	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+}
+
 // GetPlanBuilder returns a new plan builder for this installer and provided
 // operation that can be used to build operation plan phases
-func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*PlanBuilder, error) {
+func (c *Config) GetPlanBuilder(operator ops.Operator, cluster ops.Site, op ops.SiteOperation) (*PlanBuilder, error) {
 	// determine which app and runtime are being installed
-	application, err := i.Apps.GetApp(i.AppPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	base := application.Manifest.Base()
+	base := cluster.App.Manifest.Base()
 	if base == nil {
 		return nil, trace.BadParameter("application %v does not have a runtime",
-			i.AppPackage)
+			cluster.App.Package)
 	}
-	runtime, err := i.Apps.GetApp(*base)
+	runtime, err := c.Apps.GetApp(*base)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -501,28 +690,33 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	master := masters[0]
 	// prepare information about application packages that will be required
 	// during plan generation
-	teleportPackage, err := application.Manifest.Dependencies.ByName(
+	teleportPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	rbacPackage, err := application.Manifest.Dependencies.ByName(
+	rbacPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.BootstrapConfigPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	gravitySitePackage, err := application.Manifest.Dependencies.ByName(
+	gravitySitePackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.GravitySitePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	dnsAppPackage, err := application.Manifest.Dependencies.ByName(
+	gravityPackage, err := cluster.App.Manifest.Dependencies.ByName(
+		constants.GravityPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	dnsAppPackage, err := cluster.App.Manifest.Dependencies.ByName(
 		constants.DNSAppPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	// retrieve cluster agents
-	adminAgent, err := i.Operator.GetClusterAgent(ops.ClusterAgentRequest{
+	adminAgent, err := operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   op.AccountID,
 		ClusterName: op.SiteDomain,
 		Admin:       true,
@@ -530,23 +724,30 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	regularAgent, err := i.Operator.GetClusterAgent(ops.ClusterAgentRequest{
+	regularAgent, err := operator.GetClusterAgent(ops.ClusterAgentRequest{
 		AccountID:   op.AccountID,
 		ClusterName: op.SiteDomain,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	trustedCluster, err := i.getInstallerTrustedCluster()
+	trustedCluster, err := c.getInstallerTrustedCluster()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &PlanBuilder{
-		Application:        *application,
+	builder := &PlanBuilder{
+		Cluster:   ops.ConvertOpsSite(cluster),
+		Operation: op,
+		Application: app.Application{
+			Package:         cluster.App.Package,
+			PackageEnvelope: cluster.App.PackageEnvelope,
+			Manifest:        cluster.App.Manifest,
+		},
 		Runtime:            *runtime,
 		TeleportPackage:    *teleportPackage,
 		RBACPackage:        *rbacPackage,
 		GravitySitePackage: *gravitySitePackage,
+		GravityPackage:     *gravityPackage,
 		DNSAppPackage:      *dnsAppPackage,
 		Masters:            masters,
 		Nodes:              nodes,
@@ -554,49 +755,55 @@ func (i *Installer) GetPlanBuilder(cluster ops.Site, op ops.SiteOperation) (*Pla
 		AdminAgent:         *adminAgent,
 		RegularAgent:       *regularAgent,
 		ServiceUser: storage.OSUser{
-			Name: i.Config.ServiceUser.Name,
-			UID:  strconv.Itoa(i.Config.ServiceUser.UID),
-			GID:  strconv.Itoa(i.Config.ServiceUser.GID),
+			Name: c.ServiceUser.Name,
+			UID:  strconv.Itoa(c.ServiceUser.UID),
+			GID:  strconv.Itoa(c.ServiceUser.GID),
 		},
-		DNSConfig:               cluster.DNSConfig,
 		InstallerTrustedCluster: trustedCluster,
-	}, nil
-}
-
-// getInstallerTrustedCluster returns trusted cluster representing installer process
-func (i *Installer) getInstallerTrustedCluster() (storage.TrustedCluster, error) {
-	seedConfig := i.Process.Config().OpsCenter.SeedConfig
-	if seedConfig == nil {
-		return nil, trace.NotFound("expected SeedConfig field to be present "+
-			"in the Process configuration: %#v", i.Process.Config())
 	}
-	for _, tc := range seedConfig.TrustedClusters {
-		if tc.GetWizard() {
-			return tc, nil
-		}
+	err = addResources(builder, cluster.Resources, c.RuntimeResources, c.ClusterResources)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	return nil, trace.NotFound("trusted cluster representing this installer "+
-		"is not found in the Process configuration: %#v", seedConfig)
+	return builder, nil
 }
 
 // splitServers splits the provided servers into masters and nodes
 func splitServers(servers []storage.Server, app app.Application) (masters []storage.Server, nodes []storage.Server, err error) {
-	count := 0
+	numMasters := 0
+
+	// count the number of servers designated as master by the node profile
+	for _, server := range servers {
+		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+
+		if profile.ServiceRole == schema.ServiceRoleMaster {
+			numMasters++
+		}
+	}
+
+	// assign the servers to their rolls
 	for _, server := range servers {
 		profile, err := app.Manifest.NodeProfiles.ByName(server.Role)
 		if err != nil {
 			return nil, nil, trace.Wrap(err)
 		}
 		switch profile.ServiceRole {
-		case schema.ServiceRoleMaster, "":
-			if count < defaults.MaxMasterNodes {
+		case "":
+			if numMasters < defaults.MaxMasterNodes {
 				server.ClusterRole = string(schema.ServiceRoleMaster)
 				masters = append(masters, server)
-				count++
+				numMasters++
 			} else {
 				server.ClusterRole = string(schema.ServiceRoleNode)
 				nodes = append(nodes, server)
 			}
+		case schema.ServiceRoleMaster:
+			server.ClusterRole = string(schema.ServiceRoleMaster)
+			masters = append(masters, server)
+			// don't increment numMasters as this server has already been counted above
 		case schema.ServiceRoleNode:
 			server.ClusterRole = string(schema.ServiceRoleNode)
 			nodes = append(nodes, server)
@@ -609,11 +816,52 @@ func splitServers(servers []storage.Server, app app.Application) (masters []stor
 	return masters, nodes, nil
 }
 
-// skipDependency returns true if the dependency package specified by dep
-// should be skipped when installing the provided application
-func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
-	if dep.Name == constants.BootstrapConfigPackage {
-		return true // rbac-app is installed separately
+func addResources(builder *PlanBuilder, resourceBytes []byte, runtimeResources []runtime.Object, clusterResources []storage.UnknownResource) error {
+	kubernetesResources, gravityResources, err := resourceutil.Split(bytes.NewReader(resourceBytes))
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+	gravityResources = append(gravityResources, clusterResources...)
+	rest := gravityResources[:0]
+	for _, res := range gravityResources {
+		switch res.Kind {
+		case storage.KindRuntimeEnvironment:
+			env, err := storage.UnmarshalEnvironmentVariables(res.Raw)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			if err := env.CheckAndSetDefaults(); err != nil {
+				return trace.Wrap(err)
+			}
+			builder.env = env.GetKeyValues()
+			configmap := opsservice.NewEnvironmentConfigMap(env.GetKeyValues())
+			kubernetesResources = append(kubernetesResources, configmap)
+		case storage.KindClusterConfiguration:
+			builder.config = res.Raw
+			configmap := opsservice.NewConfigurationConfigMap(res.Raw)
+			kubernetesResources = append(kubernetesResources, configmap)
+		case storage.KindPersistentStorage:
+			// If custom persistent storage configuration was provided by user,
+			// it will get applied to the default configuration during install.
+			ps, err := storage.UnmarshalPersistentStorage(res.Raw)
+			if err != nil {
+				return trace.Wrap(err)
+			}
+			builder.PersistentStorage = ps
+		default:
+			// Filter out resources that are created using the regular workflow
+			rest = append(rest, res)
+		}
+	}
+	builder.gravityResources = rest
+	kubernetesResources = append(kubernetesResources, runtimeResources...)
+	if len(kubernetesResources) != 0 {
+		var buf bytes.Buffer
+		err = resources.NewResource(kubernetesResources...).Encode(&buf)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		builder.resources = buf.Bytes()
+	}
+	return nil
 }

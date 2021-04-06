@@ -17,24 +17,32 @@ limitations under the License.
 package opsservice
 
 import (
+	"context"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 // DeleteClusterCertificate deletes cluster certificate
-func (o *Operator) DeleteClusterCertificate(key ops.SiteKey) error {
+func (o *Operator) DeleteClusterCertificate(ctx context.Context, key ops.SiteKey) error {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return DeleteClusterCertificate(client)
+	err = DeleteClusterCertificate(client)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	events.Emit(ctx, o, events.TLSKeyPairDeleted)
+	return nil
 }
 
 // GetClusterCertificate returns the cluster certificate
@@ -60,7 +68,7 @@ func (o *Operator) GetClusterCertificate(key ops.SiteKey, withSecrets bool) (*op
 }
 
 // UpdateClusterCertificate updates the cluster certificate
-func (o *Operator) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
+func (o *Operator) UpdateClusterCertificate(ctx context.Context, req ops.UpdateCertificateRequest) (*ops.ClusterCertificate, error) {
 	client, err := o.GetKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -70,6 +78,8 @@ func (o *Operator) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	events.Emit(ctx, o, events.TLSKeyPairCreated)
 
 	return &ops.ClusterCertificate{
 		Certificate: req.Certificate,
@@ -81,7 +91,7 @@ func (o *Operator) UpdateClusterCertificate(req ops.UpdateCertificateRequest) (*
 //
 // The method is supposed to be called from within deployed Kubernetes cluster
 func GetClusterCertificate(client *kubernetes.Clientset) ([]byte, []byte, error) {
-	secret, err := client.Core().Secrets(defaults.KubeSystemNamespace).Get(constants.ClusterCertificateMap, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Get(constants.ClusterCertificateMap, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -103,7 +113,7 @@ func GetClusterCertificate(client *kubernetes.Clientset) ([]byte, []byte, error)
 // DeleteClusterCertificate deletes cluster certificate
 //
 func DeleteClusterCertificate(client *kubernetes.Clientset) error {
-	err := client.Core().Secrets(defaults.KubeSystemNamespace).Delete(constants.ClusterCertificateMap, nil)
+	err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Delete(constants.ClusterCertificateMap, nil)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -131,12 +141,12 @@ func UpdateClusterCertificate(client *kubernetes.Clientset, req ops.UpdateCertif
 		Type: v1.SecretTypeOpaque,
 	}
 
-	_, err = client.Core().Secrets(defaults.KubeSystemNamespace).Create(secret)
+	_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).Create(secret)
 	if err != nil {
 		if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 			return trace.Wrap(err)
 		}
-		_, err = client.Core().Secrets(defaults.KubeSystemNamespace).Update(secret)
+		_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).Update(secret)
 		if err != nil {
 			return trace.Wrap(rigging.ConvertError(err))
 		}

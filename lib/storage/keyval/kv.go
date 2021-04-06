@@ -48,10 +48,3 @@ type kvengine interface {
 }
 
 type key []string
-
-func (k key) split() ([]string, string) {
-	if len(k) == 0 {
-		return k, ""
-	}
-	return k[:len(k)-1], k[len(k)-1]
-}

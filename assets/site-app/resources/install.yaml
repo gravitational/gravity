@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: install-telekube
+  name: gravity-install
   namespace: kube-system
   labels:
     app: gravity-site
@@ -10,17 +10,19 @@ spec:
   completions: 1
   template:
     metadata:
-      name: install-telekube
+      name: gravity-install
     spec:
       hostNetwork: true
       restartPolicy: OnFailure
       securityContext:
         runAsUser: -1
+        seLinuxOptions:
+          type: gravity_container_system_t
       # state import job should be only scheduled on master nodes
       nodeSelector:
         gravitational.io/k8s-role: master
       containers:
-        - name: install-telekube
+        - name: gravity-install
           image: gravity-site:0.0.1
           command: ["/bin/sh", "/opt/init.sh"]
           env:

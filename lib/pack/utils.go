@@ -24,16 +24,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/gravitational/gravity/lib/archive"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/coreos/go-semver/semver"
 	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
+	"github.com/opencontainers/selinux/go-selinux"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -134,13 +138,18 @@ func GetConfigPackage(p PackageService, loc loc.Locator, confLoc loc.Locator, ar
 		return nil, trace.Wrap(err)
 	}
 
-	log.Infof("got manifest: %#v", manifest)
+	logger := log.WithFields(log.Fields{
+		"package":  loc.String(),
+		"manifest": fmt.Sprintf("%#v", manifest),
+		"args":     args,
+	})
+	logger.Info("Generate configuration package.")
 	if manifest.Config == nil {
 		return nil, trace.BadParameter("manifest does not have configuration parameters")
 	}
 
 	if err := manifest.Config.ParseArgs(args); err != nil {
-		log.Warnf("Failed to parse arguments: %v.", err)
+		logger.WithError(err).Warn("Failed to parse arguments.")
 		return nil, trace.Wrap(err)
 	}
 
@@ -295,53 +304,44 @@ func ForeachPackageInRepo(packages PackageService, repo string, fn func(e Packag
 
 // FindInstalledPackage finds package currently installed on the host
 func FindInstalledPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
-	pkg, err := FindPackage(packages, func(e PackageEnvelope) bool {
-		if e.Locator.Repository != filter.Repository {
-			return false
-		}
-		if e.Locator.Name != filter.Name {
-			return false
-		}
-		return e.HasLabel(InstalledLabel, InstalledLabel)
-	})
+	env, err := findInstalledPackage(packages, filter)
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no installed package for %v not found",
-				filter)
-		}
 		return nil, trace.Wrap(err)
 	}
-	return &pkg.Locator, nil
+	return &env.Locator, nil
 }
 
 // FindConfigPackage returns configuration package for given package
 func FindConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
-	configPkg, err := FindPackage(packages, func(e PackageEnvelope) bool {
-		return e.HasLabel(ConfigLabel, filter.ZeroVersion().String())
-	})
+	config, err := findConfigPackage(packages, filter)
 	if err != nil {
-		if trace.IsNotFound(err) {
-			return nil, trace.NotFound("no configuration package for %v found",
-				filter)
-		}
 		return nil, trace.Wrap(err)
 	}
-	return &configPkg.Locator, nil
+	return &config.Locator, nil
+}
+
+// FindInstalledConfigPackage returns an installed configuration package for given package
+func FindInstalledConfigPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
+	config, err := findInstalledConfigPackage(packages, filter)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &config.Locator, nil
 }
 
 // FindInstalledPackageWithConfig finds installed package and associated configuration package
-func FindInstalledPackageWithConfig(packages PackageService, filter loc.Locator) (*loc.Locator, *loc.Locator, error) {
-	locator, err := FindInstalledPackage(packages, filter)
+func FindInstalledPackageWithConfig(packages PackageService, filter loc.Locator) (installed, config *loc.Locator, err error) {
+	installed, err = FindInstalledPackage(packages, filter)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 
-	configLocator, err := FindConfigPackage(packages, *locator)
+	config, err = FindConfigPackage(packages, *installed)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 
-	return locator, configLocator, nil
+	return installed, config, nil
 }
 
 // ProcessMetadata processes some special metadata conventions, e.g. 'latest' metadata label
@@ -356,48 +356,18 @@ func ProcessMetadata(packages PackageService, loc *loc.Locator) (*loc.Locator, e
 	return loc, nil
 }
 
-// FindLatestCompatiblePackage returns the latest compatible package for
-// the provided filter and version
-//
-// Two packages are deemed compatible when major and minor components
-// of their semvers are the same.
-func FindLatestCompatiblePackage(packages PackageService, filter loc.Locator, version semver.Version) (*loc.Locator, error) {
-	var latest *semver.Version
-	err := ForeachPackageInRepo(packages, filter.Repository, func(e PackageEnvelope) error {
-		if e.Locator.Name != filter.Name {
-			return nil // not same package
-		}
-		ver, err := e.Locator.SemVer()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		if ver.Major != version.Major || ver.Minor != version.Minor {
-			return nil // not compatible
-		}
-		if latest == nil || latest.LessThan(*ver) {
-			latest = ver
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if latest == nil {
-		return nil, trace.NotFound("latest compatible package for %v not found",
-			filter.String())
-	}
-	loc := filter.WithVersion(latest)
-	return &loc, nil
-}
-
 // FindLatestPackageWithLabels returns the latest package matching the provided
 // labels
 func FindLatestPackageWithLabels(packages PackageService, repository string, labels map[string]string) (*loc.Locator, error) {
-	loc, err := FindLatestPackagePredicate(packages, repository, func(e PackageEnvelope) bool {
-		return e.HasLabels(labels)
+	loc, err := FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: repository,
+		Match: func(e PackageEnvelope) bool {
+			return e.HasLabels(labels)
+		},
 	})
 	if err != nil && trace.IsNotFound(err) {
-		return nil, trace.NotFound("latest package in repo %q with labels %v not found", repository, labels)
+		return nil, trace.NotFound("latest package in repository %q with labels %v not found", repository, labels)
 	}
 	return loc, trace.Wrap(err)
 }
@@ -405,9 +375,10 @@ func FindLatestPackageWithLabels(packages PackageService, repository string, lab
 // FindLatestPackage returns package the latest package matching the provided
 // locator
 func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locator, error) {
-	loc, err := FindLatestPackagePredicate(packages, filter.Repository, func(e PackageEnvelope) bool {
-		return e.Locator.Repository == filter.Repository &&
-			e.Locator.Name == filter.Name
+	loc, err := FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages:   packages,
+		Repository: filter.Repository,
+		Match:      PackageMatch(filter),
 	})
 	if err != nil && trace.IsNotFound(err) {
 		return nil, trace.NotFound("latest package with filter %v not found", filter)
@@ -415,49 +386,51 @@ func FindLatestPackage(packages PackageService, filter loc.Locator) (*loc.Locato
 	return loc, trace.Wrap(err)
 }
 
-// FindLatestPackageByName returns latest package with the specified name (across all repos)
+// FindLatestPackageByName returns latest package with the specified name (across all repositories)
 func FindLatestPackageByName(packages PackageService, name string) (*loc.Locator, error) {
-	loc, err := FindLatestPackagePredicate(packages, "", func(e PackageEnvelope) bool {
-		return e.Locator.Name == name
-	})
+	loc, err := FindLatestPackageCustom(FindLatestPackageRequest{
+		Packages: packages,
+		Match: func(e PackageEnvelope) bool {
+			return e.Locator.Name == name
+		}},
+	)
 	if err != nil && trace.IsNotFound(err) {
 		return nil, trace.NotFound("latest package with name %q not found", name)
 	}
 	return loc, trace.Wrap(err)
 }
 
-// FindLatestPackagePredicate returns the latest package matching the provided
-// predicate function
-//
-// If the provided repository is empty, searches all repositories.
-func FindLatestPackagePredicate(packages PackageService, repository string, filter func(PackageEnvelope) bool) (*loc.Locator, error) {
+// FindLatestPackageCustom searches for the latest version of the package given with req
+func FindLatestPackageCustom(req FindLatestPackageRequest) (pkg *loc.Locator, err error) {
+	if err := req.checkAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	var max *loc.Locator
 	predicate := func(e PackageEnvelope) error {
-		if !filter(e) {
+		if !req.Match(e) {
 			return nil
 		}
 		if max == nil {
 			max = &e.Locator
 			return nil
 		}
-		vera, err := max.SemVer()
+		a, err := max.SemVer()
 		if err != nil {
 			return nil
 		}
-		verb, err := e.Locator.SemVer()
+		b, err := e.Locator.SemVer()
 		if err != nil {
 			return nil
 		}
-		if verb.Compare(*vera) > 0 {
+		if req.Less(a, b) {
 			max = &e.Locator
 		}
 		return nil
 	}
-	var err error
-	if repository != "" {
-		err = ForeachPackageInRepo(packages, repository, predicate)
+	if req.Repository != "" {
+		err = ForeachPackageInRepo(req.Packages, req.Repository, predicate)
 	} else {
-		err = ForeachPackage(packages, predicate)
+		err = ForeachPackage(req.Packages, predicate)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -466,6 +439,34 @@ func FindLatestPackagePredicate(packages PackageService, repository string, filt
 		return nil, trace.NotFound("latest package not found")
 	}
 	return max, nil
+}
+
+func (r *FindLatestPackageRequest) checkAndSetDefaults() error {
+	if r.Packages == nil {
+		return trace.BadParameter("package service is required")
+	}
+	if r.Match == nil {
+		return trace.BadParameter("package matcher is required")
+	}
+	if r.Less == nil {
+		r.Less = Less
+	}
+	return nil
+}
+
+// FindLatestPackageRequest defines the request to search for the latest version of
+// a package
+type FindLatestPackageRequest struct {
+	// Packages specifies the package service to use with the request
+	Packages PackageService
+	// Repository specifies the optional repository for search.
+	// If unspecifed, all repositories are searched
+	Repository string
+	// Match specifies the package matcher
+	Match MatchFunc
+	// Less specifies the optional version comparator.
+	// If unspecified, default comparator will be used
+	Less LessFunc
 }
 
 // FindNewerPackages returns packages with versions greater than in the provided package
@@ -546,4 +547,319 @@ func ConfigLabels(loc loc.Locator, purpose string) map[string]string {
 		ConfigLabel:  loc.ZeroVersion().String(),
 		PurposeLabel: purpose,
 	}
+}
+
+// Labels is a set of labels
+type Labels map[string]string
+
+// HasPurpose returns true if these labels contain the purpose label for any of the given values
+func (r Labels) HasPurpose(values ...string) bool {
+	for _, value := range values {
+		purpose, ok := r[PurposeLabel]
+		if ok && purpose == value {
+			return true
+		}
+	}
+	return false
+}
+
+// FindAnyRuntimePackageWithConfig searches for the runtime package and the corresponding
+// configuration package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackageWithConfig(packages PackageService) (runtimePackage *loc.Locator, runtimeConfig *loc.Locator, err error) {
+	runtimePackage, err = FindAnyRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = FindConfigPackage(packages, *runtimePackage)
+	if trace.IsNotFound(err) {
+		runtimeConfig, err = FindLegacyRuntimeConfigPackage(packages)
+		if err != nil {
+			return nil, nil, trace.Wrap(err)
+		}
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindAnyRuntimePackage searches for the runtime package in the specified package service.
+// It looks up both legacy packages and packages marked as runtime
+func FindAnyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	runtimePackage, err = FindRuntimePackage(packages)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if trace.IsNotFound(err) {
+		runtimePackage, err = FindLegacyRuntimePackage(packages)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+	return runtimePackage, nil
+}
+
+// FindRuntimePackageWithConfig locates the planet package using the purpose label.
+// Returns a pair - planet package with the corresponding configuration package.
+func FindRuntimePackageWithConfig(packages PackageService) (runtimePackage, runtimeConfig *PackageEnvelope, err error) {
+	runtimePackage, err = findRuntimePackage(packages)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	runtimeConfig, err = findInstalledConfigPackage(packages, runtimePackage.Locator)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	return runtimePackage, runtimeConfig, nil
+}
+
+// FindTeleportPackageWithConfig locates the teleport package using the purpose label.
+// Returns a pair - teleport package with the corresponding configuration package.
+func FindTeleportPackageWithConfig(packages PackageService) (teleportPackage, teleportConfig *PackageEnvelope, err error) {
+	teleportPackage, err = findInstalledPackage(packages, teleportFilter)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+	labels := map[string]string{
+		PurposeLabel:   PurposeTeleportNodeConfig,
+		InstalledLabel: InstalledLabel,
+	}
+	teleportConfig, err = FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(labels)
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, nil, trace.NotFound("no configuration package for teleport found")
+		}
+		return nil, nil, trace.Wrap(err)
+	}
+	return teleportPackage, teleportConfig, nil
+}
+
+// FindRuntimePackage locates the installed runtime package
+func FindRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	env, err := findRuntimePackage(packages)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &env.Locator, nil
+}
+
+// FindLegacyRuntimePackage locates the planet package using the obsolete master/node
+// flavors.
+func FindLegacyRuntimePackage(packages PackageService) (runtimePackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if loc.IsLegacyRuntimePackage(env.Locator) &&
+			env.HasLabel(InstalledLabel, InstalledLabel) {
+			runtimePackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+// FindLegacyRuntimeConfigPackage locates the configuration package for the legacy
+// runtime package in the specified package service
+func FindLegacyRuntimeConfigPackage(packages PackageService) (configPackage *loc.Locator, err error) {
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.Locator.Name == constants.PlanetConfigPackage {
+			configPackage = &env.Locator
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if configPackage == nil {
+		return nil, trace.NotFound("no runtime configuration package found")
+	}
+	return configPackage, nil
+}
+
+// FindSecretsPackage returns the first secrets package from the given package service
+func FindSecretsPackage(packages PackageService) (*loc.Locator, error) {
+	env, err := FindPackage(packages, func(env PackageEnvelope) bool {
+		return IsSecretsPackage(env.Locator, env.RuntimeLabels)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &env.Locator, nil
+}
+
+// ExportExecutable downloads the specified package from the package service
+// into the provided path as an executable.
+func ExportExecutable(packages PackageService, locator loc.Locator, path, label string) error {
+	_, reader, err := packages.ReadPackage(locator)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer reader.Close()
+	err = utils.CopyReaderWithPerms(path, reader, defaults.SharedExecutableMask)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if selinux.GetEnabled() && label != "" {
+		if err := selinux.SetFileLabel(path, label); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+	return nil
+}
+
+// IsSecretsPackage returns true if the specified package is a runtime secrets package
+func IsSecretsPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetSecrets) {
+		return true
+	}
+	return strings.Contains(loc.Name, "secrets") && loc.Repository != defaults.SystemAccountOrg
+}
+
+// IsPlanetPackage returns true if the specified package is a runtime package
+func IsPlanetPackage(packageLoc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposeRuntime) {
+		return true
+	}
+	return (packageLoc.Name == loc.LegacyPlanetMaster.Name ||
+		packageLoc.Name == loc.LegacyPlanetNode.Name)
+}
+
+// IsPlanetConfigPackage returns true if the specified package is a runtime configuration package
+func IsPlanetConfigPackage(loc loc.Locator, labels map[string]string) bool {
+	if Labels(labels).HasPurpose(PurposePlanetConfig) {
+		return true
+	}
+	return strings.Contains(loc.Name, constants.PlanetConfigPackage) &&
+		loc.Repository != defaults.SystemAccountOrg
+}
+
+// LessFunc defines a version comparator
+type LessFunc func(a, b *semver.Version) bool
+
+// MatchFunc defines a predicate to match a package.
+// Matcher returns true to indicate that the given package
+// matches a specific condition
+type MatchFunc func(PackageEnvelope) bool
+
+// Less is the standard version comparator that
+// returns whether a < b.
+// If versions are equal, it compares their metadata
+func Less(a, b *semver.Version) bool {
+	if a.Compare(*b) < 0 {
+		return true
+	}
+	return a.Metadata < b.Metadata
+}
+
+// PackageMatch returns a matcher for the specified package filter
+func PackageMatch(filter loc.Locator) MatchFunc {
+	return func(env PackageEnvelope) bool {
+		return env.Locator.Repository == filter.Repository &&
+			env.Locator.Name == filter.Name
+	}
+}
+
+// String formats this update as readable text
+func (r LabelUpdate) String() string {
+	return fmt.Sprintf("update package labels %v (+%v -%v)",
+		r.Locator, r.Add, r.Remove)
+}
+
+// LabelUpdate defines an intent to update package's labels
+type LabelUpdate struct {
+	// Locator identifies the package
+	loc.Locator
+	// Remove is the list of labels to remove
+	Remove []string
+	// Add is the map of labels to add
+	Add Labels
+}
+
+func findInstalledPackage(packages PackageService, filter loc.Locator) (env *PackageEnvelope, err error) {
+	env, err = FindPackage(packages, func(e PackageEnvelope) bool {
+		if e.Locator.Repository != filter.Repository {
+			return false
+		}
+		if e.Locator.Name != filter.Name {
+			return false
+		}
+		return e.HasLabel(InstalledLabel, InstalledLabel)
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no installed package for %v found",
+				filter)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return env, nil
+}
+
+func findInstalledConfigPackage(packages PackageService, filter loc.Locator) (config *PackageEnvelope, err error) {
+	config, err = FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabels(Labels{
+			ConfigLabel:    filter.ZeroVersion().String(),
+			InstalledLabel: InstalledLabel,
+		})
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no configuration package for %v found",
+				filter)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+func findConfigPackage(packages PackageService, filter loc.Locator) (config *PackageEnvelope, err error) {
+	config, err = FindPackage(packages, func(e PackageEnvelope) bool {
+		return e.HasLabel(ConfigLabel, filter.ZeroVersion().String())
+	})
+	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("no configuration package for %v found",
+				filter)
+		}
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+func findRuntimePackage(packages PackageService) (runtimePackage *PackageEnvelope, err error) {
+	labels := map[string]string{
+		PurposeLabel:   PurposeRuntime,
+		InstalledLabel: InstalledLabel,
+	}
+	err = ForeachPackage(packages, func(env PackageEnvelope) error {
+		if env.HasLabels(labels) {
+			runtimePackage = &env
+			return utils.Abort(nil)
+		}
+		return nil
+	})
+	if err != nil && !utils.IsAbortError(err) {
+		return nil, trace.Wrap(err)
+	}
+	if runtimePackage == nil {
+		return nil, trace.NotFound("no runtime package found")
+	}
+
+	return runtimePackage, nil
+}
+
+var teleportFilter = loc.Locator{
+	Repository: defaults.SystemAccountOrg,
+	Name:       "teleport",
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,14 +31,14 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
-// Manifest represents an application manifest that describes a Telekube application
+// Manifest represents an application manifest that describes a Gravity application or cluster image
 //
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Manifest struct {
@@ -63,6 +63,10 @@ type Manifest struct {
 	NodeProfiles NodeProfiles `json:"nodeProfiles,omitempty"`
 	// Providers contains settings specific to different providers (e.g. cloud)
 	Providers *Providers `json:"providers,omitempty"`
+	// Ingress configures Ingress controllers.
+	Ingress *Ingress `json:"ingress,omitempty"`
+	// Storage configures persistent storage providers.
+	Storage *Storage `json:"storage,omitempty"`
 	// License allows to turn on/off license mode for the application
 	License *License `json:"license,omitempty"`
 	// Hooks contains application-defined hooks
@@ -261,6 +265,14 @@ func (m Manifest) ImageType() string {
 	}
 }
 
+// EULA returns the end-user license agreement text.
+func (m Manifest) EULA() string {
+	if m.Installer != nil {
+		return m.Installer.EULA.Source
+	}
+	return ""
+}
+
 func dockerConfigWithDefaults(config *Docker) Docker {
 	if config == nil {
 		return defaultDocker
@@ -273,18 +285,6 @@ func dockerConfigWithDefaults(config *Docker) Docker {
 		docker.Capacity = defaultDockerCapacity
 	}
 	return docker
-}
-
-// HairpinMode returns the effective hairpin mode for the specified profile
-func (m Manifest) HairpinMode(profile NodeProfile) string {
-	hairpinMode := profile.SystemOptions.HairpinMode()
-	if hairpinMode == "" {
-		hairpinMode = m.SystemOptions.HairpinMode()
-	}
-	if hairpinMode != "" {
-		return hairpinMode
-	}
-	return defaults.HairpinMode
 }
 
 // EtcdArgs returns the list of additional etcd arguments for the specified node profile
@@ -371,6 +371,73 @@ func (m Manifest) PackageDependencies(profile string) (deps []loc.Locator, err e
 		return nil, trace.Wrap(err)
 	}
 	return loc.Deduplicate(append(m.Dependencies.GetPackages(), *runtimePackage)), nil
+}
+
+// DefaultProvider returns the default cloud provider or an empty string.
+func (m Manifest) DefaultProvider() string {
+	if m.Providers != nil {
+		return m.Providers.Default
+	}
+	return ""
+}
+
+// FilterDependencies filters the provided list of application locators and
+// returns only those that are enabled based on the manifest settings.
+func (m Manifest) FilterDependencies(apps []loc.Locator) (result []loc.Locator) {
+	for _, app := range apps {
+		if !ShouldSkipApp(m, app) {
+			result = append(result, app)
+		}
+	}
+	return result
+}
+
+// SystemSettingsChanged returns true if system settings in this manifest
+// changed compared to the provided manifest.
+func (m Manifest) SystemSettingsChanged(other Manifest) bool {
+	return m.PrivilegedEnabled() != other.PrivilegedEnabled()
+}
+
+// FirstNodeProfile returns the first available node profile.
+func (m Manifest) FirstNodeProfile() (*NodeProfile, error) {
+	if len(m.NodeProfiles) == 0 {
+		return nil, trace.NotFound("manifest does not define any node profiles")
+	}
+	return &m.NodeProfiles[0], nil
+}
+
+// FirstNodeProfileName returns the name of the first available node profile.
+func (m Manifest) FirstNodeProfileName() (string, error) {
+	profile, err := m.FirstNodeProfile()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return profile.Name, nil
+}
+
+// IngressEnabled returns true if Ingress is enabled.
+func (m Manifest) IngressEnabled() bool {
+	return m.Ingress != nil && m.Ingress.Nginx != nil && m.Ingress.Nginx.Enabled
+}
+
+// OpenEBSEnabled returns true if OpenEBS storage provider is enabled.
+func (m Manifest) OpenEBSEnabled() bool {
+	return m.Storage != nil && m.Storage.OpenEBS != nil && m.Storage.OpenEBS.Enabled
+}
+
+// PrivilegedEnabled returns true if privileged containers should be allowed.
+func (m Manifest) PrivilegedEnabled() bool {
+	return m.SystemOptions != nil && m.SystemOptions.AllowPrivileged || m.OpenEBSEnabled()
+}
+
+// CatalogDisabled returns true if the application catalog feature is disabled.
+func (m Manifest) CatalogDisabled() bool {
+	return m.Extensions != nil && m.Extensions.Catalog != nil && m.Extensions.Catalog.Disabled
+}
+
+// OpsCenterDisabled returns true if the Ops Center is disabled.
+func (m Manifest) OpsCenterDisabled() bool {
+	return m.Extensions != nil && m.Extensions.OpsCenter != nil && m.Extensions.OpsCenter.Disabled
 }
 
 // Header is manifest header
@@ -579,7 +646,7 @@ type NodeProfile struct {
 	// Labels is a list of labels nodes of this profile will be marked with
 	Labels map[string]string `json:"labels,omitempty"`
 	// Tains is a list of taints to apply to this profile
-	Taints []v1.Taint `json:"taints,omitempty"`
+	Taints []corev1.Taint `json:"taints,omitempty"`
 	// Providers contains some cloud provider specific settings
 	Providers NodeProviders `json:"providers,omitempty"`
 	// ExpandPolicy specifies whether nodes of this profile can
@@ -624,6 +691,27 @@ func (p NodeProfile) TaintValues() []string {
 		taints = append(taints, fmt.Sprintf("%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 	return taints
+}
+
+// Ports parses ports ranges from the node profile.
+func (p NodeProfile) Ports() (tcp, udp []int, err error) {
+	for _, ports := range p.Requirements.Network.Ports {
+		for _, portRange := range ports.Ranges {
+			parsed, err := utils.ParsePorts(portRange)
+			if err != nil {
+				return nil, nil, trace.Wrap(err)
+			}
+			switch ports.Protocol {
+			case "tcp":
+				tcp = append(tcp, parsed...)
+			case "udp":
+				udp = append(udp, parsed...)
+			default:
+				return nil, nil, trace.BadParameter("unknown protocol for port: %q", ports.Protocol)
+			}
+		}
+	}
+	return tcp, udp, nil
 }
 
 // Requirements defines a set of requirements for a node profile
@@ -806,6 +894,10 @@ type Volume struct {
 	Mode string `json:"mode,omitempty"`
 	// Recursive means that all mount points inside this mount should also be mounted
 	Recursive bool `json:"recursive,omitempty"`
+	// SELinuxLabel specifies the SELinux label.
+	// If left unspecified, the default.ContainerFileLabel will be used to label the directory.
+	// If a special value SELinuxLabelNone is specified - no labeling is performed
+	SELinuxLabel string `json:"seLinuxLabel,omitempty"`
 }
 
 // CheckAndSetDefaults checks and sets defaults
@@ -863,8 +955,34 @@ type NodeProviderAWS struct {
 	InstanceTypes []string `json:"instanceTypes,omitempty"`
 }
 
+// Ingress represents Ingress configuration.
+type Ingress struct {
+	// Nginx allows to customize the nginx based Ingress resource
+	Nginx *Nginx `json:"nginx,omitempty"`
+}
+
+// Nginx represents a specific Ingress controller based on nginx.
+type Nginx struct {
+	// Enabled indicates whether nginx is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Storage represents persistent storage configuration.
+type Storage struct {
+	// OpenEBS is the OpenEBS storage provider configuration.
+	OpenEBS *OpenEBS `json:"openebs,omitempty"`
+}
+
+// OpenEBS represents OpenEBS configuration.
+type OpenEBS struct {
+	// Enabled indicates whether OpenEBS is enabled.
+	Enabled bool `json:"enabled,omitempty"`
+}
+
 // Providers defines global provider-specific settings
 type Providers struct {
+	// Default specifies the default provider.
+	Default string `json:"default,omitempty"`
 	// AWS defines AWS-specific settings
 	AWS AWS `json:"aws,omitempty"`
 	// Azure defines Azure-specific settings
@@ -937,14 +1055,6 @@ func (r *SystemOptions) DockerConfig() *Docker {
 	return r.Docker
 }
 
-// HairpinMode returns the effective hairpin mode
-func (r *SystemOptions) HairpinMode() string {
-	if r == nil || r.Kubelet == nil {
-		return ""
-	}
-	return r.Kubelet.HairpinMode
-}
-
 // KubeletArgs returns a list of additional kubelet arguments
 func (r *SystemOptions) KubeletArgs() []string {
 	if r == nil || r.Kubelet == nil {
@@ -980,6 +1090,9 @@ type SystemOptions struct {
 	BaseImage string `json:"baseImage,omitempty"`
 	// Dependencies defines additional package dependencies
 	Dependencies SystemDependencies `json:"dependencies"`
+	// AllowPrivileged controls whether privileged containers will be allowed
+	// in the cluster.
+	AllowPrivileged bool `json:"allowPrivileged,omitempty"`
 }
 
 // Runtime describes the application runtime
@@ -1048,16 +1161,7 @@ type Etcd struct {
 type Kubelet struct {
 	// ExternalService defines additional configuration for kubelet
 	ExternalService
-	// HairpinMode configures the network for hairpin packets.
-	// It can be one of "hairpin-veth" and "promiscuous-bridge".
-	// The "hairpin-veth" mode configures hairpin flag on the veth pair of each container.
-	// In "promiscuous-bridge" mode, the docker bridge is placed into promiscuous mode
-	// which forces it to accept hairpin packets. In this mode a couple of ebtables
-	// rules are created to de-duplicate packets.
-	// The difference to the kubelet's "promiscuous-mode" is that kubelet assumes
-	// the existence of cbr0 bridge (managed by kubenet network plugin, for instance)
-	// while this configures docker bridge directly. As a result, in "promiscuous-mode"
-	// kubelet will be configured with "hairpin-mode=none"
+	// HairpinMode is deprecated and no longer used
 	HairpinMode string `json:"hairpinMode,omitempty"`
 }
 
@@ -1081,6 +1185,8 @@ type Extensions struct {
 	Configuration *ConfigurationExtension `json:"configuration,omitempty"`
 	// Catalog allows to customize application catalog feature
 	Catalog *CatalogExtension `json:"catalog,omitempty"`
+	// OpsCenter enables the management web UI
+	OpsCenter *OpsCenterExtension `json:"opsCenter,omitempty"`
 }
 
 // EncryptionExtension describes installer encryption extension
@@ -1115,6 +1221,12 @@ type KubernetesExtension struct {
 	Disabled bool `json:"disabled,omitempty"`
 }
 
+// OpsCenterExtension allows to disable/enable the Ops Center UI
+type OpsCenterExtension struct {
+	// Disabled disables the OpsCenter UI
+	Disabled bool `json:"disabled,omitempty"`
+}
+
 // Configuration allows to customize configuration feature
 type ConfigurationExtension struct {
 	// Disabled allows to disable Configuration tab
@@ -1126,7 +1238,7 @@ func init() {
 }
 
 // addKnownTypes adds the list of known types to the given scheme.
-func addKnownTypes(scheme *runtime.Scheme) error {
+func addKnownTypes(scheme *runtime.Scheme) {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindSystemApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindBundle), &Manifest{})
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindRuntime), &Manifest{})
@@ -1134,7 +1246,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypeWithName(SchemeGroupVersion.WithKind(KindApplication), &Manifest{})
 	scheme.AddKnownTypeWithName(ClusterGroupVersion.WithKind(KindCluster), &Manifest{})
 	scheme.AddKnownTypeWithName(AppGroupVersion.WithKind(KindApplication), &Manifest{})
-	return nil
 }
 
 var (
@@ -1180,12 +1291,18 @@ func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
 		if ext != nil && ext.Monitoring != nil && ext.Monitoring.Disabled {
 			return true
 		}
+	case defaults.IngressAppName:
+		// do not install ingress-app if ingress feature is disabled
+		return !manifest.IngressEnabled()
 	case defaults.TillerAppName:
 		// do not install tiller-app if catalog feature is disabled
 		ext := manifest.Extensions
 		if ext != nil && ext.Catalog != nil && ext.Catalog.Disabled {
 			return true
 		}
+	case defaults.StorageAppName:
+		// do not install storage-app if no storage providers are enabled
+		return !manifest.OpenEBSEnabled()
 	}
 	return false
 }

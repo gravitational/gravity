@@ -16,7 +16,12 @@ limitations under the License.
 
 package utils
 
-import . "gopkg.in/check.v1"
+import (
+	"os"
+
+	"github.com/gravitational/trace"
+	. "gopkg.in/check.v1"
+)
 
 type EnvSuite struct{}
 
@@ -30,4 +35,29 @@ func (s *EnvSuite) TestEnv(c *C) {
 	readEnv, err := ReadEnv(path)
 	c.Assert(err, IsNil)
 	c.Assert(readEnv, DeepEquals, env)
+}
+
+func (s *EnvSuite) TestGetenvsByPrefix(c *C) {
+	envs := map[string]string{
+		"TEST1_A": "v1",
+		"TEST1_B": "v2",
+	}
+	for k, v := range envs {
+		os.Setenv(k, v)
+	}
+	c.Assert(GetenvsByPrefix("TEST1_"), DeepEquals, envs)
+}
+
+func (s *EnvSuite) TestGetenvInt(c *C) {
+	os.Setenv("TEST1", "42")
+	val, err := GetenvInt("TEST1")
+	c.Assert(err, IsNil)
+	c.Assert(val, Equals, 42)
+
+	os.Setenv("TEST1", "qwerty")
+	val, err = GetenvInt("TEST1")
+	c.Assert(err, NotNil)
+
+	val, err = GetenvInt("DOESNOTEXIST")
+	c.Assert(err, FitsTypeOf, trace.NotFound(""))
 }

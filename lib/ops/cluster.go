@@ -17,6 +17,7 @@ limitations under the License.
 package ops
 
 import (
+	"context"
 	"os"
 
 	"github.com/gravitational/gravity/lib/cloudprovider/aws"
@@ -50,8 +51,16 @@ func getAWSCreds() (*credentials.Value, error) {
 		return &creds, nil
 	}
 	// if we're on a ec2 instance, retrieve creds from metadata API
-	if aws.IsRunningOnAWS() {
-		creds, err = ec2rolecreds.NewCredentials(session.New()).Get()
+	running, err := aws.IsRunningOnAWS()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if running {
+		session, err := session.NewSession()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		creds, err = ec2rolecreds.NewCredentials(session).Get()
 		if err == nil {
 			log.Debug("Found AWS credentials using ec2 metadata API.")
 			return &creds, nil
@@ -136,7 +145,7 @@ func CreateCluster(operator Operator, clusterI storage.Cluster) (*SiteOperationK
 		Provisioner: cluster.Spec.Provider,
 		Variables:   vars,
 	}
-	key, err := operator.CreateSiteInstallOperation(opReq)
+	key, err := operator.CreateSiteInstallOperation(context.TODO(), opReq)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -193,7 +202,7 @@ func RemoveClusterByCluster(operator Operator, cluster storage.Cluster) (*SiteOp
 	if cluster.GetProvider() != constants.CloudProviderAWS {
 		return nil, trace.BadParameter("deleting non-AWS clusters is not supported via tele tool yet")
 	}
-	return operator.CreateSiteUninstallOperation(CreateSiteUninstallOperationRequest{
+	return operator.CreateSiteUninstallOperation(context.TODO(), CreateSiteUninstallOperationRequest{
 		AccountID:  defaults.SystemAccountID,
 		SiteDomain: cluster.GetName(),
 		Force:      true,

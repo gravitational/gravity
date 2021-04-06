@@ -50,6 +50,7 @@ func (r *applications) getApplicationInstaller(
 	app *appservice.Application,
 	apps *applications,
 ) ([]*archive.Item, error) {
+	apps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	err := pullApplications([]loc.Locator{app.Package}, apps, r, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -196,8 +197,11 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 			archive.ItemFromStringMode(
 				upgradeScriptFilename, upgradeScript, defaults.SharedExecutableMask),
 			archive.ItemFromStringMode(
+				checkScriptFilename, checkScript, defaults.SharedExecutableMask),
+			archive.ItemFromStringMode(
 				readmeFilename, readme, defaults.SharedReadMask))...)
-		writer.CloseWithError(err)
+		// always returns nil
+		writer.CloseWithError(err) //nolint:errcheck
 	}()
 	return &fileutils.CleanupReadCloser{
 		ReadCloser: reader,
@@ -249,6 +253,7 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 
 	apps := dependencies.Apps
 	apps = append(apps, app.Package)
+	localApps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
@@ -288,6 +293,19 @@ func pullApplications(locators []loc.Locator, localApps *applications, remoteApp
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
+
+		m, err := schema.ParseManifestYAMLNoValidate(envelope.Manifest)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		message := "Dependency %v purged from manifest"
+		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), localApps.Config.ExcludeDeps, message))
+		manifestBytes, err := yaml.Marshal(m)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		envelope.Manifest = manifestBytes
 
 		var labels map[string]string
 		_, err = localApps.CreateAppWithManifest(envelope.Locator, envelope.Manifest, reader, labels)
@@ -338,6 +356,13 @@ const (
 #
 # Installation script for Gravity-powered multi-host Linux applications.
 #
+# Copyright 2016 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
 
 REQMSG="This installer requires a 64-bit Linux desktop"
 
@@ -383,14 +408,37 @@ main "$@"
 #
 # Script for upgrading the currently running application to a new version.
 #
+# Copyright 2016 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
 
 if [[ $(id -u) -ne 0 ]]; then
   echo "please run this script as root" && exit 1
 fi
 
 scriptdir=$(dirname $(realpath $0))
-app=$($scriptdir/gravity app-package --state-dir=$scriptdir)
-$scriptdir/upload && $scriptdir/gravity --insecure update trigger $app
+app=$("$scriptdir/gravity" app-package --state-dir="$scriptdir")
+"$scriptdir/upload" && "$scriptdir/gravity" --insecure upgrade $app "$@"
+`
+
+	checkScript = `#!/bin/bash
+#
+# Script for executing preflight checks.
+#
+# Copyright 2019 Gravitational, Inc.
+#
+# This file is licensed under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+
+scriptdir=$(dirname $(realpath $0))
+"$scriptdir/gravity" check --image-path="$scriptdir" "$scriptdir/app.yaml" "$@"
 `
 
 	readme = `Requirements
@@ -404,6 +452,27 @@ You also need a direct network connection to the servers
 
 The target servers need to be able to connect to the computer
 the installer is running on during the installation.
+
+Executing preflight checks
+==========================
+
+Before launching install or upgrade operation, you can execute preflight
+checks to make sure the infrastructure satisfies all requirements.
+
+For example, to see if the node satisfies requirements before initial
+installation, run:
+
+./run_preflight_checks
+
+To check the node against a specific node profile (defined in app.yaml found
+in the same directory), pass the profile name on the command line:
+
+./run_preflight_checks --profile=worker
+
+If the cluster is already installed, the same script can be used to check
+requirements before launching the upgrade operation:
+
+./run_preflight_checks
 
 Starting the installer
 ======================
@@ -442,6 +511,7 @@ status command.
 	installScriptFilename = "install"
 	uploadScriptFilename  = "upload"
 	upgradeScriptFilename = "upgrade"
+	checkScriptFilename   = "run_preflight_checks"
 	readmeFilename        = "README"
 )
 
@@ -456,6 +526,6 @@ var uploadScriptTemplate = template.Must(template.New("uploadScript").Parse(`#!/
 # with the License.  You may obtain a copy of the License at
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
-#
-./gravity --insecure update upload --state-dir=.
+scriptdir=$(dirname $(realpath $0))
+"$scriptdir/gravity" --insecure update upload --state-dir="$scriptdir"
 `))

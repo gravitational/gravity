@@ -17,12 +17,15 @@ limitations under the License.
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gravitational/teleport"
@@ -67,6 +70,7 @@ func NewAPIServer(config *APIConfig) http.Handler {
 
 	// Operations on certificate authorities
 	srv.GET("/:version/domain", srv.withAuth(srv.getDomainName))
+	srv.GET("/:version/cacert", srv.withAuth(srv.getClusterCACert))
 
 	srv.POST("/:version/authorities/:type", srv.withAuth(srv.upsertCertAuthority))
 	srv.POST("/:version/authorities/:type/rotate", srv.withAuth(srv.rotateCertAuthority))
@@ -78,6 +82,7 @@ func NewAPIServer(config *APIConfig) http.Handler {
 	// Generating certificates for user and host authorities
 	srv.POST("/:version/ca/host/certs", srv.withAuth(srv.generateHostCert))
 	srv.POST("/:version/ca/user/certs", srv.withAuth(srv.generateUserCert))
+	srv.POST("/:version/ca/user/certs/all", srv.withAuth(srv.generateUserCerts))
 
 	// Operations on users
 	srv.GET("/:version/users", srv.withAuth(srv.getUsers))
@@ -145,6 +150,7 @@ func NewAPIServer(config *APIConfig) http.Handler {
 	// active sesssions
 	srv.POST("/:version/namespaces/:namespace/sessions", srv.withAuth(srv.createSession))
 	srv.PUT("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.updateSession))
+	srv.DELETE("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.deleteSession))
 	srv.GET("/:version/namespaces/:namespace/sessions", srv.withAuth(srv.getSessions))
 	srv.GET("/:version/namespaces/:namespace/sessions/:id", srv.withAuth(srv.getSession))
 	srv.POST("/:version/namespaces/:namespace/sessions/:id/slice", srv.withAuth(srv.postSessionSlice))
@@ -253,6 +259,7 @@ func (s *APIServer) withAuth(handler HandlerWithAuthFunc) httprouter.Handle {
 			authServer: s.AuthServer,
 			user:       authContext.User,
 			checker:    authContext.Checker,
+			identity:   authContext.Identity,
 			sessions:   s.SessionService,
 			alog:       s.AuthServer.IAuditLog,
 		}
@@ -615,6 +622,32 @@ func (s *APIServer) generateUserCert(auth ClientI, w http.ResponseWriter, r *htt
 		return nil, trace.Wrap(err)
 	}
 	return string(cert), nil
+}
+
+type generateUserCertsResponse struct {
+	// SSH is the generated SSH certificate.
+	SSH []byte `json:"ssh,omitempty"`
+	// TLS is the generated TLS certificate.
+	TLS []byte `json:"tls,omitempty"`
+}
+
+func (s *APIServer) generateUserCerts(auth ClientI, w http.ResponseWriter, r *http.Request, _ httprouter.Params, version string) (interface{}, error) {
+	var req *generateUserCertReq
+	if err := httplib.ReadJSON(r, &req); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	certificateFormat, err := utils.CheckCertificateFormatFlag(req.Compatibility)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	ssh, tls, err := auth.GenerateUserCerts(req.Key, req.User, req.TTL, certificateFormat)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &generateUserCertsResponse{
+		SSH: ssh,
+		TLS: tls,
+	}, nil
 }
 
 type signInReq struct {
@@ -992,6 +1025,16 @@ func (s *APIServer) getDomainName(auth ClientI, w http.ResponseWriter, r *http.R
 	return domain, nil
 }
 
+// getClusterCACert returns the CAs for the local cluster without signing keys.
+func (s *APIServer) getClusterCACert(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
+	localCA, err := auth.GetClusterCACert()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return localCA, nil
+}
+
 // getU2FAppID returns the U2F AppID in the auth configuration
 func (s *APIServer) getU2FAppID(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
 	cap, err := auth.GetAuthPreference()
@@ -1054,6 +1097,14 @@ func (s *APIServer) updateSession(auth ClientI, w http.ResponseWriter, r *http.R
 	}
 	req.Update.Namespace = namespace
 	if err := auth.UpdateSession(req.Update); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return message("ok"), nil
+}
+
+func (s *APIServer) deleteSession(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
+	err := auth.DeleteSession(p.ByName("namespace"), session.ID(p.ByName("id")))
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return message("ok"), nil
@@ -1556,11 +1607,11 @@ func (s *APIServer) getGithubConnectors(auth ClientI, w http.ResponseWriter, r *
 	}
 	items := make([]json.RawMessage, len(connectors))
 	for i, connector := range connectors {
-		bytes, err := services.GetGithubConnectorMarshaler().Marshal(connector)
+		cbytes, err := services.GetGithubConnectorMarshaler().Marshal(connector)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		items[i] = bytes
+		items[i] = cbytes
 	}
 	return items, nil
 }
@@ -1776,17 +1827,48 @@ func (s *APIServer) searchSessionEvents(auth ClientI, w http.ResponseWriter, r *
 }
 
 type auditEventReq struct {
-	Type   string             `json:"type"`
+	// Event is the event that's being emitted.
+	Event events.Event `json:"event"`
+	// Fields is the additional event fields.
 	Fields events.EventFields `json:"fields"`
+	// Type is the event type.
+	//
+	// This field is obsolete and kept for backwards compatibility.
+	Type string `json:"type"`
 }
 
 // HTTP	POST /:version/events
 func (s *APIServer) emitAuditEvent(auth ClientI, w http.ResponseWriter, r *http.Request, p httprouter.Params, version string) (interface{}, error) {
 	var req auditEventReq
-	if err := httplib.ReadJSON(r, &req); err != nil {
+	err := httplib.ReadJSON(r, &req)
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if err := auth.EmitAuditEvent(req.Type, req.Fields); err != nil {
+
+	// Validate serverID field in event matches server ID from x509 identity. This
+	// check makes sure nodes can only submit events for themselves.
+	serverID, err := s.getServerID(r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = events.ValidateEvent(req.Fields, serverID)
+	if err != nil {
+		log.Warnf("Rejecting audit event %v from %v: %v. System may be under attack, a "+
+			"node is attempting to submit events for an identity other than its own.",
+			req.Type, serverID, err)
+		return nil, trace.AccessDenied("failed to validate event")
+	}
+
+	// DELETE IN: 4.1.0.
+	//
+	// For backwards compatibility, check if the full event struct has
+	// been sent in the request or just the event type.
+	if req.Event.Name != "" {
+		err = auth.EmitAuditEvent(req.Event, req.Fields)
+	} else {
+		err = auth.EmitAuditEvent(events.Event{Name: req.Type}, req.Fields)
+	}
+	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return message("ok"), nil
@@ -1802,6 +1884,28 @@ func (s *APIServer) postSessionSlice(auth ClientI, w http.ResponseWriter, r *htt
 	if err := slice.Unmarshal(data); err != nil {
 		return nil, trace.BadParameter("failed to unmarshal %v", err)
 	}
+
+	// Validate serverID field in event matches server ID from x509 identity. This
+	// check makes sure nodes can only submit events for themselves.
+	serverID, err := s.getServerID(r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, v := range slice.GetChunks() {
+		var f events.EventFields
+		err = utils.FastUnmarshal(v.Data, &f)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		err := events.ValidateEvent(f, serverID)
+		if err != nil {
+			log.Warnf("Rejecting audit event %v from %v: %v. System may be under attack, a "+
+				"node is attempting to submit events for an identity other than its own.",
+				f.GetType(), serverID, err)
+			return nil, trace.AccessDenied("failed to validate event")
+		}
+	}
+
 	if err := auth.PostSessionSlice(slice); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1831,10 +1935,35 @@ func (s *APIServer) uploadSessionRecording(auth ClientI, w http.ResponseWriter, 
 		return nil, trace.BadParameter("expected a single file parameter but got %d", len(files))
 	}
 	defer files[0].Close()
+	_, err = session.ParseID(sid)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Make a copy of the archive because it needs to be read twice: once to
+	// validate it and then again to upload it.
+	var buf bytes.Buffer
+	recording := io.TeeReader(files[0], &buf)
+
+	// Validate namespace and serverID fields in the archive match namespace and
+	// serverID of the authenticated client. This check makes sure nodes can
+	// only submit recordings for themselves.
+	serverID, err := s.getServerID(r)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	err = events.ValidateArchive(recording, serverID)
+	if err != nil {
+		log.Warnf("Rejecting session recording from %v: %v. System may be under attack, a "+
+			"node is attempting to submit events for an identity other than its own.",
+			serverID, err)
+		return nil, trace.BadParameter("failed to validate archive")
+	}
+
 	if err = auth.UploadSessionRecording(events.SessionRecording{
 		SessionID: session.ID(sid),
 		Namespace: namespace,
-		Recording: files[0],
+		Recording: &buf,
 	}); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -2299,6 +2428,29 @@ func (s *APIServer) processKubeCSR(auth ClientI, w http.ResponseWriter, r *http.
 	}
 
 	return re, nil
+}
+
+// getServerID returns the ID of the connected client.
+func (s *APIServer) getServerID(r *http.Request) (string, error) {
+	role, ok := r.Context().Value(ContextUser).(BuiltinRole)
+	if !ok {
+		return "", trace.BadParameter("invalid role %T", r.Context().Value(ContextUser))
+	}
+
+	clusterName, err := s.AuthServer.GetDomainName()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	// The username extracted from the node's identity (x.509 certificate)
+	// is expected to consist of "<server-id>.<cluster-name>" so strip the
+	// cluster name suffix to get the server id.
+	//
+	// Note that as of right now Teleport expects server id to be a uuid4
+	// but older Gravity clusters used to override it with strings like
+	// "192_168_1_1.<cluster-name>" so this code can't rely on it being
+	// uuid4 to account for clusters upgraded from older versions.
+	return strings.TrimSuffix(role.Username, "."+clusterName), nil
 }
 
 func message(msg string) map[string]interface{} {

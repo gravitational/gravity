@@ -35,8 +35,12 @@ type Application struct {
 	StateDir *string
 	// VersionCmd outputs the binary version
 	VersionCmd VersionCmd
-	// BuildCmd builds app installer tarball
+	// BuildCmd builds a cluster image.
 	BuildCmd BuildCmd
+	// HelmCmd combines commands operating on helm charts.
+	HelmCmd HelmCmd
+	// HelmBuildCmd builds an application image out of a helm chart.
+	HelmBuildCmd HelmBuildCmd
 	// ListCmd lists available apps and runtimes
 	ListCmd ListCmd
 	// PullCmd downloads app installer from Ops Center
@@ -50,17 +54,49 @@ type VersionCmd struct {
 	Output *constants.Format
 }
 
-// BuildCmd builds app installer tarball
-type BuildCmd struct {
+// HelmCmd combines commands operating on helm charts.
+type HelmCmd struct {
 	*kingpin.CmdClause
-	// ManifestPath is the path to app manifest file
-	ManifestPath *string
+}
+
+// HelmBuildCmd builds an application image out of a helm chart.
+type HelmBuildCmd struct {
+	*kingpin.CmdClause
+	// Path is the path to a helm chart.
+	Path *string
 	// OutFile is the output tarball file
 	OutFile *string
 	// Overwrite overwrites existing tarball
 	Overwrite *bool
-	// Repository is where packages are downloaded from
-	Repository *string
+	// VendorPatters is file pattern to search for images
+	VendorPatterns *[]string
+	// VendorIgnorePatterns if file pattern to ignore when searching for images
+	VendorIgnorePatterns *[]string
+	// SetImages rewrites images to specified versions
+	SetImages *loc.DockerImages
+	// Parallel defines the number of tasks to execute concurrently
+	Parallel *int
+	// Quiet allows to suppress console output
+	Quiet *bool
+	// Verbose enables more detailed build output.
+	Verbose *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull *bool
+}
+
+// BuildCmd builds app installer tarball
+type BuildCmd struct {
+	*kingpin.CmdClause
+	// Path is the path to manifest file or Helm chart
+	Path *string
+	// OutFile is the output tarball file
+	OutFile *string
+	// Overwrite overwrites existing tarball
+	Overwrite *bool
 	// Name allows to override app name
 	Name *string
 	// Version allows to override app version
@@ -79,6 +115,16 @@ type BuildCmd struct {
 	Parallel *int
 	// Quiet allows to suppress console output
 	Quiet *bool
+	// Verbose enables more detailed build output.
+	Verbose *bool
+	// Set is a list of Helm chart values set on the CLI.
+	Set *[]string
+	// Values is a list of YAML files with Helm chart values.
+	Values *[]string
+	// Pull allows to force-pull Docker images even if they're already present.
+	Pull *bool
+	// BaseImage allows to specify base image on the CLI.
+	BaseImage *string
 }
 
 type ListCmd struct {

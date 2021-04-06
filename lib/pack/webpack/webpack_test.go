@@ -48,7 +48,6 @@ import (
 func TestWebpack(t *testing.T) { TestingT(t) }
 
 type WebpackSuite struct {
-	server    *Server
 	backend   storage.Backend
 	suite     suite.PackageSuite
 	webServer *httptest.Server
@@ -112,18 +111,17 @@ func (s *WebpackSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	mux := http.NewServeMux()
 	mux.Handle("/pack/", webHandler)
-	s.webServer = httptest.NewServer(mux)
+
+	// It is important that we launch TLS server as authentication
+	// middleware on the handler expects TLS connections.
+	s.webServer = httptest.NewTLSServer(mux)
 
 	// for regular test, let's be admins, so tests
 	// won't be affected by auth issues
 	s.suite.S, err = NewAuthenticatedClient(
 		s.webServer.URL, s.adminUser.GetName(), "admin-password",
-		roundtrip.HTTPClient(&http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				}}}),
-	)
+		roundtrip.HTTPClient(s.webServer.Client()))
+	c.Assert(err, IsNil)
 
 	s.suite.O = objects
 	s.suite.C = s.clock
@@ -198,6 +196,7 @@ func (s *WebpackSuite) TestPermissionsCRUD(c *C) {
 
 	_, err = s.suite.S.CreatePackage(
 		loc1, bytes.NewBuffer(pack1Data))
+	c.Assert(err, IsNil)
 
 	role, err := teleservices.NewRole(s.agentUser.GetName(), teleservices.RoleSpecV3{
 		Allow: teleservices.RoleConditions{
@@ -249,6 +248,7 @@ func (s *WebpackSuite) TestPermissionsCRUD(c *C) {
 
 	_, err = s.suite.S.CreatePackage(
 		loc2, bytes.NewBuffer(pack2Data))
+	c.Assert(err, IsNil)
 
 	err = s.suite.S.DeletePackage(loc2)
 	c.Assert(err, IsNil)

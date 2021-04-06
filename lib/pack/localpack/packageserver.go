@@ -57,7 +57,6 @@ type Config struct {
 // PackageServer manages BLOBs of data and their metadata as packages
 type PackageServer struct {
 	cfg     Config
-	clock   timetools.TimeProvider
 	backend storage.Backend
 }
 
@@ -290,9 +289,8 @@ func (p *PackageServer) DeletePackage(loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	log.Infof("DeletePackages deleting %v BLOB %v", loc, pk.SHA512)
-	if err := p.cfg.Objects.DeleteBLOB(pk.SHA512); err != nil {
+	err = p.tryDeleteBlob(*pk)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 	unpackedPath, err := p.UnpackedPath(loc)
@@ -300,7 +298,10 @@ func (p *PackageServer) DeletePackage(loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	if _, err := os.Stat(unpackedPath); err == nil {
-		log.Infof("DeletePackages delete unpacked: %v", unpackedPath)
+		log.WithFields(log.Fields{
+			"unpacked-dir": unpackedPath,
+			"package":      loc,
+		}).Infof("Delete unpacked directory.")
 		if err := os.RemoveAll(unpackedPath); err != nil {
 			return trace.Wrap(err)
 		}
@@ -400,7 +401,7 @@ func (p *PackageServer) Unpack(loc loc.Locator, targetDir string) error {
 		return trace.Wrap(err)
 	}
 	if unpacked {
-		log.Infof("%v is already unpacked", loc)
+		log.WithField("package", loc).Info("Package is already unpacked.")
 		return nil
 	}
 	if err := pack.Unpack(p, loc, targetDir, nil); err != nil {
@@ -432,6 +433,32 @@ func (p *PackageServer) ConfigurePackage(loc loc.Locator, confLoc loc.Locator, a
 		return trace.Wrap(err)
 	}
 	return pack.ConfigurePackage(p, loc, confLoc, args, nil)
+}
+
+func (p *PackageServer) tryDeleteBlob(toDelete storage.Package) error {
+	log := log.WithFields(log.Fields{
+		"package":  toDelete.Locator(),
+		"checksum": toDelete.SHA512,
+	})
+	repositories, err := p.backend.GetRepositories()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	for _, repository := range repositories {
+		packages, err := p.backend.GetPackages(repository.GetName())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		for _, pkg := range packages {
+			if pkg.SHA512 == toDelete.SHA512 && !pkg.Locator().IsEqualTo(toDelete.Locator()) {
+				log.WithField("existing", pkg.Locator()).
+					Info("Collision with existing package, will not delete blob.")
+				return nil
+			}
+		}
+	}
+	log.Info("Delete BLOB.")
+	return trace.Wrap(p.cfg.Objects.DeleteBLOB(toDelete.SHA512))
 }
 
 func newEnvelope(loc loc.Locator, p *storage.Package) *pack.PackageEnvelope {

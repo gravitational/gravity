@@ -19,7 +19,9 @@ package process
 import (
 	"testing"
 
+	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/processconfig"
+
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
@@ -34,10 +36,20 @@ type ConfigSuite struct {
 var _ = check.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) TestMergeConfig(c *check.C) {
-	config, err := WizardProcessConfig("test.example.com", "readdir", "statedir")
-	c.Assert(err, check.IsNil)
-	c.Assert(config, check.NotNil)
-
+	config := &processconfig.Config{
+		Hostname: "test.example.com",
+		Pack: processconfig.PackageServiceConfig{
+			AdvertiseAddr: *teleutils.MustParseAddr("0.0.0.0:61009"),
+		},
+		Users: []processconfig.User{
+			{
+				Password: "example",
+				Type:     "agent",
+				Org:      "acme.io",
+				Email:    "wizard@acme.io",
+			},
+		},
+	}
 	from := &processconfig.Config{
 		Hostname: "from.hostname",
 		Pack: processconfig.PackageServiceConfig{
@@ -53,11 +65,29 @@ func (s *ConfigSuite) TestMergeConfig(c *check.C) {
 			},
 		},
 	}
-	err = processconfig.MergeConfig(config, from)
+	err := processconfig.MergeConfig(config, from)
 	c.Assert(err, check.IsNil)
-	c.Assert(config.Hostname, check.Equals, from.Hostname)
-	c.Assert(config.Pack.AdvertiseAddr, check.DeepEquals, from.Pack.AdvertiseAddr)
-	c.Assert(config.Users[len(config.Users)-1], check.DeepEquals, from.Users[0])
+	c.Assert(config, compare.DeepEquals, &processconfig.Config{
+		Hostname: "from.hostname",
+		Pack: processconfig.PackageServiceConfig{
+			AdvertiseAddr: *teleutils.MustParseAddr("ops.example.com:443"),
+		},
+		Users: []processconfig.User{
+			{
+				Password: "example",
+				Type:     "agent",
+				Org:      "acme.io",
+				Email:    "wizard@acme.io",
+			},
+			{
+				Owner:    true,
+				Password: "test",
+				Type:     "admin",
+				Org:      "example.com",
+				Email:    "alice@example.com",
+			},
+		},
+	})
 }
 
 func (s *ConfigSuite) TestMergeTeleConfig(c *check.C) {

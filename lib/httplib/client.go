@@ -38,6 +38,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
+	"github.com/gravitational/satellite/lib/rpc/client"
 	rt "github.com/gravitational/teleport/lib/reversetunnel"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -103,8 +104,27 @@ func WithLocalResolver(dnsAddr string) ClientOption {
 // WithInsecure sets insecure TLS config
 func WithInsecure() ClientOption {
 	return func(c *http.Client) {
-		c.Transport.(*http.Transport).TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
+		// Make sure not to override existing TLS configuration.
+		tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
+		if tlsConfig == nil {
+			tlsConfig = &tls.Config{}
+		}
+		tlsConfig.InsecureSkipVerify = true
+	}
+}
+
+// WithTLSClientConfig sets TLS client configuration.
+func WithTLSClientConfig(tlsConfig *tls.Config) ClientOption {
+	return func(c *http.Client) {
+		c.Transport.(*http.Transport).TLSClientConfig = tlsConfig
+		// Note, GetClientCertificate is required to enforce the client to
+		// always send the certificate along, otherwise it may choose not
+		// send it in specific cases. Source:
+		// https://github.com/golang/go/issues/23924#issuecomment-367472052
+		if len(tlsConfig.Certificates) != 0 {
+			c.Transport.(*http.Transport).TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				return &tlsConfig.Certificates[0], nil
+			}
 		}
 	}
 }
@@ -153,11 +173,18 @@ func WithIdleConnTimeout(timeout time.Duration) ClientOption {
 
 // GetClient returns secure or insecure client based on settings
 func GetClient(insecure bool, options ...ClientOption) *http.Client {
+	if insecure {
+		options = append(options, WithInsecure())
+	}
+	return NewClient(options...)
+}
+
+// NewClient creates a new HTTP client with the specified list of configuration
+// options
+func NewClient(options ...ClientOption) *http.Client {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{},
-	}
-	if insecure {
-		transport.TLSClientConfig.InsecureSkipVerify = true
+		DialContext:     (&net.Dialer{Timeout: defaults.DialTimeout}).DialContext,
 	}
 	client := &http.Client{Transport: transport}
 	for _, o := range options {
@@ -211,7 +238,11 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 // using local resolver prior to dialing
 func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr string) (net.Conn, error) {
 	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-		log.Debugf("dialing %v", addr)
+		logger := log.WithFields(log.Fields{
+			"addr":    addr,
+			"network": network,
+		})
+		logger.Debug("Dial.")
 
 		if isInsidePod() {
 			return Dial(ctx, network, addr)
@@ -222,9 +253,21 @@ func DialFromEnviron(dnsAddr string) func(ctx context.Context, network, addr str
 			return conn, nil
 		}
 
+		if !strings.HasSuffix(addr, defaults.ServiceAddrSuffix) {
+			return nil, trace.Wrap(err)
+		}
+
+		var port string
+		if strings.Contains(addr, ":") {
+			addr, port, err = net.SplitHostPort(addr)
+			if err != nil {
+				return nil, trace.Wrap(err, "invalid host:port address: %q", addr)
+			}
+		}
+
 		// Dial with a kubernetes service resolver
-		log.Warnf("Failed to dial with local resolver: %v.", trace.DebugReport(err))
-		return DialWithServiceResolver(ctx, network, addr)
+		logger.WithError(err).Warn("Failed to dial with local resolver.")
+		return DialWithServiceResolver(ctx, network, addr, port)
 
 	}
 }
@@ -249,30 +292,18 @@ func DialWithLocalResolver(ctx context.Context, dnsAddr, network, addr string) (
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to resolve %v", addr)
 	}
-	log.Debugf("dialing %v", hostPort)
+	log.WithField("host-port", hostPort).Debug("Dial.")
 	var d net.Dialer
 	return d.DialContext(ctx, network, hostPort)
 }
 
-// DialWithServiceResolver resolves the addr as a kubernetes service using its cluster IP
-func DialWithServiceResolver(ctx context.Context, network, addr string) (conn net.Conn, err error) {
-	var port string
-	if strings.Contains(addr, ":") {
-		addr, port, err = net.SplitHostPort(addr)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-
-	if !strings.HasSuffix(addr, defaults.ServiceAddrSuffix) {
-		return nil, trace.NotFound("cannot resolve non-cluster local address")
-	}
-
-	serviceNameNamespace := strings.TrimSuffix(addr, defaults.ServiceAddrSuffix)
+// DialWithServiceResolver resolves the host as a kubernetes service using its cluster IP
+func DialWithServiceResolver(ctx context.Context, network, host, port string) (conn net.Conn, err error) {
+	serviceNameNamespace := strings.TrimSuffix(host, defaults.ServiceAddrSuffix)
 	fields := strings.Split(serviceNameNamespace, ".")
 	if len(fields) != 2 {
 		return nil, trace.BadParameter("invalid address format: expected service-name.namespace.%v but got %q",
-			defaults.ServiceAddrSuffix, addr)
+			defaults.ServiceAddrSuffix, host)
 	}
 	serviceName, namespace := fields[0], fields[1]
 	log.Infof("Dialing service %v in namespace %v.", serviceName, namespace)
@@ -282,7 +313,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		kubeconfigPath, err = getKubeconfigPath()
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to resolve %v://%v using kubernetes service resolver",
-				network, addr)
+				network, host)
 		}
 	}
 
@@ -291,7 +322,7 @@ func DialWithServiceResolver(ctx context.Context, network, addr string) (conn ne
 		return nil, trace.Wrap(err, "failed to create kubernetes client from %v", kubeconfigPath)
 	}
 
-	service, err := client.Core().Services(namespace).Get(serviceName, metav1.GetOptions{})
+	service, err := client.CoreV1().Services(namespace).Get(serviceName, metav1.GetOptions{})
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -359,9 +390,8 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 			defaults.APIServerSecurePort),
 		TLSClientConfig: tlsConfig,
 		WrapTransport: func(t http.RoundTripper) http.RoundTripper {
-			switch t.(type) {
-			case *http.Transport:
-				t.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+			if transport, ok := t.(*http.Transport); ok {
+				transport.DialContext = DialFromEnviron(dnsAddr)
 			}
 			return t
 		},
@@ -372,7 +402,7 @@ func getKubeClient(dnsAddr string, tlsConfig rest.TLSClientConfig, options ...Ku
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, trace.Wrap(err)
+		return nil, nil, trace.ConvertSystemError(err)
 	}
 	return client, config, nil
 }
@@ -393,4 +423,26 @@ func getKubeconfigPath() (path string, err error) {
 	rootfsPath := filepath.Clean(filepath.Join(filepath.Dir(path), "../../.."))
 	path = filepath.Join(rootfsPath, constants.Kubeconfig)
 	return path, nil
+}
+
+// GetGRPCPlanetClient a grpc client connection to the local planet agent.
+func GetGRPCPlanetClient(ctx context.Context) (client.Client, error) {
+	addr := fmt.Sprintf("%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
+
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	caFile := state.Secret(stateDir, defaults.RootCertFilename)
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+
+	config := client.Config{
+		Address:  addr,
+		CAFile:   caFile,
+		CertFile: clientCertFile,
+		KeyFile:  clientKeyFile,
+	}
+	return client.NewClient(ctx, config)
 }

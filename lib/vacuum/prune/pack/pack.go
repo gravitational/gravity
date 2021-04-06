@@ -24,8 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/schema"
-	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/vacuum/prune"
 
 	"github.com/coreos/go-semver/semver"
@@ -64,9 +63,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:package")
 	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
-	}
 	return nil
 }
 
@@ -75,22 +71,14 @@ type Config struct {
 	// Config specifies the common pruner configuration
 	prune.Config
 	// App specifies the cluster application
-	App *Application
+	App *storage.Application
 	// Apps lists other cluster applications.
 	// There might be several applications meaningful for the cluster
 	// if it's an Ops Center and has been connected with multiple remote
 	// clusters.
-	Apps []Application
+	Apps []storage.Application
 	// Packages specifies the package service to prune
 	Packages packageService
-}
-
-// Application describes an application for the package cleaner
-type Application struct {
-	// Locator references the application package
-	loc.Locator
-	// Manifest is the application's manifest
-	schema.Manifest
 }
 
 // packageService defines the subset of package APIs as required for pruning

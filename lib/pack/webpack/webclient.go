@@ -17,6 +17,7 @@ limitations under the License.
 package webpack
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -180,7 +181,7 @@ func (c *Client) createOrUpsertPackage(loc loc.Locator, data io.Reader, upsert b
 
 // UpdatePackageLabels updates package's labels
 func (c *Client) UpdatePackageLabels(loc loc.Locator, addLabels map[string]string, removeLabels []string) error {
-	_, err := c.PostJSON(c.Endpoint("repositories", loc.Repository, "packages", loc.Name, loc.Version),
+	_, err := c.PostJSON(context.TODO(), c.Endpoint("repositories", loc.Repository, "packages", loc.Name, loc.Version),
 		labels{
 			AddLabels:    addLabels,
 			RemoveLabels: removeLabels,
@@ -216,7 +217,7 @@ func (c *Client) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadClo
 	if err != nil {
 		return nil, nil, trace.Wrap(err, "failed to read package %s", loc.String())
 	}
-	re, err := c.Client.GetFile(endpoint, url.Values{})
+	re, err := c.Client.GetFile(context.TODO(), endpoint, url.Values{})
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -245,15 +246,15 @@ func (c *Client) PostForm(
 	files ...roundtrip.File) (*roundtrip.Response, error) {
 
 	return telehttplib.ConvertResponse(
-		c.Client.PostForm(endpoint, vals, files...))
+		c.Client.PostForm(context.TODO(), endpoint, vals, files...))
 }
 
 // Get issues http GET request to the server
 func (c *Client) Get(u string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(u, params))
+	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), u, params))
 }
 
 // Delete issues http Delete Request to the server
 func (c *Client) Delete(u string) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Delete(u))
+	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), u))
 }

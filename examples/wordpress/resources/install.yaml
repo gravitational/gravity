@@ -1,0 +1,21 @@
+ apiVersion: batch/v1
+ kind: Job
+ metadata:
+   name: install
+ spec:
+   template:
+     metadata:
+       name: install
+     spec:
+       restartPolicy: OnFailure
+       containers:
+         - name: install
+           image: quay.io/gravitational/debian-tall:buster
+           command:
+             - /usr/local/bin/helm
+             - install
+             - /var/lib/gravity/resources/charts/wordpress
+             - --set
+             - registry=leader.telekube.local:5000/
+             - --name
+             - wordpress

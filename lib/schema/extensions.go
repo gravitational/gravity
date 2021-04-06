@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	clusterv1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -32,4 +33,5 @@ func init() {
 	runtime.Must(apiextensionsv1beta1.AddToScheme(scheme.Scheme))
 	runtime.Must(apiregistrationv1.AddToScheme(scheme.Scheme))
 	runtime.Must(apiregistrationv1beta1.AddToScheme(scheme.Scheme))
+	runtime.Must(clusterv1beta1.AddToScheme(scheme.Scheme))
 }

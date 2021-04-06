@@ -19,45 +19,43 @@ package utils
 import (
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
 	"strings"
 )
 
 func StringInSlice(haystack []string, needle string) bool {
-	found := false
 	for i := range haystack {
 		if haystack[i] == needle {
-			found = true
-			break
+			return true
 		}
 	}
-	return found
+	return false
 }
 
 func StringsInSlice(haystack []string, needles ...string) bool {
 	for _, needle := range needles {
-		found := false
 		for i := range haystack {
 			if haystack[i] == needle {
-				found = true
-				break
+				return true
 			}
 		}
-		if found == false {
+	}
+	return false
+}
+
+// StringSlicesEqual determines whether the two slices are equal.
+// The slices are treated as immutable.
+// If the slices contain the same set of values in different order, the slices
+// must be sorted prior to calling this to correctly determine whether they are the same
+func StringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
 			return false
 		}
 	}
 	return true
-}
-
-func CompareStringSlices(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	sort.Sort(sort.StringSlice(a))
-	sort.Sort(sort.StringSlice(b))
-	return reflect.DeepEqual(a, b)
 }
 
 // FlattenStringSlice takes a slice of strings like ["one,two", "three"] and returns
@@ -107,6 +105,18 @@ func CombineLabels(labels ...map[string]string) (result map[string]string) {
 		for k, v := range set {
 			result[k] = v
 		}
+	}
+	return result
+}
+
+// SplitSlice splits the provided string slice into batches of specified size.
+func SplitSlice(slice []string, batchSize int) (result [][]string) {
+	for i := 0; i < len(slice); i += batchSize {
+		batchEnd := i + batchSize
+		if batchEnd > len(slice) {
+			batchEnd = len(slice)
+		}
+		result = append(result, slice[i:batchEnd])
 	}
 	return result
 }

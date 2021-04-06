@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package opsservice
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -25,23 +24,25 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/devicemapper"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/transfer"
 	"github.com/gravitational/gravity/lib/utils"
 
 	teleetcd "github.com/gravitational/teleport/lib/backend/etcdbk"
 	telecfg "github.com/gravitational/teleport/lib/config"
+	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
@@ -64,24 +65,23 @@ const (
 	etcdProxyOn         = "on"
 	etcdNewCluster      = "new"
 	etcdExistingCluster = "existing"
-	etcdPeerPort        = 2380
 	etcdEndpointPort    = 2379
 )
 
 // Configure packages configures packages for the specified install operation
-func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
-	log.Infof("Configuring packages: %#v.", key)
-	operation, err := o.GetSiteOperation(key)
+func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
+	log.WithField("req", req).Info("Configuring packages.")
+	operation, err := o.GetSiteOperation(req.SiteOperationKey)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	switch operation.Type {
-	case ops.OperationInstall, ops.OperationExpand:
+	case ops.OperationInstall, ops.OperationExpand, ops.OperationReconfigure:
 	default:
 		return trace.BadParameter("expected install or expand operation, got: %v",
 			operation)
 	}
-	site, err := o.openSite(key.SiteKey())
+	site, err := o.openSite(req.ClusterKey())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -100,8 +100,9 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if operation.Type == ops.OperationInstall {
-		err = site.configurePackages(ctx)
+
+	if operation.Type == ops.OperationInstall || operation.Type == ops.OperationReconfigure {
+		err = site.configurePackages(ctx, req)
 	} else {
 		err = site.configureExpandPackages(context.TODO(), ctx)
 	}
@@ -114,6 +115,7 @@ func (o *Operator) ConfigurePackages(key ops.SiteOperationKey) error {
 		}
 		return trace.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -148,21 +150,36 @@ func (s *site) getEtcdConfig(ctx context.Context, opCtx *operationContext, serve
 	}, nil
 }
 
-func (s *site) getTeleportMaster(ctx context.Context) (*teleportServer, error) {
+func (s *site) getTeleportMasterIPs(ctx context.Context) (ips []string, err error) {
+	masters, err := s.getTeleportMasters(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	for _, master := range masters {
+		ips = append(ips, master.IP)
+	}
+	return ips, nil
+}
+
+func (s *site) getTeleportMasters(ctx context.Context) (servers []teleportServer, err error) {
 	masters, err := s.teleport().GetServers(ctx, s.domainName, map[string]string{
 		schema.ServiceLabelRole: string(schema.ServiceRoleMaster),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master server found")
+	for _, master := range masters {
+		server, err := newTeleportServer(master)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		servers = append(servers, *server)
 	}
-	return newTeleportServer(masters[0])
+	return servers, nil
 }
 
 func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationContext) error {
-	teleportMaster, err := s.getTeleportMaster(ctx)
+	teleportMasterIPs, err := s.getTeleportMasterIPs(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -171,33 +188,40 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	secretsPackage, err := s.planetSecretsPackage(provisionedServer)
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	planetPackage, err := s.app.Manifest.RuntimePackage(provisionedServer.Profile)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	configPackage, err := s.planetConfigPackage(provisionedServer, planetPackage.Version)
+	secretsPackage := s.planetSecretsPackage(provisionedServer, planetPackage.Version)
+	configPackage := s.planetConfigPackage(provisionedServer, planetPackage.Version)
+	env, err := s.getClusterEnvironmentVariables()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	config, err := s.getClusterConfiguration()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	planetConfig := planetConfig{
+		server:        *provisionedServer,
+		installExpand: opCtx.operation,
 		etcd:          *etcdConfig,
 		docker:        s.dockerConfig(),
 		planetPackage: *planetPackage,
-		configPackage: *configPackage,
+		configPackage: configPackage,
+		manifest:      s.app.Manifest,
+		env:           env.GetKeyValues(),
+		config:        config,
 	}
 	if provisionedServer.IsMaster() {
 		err := s.configureTeleportMaster(opCtx, provisionedServer)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		masterParams := planetMasterParams{
-			master:            provisionedServer,
-			secretsPackage:    secretsPackage,
-			serviceSubnetCIDR: opCtx.operation.InstallExpand.Subnets.Service,
+			master:         provisionedServer,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  planetConfig.serviceSubnet(),
 		}
 		// if we have connection to an Ops Center set up, configure
 		// SNI host so it can dial in
@@ -206,37 +230,43 @@ func (s *site) configureExpandPackages(ctx context.Context, opCtx *operationCont
 			masterParams.sniHost = trustedCluster.GetSNIHost()
 		}
 		err = s.configurePlanetMasterSecrets(opCtx, masterParams)
-		if err != nil {
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 		planetConfig.master = masterConfig{
 			electionEnabled: false,
 			addr:            s.teleport().GetPlanetLeaderIP(),
 		}
-		err = s.configurePlanetMaster(provisionedServer, opCtx.operation,
-			planetConfig, *secretsPackage, *configPackage)
-		if err != nil {
+		err = s.configurePlanetMaster(planetConfig)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		err = s.configureTeleportNode(opCtx, append([]string{constants.Localhost}, teleportMasterIPs...),
+			provisionedServer)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	} else {
-		err := s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
-		if err != nil {
+		err = s.configurePlanetNodeSecrets(opCtx, provisionedServer, secretsPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
-		err = s.configurePlanetNode(provisionedServer, opCtx.operation,
-			planetConfig, *secretsPackage, *configPackage)
-		if err != nil {
+		err = s.configurePlanetNode(planetConfig)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
-	}
-	err = s.configureTeleportNode(opCtx, teleportMaster.IP, provisionedServer)
-	if err != nil {
-		return trace.Wrap(err)
+		err = s.configureTeleportNode(opCtx, teleportMasterIPs, provisionedServer)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
 	}
 	return nil
 }
 
-func (s *site) configurePackages(ctx *operationContext) error {
+func (s *site) configurePackages(ctx *operationContext, req ops.ConfigurePackagesRequest) error {
 	err := s.packages().UpsertRepository(s.siteRepoName(), time.Time{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -249,27 +279,20 @@ func (s *site) configurePackages(ctx *operationContext) error {
 	}
 
 	err = s.configureRemoteCluster()
-	if err != nil {
+	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)
 	}
 
-	_, err = s.configureSiteExportPackage(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	_, err = s.configureLicensePackage(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	var resourcesPackage *loc.Locator
-	if s.hasResources() {
-		resourcesPackage, err = s.configureResourcesPackage(ctx)
-		if err != nil {
+	if ctx.operation.Type == ops.OperationInstall {
+		err = s.configureSiteExportPackage(ctx)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
-		s.Debugf("configured resources package %v", resourcesPackage.String())
+	}
+
+	err = s.configureLicensePackage(ctx)
+	if err != nil && !trace.IsAlreadyExists(err) {
+		return trace.Wrap(err)
 	}
 
 	masters := p.Masters()
@@ -284,31 +307,24 @@ func (s *site) configurePackages(ctx *operationContext) error {
 
 	etcdConfig := s.prepareEtcdConfig(ctx)
 
-	for i, master := range masters {
-		secretsPackage, err := s.planetSecretsPackage(master)
+	clusterConfig := clusterconfig.NewEmpty()
+	if len(req.Config) != 0 {
+		clusterConfig, err = clusterconfig.Unmarshal(req.Config)
 		if err != nil {
 			return trace.Wrap(err)
 		}
+	}
+	if s.cloudProviderName() != "" {
+		clusterConfig.SetCloudProvider(s.cloudProviderName())
+	}
 
+	for i, master := range masters {
 		planetPackage, err := s.app.Manifest.RuntimePackage(master.Profile)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-
-		configPackage, err := s.planetConfigPackage(master, planetPackage.Version)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
-			master:            master,
-			secretsPackage:    secretsPackage,
-			serviceSubnetCIDR: ctx.operation.InstallExpand.Subnets.Service,
-			sniHost:           s.service.cfg.SNIHost,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		secretsPackage := s.planetSecretsPackage(master, planetPackage.Version)
+		configPackage := s.planetConfigPackage(master, planetPackage.Version)
 
 		masterConfig := regularMasterConfig
 		masterConfig.addr = master.AdvertiseIP
@@ -326,37 +342,49 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		}
 
 		config := planetConfig{
+			server:        *master,
+			installExpand: ctx.operation,
 			etcd:          masterEtcdConfig,
 			master:        masterConfig,
 			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
-			configPackage: *configPackage,
+			configPackage: configPackage,
+			manifest:      s.app.Manifest,
+			env:           req.Env,
+			config:        clusterConfig,
 		}
-		err = s.configurePlanetMaster(master, ctx.operation, config, *secretsPackage, *configPackage)
-		if err != nil {
+
+		err = s.configurePlanetMasterSecrets(ctx, planetMasterParams{
+			master:         master,
+			secretsPackage: &secretsPackage,
+			serviceSubnet:  config.serviceSubnet(),
+		})
+		if err != nil && !trace.IsAlreadyExists(err) {
+			return trace.Wrap(err)
+		}
+		err = s.configurePlanetMaster(config)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportMaster(ctx, master); err != nil {
+		err = s.configureTeleportMaster(ctx, master)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
-		if err := s.configureTeleportNode(ctx, activeMaster.AdvertiseIP, master); err != nil {
+		// Teleport nodes on masters prefer their local auth server
+		// but will try all other masters if the local gravity-site
+		// isn't running.
+		err = s.configureTeleportNode(ctx, append([]string{constants.Localhost}, p.MasterIPs()...),
+			master)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
 
 	for _, node := range p.Nodes() {
-		if err := s.configureTeleportNode(ctx, p.FirstMaster().AdvertiseIP, node); err != nil {
-			return trace.Wrap(err)
-		}
-
-		secretsPackage, err := s.planetSecretsPackage(node)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-
-		if err := s.configurePlanetNodeSecrets(ctx, node, secretsPackage); err != nil {
+		err := s.configureTeleportNode(ctx, p.MasterIPs(), node)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 
@@ -365,10 +393,14 @@ func (s *site) configurePackages(ctx *operationContext) error {
 			return trace.Wrap(err)
 		}
 
-		configPackage, err := s.planetConfigPackage(node, planetPackage.Version)
-		if err != nil {
+		secretsPackage := s.planetSecretsPackage(node, planetPackage.Version)
+
+		err = s.configurePlanetNodeSecrets(ctx, node, secretsPackage)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
+
+		configPackage := s.planetConfigPackage(node, planetPackage.Version)
 
 		nodeEtcdConfig, ok := etcdConfig[node.AdvertiseIP]
 		if !ok {
@@ -377,15 +409,20 @@ func (s *site) configurePackages(ctx *operationContext) error {
 		}
 
 		config := planetConfig{
+			server:        *node,
+			installExpand: ctx.operation,
 			etcd:          nodeEtcdConfig,
 			master:        masterConfig{addr: p.FirstMaster().AdvertiseIP},
 			docker:        s.dockerConfig(),
 			planetPackage: *planetPackage,
-			configPackage: *configPackage,
+			configPackage: configPackage,
+			manifest:      s.app.Manifest,
+			env:           req.Env,
+			config:        clusterConfig,
 		}
 
-		err = s.configurePlanetNode(node, ctx.operation, config, *secretsPackage, *configPackage)
-		if err != nil {
+		err = s.configurePlanetNode(config)
+		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}
 	}
@@ -445,12 +482,8 @@ func (s *site) prepareEtcdConfig(ctx *operationContext) clusterEtcdConfig {
 }
 
 func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
-	caPackage, err := s.planetCertAuthorityPackage()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	if _, err := s.packages().ReadPackageEnvelope(*caPackage); err == nil {
+	caPackage := s.planetCertAuthorityPackage()
+	if _, err := s.packages().ReadPackageEnvelope(caPackage); err == nil {
 		s.Debugf("%v already created", caPackage)
 		return nil
 	}
@@ -470,6 +503,8 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	// we have to share the same private key for various apiservers
 	// due to this issue:
 	// https://github.com/kubernetes/kubernetes/issues/11000#issuecomment-232469678
+	// TODO(security) separate this out to a separate secret for serviceaccounttokens
+	// For reference: https://github.com/kelseyhightower/kubernetes-the-hard-way/issues/248
 	apiServer, err := authority.GenerateCertificate(csr.CertificateRequest{
 		CN:    constants.APIServerKeyPair,
 		Hosts: []string{"127.0.0.1"},
@@ -500,7 +535,7 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 	}
 	defer reader.Close()
 
-	_, err = s.packages().CreatePackage(*caPackage, reader, pack.WithLabels(
+	_, err = s.packages().CreatePackage(caPackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeCA,
 			pack.OperationIDLabel: ctx.operation.ID,
@@ -511,11 +546,8 @@ func (s *site) configurePlanetCertAuthority(ctx *operationContext) error {
 // ReadCertAuthorityPackage returns the certificate authority package for
 // the specified cluster
 func ReadCertAuthorityPackage(packages pack.PackageService, clusterName string) (utils.TLSArchive, error) {
-	caPackage, err := PlanetCertAuthorityPackage(clusterName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	_, reader, err := packages.ReadPackage(*caPackage)
+	caPackage := PlanetCertAuthorityPackage(clusterName)
+	_, reader, err := packages.ReadPackage(caPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -528,10 +560,10 @@ func (s *site) readCertAuthorityPackage() (utils.TLSArchive, error) {
 }
 
 type planetMasterParams struct {
-	master            *ProvisionedServer
-	secretsPackage    *loc.Locator
-	serviceSubnetCIDR string
-	sniHost           string
+	master         *ProvisionedServer
+	secretsPackage *loc.Locator
+	serviceSubnet  string
+	sniHost        string
 }
 
 func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMasterParams) (*ops.RotatePackageResponse, error) {
@@ -545,12 +577,14 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		return nil, trace.Wrap(err)
 	}
 
-	baseKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
+	// Don't rotate apiserver secrets, as this secret is currently used to authenticate service account tokens
+	// TODO(security) support rotation of apiserver / serviceaccount secrets
+	apiserverKeyPair, err := archive.GetKeyPair(constants.APIServerKeyPair)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnetCIDR)
+	serviceSubnet, err := configure.ParseCIDR(p.serviceSubnet)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -576,6 +610,10 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.PlanetRpcKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
 		constants.FrontProxyClientKeyPair:       {},
+		constants.LograngeAdaptorKeyPair:        {},
+		constants.LograngeAggregatorKeyPair:     {},
+		constants.LograngeCollectorKeyPair:      {},
+		constants.LograngeForwarderKeyPair:      {},
 	}
 
 	for name, config := range keyPairTypes {
@@ -590,6 +628,8 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
+
+		var privateKeyPEM []byte
 		switch name {
 		case constants.APIServerKeyPair:
 			req.Hosts = append(req.Hosts,
@@ -604,6 +644,11 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			}
 			// this will make APIServer's certificate valid for requests
 			// via OpsCenter, e.g. siteDomain.opscenter.example.com
+			if s.service.cfg.SNIHost != "" {
+				req.Hosts = append(req.Hosts, strings.Join([]string{
+					s.domainName, s.service.cfg.SNIHost}, "."))
+			}
+			// add additional hosts that have been passed in
 			if p.sniHost != "" {
 				req.Hosts = append(req.Hosts, strings.Join([]string{
 					s.domainName, p.sniHost}, "."))
@@ -615,12 +660,21 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 						s.domainName, host}, "."))
 				}
 			}
+
+			// Don't rotate the APIServer key, the secret is currently used for validating serviceaccounttokens
+			// TODO(security) enable rotation of secret for apiserver/serviceaccounttokens
+			privateKeyPEM = apiserverKeyPair.KeyPEM
 		case constants.ProxyKeyPair:
 			req.Hosts = append(req.Hosts,
 				constants.APIServerDomainNameGravity,
 				constants.APIServerDomainName)
+		case constants.LograngeAggregatorKeyPair:
+			req.Hosts = append(req.Hosts, utils.KubeServiceNames(
+				defaults.LograngeAggregatorServiceName,
+				defaults.KubeSystemNamespace)...)
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, baseKeyPair.KeyPEM, defaults.CertificateExpiry)
+
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -656,7 +710,7 @@ func (s *site) configurePlanetMasterSecrets(ctx *operationContext, p planetMaste
 	return trace.Wrap(err)
 }
 
-func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) (*ops.RotatePackageResponse, error) {
 	archive, err := s.readCertAuthorityPackage()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -677,16 +731,16 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	keyPairTypes := map[string]rbacConfig{
-		constants.APIServerKeyPair: {},
-		constants.ETCDKeyPair:      {},
-		constants.KubectlKeyPair:   {group: constants.ClusterNodeGroup},
-		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
-		constants.KubeletKeyPair:   {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
-		constants.PlanetRpcKeyPair: {},
-		constants.CoreDNSKeyPair:   {},
+		constants.APIServerKeyPair:         {},
+		constants.ETCDKeyPair:              {},
+		constants.KubectlKeyPair:           {group: constants.ClusterNodeGroup},
+		constants.ProxyKeyPair:             {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
+		constants.KubeletKeyPair:           {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
+		constants.PlanetRpcKeyPair:         {},
+		constants.CoreDNSKeyPair:           {},
+		constants.LograngeCollectorKeyPair: {},
 	}
 
-	var privateKeyPEM []byte
 	for keyName, config := range keyPairTypes {
 		req := csr.CertificateRequest{
 			Hosts: []string{constants.LoopbackIP, node.AdvertiseIP, node.Hostname},
@@ -707,14 +761,9 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		if config.group != "" {
 			req.Names = []csr.Name{{O: config.group}}
 		}
-		keyPair, err := authority.GenerateCertificate(req, caKeyPair, privateKeyPEM, defaults.CertificateExpiry)
+		keyPair, err := authority.GenerateCertificate(req, caKeyPair, nil, defaults.CertificateExpiry)
 		if err != nil {
 			return nil, trace.Wrap(err)
-		}
-		// Store the private key from the first generated key pair and re-use
-		// it on subsequent requests to speed up certificate generation
-		if len(privateKeyPEM) == 0 {
-			privateKeyPEM = keyPair.KeyPEM
 		}
 		if err := newArchive.AddKeyPair(keyName, *keyPair); err != nil {
 			return nil, trace.Wrap(err)
@@ -733,13 +782,13 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *secretsPackage,
+		Locator: secretsPackage,
 		Reader:  reader,
 		Labels:  labels,
 	}, nil
 }
 
-func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage *loc.Locator) error {
+func (s *site) configurePlanetNodeSecrets(ctx *operationContext, node *ProvisionedServer, secretsPackage loc.Locator) error {
 	resp, err := s.getPlanetNodeSecretsPackage(ctx, node, secretsPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -778,75 +827,96 @@ type masterConfig struct {
 	addr string
 }
 
-func (s *site) configurePlanetMaster(
-	master *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
-	if server := installOrExpand.InstallExpand.Servers.FindByIP(master.AdvertiseIP); server != nil {
+func (s *site) configurePlanetMaster(config planetConfig) error {
+	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
-	err := s.configurePlanetServer(master, installOrExpand, config)
+	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 
-func (s *site) configurePlanetNode(
-	node *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
-	config planetConfig,
-	secretsPackage, configPackage loc.Locator,
-) error {
-	if server := installOrExpand.InstallExpand.Servers.FindByIP(node.AdvertiseIP); server != nil {
+func (s *site) configurePlanetNode(config planetConfig) error {
+	if server := config.installExpand.InstallExpand.Servers.FindByIP(config.server.AdvertiseIP); server != nil {
 		config.dockerRuntime = server.Docker
 	}
-
-	err := s.configurePlanetServer(node, installOrExpand, config)
+	err := s.configurePlanetServer(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	return nil
 }
 
-func (s *site) getPlanetConfigPackage(
-	node *ProvisionedServer,
-	installOrExpand ops.SiteOperation,
-	config planetConfig,
-	manifest schema.Manifest) (*ops.RotatePackageResponse, error) {
+func (s *site) getPlanetConfigPackage(config planetConfig) (*ops.RotatePackageResponse, error) {
+	args, err := s.getPlanetConfig(config)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	labels := map[string]string{
+		pack.PurposeLabel:     pack.PurposePlanetConfig,
+		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
+		pack.AdvertiseIPLabel: config.server.AdvertiseIP,
+		pack.OperationIDLabel: config.installExpand.ID,
+	}
+	return &ops.RotatePackageResponse{
+		Locator: config.configPackage,
+		Reader:  reader,
+		Labels:  labels,
+	}, nil
+}
+
+func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
+	node := config.server
+	manifest := config.manifest
 	profile, err := manifest.NodeProfiles.ByName(node.Role)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	args := []string{
+	args = []string{
 		fmt.Sprintf("--node-name=%v", node.KubeNodeID()),
 		fmt.Sprintf("--hostname=%v", node.Hostname),
 		fmt.Sprintf("--master-ip=%v", config.master.addr),
 		fmt.Sprintf("--public-ip=%v", node.AdvertiseIP),
-		fmt.Sprintf("--service-subnet=%v", installOrExpand.InstallExpand.Subnets.Service),
-		fmt.Sprintf("--pod-subnet=%v", installOrExpand.InstallExpand.Subnets.Overlay),
 		fmt.Sprintf("--cluster-id=%v", s.domainName),
 		fmt.Sprintf("--etcd-proxy=%v", config.etcd.proxyMode),
 		fmt.Sprintf("--etcd-member-name=%v", node.EtcdMemberName(s.domainName)),
 		fmt.Sprintf("--initial-cluster=%v", config.etcd.initialCluster),
 		fmt.Sprintf("--secrets-dir=%v", node.InGravity(defaults.SecretsDir)),
 		fmt.Sprintf("--etcd-initial-cluster-state=%v", config.etcd.initialClusterState),
-		fmt.Sprintf("--election-enabled=%v", config.master.electionEnabled),
 		fmt.Sprintf("--volume=%v:/ext/etcd", node.InGravity("planet", "etcd")),
 		fmt.Sprintf("--volume=%v:/ext/registry", node.InGravity("planet", "registry")),
 		fmt.Sprintf("--volume=%v:/ext/docker", node.InGravity("planet", "docker")),
 		fmt.Sprintf("--volume=%v:/ext/share", node.InGravity("planet", "share")),
 		fmt.Sprintf("--volume=%v:/ext/state", node.InGravity("planet", "state")),
+		fmt.Sprintf("--volume=%v:/var/lib/kubelet", node.InGravity("planet", "kubelet")),
 		fmt.Sprintf("--volume=%v:/var/log", node.InGravity("planet", "log")),
 		fmt.Sprintf("--volume=%v:%v", node.StateDir(), defaults.GravityDir),
 		fmt.Sprintf("--service-uid=%v", s.uid()),
+		fmt.Sprintf("--service-gid=%v", s.gid()),
 	}
+	overrideArgs := map[string]string{
+		"service-subnet": config.serviceSubnet(),
+		"pod-subnet":     config.podSubnet(),
+	}
+
+	if config.master.electionEnabled {
+		args = append(args, "--election-enabled")
+	} else {
+		args = append(args, "--no-election-enabled")
+	}
+
+	for k, v := range config.env {
+		args = append(args, fmt.Sprintf("--env=%v=%v", k, strconv.Quote(v)))
+	}
+
+	args = append(args, s.addCloudConfig(config.config)...)
+	args = append(args, s.addClusterConfig(config.config, overrideArgs)...)
 
 	if node.IsMaster() {
 		args = append(args, "--role=master")
@@ -854,17 +924,6 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, "--role=node")
 	}
 	args = append(args, manifest.RuntimeArgs(*profile)...)
-
-	if manifest.HairpinMode(*profile) == constants.HairpinModePromiscuousBridge {
-		args = append(args, "--docker-promiscuous-mode=true")
-	}
-
-	if s.cloudProviderName() != "" {
-		args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
-		if s.cloudProviderName() == schema.ProviderGCE {
-			args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
-		}
-	}
 
 	if len(s.backendSite.DNSOverrides.Hosts) > 0 {
 		args = append(args, fmt.Sprintf("--dns-hosts=%v",
@@ -876,7 +935,7 @@ func (s *site) getPlanetConfigPackage(
 			s.backendSite.DNSOverrides.FormatZones()))
 	}
 
-	vxlanPort := installOrExpand.InstallExpand.Vars.OnPrem.VxlanPort
+	vxlanPort := config.installExpand.InstallExpand.Vars.OnPrem.VxlanPort
 	if vxlanPort != 0 {
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
 	}
@@ -887,7 +946,7 @@ func (s *site) getPlanetConfigPackage(
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs, err := configureDockerOptions(&installOrExpand, node,
+	dockerArgs, err := configureDockerOptions(config.installExpand, node,
 		config.docker, config.dockerRuntime)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -899,22 +958,14 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--etcd-options=%v", strings.Join(etcdArgs, " ")))
 	}
 
-	kubeletArgs := defaults.KubeletArgs
+	var kubeletArgs []string
 	if len(manifest.KubeletArgs(*profile)) != 0 {
 		kubeletArgs = append(kubeletArgs, manifest.KubeletArgs(*profile)...)
 	}
 
-	switch manifest.HairpinMode(*profile) {
-	case constants.HairpinModeVeth:
-		kubeletArgs = append(kubeletArgs, "--hairpin-mode=hairpin-veth")
-	case constants.HairpinModePromiscuousBridge:
-		// Turn off kubelet's hairpin mode if promiscuous-bridge is requested.
-		// This mode manually configures promiscuous mode on the docker bridge
-		// and creates ebtables rules to de-duplicate packets
-		kubeletArgs = append(kubeletArgs, "--hairpin-mode=none")
+	if len(kubeletArgs) > 0 {
+		args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 	}
-
-	args = append(args, fmt.Sprintf("--kubelet-options=%v", strings.Join(kubeletArgs, " ")))
 
 	mounts, err := GetMounts(manifest, node.Server)
 	if err != nil {
@@ -944,67 +995,76 @@ func (s *site) getPlanetConfigPackage(
 		args = append(args, fmt.Sprintf("--taint=%v=%v:%v", taint.Key, taint.Value, taint.Effect))
 	}
 
-	for k, v := range getNodeLabels(node, profile) {
+	for k, v := range node.GetKubeletLabels(profile.Labels) {
 		args = append(args, fmt.Sprintf("--node-label=%v=%v", k, v))
 	}
 
 	// If the manifest contains an install hook to install a separate overlay network, disable flannel inside planet
 	if manifest.Hooks != nil && manifest.Hooks.NetworkInstall != nil {
-		args = append(args, "--disable-flannel=true")
+		args = append(args, "--disable-flannel")
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), config.planetPackage, config.configPackage, args)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if manifest.PrivilegedEnabled() {
+		args = append(args, "--allow-privileged")
 	}
 
-	labels := map[string]string{
-		pack.PurposeLabel:     pack.PurposePlanetConfig,
-		pack.ConfigLabel:      config.planetPackage.ZeroVersion().String(),
-		pack.AdvertiseIPLabel: node.AdvertiseIP,
-		pack.OperationIDLabel: installOrExpand.ID,
+	for k, v := range overrideArgs {
+		args = append(args, fmt.Sprintf("--%v=%v", k, v))
 	}
 
-	return &ops.RotatePackageResponse{
-		Locator: config.configPackage,
-		Reader:  reader,
-		Labels:  labels,
-	}, nil
+	if node.SELinux {
+		args = append(args, "--selinux")
+	}
+
+	log.WithField("args", args).Info("Runtime configuration.")
+	return args, nil
 }
 
-// getNodeLabels returns labels a Kubernetes node should register with
-func getNodeLabels(node *ProvisionedServer, profile *schema.NodeProfile) map[string]string {
-	labels := profile.Labels
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	if _, ok := labels[defaults.KubernetesRoleLabel]; ok {
-		role := schema.ServiceRoleNode
-		if node.IsMaster() {
-			role = schema.ServiceRoleMaster
-		}
-		labels[defaults.KubernetesRoleLabel] = string(role)
-	}
-	labels[defaults.KubernetesAdvertiseIPLabel] = node.AdvertiseIP
-	return labels
-}
-
-func (s *site) configurePlanetServer(node *ProvisionedServer, installOrExpand ops.SiteOperation, config planetConfig) error {
-	resp, err := s.getPlanetConfigPackage(node, installOrExpand, config, s.app.Manifest)
+func (s *site) configurePlanetServer(config planetConfig) error {
+	resp, err := s.getPlanetConfigPackage(config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
-	return trace.Wrap(err)
+	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", config.configPackage).Debug("Planet configuration package already exists.")
+		}
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (r planetConfig) podSubnet() string {
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().PodCIDR
+	}
+	return podSubnet(r.installExpand.InstallExpand, override)
+}
+
+func (r planetConfig) serviceSubnet() string {
+	var override string
+	if r.config != nil {
+		override = r.config.GetGlobalConfig().ServiceCIDR
+	}
+	return serviceSubnet(r.installExpand.InstallExpand, override)
 }
 
 type planetConfig struct {
+	manifest      schema.Manifest
+	installExpand ops.SiteOperation
+	server        ProvisionedServer
 	etcd          etcdConfig
 	master        masterConfig
 	docker        storage.DockerConfig
 	dockerRuntime storage.Docker
 	planetPackage loc.Locator
 	configPackage loc.Locator
+	// env specifies additional environment variables to pass to runtime container
+	env map[string]string
+	// config specifies optional cluster configuration
+	config clusterconfig.Interface
 }
 
 // getPrincipals returns a list of SANs (x509's Subject Alternative Names)
@@ -1020,12 +1080,7 @@ func (s *site) getPrincipals(node *ProvisionedServer) []string {
 	return principals
 }
 
-func (s *site) getTeleportMasterConfig(ctx *operationContext, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
-	configPackage, err := s.teleportMasterConfigPackage(master)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) getTeleportMasterConfig(ctx *operationContext, configPackage loc.Locator, master *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	fileConf := &telecfg.FileConfig{
 		Global: telecfg.Global{
 			Ciphers:       defaults.TeleportCiphers,
@@ -1050,14 +1105,6 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 	}
 	fileConf.Storage.Params = params
 
-	fileConf.SSH.Labels = map[string]string{}
-
-	configureTeleportLabels(master, fileConf.SSH.Labels, s.domainName)
-
-	for key, val := range master.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
-	}
-
 	advertiseIP := net.ParseIP(master.AdvertiseIP)
 	if advertiseIP == nil {
 		return nil, trace.BadParameter("failed to parse master advertise IP: %v",
@@ -1067,16 +1114,9 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 	fileConf.AdvertiseIP = advertiseIP.String()
 	fileConf.Global.NodeName = master.FQDN(s.domainName)
 
-	joinToken, err := s.service.GetExpandToken(s.key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
 	// turn on auth service
 	fileConf.Auth.EnabledFlag = "yes"
 	fileConf.Auth.ClusterName = telecfg.ClusterName(s.domainName)
-	fileConf.Auth.StaticTokens = telecfg.StaticTokens{
-		telecfg.StaticToken(fmt.Sprintf("node:%v", joinToken.Token))}
 
 	// turn on proxy and Kubernetes integration
 	fileConf.Proxy.EnabledFlag = "yes"
@@ -1095,13 +1135,13 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *configPackage,
+		Locator: configPackage,
 		Reader:  reader,
 		Labels: map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportMasterConfig,
@@ -1112,12 +1152,16 @@ func (s *site) getTeleportMasterConfig(ctx *operationContext, master *Provisione
 }
 
 func (s *site) configureTeleportMaster(ctx *operationContext, master *ProvisionedServer) error {
-	resp, err := s.getTeleportMasterConfig(ctx, master)
+	configPackage := s.teleportMasterConfigPackage(master)
+	resp, err := s.getTeleportMasterConfig(ctx, configPackage, master)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
 	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Debug("Teleport master configuration package already exists.")
+		}
 		return trace.Wrap(err)
 	}
 	return nil
@@ -1136,24 +1180,28 @@ func toObject(in interface{}) (map[string]interface{}, error) {
 	return out, nil
 }
 
-func (s *site) teleportMasterConfigPackage(master remoteServer) (*loc.Locator, error) {
-	configPackage, err := loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportMasterConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(master, s.domainName)))
-	return configPackage, trace.Wrap(err)
+func (s *site) getTeleportAuthToken() (string, error) {
+	tokens, err := s.backend().GetSiteProvisioningTokens(s.domainName)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// See if there's a teleport specific token.
+	for _, t := range tokens {
+		if t.IsTeleport() && t.IsPersistent() {
+			return t.Token, nil
+		}
+	}
+	// Fallback to expand tokens for backwards compatibility.
+	for _, t := range tokens {
+		if t.IsExpand() && t.IsPersistent() {
+			return t.Token, nil
+		}
+	}
+	return "", trace.NotFound("could not find persistent teleport or expand token among %v",
+		tokens)
 }
 
-func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
-	configPackage, err := s.teleportNodeConfigPackage(node)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	joinToken, err := s.service.GetExpandToken(s.key)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIPs []string, configPackage loc.Locator, node *ProvisionedServer) (*ops.RotatePackageResponse, error) {
 	fileConf := &telecfg.FileConfig{
 		Global: telecfg.Global{
 			Ciphers:       defaults.TeleportCiphers,
@@ -1170,8 +1218,22 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 		fileConf.Logger.Severity = "info"
 	}
 
-	fileConf.AuthServers = []string{fmt.Sprintf("%v:3025", masterIP)}
-	fileConf.AuthToken = joinToken.Token
+	// Add all available master nodes as auth servers for the teleport node.
+	for _, masterIP := range masterIPs {
+		fileConf.AuthServers = append(fileConf.AuthServers,
+			fmt.Sprintf("%v:%v", masterIP, teledefaults.AuthListenPort))
+	}
+	// Teleport auth service is also exposed as a node port so add it as an
+	// auth service as well and it will be used if none of the masters
+	// present in the config are available.
+	fileConf.AuthServers = append(fileConf.AuthServers,
+		fmt.Sprintf("%v:%v", node.AdvertiseIP, defaults.GravitySiteAuthNodePort))
+
+	var err error
+	fileConf.AuthToken, err = s.getTeleportAuthToken()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	fileConf.SSH.Labels = map[string]string{}
 
@@ -1185,10 +1247,6 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 			Command: defaults.AWSPublicIPv4Command,
 			Period:  defaults.TeleportCommandLabelInterval,
 		})
-	}
-
-	for key, val := range node.Profile.Labels {
-		fileConf.SSH.Labels[key] = val
 	}
 
 	// never expire cache
@@ -1221,13 +1279,13 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 		fmt.Sprintf("--config-string=%v", base64.StdEncoding.EncodeToString(bytes)),
 	}
 
-	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, *configPackage, args)
+	reader, err := pack.GetConfigPackage(s.packages(), s.teleportPackage, configPackage, args)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	return &ops.RotatePackageResponse{
-		Locator: *configPackage,
+		Locator: configPackage,
 		Reader:  reader,
 		Labels: map[string]string{
 			pack.PurposeLabel:     pack.PurposeTeleportNodeConfig,
@@ -1238,105 +1296,81 @@ func (s *site) getTeleportNodeConfig(ctx *operationContext, masterIP string, nod
 	}, nil
 }
 
-func (s *site) configureTeleportNode(ctx *operationContext, masterIP string, node *ProvisionedServer) error {
-	resp, err := s.getTeleportNodeConfig(ctx, masterIP, node)
+func (s *site) configureTeleportNode(ctx *operationContext, masterIPs []string, node *ProvisionedServer) error {
+	configPackage := s.teleportNodeConfigPackage(node)
+	resp, err := s.getTeleportNodeConfig(ctx, masterIPs, configPackage, node)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	_, err = s.packages().CreatePackage(resp.Locator, resp.Reader, pack.WithLabels(resp.Labels))
 	if err != nil {
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", configPackage.String()).Debug("Teleport node configuration package already exists.")
+		}
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
-func (s *site) teleportNodeConfigPackage(node remoteServer) (*loc.Locator, error) {
-	configPackage, err := loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.%v-%v", s.siteRepoName(), constants.TeleportNodeConfigPackage,
-			time.Now().UTC().Unix(), PackageSuffix(node, s.domainName)))
-	return configPackage, trace.Wrap(err)
-}
-
-func (s *site) configureResourcesPackage(ctx *operationContext) (*loc.Locator, error) {
-	resourcesPackage, err := s.resourcesPackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	_, err = s.packages().CreatePackage(
-		*resourcesPackage, bytes.NewBuffer(s.resources), pack.WithLabels(
-			map[string]string{
-				pack.PurposeLabel:     pack.PurposeResources,
-				pack.OperationIDLabel: ctx.operation.ID,
-			},
-		))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return resourcesPackage, nil
-}
-
-func (s *site) configureSiteExportPackage(ctx *operationContext) (*loc.Locator, error) {
-	exportPackage, err := s.siteExportPackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+func (s *site) configureSiteExportPackage(ctx *operationContext) error {
+	exportPackage := s.siteExportPackage()
 	exportDir := s.siteDir("export")
 	if err := os.MkdirAll(exportDir, defaults.PrivateDirMask); err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 
-	site, err := s.backend().GetSite(s.key.SiteDomain)
+	cluster, err := s.backend().GetSite(s.key.SiteDomain)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
-	reader, err := transfer.ExportSite(site, &exportBackend{s}, exportDir,
+	reader, err := transfer.ExportSite(cluster, &exportBackend{s}, exportDir,
 		s.seedConfig.TrustedClusters)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	defer func() {
 		reader.Close()
 		if err := os.RemoveAll(exportDir); err != nil {
-			log.Warningf("failed to delete temporary export directory %v: %v", exportDir, err)
+			s.Warnf("Failed to delete temporary export directory %v: %v.", exportDir, err)
 		}
 	}()
 
-	_, err = s.packages().CreatePackage(*exportPackage, reader, pack.WithLabels(
+	_, err = s.packages().CreatePackage(exportPackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeExport,
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", exportPackage.String()).Debug("Cluster export package already exists.")
+		}
+		return trace.Wrap(err)
 	}
 
-	return exportPackage, nil
+	return nil
 }
 
-func (s *site) configureLicensePackage(ctx *operationContext) (*loc.Locator, error) {
+func (s *site) configureLicensePackage(ctx *operationContext) error {
 	if s.license == "" {
-		return nil, nil // nothing to do
+		return nil // nothing to do
 	}
 
-	licensePackage, err := s.licensePackage()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+	licensePackage := s.licensePackage()
 	reader := strings.NewReader(s.license)
-	_, err = s.packages().CreatePackage(*licensePackage, reader, pack.WithLabels(
+	_, err := s.packages().CreatePackage(licensePackage, reader, pack.WithLabels(
 		map[string]string{
 			pack.PurposeLabel:     pack.PurposeLicense,
 			pack.OperationIDLabel: ctx.operation.ID,
 		},
 	))
 	if err != nil {
-		return nil, trace.Wrap(err)
+		if trace.IsAlreadyExists(err) {
+			s.WithField("package", licensePackage.String()).Debug("License package already exists.")
+		}
+		return trace.Wrap(err)
 	}
-
-	return licensePackage, nil
+	return nil
 }
 
 func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, domainName string) {
@@ -1345,207 +1379,82 @@ func configureTeleportLabels(node *ProvisionedServer, labels map[string]string, 
 	labels[ops.AppRole] = node.Role
 	labels[ops.Hostname] = node.Hostname
 	labels[ops.InstanceType] = node.InstanceType
-	labels[schema.DisplayRole] = node.Profile.Labels[schema.DisplayRole]
+	for k, v := range node.Profile.Labels {
+		labels[k] = v
+	}
 	if labels[schema.DisplayRole] == "" {
 		labels[schema.DisplayRole] = node.Profile.Description
 	}
+	labels[schema.ServiceLabelRole] = node.ClusterRole
 }
 
-// PlanetCertAuthorityPackage returns the name of the planet CA package
-func PlanetCertAuthorityPackage(clusterName string) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", clusterName, constants.CertAuthorityPackage))
-}
-
-func (s *site) planetCertAuthorityPackage() (*loc.Locator, error) {
-	return PlanetCertAuthorityPackage(s.siteRepoName())
-}
-
-// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
-// authority package
-func (s *site) opsCertAuthorityPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v", defaults.SystemAccountOrg, constants.OpsCenterCAPackage))
-}
-
-// siteExport package exports site state as BoltDB database dump
-func (s *site) siteExportPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.SiteExportPackage))
-}
-
-func (s *site) licensePackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v:0.0.1", s.siteRepoName(), constants.LicensePackage))
-}
-
-func (s *site) planetSecretsPackage(node *ProvisionedServer) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/planet-%v-secrets:0.0.1", s.siteRepoName(), node.AdvertiseIP))
-}
-
-func (s *site) planetSecretsNextPackage(node *ProvisionedServer) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/planet-%v-secrets:0.0.%v", s.siteRepoName(), node.AdvertiseIP, time.Now().UTC().Unix()))
-}
-
-func (s *site) resourcesPackage() (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/resources:0.0.1", s.siteRepoName()))
-}
-
-// planetConfigPackage creates a planet configuration package reference
-// using the specified version as a package version and the given node to add unique
-// suffix to the name.
-// This is in contrast to the old naming with PackageSuffix used as a prerelease part
-// of the version which made them hard to match when looking for an update.
-func (s *site) planetConfigPackage(node remoteServer, version string) (*loc.Locator, error) {
-	return loc.ParseLocator(
-		fmt.Sprintf("%v/%v-%v:%v", s.siteRepoName(), constants.PlanetConfigPackage,
-			PackageSuffix(node, s.domainName), version))
-}
-
-// serverPackages returns a list of package locators specific to the provided server
-func (s *site) serverPackages(server *ProvisionedServer) ([]loc.Locator, error) {
-	masterConfigPackage, err := s.teleportMasterConfigPackage(server)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func (s *site) addCloudConfig(config clusterconfig.Interface) (args []string) {
+	if s.cloudProviderName() == "" {
+		return nil
 	}
-	nodeConfigPackage, err := s.teleportNodeConfigPackage(server)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	args = append(args, fmt.Sprintf("--cloud-provider=%v", s.cloudProviderName()))
+	var cloudConfig string
+	if config != nil {
+		cloudConfig = config.GetGlobalConfig().CloudConfig
 	}
-	planetSecretsPackage, err := s.planetSecretsPackage(server)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	if cloudConfig != "" {
+		args = append(args, fmt.Sprintf("--cloud-config=%v",
+			base64.StdEncoding.EncodeToString([]byte(cloudConfig))))
+	} else if s.cloudProviderName() == schema.ProviderGCE {
+		args = append(args, fmt.Sprintf("--gce-node-tags=%v", s.gceNodeTags()))
 	}
-	planetPackage, err := s.app.Manifest.RuntimePackageForProfile(server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
+	return args
+}
+
+func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map[string]string) (args []string) {
+	if config == nil {
+		return nil
 	}
-	planetConfigPackage, err := s.planetConfigPackage(server, planetPackage.Version)
-	if err != nil {
-		return nil, trace.Wrap(err)
+
+	if config := config.GetKubeletConfig(); config != nil && len(config.Config) != 0 {
+		args = append(args, fmt.Sprintf("--kubelet-config=%v",
+			base64.StdEncoding.EncodeToString(config.Config)))
 	}
-	return []loc.Locator{
-		*masterConfigPackage,
-		*nodeConfigPackage,
-		*planetSecretsPackage,
-		*planetConfigPackage,
-	}, nil
-}
 
-func NewPackageSet() *PackageSet {
-	return &PackageSet{
-		packages: make([]packageEnvelope, 0),
+	globalConfig := config.GetGlobalConfig()
+	if globalConfig.ServiceCIDR != "" {
+		overrideArgs["service-subnet"] = globalConfig.ServiceCIDR
 	}
-}
-
-type packageEnvelope struct {
-	loc    loc.Locator
-	labels map[string]string
-	// archive specifies if this package is archive
-	// that should be unpacked during install process
-	archive bool
-}
-
-func (p *packageEnvelope) labelFlag() string {
-	kv := configure.KeyVal(p.labels)
-	return kv.String()
-}
-
-// PackageSet defines a collection of packages and applications
-type PackageSet struct {
-	packages []packageEnvelope
-	apps     []packageEnvelope
-}
-
-// AddArchivePackages adds packages specified with ps to this set as archive packages
-func (s *PackageSet) AddArchivePackages(ps ...loc.Locator) {
-	for _, p := range ps {
-		s.AddArchivePackage(p, nil)
+	if globalConfig.PodCIDR != "" {
+		overrideArgs["pod-subnet"] = globalConfig.PodCIDR
 	}
-}
-
-// AddApps adds appications specified with apps to this set
-func (s *PackageSet) AddApps(apps ...loc.Locator) {
-	for _, app := range apps {
-		s.AddApp(app, nil)
+	if globalConfig.PodSubnetSize != "" {
+		overrideArgs["pod-subnet-size"] = globalConfig.PodSubnetSize
 	}
-}
-
-// AddPackages adds packages specified with packages to this set
-// AddArchivePackage adds a package specified with p as an archive package
-func (s *PackageSet) AddArchivePackage(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.packages, true)
-}
-
-// AddPackages adds packages specified with packages to this set
-func (s *PackageSet) AddPackages(packages ...loc.Locator) {
-	for _, p := range packages {
-		s.AddPackage(p, nil)
+	if globalConfig.ServiceNodePortRange != "" {
+		args = append(args,
+			fmt.Sprintf("--service-node-portrange=%v", globalConfig.ServiceNodePortRange),
+		)
 	}
-}
-
-// AddPackage adds a package specified with p with given labels to this set
-func (s *PackageSet) AddPackage(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.packages, false)
-}
-
-// GetPackage returns the package envelope for the package specified with packageName.
-// Returns trace.NotFound if no package with the specified name exists
-func (s *PackageSet) GetPackage(packageName string) (*packageEnvelope, error) {
-	for _, p := range s.packages {
-		if p.loc.Name == packageName {
-			return &p, nil
+	if globalConfig.ProxyPortRange != "" {
+		args = append(args,
+			fmt.Sprintf("--proxy-portrange=%v", globalConfig.ProxyPortRange),
+		)
+	}
+	if len(globalConfig.FeatureGates) != 0 {
+		features := make([]string, 0, len(globalConfig.FeatureGates))
+		for k, v := range globalConfig.FeatureGates {
+			features = append(features, fmt.Sprintf("%v=%v", k, v))
 		}
+		args = append(args,
+			fmt.Sprintf("--feature-gates=%v", strings.Join(features, ",")))
 	}
-	return nil, trace.NotFound("package with name %v not found", packageName)
-}
-
-// GetPackageByLabels returns the package envelope for the package specified with labels.
-// Returns trace.NotFound if no package with the specified set of labels exists
-func (s *PackageSet) GetPackageByLabels(labels map[string]string) (*packageEnvelope, error) {
-L:
-	for _, p := range s.packages {
-		for name, value := range labels {
-			if existing, ok := p.labels[name]; !ok || existing != value {
-				continue L
-			}
-		}
-		return &p, nil
+	if globalConfig.HighAvailability {
+		args = append(args, "--high-availability")
 	}
-	return nil, trace.NotFound("package matching labels %v not found", labels)
-}
-
-// Packages returns all packages in the set
-func (s *PackageSet) Packages() []packageEnvelope {
-	return s.packages
-}
-
-// Apps returns all application packages in the set
-func (s *PackageSet) Apps() []packageEnvelope {
-	return s.apps
-}
-
-// AddApp adds an application specified with p with given labels to this set
-func (s *PackageSet) AddApp(p loc.Locator, labels map[string]string) {
-	addPackage(p, labels, &s.apps, true)
-}
-
-func addPackage(newPackage loc.Locator, labels map[string]string, source *[]packageEnvelope, archive bool) {
-	(*source) = append((*source), packageEnvelope{
-		loc:     newPackage,
-		labels:  labels,
-		archive: archive,
-	})
+	return args
 }
 
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node
 // based on the operation op and docker manifest configuration block.
 func configureDockerOptions(
-	op *ops.SiteOperation,
-	node *ProvisionedServer,
+	op ops.SiteOperation,
+	node ProvisionedServer,
 	docker storage.DockerConfig,
 	dockerRuntime storage.Docker,
 ) (args []string, err error) {
@@ -1556,30 +1465,6 @@ func configureDockerOptions(
 	args = []string{fmt.Sprintf("--docker-backend=%v", docker.StorageDriver)}
 
 	switch docker.StorageDriver {
-	case constants.DockerStorageDriverDevicemapper:
-		// Override udev sync check to support devicemapper on a system with a kernel that does not support it
-		// See: https://github.com/docker/docker/pull/11412
-		const dmUdevSyncOverride = "--storage-opt=dm.override_udev_sync_check=1"
-		const dmFilesystem = "--storage-opt=dm.fs=xfs"
-		dmThinpool := fmt.Sprintf("--storage-opt=dm.thinpooldev=/dev/mapper/%v", devicemapper.PoolName)
-
-		options := append(docker.Args, dmUdevSyncOverride)
-		if dockerRuntime.Device.Path() == "" {
-			// if no device has been been configured for devicemapper direct-lvm
-			// use the loop-lvm mode by configuring just the storage driver
-			// with no other configuration
-			return append(args, formatOptions(options)), nil
-		}
-		systemDir := dockerRuntime.LVMSystemDirectory
-
-		options = append(options, []string{dmFilesystem, dmThinpool}...)
-		args = append(args, formatOptions(options))
-		// expose directories used by LVM
-		args = append(args, "--volume=/dev/mapper:/dev/mapper")
-		args = append(args, "--volume=/dev/docker:/dev/docker")
-		if systemDir != "" {
-			args = append(args, fmt.Sprintf("--volume=%v:%v", systemDir, constants.LVMSystemDir))
-		}
 	case constants.DockerStorageDriverOverlay2:
 		// Override kernel check to support overlay2
 		// See: https://github.com/docker/docker/issues/26559
@@ -1592,6 +1477,26 @@ func configureDockerOptions(
 	}
 
 	return args, nil
+}
+
+func podSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
+	}
+	if installExpand == nil || installExpand.Subnets.Overlay == "" {
+		return storage.DefaultSubnets.Overlay
+	}
+	return installExpand.Subnets.Overlay
+}
+
+func serviceSubnet(installExpand *storage.InstallExpandOperationState, override string) string {
+	if override != "" {
+		return override
+	}
+	if installExpand == nil || installExpand.Subnets.Service == "" {
+		return storage.DefaultSubnets.Service
+	}
+	return installExpand.Subnets.Service
 }
 
 // exportBackend defines a shim to export site information

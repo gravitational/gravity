@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -181,11 +182,22 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 
 	if req.Vendor {
+		dockerClient, err := docker.NewClient(dockerURL)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
+			RegistryAddress: registryURL,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		progress.NextStep("vendoring docker images from %v", source)
 		vendorer, err := service.NewVendorer(service.VendorerConfig{
-			DockerURL:   dockerURL,
-			RegistryURL: registryURL,
-			Packages:    packages,
+			DockerClient: dockerClient,
+			ImageService: imageService,
+			RegistryURL:  registryURL,
+			Packages:     packages,
 		})
 		if err != nil {
 			return trace.Wrap(err)
@@ -413,6 +425,11 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 	}
 	loc = *locPtr
 
+	// Make sure package exists
+	if _, err := packageService.ReadPackageEnvelope(loc); err != nil {
+		return trace.Wrap(err)
+	}
+
 	if err := os.MkdirAll(dir, defaults.SharedDirMask); err != nil {
 		return trace.Wrap(err)
 	}
@@ -424,11 +441,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 		}
 		defer reader.Close()
 
-		if err := dockerarchive.Untar(reader, dir, archive.DefaultOptions()); err != nil {
-			return trace.Wrap(err)
-		}
-
-		return nil
+		return archive.ExtractWithPrefix(reader, dir, defaults.ResourcesDir)
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -441,8 +454,7 @@ func unpackAppResources(env *localenv.LocalEnvironment, loc loc.Locator, dir, op
 			return trace.BadParameter("invalid numeric user ID %q: %v", serviceUID, err)
 		}
 	}
-	err = resources.UpdateSecurityContextInDir(filepath.Join(dir, defaults.ResourcesDir),
-		systeminfo.User{UID: uid})
+	err = resources.UpdateSecurityContextInDir(dir, systeminfo.User{UID: uid})
 	if err != nil {
 		return trace.Wrap(err, "failed to render application resources")
 	}
@@ -458,15 +470,4 @@ func localAppEnviron() (registryHostPort string, err error) {
 	}
 	registryHostPort = fmt.Sprintf("%v:5000", host)
 	return registryHostPort, nil
-}
-
-func ensureNoApp(locator loc.Locator, apps appservice.Applications) error {
-	app, err := apps.GetApp(locator)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return trace.Wrap(err)
-		}
-		return nil
-	}
-	return trace.AlreadyExists("%v already exists", app)
 }

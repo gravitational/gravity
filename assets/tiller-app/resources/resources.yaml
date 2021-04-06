@@ -1,4 +1,23 @@
-apiVersion: extensions/v1beta1
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tiller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: tiller
+    namespace: kube-system
+---
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: tiller-deploy
@@ -8,14 +27,21 @@ metadata:
     name: tiller
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: helm
+      name: tiller
   template:
     metadata:
       labels:
         app: helm
         name: tiller
+        gravitational.io/critical-pod: ''
       annotations:
         seccomp.security.alpha.kubernetes.io/pod: docker/default
     spec:
+      priorityClassName: system-cluster-critical
+      serviceAccountName: tiller
       tolerations:
       - key: "gravitational.io/runlevel"
         value: system
@@ -31,9 +57,15 @@ spec:
           image: gcr.io/kubernetes-helm/tiller:canary
           imagePullPolicy: IfNotPresent
           command: ["/tiller"]
-          args: ["--listen=localhost:44134"]
+          args: ["--listen=127.0.0.1:44134"]
           securityContext:
-            runAsUser: -1
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - all
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
           env:
             - name: TILLER_NAMESPACE
               value: kube-system
@@ -49,4 +81,3 @@ spec:
               port: 44135
             initialDelaySeconds: 1
             timeoutSeconds: 1
-

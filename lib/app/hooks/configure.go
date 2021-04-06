@@ -35,7 +35,7 @@ import (
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // configureJob augments the provided job spec with the proper metadata (e.g. to ensure unique name),
@@ -67,7 +67,7 @@ func configureJob(job *batchv1.Job, p Params) error {
 func configureMetadata(job *batchv1.Job, p Params) error {
 	job.Kind = rigging.KindJob
 	if job.APIVersion == "" {
-		job.APIVersion = rigging.BatchAPIVersion
+		job.APIVersion = batchv1.SchemeGroupVersion.String()
 	}
 
 	// create the hook job in the system namespace unless specified otherwise
@@ -145,7 +145,7 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
-			Name: VolumeKubectl,
+			Name: VolumeKubectlBin,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
 					Path: defaults.KubectlBin,
@@ -153,7 +153,7 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
-			Name: VolumeHelm,
+			Name: VolumeHelmBin,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
 					Path: defaults.HelmBin,
@@ -183,6 +183,12 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
+			Name: VolumeHelm,
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		},
+		{
 			Name: VolumeStateDir,
 			VolumeSource: v1.VolumeSource{
 				EmptyDir: &v1.EmptyDirVolumeSource{},
@@ -203,11 +209,11 @@ func configureVolumeMounts(job *batchv1.Job, p Params) {
 			MountPath: ContainerHostBinDir,
 		},
 		{
-			Name:      VolumeKubectl,
+			Name:      VolumeKubectlBin,
 			MountPath: KubectlPath,
 		},
 		{
-			Name:      VolumeHelm,
+			Name:      VolumeHelmBin,
 			MountPath: HelmPath,
 		},
 		{
@@ -217,6 +223,10 @@ func configureVolumeMounts(job *batchv1.Job, p Params) {
 		{
 			Name:      VolumeResources,
 			MountPath: ResourcesDir,
+		},
+		{
+			Name:      VolumeHelm,
+			MountPath: HelmDir,
 		},
 	}...)
 
@@ -278,26 +288,47 @@ func configureInitContainer(job *batchv1.Job, p Params) error {
 						MountPath: StateDir,
 					},
 				},
+				SecurityContext: &v1.SecurityContext{
+					SELinuxOptions: &v1.SELinuxOptions{
+						Type: constants.GravitySystemContainerType,
+					},
+				},
 			},
 		}, job.Spec.Template.Spec.InitContainers...)
 	}
 
-Loop:
-	for i, container := range job.Spec.Template.Spec.InitContainers {
-		// only add the environment variable if it doesn't already exist
-		for _, e := range container.Env {
-			if e.Name == ApplicationPackageEnv {
-				continue Loop
-			}
-		}
-
-		job.Spec.Template.Spec.InitContainers[i].Env = append(job.Spec.Template.Spec.InitContainers[i].Env, v1.EnvVar{
+	envs := []v1.EnvVar{
+		{
 			Name:  ApplicationPackageEnv,
 			Value: p.Locator.String(),
-		})
+		},
+		{
+			Name: PodIPEnv,
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
 	}
 
+	for i := range job.Spec.Template.Spec.InitContainers {
+		for _, env := range envs {
+			updateEnvInContainer(&job.Spec.Template.Spec.InitContainers[i], env)
+		}
+	}
 	return nil
+}
+
+func updateEnvInContainer(container *v1.Container, env v1.EnvVar) {
+	// only add the environment variable if it doesn't already exist
+	for _, e := range container.Env {
+		if e.Name == env.Name {
+			// Nothing to do
+			return
+		}
+	}
+	container.Env = append(container.Env, env)
 }
 
 // configureTolerations updates Pod spec with tolerations to allow
@@ -331,12 +362,15 @@ func configureNetwork(job *batchv1.Job, p Params) {
 // initScript builds a shell script used as init container entrypoint for this hook
 func initScript(w io.Writer, p Params) error {
 	ctx := initScriptContext{
-		Package:       p.Locator.String(),
-		AgentUser:     p.AgentUser,
-		AgentPassword: p.AgentPassword,
-		ResourcesDir:  ResourcesDir,
-		StateDir:      StateDir,
-		ServiceUser:   p.ServiceUser,
+		Package:        p.Locator.String(),
+		AgentUser:      p.AgentUser,
+		AgentPassword:  p.AgentPassword,
+		ResourcesDir:   ResourcesDir,
+		StateDir:       StateDir,
+		ServiceUser:    p.ServiceUser,
+		HelmDir:        HelmDir,
+		HelmValuesFile: HelmValuesFile,
+		HelmValues:     string(p.Values),
 	}
 	if !p.GravityPackage.IsEmpty() {
 		ctx.GravityPackage = p.GravityPackage.String()
@@ -373,15 +407,17 @@ cp /opt/bin/gravity {{.StateDir}}/
 TMPDIR={{.StateDir}} {{.StateDir}}/gravity --state-dir={{.StateDir}} app unpack \
 	--service-uid={{.ServiceUser.UID}} \
 	--insecure --ops-url=$ops_url \
-	{{.Package}} {{.ResourcesDir}};
-mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources
+	{{.Package}} {{.ResourcesDir}}
+cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
+{{.HelmValues}}
+EOF
 `))
 
 var initInstallScriptTemplate = template.Must(template.New("sh").Parse(`
 TMPDIR={{.StateDir}} /opt/bin/gravity app unpack --service-uid={{.ServiceUser.UID}} {{.Package}} {{.ResourcesDir}}
-mv {{.ResourcesDir}}/resources/* {{.ResourcesDir}}
-rm -r {{.ResourcesDir}}/resources
+cat <<EOF > {{.HelmDir}}/{{.HelmValuesFile}}
+{{.HelmValues}}
+EOF
 `))
 
 type initScriptContext struct {
@@ -413,4 +449,10 @@ type initScriptContext struct {
 	// ServiceUser specifies the service user to use for overriding
 	// the security context of the hook
 	ServiceUser storage.OSUser
+	// HelmDir is the directory where helm-related data is mounted
+	HelmDir string
+	// HelmValuesFile is the name of the file with helm values
+	HelmValuesFile string
+	// HelmValues are helm values in a marshaled yaml format
+	HelmValues string
 }

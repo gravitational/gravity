@@ -33,10 +33,29 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	// DefaultKernelModules is the list of kernel modules needed for gravity to function properly
+	DefaultKernelModules = []monitoring.ModuleRequest{
+		moduleName("ebtables"),
+		moduleName("ebtable_filter"),
+		moduleName("ip_tables"),
+		moduleName("iptable_filter"),
+		moduleName("iptable_nat"),
+		moduleName("br_netfilter"),
+		moduleName("overlay"),
+		// TODO(knisbet) adding new modules to this list will break upgrades, so disable checking for the dummy module
+		// until upgrades will update the module list
+		//moduleName("dummy"),
+	}
+
+	// DefaultKernelModuleChecker is a satellite kernel module checker with required modules to run kubernetes
+	DefaultKernelModuleChecker = monitoring.NewKernelModuleChecker(DefaultKernelModules...)
+)
+
 // ValidateDocker validates Docker requirements.
 // The specified directory is expected to be on the same filesystem
 // as the Docker graph directory (which might not exist at this point).
-func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
+func ValidateDocker(ctx context.Context, d Docker, dir string) (failed []*pb.Probe, err error) {
 	var checkers []health.Checker
 
 	checkers = append(checkers,
@@ -53,37 +72,25 @@ func ValidateDocker(d Docker, dir string) (failed []*pb.Probe, err error) {
 	all := monitoring.NewCompositeChecker("docker", checkers)
 	var probes health.Probes
 
-	all.Check(context.TODO(), &probes)
+	all.Check(ctx, &probes)
 	return probes.GetFailed(), nil
 }
 
 // ValidateKubelet will check kubelet configuration
-func ValidateKubelet(profile NodeProfile, manifest Manifest) (failed []*pb.Probe) {
-	hairpinMode := manifest.HairpinMode(profile)
-	if hairpinMode != constants.HairpinModePromiscuousBridge {
-		// No validation required
-		return nil
-	}
-
+func ValidateKubelet(ctx context.Context, profile NodeProfile, manifest Manifest) (failed []*pb.Probe) {
 	checkers := append([]health.Checker{},
-		monitoring.NewKernelModuleChecker(
-			moduleName("ebtables"),
-			moduleName("ip_tables"),
-			moduleName("iptable_filter"),
-			moduleName("iptable_nat"),
-			moduleName("br_netfilter", "bridge"),
-		),
+		DefaultKernelModuleChecker,
 		monitoring.NewCGroupChecker("cpu", "cpuacct", "cpuset", "memory"),
 	)
 	checker := monitoring.NewCompositeChecker("kubelet", checkers)
 
 	var probes health.Probes
-	checker.Check(context.TODO(), &probes)
+	checker.Check(ctx, &probes)
 	return probes.GetFailed()
 }
 
 // ValidateRequirements will assess local node to match requirements
-func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Probe, err error) {
+func ValidateRequirements(ctx context.Context, reqs Requirements, stateDir string) (failed []*pb.Probe, err error) {
 	var checkers []health.Checker
 	checkers = append(checkers, monitoring.NewHostChecker(
 		monitoring.HostConfig{
@@ -124,13 +131,19 @@ func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Prob
 			log.Debugf("Skip check for %v -> %v mount.", vol.Path, vol.TargetPath)
 			continue
 		}
-		checkers = append(checkers, monitoring.NewStorageChecker(monitoring.StorageConfig{
-			Path:              vol.Path,
-			MinBytesPerSecond: vol.MinTransferRate.BytesPerSecond(),
-			WillBeCreated:     utils.BoolValue(vol.CreateIfMissing),
-			Filesystems:       vol.Filesystems,
-			MinFreeBytes:      vol.Capacity.Bytes(),
-		}))
+		storageChecker, err := monitoring.NewStorageChecker(
+			monitoring.StorageConfig{
+				Path:              vol.Path,
+				MinBytesPerSecond: vol.MinTransferRate.BytesPerSecond(),
+				WillBeCreated:     utils.BoolValue(vol.CreateIfMissing),
+				Filesystems:       vol.Filesystems,
+				MinFreeBytes:      vol.Capacity.Bytes(),
+			},
+		)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		checkers = append(checkers, storageChecker)
 	}
 
 	for _, check := range reqs.CustomChecks {
@@ -144,7 +157,7 @@ func ValidateRequirements(reqs Requirements, stateDir string) (failed []*pb.Prob
 	all := monitoring.NewCompositeChecker("common requirements", checkers)
 	var probes health.Probes
 
-	all.Check(context.TODO(), &probes)
+	all.Check(ctx, &probes)
 	return probes.GetFailed(), nil
 }
 
@@ -164,10 +177,7 @@ func shouldCheckVolume(volume Volume) bool {
 	return !trace.IsNotFound(err)
 }
 
-var (
-	reNumber   = regexp.MustCompile(`\d+`)
-	reNumRange = regexp.MustCompile(`(?P<from>\d+)\-(?P<to>\d+)`)
-)
+var reNumRange = regexp.MustCompile(`(?P<from>\d+)\-(?P<to>\d+)`)
 
 func parsePortRanges(proto string, ranges []string) (res []monitoring.PortRange, err error) {
 	for _, p := range ranges {

@@ -27,10 +27,13 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/hub"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/schema"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/fatih/color"
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
 )
@@ -39,6 +42,8 @@ import (
 type Lister interface {
 	// List retrieves application and cluster images.
 	List(all bool) (ListItems, error)
+	// Hub returns the name of the Hub this lister talks to.
+	Hub() string
 }
 
 // ListItem defines interface for a single list item.
@@ -76,7 +81,7 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &listItem{
-		Name:        app.Name,
+		Name:        convertName(app.Name),
 		Version:     *semver,
 		Created:     app.Created,
 		Type:        app.Type,
@@ -91,7 +96,7 @@ func NewListItemFromApp(app app.Application) (*listItem, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &listItem{
-		Name:        app.Manifest.Metadata.Name,
+		Name:        convertName(app.Manifest.Metadata.Name),
 		Version:     *semver,
 		Created:     app.PackageEnvelope.Created,
 		Type:        app.Manifest.DescribeKind(),
@@ -155,13 +160,15 @@ func (l ListItems) Swap(i, j int) {
 // The items are sorted first by type (cluster images appear before application
 // images), then by name (lexicographically) and finally by semantic version.
 func (l ListItems) Less(i, j int) bool {
-	if l[i].GetType() == schema.KindCluster && l[j].GetType() != schema.KindCluster {
-		return true
+	if l[i].GetType() != l[j].GetType() {
+		return l[i].GetType() == schema.KindCluster
 	}
 	if l[i].GetName() < l[j].GetName() {
 		return true
 	}
-	if (l[i].GetName() == l[j].GetName()) && l[i].GetVersion().LessThan(l[j].GetVersion()) {
+	// More recent versions should appear before older ones, so the "less"
+	// logic is inverted here.
+	if (l[i].GetName() == l[j].GetName()) && l[j].GetVersion().LessThan(l[i].GetVersion()) {
 		return true
 	}
 	return false
@@ -196,9 +203,21 @@ func (l *hubLister) List(all bool) (result ListItems, err error) {
 	return result, nil
 }
 
+// Hub returns the name of the open-source Hub.
+func (l *hubLister) Hub() string {
+	return defaults.HubBucket
+}
+
 // List uses the provided lister to obtain a list of application and
 // cluster images and displays them in the specified format.
 func List(lister Lister, all bool, format constants.Format) error {
+	if !all {
+		fmt.Print(color.YellowString("Displaying latest stable versions of application and cluster images in %v. Use --all flag to show all.\n\n",
+			FormatHub(lister.Hub())))
+	} else {
+		fmt.Print(color.YellowString("Displaying all available application and cluster images in %v.\n\n",
+			FormatHub(lister.Hub())))
+	}
 	items, err := lister.List(all)
 	if err != nil {
 		return trace.Wrap(err)
@@ -209,19 +228,16 @@ func List(lister Lister, all bool, format constants.Format) error {
 			return trace.Wrap(err)
 		}
 	}
-	sort.Sort(sort.Reverse(items))
+	sort.Sort(items)
 	switch format {
 	case constants.EncodingText:
 		w := new(tabwriter.Writer)
 		w.Init(os.Stdout, 0, 8, 1, '\t', 0)
-		if !all {
-			fmt.Printf("Displaying latest stable versions of images. Use --all flag to show all.\n\n")
-		}
 		fmt.Fprintf(w, "Name:Version\tImage Type\tCreated (UTC)\tDescription\n")
 		fmt.Fprintf(w, "------------\t----------\t-------------\t-----------\n")
 		for _, item := range items {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n",
-				formatName(item.GetName(), item.GetVersion()),
+			fmt.Fprintf(w, "%v:%v\t%v\t%v\t%v\n",
+				item.GetName(), item.GetVersion().String(),
 				item.GetType(),
 				item.GetCreated().Format(constants.ShortDateFormat),
 				formatDescription(item.GetDescription()))
@@ -246,11 +262,22 @@ func List(lister Lister, all bool, format constants.Format) error {
 	return nil
 }
 
-func formatName(name string, version semver.Version) string {
-	if name == constants.LegacyBaseImageName {
-		name = constants.BaseImageName
+// FormatHub formats the message about selected Hub for the user.
+func FormatHub(hub string) string {
+	if hub == modules.Get().TeleRepository() {
+		return "the default Gravitational Hub"
 	}
-	return fmt.Sprintf("%v:%v", name, version.String())
+	return hub
+}
+
+func convertName(name string) string {
+	switch name {
+	case constants.LegacyBaseImageName:
+		return constants.BaseImageName
+	case constants.LegacyHubImageName:
+		return constants.HubImageName
+	}
+	return name
 }
 
 func formatDescription(description string) string {

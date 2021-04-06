@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/teleport/lib/session"
+	"github.com/gravitational/teleport/lib/tlsca"
 	"github.com/gravitational/teleport/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -40,6 +41,7 @@ type AuthWithRoles struct {
 	user       services.User
 	sessions   session.Service
 	alog       events.IAuditLog
+	identity   tlsca.Identity
 }
 
 func (a *AuthWithRoles) actionWithContext(ctx *services.Context, namespace string, resource string, action string) error {
@@ -54,7 +56,7 @@ func (a *AuthWithRoles) action(namespace string, resource string, action string)
 // even if they are not admins, e.g. update their own passwords,
 // or generate certificates, otherwise it will require admin privileges
 func (a *AuthWithRoles) currentUserAction(username string) error {
-	if username == a.user.GetName() {
+	if a.hasLocalUserRole(a.checker) && username == a.user.GetName() {
 		return nil
 	}
 	return a.checker.CheckAccessToRule(&services.Context{User: a.user},
@@ -100,8 +102,16 @@ func (a *AuthWithRoles) hasRemoteBuiltinRole(name string) bool {
 	return true
 }
 
+// hasLocalUserRole checks if the type of the role set is a local user or not.
+func (a *AuthWithRoles) hasLocalUserRole(checker services.AccessChecker) bool {
+	if _, ok := checker.(LocalUserRoleSet); !ok {
+		return false
+	}
+	return true
+}
+
 // AuthenticateWebUser authenticates web user, creates and  returns web session
-// in case if authentication is successfull
+// in case if authentication is successful
 func (a *AuthWithRoles) AuthenticateWebUser(req AuthenticateUserRequest) (services.WebSession, error) {
 	// authentication request has it's own authentication, however this limits the requests
 	// types to proxies to make it harder to break
@@ -149,6 +159,14 @@ func (a *AuthWithRoles) UpdateSession(req session.UpdateRequest) error {
 		return trace.Wrap(err)
 	}
 	return a.sessions.UpdateSession(req)
+}
+
+// DeleteSession removes an active session from the backend.
+func (a *AuthWithRoles) DeleteSession(namespace string, id session.ID) error {
+	if err := a.action(namespace, services.KindSSHSession, services.VerbDelete); err != nil {
+		return trace.Wrap(err)
+	}
+	return a.sessions.DeleteSession(namespace, id)
 }
 
 func (a *AuthWithRoles) CreateCertAuthority(ca services.CertAuthority) error {
@@ -225,7 +243,7 @@ func (a *AuthWithRoles) GetCertAuthorities(caType services.CertAuthType, loadKey
 	return a.authServer.GetCertAuthorities(caType, loadKeys, opts...)
 }
 
-func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool) (services.CertAuthority, error) {
+func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool, opts ...services.MarshalOption) (services.CertAuthority, error) {
 	if err := a.action(defaults.Namespace, services.KindCertAuthority, services.VerbReadNoSecrets); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -234,7 +252,7 @@ func (a *AuthWithRoles) GetCertAuthority(id services.CertAuthID, loadKeys bool) 
 			return nil, trace.Wrap(err)
 		}
 	}
-	return a.authServer.GetCertAuthority(id, loadKeys)
+	return a.authServer.GetCertAuthority(id, loadKeys, opts...)
 }
 
 func (a *AuthWithRoles) GetDomainName() (string, error) {
@@ -245,6 +263,12 @@ func (a *AuthWithRoles) GetDomainName() (string, error) {
 func (a *AuthWithRoles) GetLocalClusterName() (string, error) {
 	// anyone can read it, no harm in that
 	return a.authServer.GetLocalClusterName()
+}
+
+// GetClusterCACert returns the CAs for the local cluster without signing keys.
+func (a *AuthWithRoles) GetClusterCACert() (*LocalCAResponse, error) {
+	// Allow all roles to get the local CA.
+	return a.authServer.GetClusterCACert()
 }
 
 func (a *AuthWithRoles) UpsertLocalClusterName(clusterName string) error {
@@ -346,15 +370,14 @@ func (a *AuthWithRoles) filterNodes(nodes []services.Server) ([]services.Server,
 		return nodes, nil
 	}
 
-	// Fetch services.RoleSet for the identity of the logged in user.
-	roles, err := services.FetchRoles(a.user.GetRoles(), a.authServer, a.user.GetTraits())
+	roleset, err := services.FetchRoles(a.user.GetRoles(), a.authServer, a.user.GetTraits())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	// Extract all unique allowed logins across all roles.
 	allowedLogins := make(map[string]bool)
-	for _, role := range roles {
+	for _, role := range roleset {
 		for _, login := range role.GetLogins(services.Allow) {
 			allowedLogins[login] = true
 		}
@@ -365,7 +388,7 @@ func (a *AuthWithRoles) filterNodes(nodes []services.Server) ([]services.Server,
 NextNode:
 	for _, node := range nodes {
 		for login, _ := range allowedLogins {
-			err := roles.CheckAccessToServer(login, node)
+			err := roleset.CheckAccessToServer(login, node)
 			if err == nil {
 				filteredNodes = append(filteredNodes, node)
 				continue NextNode
@@ -555,7 +578,7 @@ func (a *AuthWithRoles) PreAuthenticatedSignIn(user string) (services.WebSession
 	if err := a.currentUserAction(user); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.PreAuthenticatedSignIn(user)
+	return a.authServer.PreAuthenticatedSignIn(user, &a.identity)
 }
 
 func (a *AuthWithRoles) GetU2FSignRequest(user string, password []byte) (*u2f.SignRequest, error) {
@@ -575,7 +598,7 @@ func (a *AuthWithRoles) ExtendWebSession(user, prevSessionID string) (services.W
 	if err := a.currentUserAction(user); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.ExtendWebSession(user, prevSessionID)
+	return a.authServer.ExtendWebSession(user, prevSessionID, &a.identity)
 }
 
 func (a *AuthWithRoles) GetWebSessionInfo(user string, sid string) (services.WebSession, error) {
@@ -635,36 +658,47 @@ func (a *AuthWithRoles) GenerateHostCert(
 }
 
 func (a *AuthWithRoles) GenerateUserCert(key []byte, username string, ttl time.Duration, compatibility string) ([]byte, error) {
+	ssh, _, err := a.GenerateUserCerts(key, username, ttl, compatibility)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return ssh, nil
+}
+
+func (a *AuthWithRoles) GenerateUserCerts(key []byte, username string, ttl time.Duration, compatibility string) ([]byte, []byte, error) {
 	// This endpoint is only accessible to tctl.
 	if !a.hasBuiltinRole(string(teleport.RoleAdmin)) {
-		return nil, trace.AccessDenied("this request can be only executed by an admin")
+		return nil, nil, trace.AccessDenied("this request can be only executed by an admin")
 	}
 
 	// Extract the user and role set for whom the certificate will be generated.
+	// The roles and traits for the user have to be fetched from the backend.
+	// This should be safe since this is typically done against a local user.
 	user, err := a.GetUser(username)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 	checker, err := services.FetchRoles(user.GetRoles(), a.authServer, user.GetTraits())
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 
 	// Generate certificate, note that the roles TTL will be ignored because
 	// the request is coming from "tctl auth sign" itself.
 	certs, err := a.authServer.generateUserCert(certRequest{
 		user:            user,
-		roles:           checker,
 		ttl:             ttl,
 		compatibility:   compatibility,
 		publicKey:       key,
 		overrideRoleTTL: true,
+		checker:         checker,
+		traits:          user.GetTraits(),
 	})
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 
-	return certs.ssh, nil
+	return certs.ssh, certs.tls, nil
 }
 
 func (a *AuthWithRoles) CreateSignupToken(user services.UserV1, ttl time.Duration) (token string, e error) {
@@ -899,14 +933,14 @@ func (a *AuthWithRoles) ValidateGithubAuthCallback(q url.Values) (*GithubAuthRes
 	return a.authServer.ValidateGithubAuthCallback(q)
 }
 
-func (a *AuthWithRoles) EmitAuditEvent(eventType string, fields events.EventFields) error {
+func (a *AuthWithRoles) EmitAuditEvent(event events.Event, fields events.EventFields) error {
 	if err := a.action(defaults.Namespace, services.KindEvent, services.VerbCreate); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := a.action(defaults.Namespace, services.KindEvent, services.VerbUpdate); err != nil {
 		return trace.Wrap(err)
 	}
-	return a.alog.EmitAuditEvent(eventType, fields)
+	return a.alog.EmitAuditEvent(event, fields)
 }
 
 func (a *AuthWithRoles) PostSessionSlice(slice events.SessionSlice) error {
@@ -1213,18 +1247,18 @@ func (a *AuthWithRoles) UpsertTunnelConnection(conn services.TunnelConnection) e
 	return a.authServer.UpsertTunnelConnection(conn)
 }
 
-func (a *AuthWithRoles) GetTunnelConnections(clusterName string) ([]services.TunnelConnection, error) {
+func (a *AuthWithRoles) GetTunnelConnections(clusterName string, opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	if err := a.action(defaults.Namespace, services.KindTunnelConnection, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetTunnelConnections(clusterName)
+	return a.authServer.GetTunnelConnections(clusterName, opts...)
 }
 
-func (a *AuthWithRoles) GetAllTunnelConnections() ([]services.TunnelConnection, error) {
+func (a *AuthWithRoles) GetAllTunnelConnections(opts ...services.MarshalOption) ([]services.TunnelConnection, error) {
 	if err := a.action(defaults.Namespace, services.KindTunnelConnection, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetAllTunnelConnections()
+	return a.authServer.GetAllTunnelConnections(opts...)
 }
 
 func (a *AuthWithRoles) DeleteTunnelConnection(clusterName string, connName string) error {
@@ -1268,11 +1302,11 @@ func (a *AuthWithRoles) GetRemoteCluster(clusterName string) (services.RemoteClu
 	return a.authServer.GetRemoteCluster(clusterName)
 }
 
-func (a *AuthWithRoles) GetRemoteClusters() ([]services.RemoteCluster, error) {
+func (a *AuthWithRoles) GetRemoteClusters(opts ...services.MarshalOption) ([]services.RemoteCluster, error) {
 	if err := a.action(defaults.Namespace, services.KindRemoteCluster, services.VerbList); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return a.authServer.GetRemoteClusters()
+	return a.authServer.GetRemoteClusters(opts...)
 }
 
 func (a *AuthWithRoles) DeleteRemoteCluster(clusterName string) error {
@@ -1293,7 +1327,7 @@ func (a *AuthWithRoles) DeleteAllRemoteClusters() error {
 }
 
 // ProcessKubeCSR processes CSR request against Kubernetes CA, returns
-// signed certificate if sucessfull.
+// signed certificate if sucessful.
 func (a *AuthWithRoles) ProcessKubeCSR(req KubeCSR) (*KubeCSRResponse, error) {
 	// limits the requests types to proxies to make it harder to break
 	if !a.hasBuiltinRole(string(teleport.RoleProxy)) {
@@ -1326,17 +1360,13 @@ func NewAdminAuthServer(authServer *AuthServer, sessions session.Service, alog e
 	}, nil
 }
 
-// NewAuthWithRoles creates new auth server with access control
-func NewAuthWithRoles(authServer *AuthServer,
-	checker services.AccessChecker,
-	user services.User,
-	sessions session.Service,
-	alog events.IAuditLog) *AuthWithRoles {
+func NewAuthWithRoles(ctx AuthContext, authServer *AuthServer, sessions session.Service, alog events.IAuditLog) *AuthWithRoles {
 	return &AuthWithRoles{
 		authServer: authServer,
-		checker:    checker,
+		checker:    ctx.Checker,
 		sessions:   sessions,
-		user:       user,
+		user:       ctx.User,
+		identity:   ctx.Identity,
 		alog:       alog,
 	}
 }

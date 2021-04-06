@@ -38,7 +38,7 @@ func (b *backend) CreateRemoteCluster(rc services.RemoteCluster) error {
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (b *backend) GetRemoteClusters() ([]services.RemoteCluster, error) {
+func (b *backend) GetRemoteClusters(opts ...services.MarshalOption) ([]services.RemoteCluster, error) {
 	keys, err := b.getKeys(b.key(remoteClustersP))
 	if err != nil {
 		return nil, trace.Wrap(err)

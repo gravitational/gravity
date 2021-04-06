@@ -36,7 +36,7 @@ func ResolvFromFile(filename string) (*storage.ResolvConf, error) {
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, trace.ConvertSystemError(err)
 	}
 	defer f.Close()
 	cfg, err := ResolvFromReader(f)

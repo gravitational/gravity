@@ -17,11 +17,18 @@ limitations under the License.
 package process
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"path/filepath"
 	"time"
 
+	"github.com/gravitational/gravity/lib/blob/fs"
 	"github.com/gravitational/gravity/lib/constants"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/utils"
@@ -31,6 +38,7 @@ import (
 	teleservices "github.com/gravitational/teleport/lib/services"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
@@ -58,18 +66,19 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 	serviceConfig, err := process.buildTeleportConfig(process.authGatewayConfig)
 	c.Assert(err, check.IsNil)
-	process.Supervisor = &service.TeleportProcess{
+	process.TeleportProcess = &service.TeleportProcess{
 		Supervisor: service.NewSupervisor("test"),
 		Config:     serviceConfig,
 	}
 
 	// Update auth gateway setting that should trigger reload.
-	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+	err = process.reloadAuthGatewayConfig(storage.NewAuthGateway(
 		storage.AuthGatewaySpecV1{
 			ConnectionLimits: &storage.ConnectionLimits{
 				MaxConnections: utils.Int64Ptr(50),
 			},
 		}))
+	c.Assert(err, check.IsNil)
 	// Make sure reload event was broadcast.
 	ch := make(chan service.Event)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -82,12 +91,13 @@ func (s *ProcessSuite) TestAuthGatewayConfigReload(c *check.C) {
 	}
 
 	// Now update principals.
-	process.reloadAuthGatewayConfig(storage.NewAuthGateway(
+	err = process.reloadAuthGatewayConfig(storage.NewAuthGateway(
 		storage.AuthGatewaySpecV1{
 			PublicAddr: &[]string{"example.com"},
 		}))
+	c.Assert(err, check.IsNil)
 	// Make sure process config is updated.
-	config := process.teleportProcess().Config
+	config := process.TeleportProcess.Config
 	comparePrincipals(c, config.Auth.PublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.SSHPublicAddrs, []string{"example.com"})
 	comparePrincipals(c, config.Proxy.PublicAddrs, []string{"example.com"})
@@ -112,31 +122,23 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 
 	service1Launched := make(chan bool)
 	service1Done := make(chan bool)
-	service1 := func(ctx context.Context) error {
+	service1 := func(ctx context.Context) {
 		close(service1Launched)
 		defer close(service1Done)
-		select {
-		case <-ctx.Done():
-			return nil
-		}
+		<-ctx.Done()
 	}
 
 	service2Launched := make(chan bool)
 	service2Done := make(chan bool)
-	service2 := func(ctx context.Context) error {
+	service2 := func(ctx context.Context) {
 		close(service2Launched)
 		defer close(service2Done)
-		select {
-		case <-ctx.Done():
-			return nil
-		}
+		<-ctx.Done()
 	}
 
 	// launch services
-	err := p.startClusterServices([]clusterService{
-		service1,
-		service2,
-	})
+	p.clusterServices = []clusterService{service1, service2}
+	err := p.startClusterServices()
 	c.Assert(err, check.IsNil)
 	for i, ch := range []chan bool{service1Launched, service2Launched} {
 		select {
@@ -148,10 +150,7 @@ func (s *ProcessSuite) TestClusterServices(c *check.C) {
 	c.Assert(p.clusterServicesRunning(), check.Equals, true)
 
 	// should not attempt to launch again
-	err = p.startClusterServices([]clusterService{
-		service1,
-		service2,
-	})
+	err = p.startClusterServices()
 	c.Assert(err, check.NotNil)
 	c.Assert(p.clusterServicesRunning(), check.Equals, true)
 
@@ -216,11 +215,11 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 				}),
 			},
 			tunnels: []telecfg.ReverseTunnel{
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster1",
 					Addresses:  []string{"cluster1:3024"},
 				},
-				telecfg.ReverseTunnel{
+				{
 					DomainName: "cluster2",
 					Addresses:  []string{"cluster2:3024"},
 				},
@@ -241,4 +240,87 @@ func (s *ProcessSuite) TestReverseTunnelsFromTrustedClusters(c *check.C) {
 		c.Assert(err, check.IsNil)
 		c.Assert(tunnels, check.DeepEquals, testCase.tunnels, check.Commentf(testCase.comment))
 	}
+}
+
+func (s *importerSuite) TestCorrectlySelectsNewTeleportConfig(c *check.C) {
+	// setup
+	s.addTeleportPackages(c,
+		"example.com/teleport-master-config:0.0.12345",
+		"example.com/teleport-master-config:1.0.0",
+		"example.com/teleport-master-config:1.0.1",
+	)
+	teleportVersion := semver.New("1.0.1")
+	i := &importer{
+		backend:  s.backend,
+		packages: s.pack,
+	}
+	// exercise
+	teleportConfig, err := i.findLatestTeleportConfigPackage("example.com", *teleportVersion)
+	// verify
+	c.Assert(err, check.IsNil)
+	c.Assert(teleportConfig, check.DeepEquals, &loc.Locator{
+		Repository: "example.com",
+		Name:       "teleport-master-config",
+		Version:    "1.0.1",
+	})
+}
+
+func (s *importerSuite) TestCorrectlySelectsLegacyTeleportConfig(c *check.C) {
+	// setup
+	s.addTeleportPackages(c,
+		"example.com/teleport-master-config:0.0.12345",
+	)
+	teleportVersion := semver.New("1.0.1")
+	i := &importer{
+		backend:  s.backend,
+		packages: s.pack,
+	}
+	// exercise
+	teleportConfig, err := i.findLatestTeleportConfigPackage("example.com", *teleportVersion)
+	// verify
+	c.Assert(err, check.IsNil)
+	c.Assert(teleportConfig, check.DeepEquals, &loc.Locator{
+		Repository: "example.com",
+		Name:       "teleport-master-config",
+		Version:    "0.0.12345",
+	})
+}
+
+func (s *importerSuite) SetUpTest(c *check.C) {
+	s.dir = c.MkDir()
+
+	var err error
+	s.backend, err = keyval.NewBolt(keyval.BoltConfig{
+		Path: filepath.Join(s.dir, "bolt.db"),
+	})
+	c.Assert(err, check.IsNil)
+
+	objects, err := fs.New(s.dir)
+	c.Assert(err, check.IsNil)
+
+	s.pack, err = localpack.New(localpack.Config{
+		Backend:     s.backend,
+		UnpackedDir: filepath.Join(s.dir, defaults.UnpackedDir),
+		Objects:     objects,
+	})
+	c.Assert(err, check.IsNil)
+}
+
+func (s *importerSuite) addTeleportPackages(c *check.C, packages ...string) {
+	err := s.pack.UpsertRepository("example.com", time.Time{})
+	c.Assert(err, check.IsNil)
+	for i, pkg := range packages {
+		loc := loc.MustParseLocator(pkg)
+		contents := bytes.NewBuffer([]byte(fmt.Sprintf("data%v", i)))
+		_, err := s.pack.CreatePackage(loc, contents, pack.WithLabels(pack.TeleportMasterConfigPackageLabels))
+		c.Assert(err, check.IsNil)
+	}
+}
+
+var _ = check.Suite(&importerSuite{})
+
+type importerSuite struct {
+	dir     string
+	backend storage.Backend
+	pack    pack.PackageService
 }

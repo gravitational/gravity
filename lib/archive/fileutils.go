@@ -18,120 +18,19 @@ package archive
 
 import (
 	"os"
-	"path"
+	"os/user"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
+	"syscall"
 	"text/scanner"
 
+	"github.com/docker/docker/pkg/idtools"
 	"github.com/gravitational/trace"
 )
 
-// exclusion return true if the specified pattern is an exclusion
-func exclusion(pattern string) bool {
-	return pattern[0] == '!'
-}
-
-// empty return true if the specified pattern is empty
-func empty(pattern string) bool {
-	return pattern == ""
-}
-
-// splitPathDirEntry splits the given path between its
-// parent directory and its basename in that directory.
-func splitPathDirEntry(localizedPath string) (dir, base string) {
-	normalizedPath := filepath.ToSlash(localizedPath)
-	vol := filepath.VolumeName(normalizedPath)
-	normalizedPath = normalizedPath[len(vol):]
-
-	if normalizedPath == "/" {
-		// Specifies the root path.
-		return filepath.FromSlash(vol + normalizedPath), "."
-	}
-
-	trimmedPath := vol + strings.TrimRight(normalizedPath, "/")
-
-	dir = filepath.FromSlash(path.Dir(trimmedPath))
-	base = filepath.FromSlash(path.Base(trimmedPath))
-
-	return dir, base
-}
-
-// cleanPatterns takes a slice of patterns returns a new
-// slice of patterns cleaned with filepath.Clean, stripped
-// of any empty patterns and lets the caller know whether the
-// slice contains any exception patterns (prefixed with !).
-func cleanPatterns(patterns []string) ([]string, [][]string, bool, error) {
-	// Loop over exclusion patterns and:
-	// 1. Clean them up.
-	// 2. Indicate whether we are dealing with any exception rules.
-	// 3. Error if we see a single exclusion marker on it's own (!).
-	cleanedPatterns := []string{}
-	patternDirs := [][]string{}
-	exceptions := false
-	for _, pattern := range patterns {
-		// Eliminate leading and trailing whitespace.
-		pattern = strings.TrimSpace(pattern)
-		if empty(pattern) {
-			continue
-		}
-		if exclusion(pattern) {
-			if len(pattern) == 1 {
-				return nil, nil, false, trace.BadParameter("illegal exclusion pattern: %v", pattern)
-			}
-			exceptions = true
-		}
-		pattern = filepath.Clean(pattern)
-		cleanedPatterns = append(cleanedPatterns, pattern)
-		if exclusion(pattern) {
-			pattern = pattern[1:]
-		}
-		patternDirs = append(patternDirs, strings.Split(pattern, "/"))
-	}
-
-	return cleanedPatterns, patternDirs, exceptions, nil
-}
-
-// OptimizedMatches is basically the same as fileutils.Matches() but optimized for archive.go.
-// It will assume that the inputs have been preprocessed and therefore the function
-// doen't need to do as much error checking and clean-up. This was done to avoid
-// repeating these steps on each file being checked during the archive process.
-// The more generic fileutils.Matches() can't make these assumptions.
-func optimizedMatches(file string, patterns []string, patDirs [][]string) (bool, error) {
-	matched := false
-	parentPath := filepath.Dir(file)
-	parentPathDirs := strings.Split(parentPath, "/")
-
-	for i, pattern := range patterns {
-		negative := false
-
-		if exclusion(pattern) {
-			negative = true
-			pattern = pattern[1:]
-		}
-
-		match, err := PathMatch(PathPattern(pattern), file)
-		if err != nil {
-			return false, err
-		}
-
-		if !match && parentPath != "." {
-			// Check to see if the pattern matches one of our parent dirs.
-			if len(patDirs[i]) <= len(parentPathDirs) {
-				match, _ = filepath.Match(strings.Join(patDirs[i], "/"),
-					strings.Join(parentPathDirs[:len(patDirs[i])], "/"))
-			}
-		}
-
-		if match {
-			matched = !negative
-		}
-	}
-
-	return matched, nil
-}
-
-// PathPatterns defines a type for a file path pattern
+// PathPattern defines a type for a file path pattern
 type PathPattern string
 
 // PathMatch matches path against the specified path pattern.
@@ -204,4 +103,40 @@ func PathMatch(pattern PathPattern, path string) (bool, error) {
 	matches, err := regexp.MatchString(expr, path)
 
 	return matches, trace.Wrap(err)
+}
+
+// GetChownOptionsForDir returns the ownership options for the specified directory dir.
+// It will use the same options if directory already exists, and will fall back to current
+// user otherwise
+func GetChownOptionsForDir(dir string) (*idtools.Identity, error) {
+	var uid, gid int
+	// preserve owner/group when unpacking, otherwise use current process user
+	fi, err := os.Stat(dir)
+	if err == nil && fi.Sys() != nil {
+		switch stat := fi.Sys().(type) {
+		case *syscall.Stat_t:
+			uid = int(stat.Uid)
+			gid = int(stat.Gid)
+			return &idtools.Identity{
+				UID: uid,
+				GID: gid,
+			}, nil
+		}
+	}
+	user, err := user.Current()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query current user")
+	}
+	uid, err = strconv.Atoi(user.Uid)
+	if err != nil {
+		return nil, trace.BadParameter("UID is not a number: %q", user.Uid)
+	}
+	gid, err = strconv.Atoi(user.Gid)
+	if err != nil {
+		return nil, trace.BadParameter("GID is not a number: %q", user.Gid)
+	}
+	return &idtools.Identity{
+		UID: uid,
+		GID: gid,
+	}, nil
 }

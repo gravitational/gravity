@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -38,42 +37,70 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/form"
 	"github.com/gravitational/roundtrip"
-	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/gravitational/teleport/lib/auth"
+	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	"github.com/gravitational/trace"
 	"github.com/julienschmidt/httprouter"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/websocket"
 )
 
-// WebHandlerConfig
+// WebHandlerConfig defines app service web handler configuration.
 type WebHandlerConfig struct {
-	Users         users.Identity
-	Applications  app.Applications
-	Packages      pack.PackageService
-	Charts        helm.Repository
-	Authenticator httplib.Authenticator
-	Devmode       bool
+	// Users provides access to the users service.
+	Users users.Identity
+	// Applications provides access to the application service.
+	Applications app.Applications
+	// Packages provides access to the package service.
+	Packages pack.PackageService
+	// Charts provides access to the chart repository.
+	Charts helm.Repository
+	// Authenticator is used to authenticate requests.
+	Authenticator users.Authenticator
+}
+
+// CheckAndSetDefaults validates the config and sets some defaults.
+func (c *WebHandlerConfig) CheckAndSetDefaults() error {
+	if c.Applications == nil {
+		return trace.BadParameter("missing parameter Applications")
+	}
+	if c.Users == nil {
+		return trace.BadParameter("missing parameter Users")
+	}
+	if c.Authenticator == nil {
+		c.Authenticator = users.NewAuthenticatorFromIdentity(c.Users)
+	}
+	return nil
 }
 
 type WebHandler struct {
 	httprouter.Router
 	WebHandlerConfig
+	middleware *auth.AuthMiddleware
 }
 
 func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
-	if cfg.Applications == nil {
-		return nil, trace.BadParameter("missing parameter Applications")
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if cfg.Users == nil {
-		return nil, trace.BadParameter("missing parameter Users")
-	}
+
 	h := &WebHandler{
 		WebHandlerConfig: cfg,
 	}
+
+	// Wrap the router in the authentication middleware which will detect
+	// if the client is trying to authenticate using a client certificate,
+	// extract user information from it and add it to the request context.
+	h.middleware = &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(cfg.Users),
+	}
+	h.middleware.Wrap(&h.Router)
 
 	h.OPTIONS("/*path", h.options)
 	h.GET("/app/v1/applications/:repository_id", h.needsAuth(h.listApps))
@@ -113,6 +140,12 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/app/v1/charts/:name", h.needsAuth(h.fetchChart)) // Alias for /charts/:name for easier testing.
 
 	return h, nil
+}
+
+// ServeHTTP lets the authentication middleware serve the request before
+// passing it through to the router.
+func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.middleware.ServeHTTP(w, r)
 }
 
 /* createAppImportOperation initiates import of an application.
@@ -496,15 +529,6 @@ func (h *WebHandler) exportApp(w http.ResponseWriter, req *http.Request,
 	if err := json.NewDecoder(req.Body).Decode(&config); err != nil {
 		return trace.Wrap(err)
 	}
-	_, _, err = net.SplitHostPort(config.RegistryHostPort)
-	if config.RegistryHostPort == "" || err != nil {
-		message := "invalid host:port value"
-		if err != nil {
-			message = err.Error()
-		}
-		return trace.BadParameter("registryHostPort: %v", message)
-	}
-
 	if err = context.applications.ExportApp(app.ExportAppRequest{
 		Package:         *locator,
 		RegistryAddress: config.RegistryHostPort,
@@ -744,7 +768,14 @@ func (h *WebHandler) deleteAppHookJob(w http.ResponseWriter,
 		Name:        params.ByName("name"),
 		Namespace:   params.ByName("namespace"),
 	}
-	err = context.applications.DeleteAppHookJob(req.Context(), hookRef)
+	cascade, _, err := telehttplib.ParseBool(req.URL.Query(), "cascade")
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = context.applications.DeleteAppHookJob(req.Context(), app.DeleteAppHookJobRequest{
+		HookRef: hookRef,
+		Cascade: cascade,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -831,59 +862,28 @@ func (h *WebHandler) telekubeInstallScript(w http.ResponseWriter, r *http.Reques
 		ver = constants.LatestVersion
 	}
 
-	tfVersion, err := getTerraformVersion(ver, h.Packages)
+	// Security: sanitize semver input
+	semver, err := semver.NewVersion(ver)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = utils.SanitizeSemver(*semver)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+
 	err = telekubeInstallScriptTemplate.Execute(w, map[string]string{
-		"version":   ver,
-		"tfVersion": tfVersion,
+		"version": ver,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
-}
-
-func getTerraformVersion(binaryVersion string, packages pack.PackageService) (tfVersion string, err error) {
-	// Check whether the terraform provider is available
-	// Note: The terraform provider for older releases may not be published, so the following code tries to detect
-	// whether the terraform provider has been published for the requested release
-	//
-	// This works by attempting to locate the package, and resolving the version in the tfVersion variable:
-	// NotFound  -> ""          - Don't try and install if it doesn't exist for the specified version
-	// <version> -> "<version>" - If a specific version is requested, install that version
-	// latest    -> "<version>" - If latest is specified, resolve that to the latest available version.
-	tfVersion = constants.LatestVersion
-	if binaryVersion != constants.LatestVersion {
-		_, err := semver.NewVersion(binaryVersion)
-		if err != nil {
-			return "", trace.BadParameter("the provided version is not valid: %v", binaryVersion)
-		}
-		tfVersion = binaryVersion
-	}
-
-	// hard code our module lookup based on linux/x86_64, if it exists, we assume it exists
-	// for other requested architectures/os, which won't be detected until later
-	name := strings.Join([]string{constants.TerraformGravityPackage, "linux", "x86_64"}, "_")
-	locator, err := loc.NewLocator(defaults.SystemAccountOrg, name, tfVersion)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	envelope, err := packages.ReadPackageEnvelope(*locator)
-	if err != nil {
-		if !trace.IsNotFound(err) {
-			return "", trace.Wrap(err)
-		}
-		tfVersion = ""
-	} else {
-		tfVersion = envelope.Locator.Version
-	}
-
-	return tfVersion, nil
 }
 
 /* telekubeGravityBinary returns latest gravity binary available on this cluster
@@ -978,92 +978,36 @@ func (h *WebHandler) options(w http.ResponseWriter, r *http.Request, p httproute
 func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := fn(w, r, p); err != nil {
-			log.Infof("handler error: %v", trace.DebugReport(err))
-			trace.WriteError(w, err)
+			log.WithFields(fields.FromRequest(r)).WithError(err).Info("Handler error.")
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
 
 func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
-		log.WithFields(log.Fields{
-			"method": r.Method,
-		}).Debugf(r.URL.Path)
+		logger := log.WithFields(fields.FromRequest(r))
 
-		auth, err := httplib.ParseAuthHeaders(r)
+		authResult, err := h.Authenticator.Authenticate(w, r)
 		if err != nil {
-			log.Infof("failed to parse authentication headers: %v", trace.Wrap(err))
-			trace.WriteError(w, err)
+			logger.WithError(err).Warn("Authentication error.")
+			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
 			return
 		}
 
-		cookie, err := r.Cookie("session")
-		hasCookie := err == nil && cookie != nil && cookie.Value != ""
-
-		var user storage.User
-		var checker teleservices.AccessChecker
-		// this authentication is for robots like install and update agents
-		if !hasCookie {
-			user, checker, err = h.Users.AuthenticateUser(*auth)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-		} else {
-			if h.WebHandlerConfig.Authenticator == nil {
-				log.Debugf("web sessions are not supported: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("web sessions are not supported"))
-				return
-			}
-			session, err := h.WebHandlerConfig.Authenticator(w, r, true)
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			userI, err := h.Users.GetUser(session.GetUser())
-			if err != nil {
-				log.Debugf("authenticate error: %v", err)
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-			user = userI.(storage.User)
-			checker, err = h.Users.GetAccessChecker(user)
-			if err != nil {
-				log.Errorf("failed to fetch roles for user: %v", trace.DebugReport(err))
-				// we hide the error from the remote user to avoid giving any hints
-				trace.WriteError(
-					w, trace.AccessDenied("bad username or password"))
-				return
-			}
-		}
-
-		apps := app.ApplicationsWithACL(h.Applications, h.Users, user, checker)
+		apps := app.ApplicationsWithACL(h.Applications, h.Users, authResult.User, authResult.Checker)
 		context := &handlerContext{
 			applications: apps,
-			user:         user,
+			user:         authResult.User,
 		}
-		if auth.IsToken() {
-			// remember token that was used for signups
-			context.token = auth.Password
-		}
+
 		if err := fn(w, r, params, context); err != nil {
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
-				log.Errorf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Error("Handler error.")
 			} else {
-				log.Debugf("handler error: %v", trace.DebugReport(err))
+				logger.WithError(err).Debug("Handler error.")
 			}
-
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
@@ -1092,8 +1036,6 @@ type serviceHandler func(http.ResponseWriter, *http.Request, httprouter.Params, 
 type handlerContext struct {
 	applications app.Applications
 	user         storage.User
-	// token is an opaque token used for login
-	token string
 }
 
 var (
@@ -1122,7 +1064,7 @@ fi
 
 URL=https://get.gravitational.io/telekube/bin/{{.version}}/$OS/$ARCH
 
-for BINARY in tele tsh; do
+for BINARY in tele gravity tsh; do
     echo "Downloading $BINARY..."
     rm -f $BINARY
     curl -sOfL $URL/$BINARY
@@ -1136,24 +1078,5 @@ for BINARY in tele tsh; do
 
     echo "Done! Try running '$BINARY version'"
 done
-
-{{ if .tfVersion }}
-mkdir -p ${HOME}/.terraform.d/plugins
-TF_URL=https://get.gravitational.io/telekube/bin/{{.tfVersion}}/$OS/$ARCH
-for BINARY in terraform-provider-gravity terraform-provider-gravityenterprise; do
-    echo "Downloading $BINARY..."
-    rm -f $BINARY
-    curl -sOfL $TF_URL/$BINARY
-    if [ $? -ne 0 ]; then
-        echo -e "Failed downloading $BINARY of version {{.tfVersion}}. Is the URL correct?\n$URL/$BINARY"
-        exit 1
-    fi
-    chmod +x $BINARY
-    sudo install -m 0755 $BINARY ${HOME}/.terraform.d/plugins/$BINARY_{{.tfVersion}}
-    rm $BINARY
-
-    echo "Done! Terraform provider '$BINARY' is now available."
-done
-{{ end }}
 `))
 )

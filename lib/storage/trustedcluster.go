@@ -53,6 +53,8 @@ type TrustedCluster interface {
 	GetSystem() bool
 	// SetSystem marks the trusted cluster as a system
 	SetSystem(bool)
+	// GetRegular returns true if this is a regular Ops Center.
+	GetRegular() bool
 }
 
 // NewTrustedCluster returns a new trusted cluster from the provided name and spec
@@ -121,7 +123,7 @@ type TrustedClusterSpecV2 struct {
 	SNIHost string `json:"sni_host"`
 	// Roles is a list of roles that users will be assuming when connecting to
 	// this cluster
-	Roles []string `json:"roles"`
+	Roles []string `json:"roles,omitempty"`
 	// RoleMap specifies role mappings to remote roles
 	RoleMap teleservices.RoleMap `json:"role_map,omitempty"`
 	// PullUpdates indicates whether the trusted cluster should pull updates
@@ -302,6 +304,11 @@ func (c *TrustedClusterV2) SetSystem(system bool) {
 	}
 }
 
+// GetRegular returns true if this is a regular Ops Center.
+func (c *TrustedClusterV2) GetRegular() bool {
+	return !c.GetWizard() && !c.GetSystem()
+}
+
 // CheckAndSetDefaults checks the cluster resource and sets some defaults
 func (c *TrustedClusterV2) CheckAndSetDefaults() error {
 	if err := c.Metadata.CheckAndSetDefaults(); err != nil {
@@ -316,14 +323,25 @@ func (c *TrustedClusterV2) CheckAndSetDefaults() error {
 	if c.Spec.ReverseTunnelAddress == "" {
 		return trace.BadParameter("tunnel_addr can't be empty")
 	}
+	if len(c.Spec.Roles) != 0 && len(c.Spec.RoleMap) != 0 {
+		return trace.BadParameter("either roles or role_map should be set, not both")
+	}
 	if err := c.Spec.RoleMap.Check(); err != nil {
 		return trace.Wrap(err)
 	}
 	if c.Metadata.Labels == nil {
 		c.Metadata.Labels = map[string]string{}
 	}
-	if len(c.Spec.Roles) == 0 {
-		c.Spec.Roles = []string{constants.RoleAdmin}
+	// Fields "roles" and "role_map" are mutually exclusive so only populate
+	// default mapping if neither of those is set, otherwise it will lead to
+	// incorrect trusted cluster configuration.
+	if len(c.Spec.Roles)+len(c.Spec.RoleMap) == 0 {
+		c.Spec.RoleMap = teleservices.RoleMap{
+			{
+				Remote: constants.RoleAdmin,
+				Local:  []string{constants.RoleAdmin},
+			},
+		}
 	}
 	return nil
 }
@@ -369,8 +387,12 @@ func MarshalTrustedCluster(cluster teleservices.TrustedCluster) ([]byte, error) 
 
 // UnmarshalTrustedCluster unmarshals the trusted cluster resource from bytes
 func UnmarshalTrustedCluster(bytes []byte) (TrustedCluster, error) {
+	jsonBytes, err := teleutils.ToJSON(bytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	var header teleservices.ResourceHeader
-	if err := json.Unmarshal(bytes, &header); err != nil {
+	if err := json.Unmarshal(jsonBytes, &header); err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if header.Kind != teleservices.KindTrustedCluster {

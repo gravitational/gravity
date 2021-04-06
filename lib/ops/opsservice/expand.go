@@ -19,6 +19,7 @@ package opsservice
 import (
 	"context"
 
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
@@ -28,7 +29,7 @@ import (
 )
 
 // createExpandOperation initiates expand operation
-func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createExpandOperation(ctx context.Context, req ops.CreateSiteExpandOperationRequest) (*ops.SiteOperationKey, error) {
 	log.Debugf("createExpandOperation(%#v)", req)
 
 	profiles := make(map[string]storage.ServerProfile)
@@ -46,9 +47,26 @@ func (s *site) createExpandOperation(req ops.CreateSiteExpandOperationRequest) (
 			},
 		}
 	}
-	return s.createInstallExpandOperation(
-		ops.OperationExpand, ops.OperationStateExpandInitiated, req.Provisioner,
-		req.Variables, profiles)
+
+	site, err := s.service.GetSite(s.key)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// Run an early check on whether the cluster is able to accept the operation or not, and bail if the cluster
+	// is busy on other operations.
+	err = s.getOperationGroup().canCreateExpandOperation(*site, profiles)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return s.createInstallExpandOperation(ctx, createInstallExpandOperationRequest{
+		Type:        ops.OperationExpand,
+		State:       ops.OperationStateExpandInitiated,
+		Provisioner: req.Provisioner,
+		Vars:        req.Variables,
+		Profiles:    profiles,
+	})
 }
 
 func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) {
@@ -61,9 +79,9 @@ func (s *site) getSiteOperation(operationID string) (*ops.SiteOperation, error) 
 
 // expandOperationStart kicks off actuall expansion process:
 // resource provisioning, package configuration and deployment
-func (s *site) expandOperationStart(ctx *operationContext) error {
-	op, err := s.compareAndSwapOperationState(swap{
-		key: ctx.key(),
+func (s *site) expandOperationStart(opCtx *operationContext) error {
+	op, err := s.compareAndSwapOperationState(context.TODO(), swap{
+		key: opCtx.key(),
 		expectedStates: []string{
 			ops.OperationStateExpandInitiated,
 			ops.OperationStateExpandPrechecks,
@@ -79,31 +97,33 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 			return trace.NotFound("%v hook is not defined",
 				schema.HookNodesProvision)
 		}
-		ctx.Infof("Using nodes provisioning hook.")
-		err := s.runNodesProvisionHook(ctx)
+		opCtx.Info("Using nodes provisioning hook.")
+		err := s.runNodesProvisionHook(opCtx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		ctx.RecordInfo("Infrastructure has been successfully provisioned.")
+		opCtx.RecordInfo("Infrastructure has been successfully provisioned.")
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
 		Message: "Waiting for the provisioned node to come up",
 	})
 
-	_, err = s.waitForAgents(context.TODO(), ctx)
+	ctx, cancel := defaults.WithTimeout(context.Background())
+	defer cancel()
+	_, err = s.waitForAgents(ctx, opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	s.reportProgress(ctx, ops.ProgressEntry{
+	s.reportProgress(opCtx, ops.ProgressEntry{
 		State:   ops.ProgressStateInProgress,
 		Message: "The node is up",
 	})
 
-	op, err = s.compareAndSwapOperationState(swap{
-		key:            ctx.key(),
+	_, err = s.compareAndSwapOperationState(context.TODO(), swap{
+		key:            opCtx.key(),
 		expectedStates: []string{ops.OperationStateExpandProvisioning},
 		newOpState:     ops.OperationStateReady,
 	})
@@ -111,7 +131,7 @@ func (s *site) expandOperationStart(ctx *operationContext) error {
 		return trace.Wrap(err)
 	}
 
-	err = s.waitForOperation(ctx)
+	err = s.waitForOperation(opCtx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -129,7 +149,7 @@ func (s *site) validateExpand(op *ops.SiteOperation, req *ops.OperationUpdateReq
 				"no servers provided, run agent command on the node you want to join")
 		}
 	}
-	for role, _ := range req.Profiles {
+	for role := range req.Profiles {
 		profile, err := s.app.Manifest.NodeProfiles.ByName(role)
 		if err != nil {
 			return trace.Wrap(err)

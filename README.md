@@ -2,27 +2,32 @@
     <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
 </a>
 
-Gravity is an [upstream Kubernetes](https://kubernetes.io/) packaging solution
-that takes the drama out of on-premises deployments.
+Gravity is a [Kubernetes](https://kubernetes.io/) packaging solution
+that takes the drama out of deploying and running applications in someone
+else's cloud accounts, on-premise data centers, edge locations and other
+"uncharted territory" environments.
+
+With Gravity, Kubernetes apps can run and be regularly updated anywhere in
+the world without a massive DevOps team.
 
 |Project Links| Description
 |---|----
-| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise version of Gravity called Telekube |
-| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation (aka, Telekube)  |
+| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise edition of Gravity |
+| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
+| [Gravity Examples](examples/) | Examples of applications packaged with Gravity |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
-| [Security Updates](https://groups.google.com/forum/#!forum/gravity-community-security) | Gravity Community Security Updates |
-| [Community Forum](https://community.gravitational.com) | Gravity Community Forum|
+| [Security and Release Updates](https://goteleport.com/gravity/docs/changelog/) | Gravity Security and Release Updates |
 
 ## Introduction
 
-Gravity is an open source tooklit for creating "images" of Kubernetes
+Gravity is an open source toolkit for creating "images" of Kubernetes
 clusters and the applications running inside the clusters. The resulting
-images are called *application bundles* and they are just `.tar` files.
+images are called *cluster images* and they are just `.tar` files.
 
-An application bundle can be used to re-create full replicas of the original
-cluster in any environment where compliance and consistency matters, i.e. in 
-locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. A
-bundle can run without human supervision, as a "kubernetes appliance".
+A cluster image can be used to re-create full replicas of the original
+cluster in any environment where compliance and consistency matters, i.e. in
+locked-down AWS/GCE/Azure environments or even in air-gapped server rooms.
+An image can run without human supervision, as a "kubernetes appliance".
 
 Gravity has been running in production in major financial institutions,
 government data centers and enterprises. Gravitational open sourced it in the
@@ -38,12 +43,16 @@ There are plenty of Kubernetes distributions out there. Most of them aim to be
 flexible, general purpose platforms. Gravity has a more narrow **focus
 on compliance and reducing the overhead of managing Kubernetes**:
 
-* Gravity clusters are idempotent, i.e. clusters created from the same bundle
+* Gravity clusters are idempotent, i.e. clusters created from the same image
   are _always identical_. There is no configuration drift over time; no
   "special snowflakes".
 * Gravity clusters are always "wrapped" with a privileged access gateway called
-  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH authentication
-  and keeps a detailed audit log for compliance purposes.
+  [Teleport](https://gravitational.com/teleport), which unifies k8s and SSH
+  authentication, integrates with SSO and keeps a detailed audit log for compliance
+  purposes. It even records the interactive SSH and `kubectl exec` sessions.
+* Gravity clusters deployed world-wide can be remotely managed via built-in
+  reverse SSH tunnels, i.e. developers can have access to thousands of k8s API
+  endpoints even if they're located behind NAT/firewalls.
 * Gravity includes tools to perform _infrastructure validation_ prior to
   cluster provisioning. This allows cluster designers to prevent users from
   installing clusters on infrastructure that does not meet the system requirements.
@@ -58,21 +67,16 @@ on compliance and reducing the overhead of managing Kubernetes**:
 We have seen the following primary use cases for using a image-based Kubernetes approach
 (there may be others):
 
-* Deploying complex SaaS applications into on-premises enterprise environments.
-* Managing many idempotent Kubernetes clusters in environments where compliance
-  and security matters. An example would be if you want the same, compliant
-  Kubernetes environment across a variety of organizations or infrastructure
-  environments.
-* Environments where autonomous Kubernetes is required, such as large multi-node
-  hardware appliances, production floors, edge deployments, etc.
+* Deploying and running complex SaaS applications into on-premises enterprise environments.
+* Deploying and running complex SaaS applications in thousands of edge locations (retail, transportation, energy, etc).
 
 Anyone who needs Kubernetes best practices out of the box, without having to
-proactively manage it can benefit from Gravity. It allows you to focus on building 
-your product instead of managing Kubernetes.
+proactively manage it can benefit from Gravity. It allows you to focus on
+building your product instead of managing Kubernetes.
 
-## Application Bundles
+## Cluster Images
 
-An Application Bundle produced by Gravity includes:
+A Cluster Image produced by Gravity includes:
 
 * All Kubernetes binaries and their dependencies.
 * Built-in container registry.
@@ -81,9 +85,40 @@ An Application Bundle produced by Gravity includes:
   upgrades and auto-scaling.
 * Installation wizard for both CLI and web browser GUI.
 
-A bundle is all one needs to re-create the complete replica of the original
+An image is all one needs to re-create the complete replica of the original
 Kubernetes cluster, with all deployed applications inside, even in an
 air-gapped server room.
+
+## Examples
+
+Take a look at the [examples](examples/) directory in this repository to find
+examples of how to package and deploy Kubernetes applications using Gravity.
+
+The following examples are currently available:
+
+* [Wordpress](examples/wordpress). Deploys Wordpress CMS with an OpenEBS-backed persistent storage.
+
+## How do Initial Deployments work?
+
+A cluster image created with Gravity can be used for:
+
+1. Creating many Kubernetes clusters from scratch, on any infrastructure.
+2. Installing applications contained in the cluster image into an existing
+   Kubernetes cluster, like OpenShift.
+
+## How do Updates work?
+
+Developers can continuously update their applications using different methods:
+
+1. Vanilla CI/CD using Kubernetes APIs, which is available for every cluster.
+   This is probably what you're already doing.
+2. Via "polling model", when each Gravity cluster will automatically download
+   updates from a Gravity Hub, letting cluster users decide when/if they want
+   to upgrade. This method is recommended for traditional on-premise
+   environments when developers do not have access to each deployment site.
+3. Offline method, when a developer prepares a new cluster image which can be
+   distributed via offline media. This method is suitable for air-gapped
+   environments.
 
 ## Remote Access and Compliance
 
@@ -105,19 +140,14 @@ organizations](https://gravitational.com/teleport).
 
 ## Is Gravity Production Ready?
 
-Yes! Even though Gravity was open sourced in September 2018, it started life
-much earlier, as a component of a larger, proprietary system called Telekube.
+Yes!
 
 Fully autonomous Gravity clusters are running inside of large banks, government
-institutions, enterprises, etc. Some of the commercial users of Gravity are
-listed on the [Gravitational web site](https://gravitational.com)
+institutions, enterprises, etc. We use Gravity to run our own infrastructure.
 
 ## Why did We Build Gravity?
 
-Gravity was built by [Gravitational Inc](https://gravitational.com), a company
-based in Oakland, California. Gravitational's mission is to allow software
-creators to easily share their products with customers without having to
-convert themselves into software operators.
+Gravity is built by [Teleport](https://goteleport.com).
 
 The original use case for Gravity was to allow Kubernetes applications to be
 deployed into 3rd party environments, like on-premises datacenters. That's why
@@ -127,8 +157,8 @@ for providing remote support.
 
 These features also resonated with security-minded teams who need to run
 applications in environments where _compliance matters_. Gravity clusters are
-always identical and do not allow any configuration drift over time, which
-allows _cluster designers_ (aka, Devops or SREs) to "publish" clusters that are approved for
+always identical and do not allow any configuration drift over time. This
+allows _cluster architects_ (aka, Devops or SREs) to "publish" clusters that are approved for
 production and allow multiple teams within the organization to rapidly scale their
 Kubernetes adoption without having to become security and Kubernetes experts themselves.
 
@@ -156,14 +186,8 @@ $ make install
 $ make clean
 ```
 
-## Known Issues
+## Contributing
 
-While the code is open source, we're still working on updating the
-documentation to reflect the differences between the proprietary and
-community/OSS editions of the software. We are also working on providing open
-source users with pre-built binaries on a regular basis.
+To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
-
-## Questions?
-
-For more information reach out to `info@gravitational.com`
+Want to join our team? [We are always hiring!](https://jobs.lever.co/gravitational)

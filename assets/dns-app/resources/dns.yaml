@@ -2,6 +2,9 @@ apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: coredns
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'docker/default'
+    seccomp.security.alpha.kubernetes.io/defaultProfileName:  'docker/default'
 spec:
   privileged: false
   seLinux:
@@ -12,7 +15,7 @@ spec:
     rule: RunAsAny
   fsGroup:
     rule: RunAsAny
-  allowedCapabilities: 
+  allowedCapabilities:
   - NET_BIND_SERVICE
   volumes:
   - '*'
@@ -72,7 +75,7 @@ subjects:
   name: coredns
   namespace: kube-system
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: coredns
@@ -90,25 +93,28 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns
+        gravitational.io/critical-pod: ''
       annotations:
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
         scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
+      priorityClassName: system-node-critical
       serviceAccountName: coredns
       tolerations:
         - operator: "Exists"
       nodeSelector:
-        beta.kubernetes.io/os: linux
         gravitational.io/k8s-role: master
       containers:
       - name: coredns
-        image: coredns/coredns:1.2.6
+        image: coredns/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
-            memory: 170Mi
+            cpu: 250m
+            memory: 400Mi
           requests:
-            cpu: 100m
-            memory: 70Mi
+            cpu: 200m
+            memory: 275Mi
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume
@@ -132,6 +138,9 @@ spec:
             drop:
             - all
           readOnlyRootFilesystem: true
+          runAsNonRoot: false
+          # TODO(knisbet) need a build of coredns that has setcap for net_bind_service enabled
+          runAsUser: 0
         livenessProbe:
           httpGet:
             path: /health
@@ -150,8 +159,8 @@ spec:
             - key: Corefile
               path: Corefile
 ---
-apiVersion: extensions/v1beta1
-kind: DaemonSet
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: coredns-worker
   namespace: kube-system
@@ -161,6 +170,11 @@ metadata:
     addonmanager.kubernetes.io/mode: Reconcile
     kubernetes.io/name: "CoreDNS"
 spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  replicas: 0
   selector:
     matchLabels:
       k8s-app: kube-dns-worker
@@ -168,30 +182,54 @@ spec:
     metadata:
       labels:
         k8s-app: kube-dns-worker
+        gravitational.io/critical-pod: ''
       annotations:
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
         scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
+      priorityClassName: system-node-critical
       serviceAccountName: coredns
       tolerations:
         - operator: "Exists"
       nodeSelector:
-        beta.kubernetes.io/os: linux
         gravitational.io/k8s-role: node
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: k8s-app
+                    operator: In
+                    values: ["kube-dns-worker"]
+              topologyKey: kubernetes.io/hostname
       containers:
       - name: coredns
-        image: coredns/coredns:1.2.6
+        image: coredns/coredns:1.7.0
         imagePullPolicy: IfNotPresent
         resources:
           limits:
-            memory: 170Mi
+            memory: 400Mi
           requests:
-            cpu: 100m
-            memory: 70Mi
+            cpu: 200m
+            memory: 275Mi
         args: [ "-conf", "/etc/coredns/Corefile" ]
         volumeMounts:
         - name: config-volume
           mountPath: /etc/coredns
           readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - all
+          readOnlyRootFilesystem: true
+          runAsNonRoot: false
+          # TODO(knisbet) need a build of coredns that has setcap for net_bind_service enabled
+          runAsUser: 0
         ports:
         - containerPort: 53
           name: dns
@@ -202,14 +240,6 @@ spec:
         - containerPort: 9153
           name: metrics
           protocol: TCP
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            add:
-            - NET_BIND_SERVICE
-            drop:
-            - all
-          readOnlyRootFilesystem: true
         livenessProbe:
           httpGet:
             path: /health
@@ -250,6 +280,9 @@ spec:
   - name: dns-tcp
     port: 53
     protocol: TCP
+  - name: metrics
+    port: 9153
+    protocol: TCP
 ---
 apiVersion: v1
 kind: Service
@@ -273,3 +306,691 @@ spec:
   - name: dns-tcp
     port: 53
     protocol: TCP
+  - name: metrics
+    port: 9153
+    protocol: TCP
+#
+# Cluster Proportional Autoscaler
+# Scale the coredns deployment proportionally to the cluster size
+# https://github.com/kubernetes-sigs/cluster-proportional-autoscaler
+# https://github.com/kubernetes-sigs/cluster-proportional-autoscaler/tree/master/examples
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: docker/default
+    seccomp.security.alpha.kubernetes.io/defaultProfileName: docker/default
+  name: cluster-proportional-autoscaler
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+  - All
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch"]
+  - apiGroups:
+    - policy
+    resources:
+    - podsecuritypolicies
+    verbs:
+    - use
+    resourceNames:
+    - cluster-proportional-autoscaler
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+rules:
+  - apiGroups: [""]
+    resources: ["replicationcontrollers/scale"]
+    verbs: ["get", "update"]
+  - apiGroups: ["extensions","apps"]
+    resources: ["deployments/scale", "replicasets/scale"]
+    verbs: ["get", "update"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+    resourceNames: ["autoscaler-coredns-worker", "autoscaler-coredns-master"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+subjects:
+  - kind: ServiceAccount
+    name: cluster-proportional-autoscaler-coredns
+    namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-proportional-autoscaler-coredns
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-proportional-autoscaler-coredns
+  namespace: kube-system
+subjects:
+  - kind: ServiceAccount
+    name: cluster-proportional-autoscaler-coredns
+    namespace: kube-system
+roleRef:
+  kind: Role
+  name: cluster-proportional-autoscaler-coredns
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: autoscaler-coredns-worker
+  namespace: kube-system
+data:
+  # When cluster is using large nodes(with more cores), "coresPerReplica" should dominate.
+  # If using small nodes, "nodesPerReplica" should dominate.
+  # Parameters based on kubernetes defaults: https://github.com/kubernetes/kubernetes/blob/f65f868aa041e108a73a014df360427c6e05e493/cluster/addons/dns-horizontal-autoscaler/dns-horizontal-autoscaler.yaml
+  # linear: '{"coresPerReplica":256,"includeUnschedulableNodes":true,"nodesPerReplica":16,"preventSinglePointFailure":true}'
+  # Use ladder scaling that emulates the linear scale, because we want to scale down to 0 replicas when no workers are
+  # joined to the cluster. The linear scaler doesn't support 0 replicas.
+  ladder: |-
+    {
+      "coresToReplicas":
+      [
+        [ 0, 0 ],
+        [ 1, 1 ],
+        [ 256, 2 ],
+        [ 512, 3 ],
+        [ 768, 4 ],
+        [ 1024, 5 ],
+        [ 1280, 6 ],
+        [ 1536, 7 ],
+        [ 1792, 8 ],
+        [ 2048, 9 ],
+        [ 2304, 10 ],
+        [ 2560, 11 ],
+        [ 2816, 12 ],
+        [ 3072, 13 ],
+        [ 3328, 14 ],
+        [ 3584, 15 ],
+        [ 3840, 16 ],
+        [ 4096, 17 ],
+        [ 4352, 18 ],
+        [ 4608, 19 ],
+        [ 4864, 20 ],
+        [ 5120, 21 ],
+        [ 5376, 22 ],
+        [ 5632, 23 ],
+        [ 5888, 24 ],
+        [ 6144, 25 ],
+        [ 6400, 26 ],
+        [ 6656, 27 ],
+        [ 6912, 28 ],
+        [ 7168, 29 ],
+        [ 7424, 30 ],
+        [ 7680, 31 ],
+        [ 7936, 32 ],
+        [ 8192, 33 ],
+        [ 8448, 34 ],
+        [ 8704, 35 ],
+        [ 8960, 36 ],
+        [ 9216, 37 ],
+        [ 9472, 38 ],
+        [ 9728, 39 ],
+        [ 9984, 40 ],
+        [ 10240, 41 ],
+        [ 10496, 42 ],
+        [ 10752, 43 ],
+        [ 11008, 44 ],
+        [ 11264, 45 ],
+        [ 11520, 46 ],
+        [ 11776, 47 ],
+        [ 12032, 48 ],
+        [ 12288, 49 ],
+        [ 12544, 50 ],
+        [ 12800, 51 ],
+        [ 13056, 52 ],
+        [ 13312, 53 ],
+        [ 13568, 54 ],
+        [ 13824, 55 ],
+        [ 14080, 56 ],
+        [ 14336, 57 ],
+        [ 14592, 58 ],
+        [ 14848, 59 ],
+        [ 15104, 60 ],
+        [ 15360, 61 ],
+        [ 15616, 62 ],
+        [ 15872, 63 ],
+        [ 16128, 64 ],
+        [ 16384, 65 ],
+        [ 16640, 66 ],
+        [ 16896, 67 ],
+        [ 17152, 68 ],
+        [ 17408, 69 ],
+        [ 17664, 70 ],
+        [ 17920, 71 ],
+        [ 18176, 72 ],
+        [ 18432, 73 ],
+        [ 18688, 74 ],
+        [ 18944, 75 ],
+        [ 19200, 76 ],
+        [ 19456, 77 ],
+        [ 19712, 78 ],
+        [ 19968, 79 ],
+        [ 20224, 80 ],
+        [ 20480, 81 ],
+        [ 20736, 82 ],
+        [ 20992, 83 ],
+        [ 21248, 84 ],
+        [ 21504, 85 ],
+        [ 21760, 86 ],
+        [ 22016, 87 ],
+        [ 22272, 88 ],
+        [ 22528, 89 ],
+        [ 22784, 90 ],
+        [ 23040, 91 ],
+        [ 23296, 92 ],
+        [ 23552, 93 ],
+        [ 23808, 94 ],
+        [ 24064, 95 ],
+        [ 24320, 96 ],
+        [ 24576, 97 ],
+        [ 24832, 98 ],
+        [ 25088, 99 ],
+        [ 25344, 100 ],
+        [ 25600, 101 ],
+        [ 25856, 102 ],
+        [ 26112, 103 ],
+        [ 26368, 104 ],
+        [ 26624, 105 ],
+        [ 26880, 106 ],
+        [ 27136, 107 ],
+        [ 27392, 108 ],
+        [ 27648, 109 ],
+        [ 27904, 110 ],
+        [ 28160, 111 ],
+        [ 28416, 112 ],
+        [ 28672, 113 ],
+        [ 28928, 114 ],
+        [ 29184, 115 ],
+        [ 29440, 116 ],
+        [ 29696, 117 ],
+        [ 29952, 118 ],
+        [ 30208, 119 ],
+        [ 30464, 120 ],
+        [ 30720, 121 ],
+        [ 30976, 122 ],
+        [ 31232, 123 ],
+        [ 31488, 124 ],
+        [ 31744, 125 ],
+        [ 32000, 126 ],
+        [ 32256, 127 ],
+        [ 32512, 128 ],
+        [ 32768, 129 ],
+        [ 33024, 130 ],
+        [ 33280, 131 ],
+        [ 33536, 132 ],
+        [ 33792, 133 ],
+        [ 34048, 134 ],
+        [ 34304, 135 ],
+        [ 34560, 136 ],
+        [ 34816, 137 ],
+        [ 35072, 138 ],
+        [ 35328, 139 ],
+        [ 35584, 140 ],
+        [ 35840, 141 ],
+        [ 36096, 142 ],
+        [ 36352, 143 ],
+        [ 36608, 144 ],
+        [ 36864, 145 ],
+        [ 37120, 146 ],
+        [ 37376, 147 ],
+        [ 37632, 148 ],
+        [ 37888, 149 ],
+        [ 38144, 150 ],
+        [ 38400, 151 ],
+        [ 38656, 152 ],
+        [ 38912, 153 ],
+        [ 39168, 154 ],
+        [ 39424, 155 ],
+        [ 39680, 156 ],
+        [ 39936, 157 ],
+        [ 40192, 158 ],
+        [ 40448, 159 ],
+        [ 40704, 160 ],
+        [ 40960, 161 ],
+        [ 41216, 162 ],
+        [ 41472, 163 ],
+        [ 41728, 164 ],
+        [ 41984, 165 ],
+        [ 42240, 166 ],
+        [ 42496, 167 ],
+        [ 42752, 168 ],
+        [ 43008, 169 ],
+        [ 43264, 170 ],
+        [ 43520, 171 ],
+        [ 43776, 172 ],
+        [ 44032, 173 ],
+        [ 44288, 174 ],
+        [ 44544, 175 ],
+        [ 44800, 176 ],
+        [ 45056, 177 ],
+        [ 45312, 178 ],
+        [ 45568, 179 ],
+        [ 45824, 180 ],
+        [ 46080, 181 ],
+        [ 46336, 182 ],
+        [ 46592, 183 ],
+        [ 46848, 184 ],
+        [ 47104, 185 ],
+        [ 47360, 186 ],
+        [ 47616, 187 ],
+        [ 47872, 188 ],
+        [ 48128, 189 ],
+        [ 48384, 190 ],
+        [ 48640, 191 ],
+        [ 48896, 192 ],
+        [ 49152, 193 ],
+        [ 49408, 194 ],
+        [ 49664, 195 ],
+        [ 49920, 196 ],
+        [ 50176, 197 ],
+        [ 50432, 198 ],
+        [ 50688, 199 ],
+        [ 50944, 200 ],
+        [ 51200, 201 ],
+        [ 51456, 202 ],
+        [ 51712, 203 ],
+        [ 51968, 204 ],
+        [ 52224, 205 ],
+        [ 52480, 206 ],
+        [ 52736, 207 ],
+        [ 52992, 208 ],
+        [ 53248, 209 ],
+        [ 53504, 210 ],
+        [ 53760, 211 ],
+        [ 54016, 212 ],
+        [ 54272, 213 ],
+        [ 54528, 214 ],
+        [ 54784, 215 ],
+        [ 55040, 216 ],
+        [ 55296, 217 ],
+        [ 55552, 218 ],
+        [ 55808, 219 ],
+        [ 56064, 220 ],
+        [ 56320, 221 ],
+        [ 56576, 222 ],
+        [ 56832, 223 ],
+        [ 57088, 224 ],
+        [ 57344, 225 ],
+        [ 57600, 226 ],
+        [ 57856, 227 ],
+        [ 58112, 228 ],
+        [ 58368, 229 ],
+        [ 58624, 230 ],
+        [ 58880, 231 ],
+        [ 59136, 232 ],
+        [ 59392, 233 ],
+        [ 59648, 234 ],
+        [ 59904, 235 ],
+        [ 60160, 236 ],
+        [ 60416, 237 ],
+        [ 60672, 238 ],
+        [ 60928, 239 ],
+        [ 61184, 240 ],
+        [ 61440, 241 ],
+        [ 61696, 242 ],
+        [ 61952, 243 ],
+        [ 62208, 244 ],
+        [ 62464, 245 ],
+        [ 62720, 246 ],
+        [ 62976, 247 ],
+        [ 63232, 248 ],
+        [ 63488, 249 ],
+        [ 63744, 250 ],
+        [ 64000, 251 ],
+        [ 64256, 252 ],
+        [ 64512, 253 ],
+        [ 64768, 254 ],
+        [ 65024, 255 ],
+        [ 65280, 256 ]
+      ],
+      "nodesToReplicas":
+      [
+        [ 0, 0 ],
+        [ 1, 1 ],
+        [ 2, 2 ],
+        [ 32, 3 ],
+        [ 48, 4 ],
+        [ 64, 5 ],
+        [ 80, 6 ],
+        [ 96, 7 ],
+        [ 112, 8 ],
+        [ 128, 9 ],
+        [ 144, 10 ],
+        [ 160, 11 ],
+        [ 176, 12 ],
+        [ 192, 13 ],
+        [ 208, 14 ],
+        [ 224, 15 ],
+        [ 240, 16 ],
+        [ 256, 17 ],
+        [ 272, 18 ],
+        [ 288, 19 ],
+        [ 304, 20 ],
+        [ 320, 21 ],
+        [ 336, 22 ],
+        [ 352, 23 ],
+        [ 368, 24 ],
+        [ 384, 25 ],
+        [ 400, 26 ],
+        [ 416, 27 ],
+        [ 432, 28 ],
+        [ 448, 29 ],
+        [ 464, 30 ],
+        [ 480, 31 ],
+        [ 496, 32 ],
+        [ 512, 33 ],
+        [ 528, 34 ],
+        [ 544, 35 ],
+        [ 560, 36 ],
+        [ 576, 37 ],
+        [ 592, 38 ],
+        [ 608, 39 ],
+        [ 624, 40 ],
+        [ 640, 41 ],
+        [ 656, 42 ],
+        [ 672, 43 ],
+        [ 688, 44 ],
+        [ 704, 45 ],
+        [ 720, 46 ],
+        [ 736, 47 ],
+        [ 752, 48 ],
+        [ 768, 49 ],
+        [ 784, 50 ],
+        [ 800, 51 ],
+        [ 816, 52 ],
+        [ 832, 53 ],
+        [ 848, 54 ],
+        [ 864, 55 ],
+        [ 880, 56 ],
+        [ 896, 57 ],
+        [ 912, 58 ],
+        [ 928, 59 ],
+        [ 944, 60 ],
+        [ 960, 61 ],
+        [ 976, 62 ],
+        [ 992, 63 ],
+        [ 1008, 64 ],
+        [ 1024, 65 ],
+        [ 1040, 66 ],
+        [ 1056, 67 ],
+        [ 1072, 68 ],
+        [ 1088, 69 ],
+        [ 1104, 70 ],
+        [ 1120, 71 ],
+        [ 1136, 72 ],
+        [ 1152, 73 ],
+        [ 1168, 74 ],
+        [ 1184, 75 ],
+        [ 1200, 76 ],
+        [ 1216, 77 ],
+        [ 1232, 78 ],
+        [ 1248, 79 ],
+        [ 1264, 80 ],
+        [ 1280, 81 ],
+        [ 1296, 82 ],
+        [ 1312, 83 ],
+        [ 1328, 84 ],
+        [ 1344, 85 ],
+        [ 1360, 86 ],
+        [ 1376, 87 ],
+        [ 1392, 88 ],
+        [ 1408, 89 ],
+        [ 1424, 90 ],
+        [ 1440, 91 ],
+        [ 1456, 92 ],
+        [ 1472, 93 ],
+        [ 1488, 94 ],
+        [ 1504, 95 ],
+        [ 1520, 96 ],
+        [ 1536, 97 ],
+        [ 1552, 98 ],
+        [ 1568, 99 ],
+        [ 1584, 100 ],
+        [ 1600, 101 ],
+        [ 1616, 102 ],
+        [ 1632, 103 ],
+        [ 1648, 104 ],
+        [ 1664, 105 ],
+        [ 1680, 106 ],
+        [ 1696, 107 ],
+        [ 1712, 108 ],
+        [ 1728, 109 ],
+        [ 1744, 110 ],
+        [ 1760, 111 ],
+        [ 1776, 112 ],
+        [ 1792, 113 ],
+        [ 1808, 114 ],
+        [ 1824, 115 ],
+        [ 1840, 116 ],
+        [ 1856, 117 ],
+        [ 1872, 118 ],
+        [ 1888, 119 ],
+        [ 1904, 120 ],
+        [ 1920, 121 ],
+        [ 1936, 122 ],
+        [ 1952, 123 ],
+        [ 1968, 124 ],
+        [ 1984, 125 ],
+        [ 2000, 126 ],
+        [ 2016, 127 ],
+        [ 2032, 128 ],
+        [ 2048, 129 ],
+        [ 2064, 130 ],
+        [ 2080, 131 ],
+        [ 2096, 132 ],
+        [ 2112, 133 ],
+        [ 2128, 134 ],
+        [ 2144, 135 ],
+        [ 2160, 136 ],
+        [ 2176, 137 ],
+        [ 2192, 138 ],
+        [ 2208, 139 ],
+        [ 2224, 140 ],
+        [ 2240, 141 ],
+        [ 2256, 142 ],
+        [ 2272, 143 ],
+        [ 2288, 144 ],
+        [ 2304, 145 ],
+        [ 2320, 146 ],
+        [ 2336, 147 ],
+        [ 2352, 148 ],
+        [ 2368, 149 ],
+        [ 2384, 150 ],
+        [ 2400, 151 ],
+        [ 2416, 152 ],
+        [ 2432, 153 ],
+        [ 2448, 154 ],
+        [ 2464, 155 ],
+        [ 2480, 156 ],
+        [ 2496, 157 ],
+        [ 2512, 158 ],
+        [ 2528, 159 ],
+        [ 2544, 160 ],
+        [ 2560, 161 ],
+        [ 2576, 162 ],
+        [ 2592, 163 ],
+        [ 2608, 164 ],
+        [ 2624, 165 ],
+        [ 2640, 166 ],
+        [ 2656, 167 ],
+        [ 2672, 168 ],
+        [ 2688, 169 ],
+        [ 2704, 170 ],
+        [ 2720, 171 ],
+        [ 2736, 172 ],
+        [ 2752, 173 ],
+        [ 2768, 174 ],
+        [ 2784, 175 ],
+        [ 2800, 176 ],
+        [ 2816, 177 ],
+        [ 2832, 178 ],
+        [ 2848, 179 ],
+        [ 2864, 180 ],
+        [ 2880, 181 ],
+        [ 2896, 182 ],
+        [ 2912, 183 ],
+        [ 2928, 184 ],
+        [ 2944, 185 ],
+        [ 2960, 186 ],
+        [ 2976, 187 ],
+        [ 2992, 188 ],
+        [ 3008, 189 ],
+        [ 3024, 190 ],
+        [ 3040, 191 ],
+        [ 3056, 192 ],
+        [ 3072, 193 ],
+        [ 3088, 194 ],
+        [ 3104, 195 ],
+        [ 3120, 196 ],
+        [ 3136, 197 ],
+        [ 3152, 198 ],
+        [ 3168, 199 ],
+        [ 3184, 200 ],
+        [ 3200, 201 ],
+        [ 3216, 202 ],
+        [ 3232, 203 ],
+        [ 3248, 204 ],
+        [ 3264, 205 ],
+        [ 3280, 206 ],
+        [ 3296, 207 ],
+        [ 3312, 208 ],
+        [ 3328, 209 ],
+        [ 3344, 210 ],
+        [ 3360, 211 ],
+        [ 3376, 212 ],
+        [ 3392, 213 ],
+        [ 3408, 214 ],
+        [ 3424, 215 ],
+        [ 3440, 216 ],
+        [ 3456, 217 ],
+        [ 3472, 218 ],
+        [ 3488, 219 ],
+        [ 3504, 220 ],
+        [ 3520, 221 ],
+        [ 3536, 222 ],
+        [ 3552, 223 ],
+        [ 3568, 224 ],
+        [ 3584, 225 ],
+        [ 3600, 226 ],
+        [ 3616, 227 ],
+        [ 3632, 228 ],
+        [ 3648, 229 ],
+        [ 3664, 230 ],
+        [ 3680, 231 ],
+        [ 3696, 232 ],
+        [ 3712, 233 ],
+        [ 3728, 234 ],
+        [ 3744, 235 ],
+        [ 3760, 236 ],
+        [ 3776, 237 ],
+        [ 3792, 238 ],
+        [ 3808, 239 ],
+        [ 3824, 240 ],
+        [ 3840, 241 ],
+        [ 3856, 242 ],
+        [ 3872, 243 ],
+        [ 3888, 244 ],
+        [ 3904, 245 ],
+        [ 3920, 246 ],
+        [ 3936, 247 ],
+        [ 3952, 248 ],
+        [ 3968, 249 ],
+        [ 3984, 250 ],
+        [ 4000, 251 ],
+        [ 4016, 252 ],
+        [ 4032, 253 ],
+        [ 4048, 254 ],
+        [ 4064, 255 ],
+        [ 4080, 256 ]
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoscaler-coredns-worker
+  namespace: kube-system
+  labels:
+    k8s-app: autoscaler-coredns-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: autoscaler-coredns-worker
+  template:
+    metadata:
+      labels:
+        k8s-app: autoscaler-coredns-worker
+        gravitational.io/critical-pod: ''
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: docker/default
+    spec:
+      serviceAccountName: cluster-proportional-autoscaler-coredns
+      tolerations:
+        - operator: "Exists"
+      containers:
+        - image: k8s.gcr.io/cpa/cluster-proportional-autoscaler-amd64:1.8.3
+          name: autoscaler
+          command:
+            - /cluster-proportional-autoscaler
+            - --namespace=kube-system
+            - --configmap=autoscaler-coredns-worker
+            - --target=deployment/coredns-worker
+            - --nodelabels=gravitational.io/k8s-role=node
+            - --poll-period-seconds=60
+            - --logtostderr=true
+            - --v=2
+          securityContext:
+              # nonroot user is 65532 as per https://github.com/GoogleContainerTools/distroless/issues/235
+              runAsUser: 65532
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - all
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true

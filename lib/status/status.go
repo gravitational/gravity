@@ -24,19 +24,24 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
+	"github.com/gravitational/gravity/lib/modules"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/satellite/agent/proto/agentpb"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
+	"github.com/prometheus/alertmanager/api/v2/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -47,105 +52,167 @@ func FromCluster(ctx context.Context, operator ops.Operator, cluster ops.Site, o
 		Cluster: &Cluster{
 			Domain: cluster.Domain,
 			// Default to degraded - reset on successful query
-			State:     ops.SiteStateDegraded,
-			Reason:    cluster.Reason,
-			App:       cluster.App.Package,
-			Extension: newExtension(),
+			State:         ops.SiteStateDegraded,
+			Reason:        cluster.Reason,
+			CloudProvider: cluster.Provider,
+			App:           cluster.App.Package,
+			ClientVersion: modules.Get().Version(),
+			Extension:     newExtension(),
 		},
+	}
+
+	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
+	if err != nil {
+		logrus.WithError(err).Warn("Failed to collect system status from agents.")
+	}
+
+	if err := updateClusterNodes(cluster.Key(), operator, status); err != nil {
+		logrus.WithError(err).Warn("Failed to query cluster nodes.")
+	}
+
+	// Populate cloud specific InstanceID
+	for i, node := range status.Agent.Nodes {
+		server := cluster.ClusterState.Servers.FindByIP(node.AdvertiseIP)
+		if server != nil {
+			status.Agent.Nodes[i].InstanceID = server.InstanceID
+			status.Agent.Nodes[i].InstanceType = server.InstanceType
+		}
 	}
 
 	token, err := operator.GetExpandToken(cluster.Key())
 	if err != nil && !trace.IsNotFound(err) {
-		return status, trace.Wrap(err)
+		logrus.WithError(err).Warn("Failed to fetch expand token.")
 	}
 	if token != nil {
 		status.Token = *token
 	}
 
-	// Collect application endpoints.
-	endpoints, err := operator.GetApplicationEndpoints(cluster.Key())
+	status.Cluster.ServerVersion, err = operator.GetVersion(ctx)
 	if err != nil {
-		return status, trace.Wrap(err)
+		log.WithError(err).Warn("Failed to query server version information.")
 	}
-	// Right now only 1 application is supported, in the future there
-	// will be many applications each with its own endpoints.
-	status.Endpoints.Applications = append(status.Endpoints.Applications,
-		ApplicationEndpoints{
-			Application: cluster.App.Package,
-			Endpoints:   endpoints,
-		})
 
-	// For cluster endpoints, they point to gravity-site service on master nodes.
-	masters := cluster.ClusterState.Servers.Masters()
-	for _, master := range masters {
-		status.Endpoints.Cluster.AuthGateway = append(status.Endpoints.Cluster.AuthGateway,
-			fmt.Sprintf("%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
-		status.Endpoints.Cluster.UI = append(status.Endpoints.Cluster.UI,
-			fmt.Sprintf("https://%v:%v", master.AdvertiseIP, defaults.GravitySiteNodePort))
+	// Collect application endpoints.
+	appEndpoints, err := operator.GetApplicationEndpoints(cluster.Key())
+	if err != nil {
+		log.WithError(err).Warn("Failed to fetch application endpoints.")
+		status.Endpoints.Applications.Error = err
+	}
+	if len(appEndpoints) != 0 {
+		// Right now only 1 application is supported, in the future there
+		// will be many applications each with its own endpoints.
+		status.Endpoints.Applications.Endpoints = append(status.Endpoints.Applications.Endpoints,
+			ApplicationEndpoints{
+				Application: cluster.App.Package,
+				Endpoints:   appEndpoints,
+			})
+	}
+
+	// Fetch cluster endpoints.
+	clusterEndpoints, err := ops.GetClusterEndpoints(operator, cluster.Key())
+	if err != nil {
+		log.WithError(err).Warn("Failed to fetch cluster endpoints.")
+	}
+	if clusterEndpoints != nil {
+		status.Endpoints.Cluster.AuthGateway = clusterEndpoints.AuthGateways()
+		status.Endpoints.Cluster.UI = clusterEndpoints.ManagementURLs()
 	}
 
 	// FIXME: have status extension accept the operator/environment
-	err = status.Cluster.Extension.Collect()
-	if err != nil {
-		return status, trace.Wrap(err)
+	if err := status.Cluster.Extension.Collect(ctx); err != nil {
+		logrus.WithError(err).Warn("Failed to query extension metadata.")
 	}
 
-	activeOperations, err := ops.GetActiveOperations(cluster.Key(), operator)
-	if err != nil && !trace.IsNotFound(err) {
-		return status, trace.Wrap(err)
-	}
-	for _, op := range activeOperations {
-		progress, err := operator.GetSiteOperationProgress(op.Key())
-		if err != nil {
-			return status, trace.Wrap(err)
-		}
-		status.ActiveOperations = append(status.ActiveOperations,
-			fromOperationAndProgress(op, *progress))
+	if err := collectActiveOperations(cluster.Key(), operator, status); err != nil {
+		logrus.WithError(err).Warn("Failed to query active operations.")
 	}
 
-	var operation *ops.SiteOperation
-	var progress *ops.ProgressEntry
-	// if operation ID is provided, get info for that operation, otherwise
-	// get info for the most recent operation
-	if operationID != "" {
-		operation, progress, err = ops.GetOperationWithProgress(
-			cluster.OperationKey(operationID), operator)
-	} else {
-		operation, progress, err = ops.GetLastCompletedOperation(
-			cluster.Key(), operator)
-	}
-	if err != nil {
-		return status, trace.Wrap(err)
-	}
-	status.Operation = fromOperationAndProgress(*operation, *progress)
-
-	status.Agent, err = FromPlanetAgent(ctx, cluster.ClusterState.Servers)
-	if err != nil {
-		return status, trace.Wrap(err, "failed to collect system status from agents")
+	if err := fetchOperationByID(cluster.Key(), operationID, operator, status); err != nil {
+		logrus.WithError(err).WithField("operation-id", operationID).Warn("Failed to query operation.")
 	}
 
 	status.State = cluster.State
+	if status.IsDegraded() {
+		status.State = ops.SiteStateDegraded
+	}
+
+	// Collect information from alertmanager
+	status.Alerts, err = FromAlertManager(ctx, cluster)
+	if err != nil {
+		log.WithError(err).Warn("Failed to collect alerts from Alertmanager.")
+	}
 	return status, nil
 }
 
-// FromPlanetAgent collects cluster status from the planet agent
+// FromPlanetAgent collects the cluster status from the planet agent
 func FromPlanetAgent(ctx context.Context, servers []storage.Server) (*Agent, error) {
-	status, err := planetAgentStatus(ctx)
+	return fromPlanetAgent(ctx, false, servers)
+}
+
+// FromLocalPlanetAgent collects the node status from the local planet agent
+func FromLocalPlanetAgent(ctx context.Context) (*Agent, error) {
+	return fromPlanetAgent(ctx, true, nil)
+}
+
+// WaitForAgent blocks until able to retrieve status from planet-agent on local node (ignoring the result)
+func WaitForAgent(ctx context.Context) error {
+	b := backoff.NewConstantBackOff(1 * time.Second)
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, func() error {
+		_, err := FromLocalPlanetAgent(ctx)
+		return trace.Wrap(err)
+	}))
+}
+
+// WaitForNodeHealthy blocks until receiving a healthy status from planet-agent on local node
+func WaitForNodeHealthy(ctx context.Context) (err error) {
+	b := backoff.NewConstantBackOff(1 * time.Second)
+	return trace.Wrap(utils.RetryWithInterval(ctx, b, func() error {
+		return trace.Wrap(getLocalNodeStatus(ctx))
+	}))
+}
+
+func getLocalNodeStatus(ctx context.Context) (err error) {
+	var status *Agent
+	b := utils.NewExponentialBackOff(defaults.NodeStatusTimeout)
+	err = utils.RetryTransient(ctx, b, func() error {
+		status, err = FromLocalPlanetAgent(ctx)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query cluster status from agent")
+		return trace.Wrap(err)
 	}
+	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
+		return trace.BadParameter("node is degraded")
+	}
+	return nil
+}
 
-	var nodes []ClusterServer
-	if len(servers) != 0 {
-		nodes = fromClusterState(*status, servers)
+// IsDegraded returns whether the cluster is in degraded state
+func (r Status) IsDegraded() bool {
+	return (r.Cluster == nil ||
+		r.Cluster.State == ops.SiteStateDegraded ||
+		r.Agent == nil ||
+		r.Agent.GetSystemStatus() != pb.SystemStatus_Running)
+}
+
+// String returns the status string representation.
+func (r Status) String() string {
+	var cluster string
+	if r.Cluster != nil {
+		cluster = fmt.Sprintf("Cluster(%v)", *r.Cluster)
 	} else {
-		nodes = fromSystemStatus(*status)
+		cluster = "Cluster(nil)"
 	}
-
-	return &Agent{
-		SystemStatus: SystemStatus(status.Status),
-		Nodes:        nodes,
-	}, nil
+	var agent string
+	if r.Agent != nil {
+		agent = fmt.Sprintf("Agent(%v)", *r.Agent)
+	} else {
+		agent = "Agent(nil)"
+	}
+	return fmt.Sprintf("Status(%v, %v)", cluster, agent)
 }
 
 // Status describes the status of the cluster as a whole
@@ -154,6 +221,8 @@ type Status struct {
 	*Cluster `json:",inline,omitempty"`
 	// Agent describes the status of the system and individual nodes
 	*Agent `json:",inline,omitempty"`
+	// Alerts is a list of alerts collected by prometheus alertmanager
+	Alerts []*models.GettableAlert `json:"alerts,omitempty"`
 }
 
 // Cluster encapsulates collected cluster status information
@@ -166,6 +235,8 @@ type Cluster struct {
 	Reason storage.Reason `json:"reason,omitempty"`
 	// Domain provides the name of the cluster domain
 	Domain string `json:"domain"`
+	// CloudProvider has the name of the provider
+	CloudProvider string `json:"cloud_provider,omitempty"`
 	// Token specifies the provisioning token used for joining nodes to cluster if any
 	Token storage.ProvisioningToken `json:"token"`
 	// Operation describes a cluster operation.
@@ -176,7 +247,11 @@ type Cluster struct {
 	// Endpoints contains cluster and application endpoints.
 	Endpoints Endpoints `json:"endpoints"`
 	// Extension is a cluster status extension
-	Extension `json:",inline,omitempty"`
+	Extension `json:"inline,omitempty"`
+	// ServerVersion is version of the server the operator is talking to.
+	ServerVersion *proto.Version `json:"server_version,omitempty"`
+	// ClientVersion is version of the binary collecting the status.
+	ClientVersion proto.Version `json:"client_version"`
 }
 
 // Endpoints contains information about cluster and application endpoints.
@@ -191,9 +266,9 @@ type Endpoints struct {
 type ClusterEndpoints struct {
 	// AuthGateway contains addresses that users should specify via --proxy
 	// flag to tsh commands (essentially, address of gravity-site service)
-	AuthGateway []string `json:"auth_gateway"`
+	AuthGateway []string `json:"auth_gateway,omitempty"`
 	// UI contains URLs of the cluster control panel.
-	UI []string `json:"ui"`
+	UI []string `json:"ui,omitempty"`
 }
 
 // WriteTo writes cluster endpoints to the provided writer.
@@ -212,7 +287,12 @@ func (e ClusterEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 // ApplicationsEndpoints contains endpoints for multiple applications.
-type ApplicationsEndpoints []ApplicationEndpoints
+type ApplicationsEndpoints struct {
+	// Endpoints lists the endpoints of all applications
+	Endpoints []ApplicationEndpoints `json:"endpoints,omitempty"`
+	// Error indicates whether there was an error fetching endpoints
+	Error error `json:"-"`
+}
 
 // ApplicationEndpoints contains endpoints for a single application.
 type ApplicationEndpoints struct {
@@ -224,12 +304,16 @@ type ApplicationEndpoints struct {
 
 // WriteTo writes all application endpoints to the provided writer.
 func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
-	if len(e) == 0 {
+	if len(e.Endpoints) == 0 {
+		if e.Error != nil {
+			err := fprintf(&n, w, "Application endpoints: <unable to fetch>")
+			return n, trace.Wrap(err)
+		}
 		return 0, nil
 	}
 	var errors []error
 	errors = append(errors, fprintf(&n, w, "Application endpoints:\n"))
-	for _, app := range e {
+	for _, app := range e.Endpoints {
 		errors = append(errors, fprintf(&n, w, "    * %v:%v:\n",
 			app.Application.Name, app.Application.Version))
 		for _, ep := range app.Endpoints {
@@ -240,15 +324,6 @@ func (e ApplicationsEndpoints) WriteTo(w io.Writer) (n int64, err error) {
 		}
 	}
 	return n, trace.NewAggregate(errors...)
-}
-
-func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
-	written, err := fmt.Fprintf(w, format, a...)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
-	*n += int64(written)
-	return nil
 }
 
 // Key returns key structure that identifies this operation
@@ -271,6 +346,8 @@ type ClusterOperation struct {
 	State string `json:"state"`
 	// Created specifies the time the operation was created
 	Created time.Time `json:"created"`
+	// Description is the human friendly operation description
+	Description string `json:"description"`
 	// Progress describes the progress of an operation
 	Progress   ClusterOperationProgress `json:"progress"`
 	accountID  string
@@ -318,174 +395,22 @@ type ClusterServer struct {
 	Profile string `json:"profile"`
 	// Status describes the node's status
 	Status string `json:"status"`
+	// SELinux indicates whether the SELinux support is on on the node
+	SELinux *bool `json:"selinux,omitempty"`
 	// FailedProbes lists all failed probes if the node is not healthy
 	FailedProbes []string `json:"failed_probes,omitempty"`
+	// WarnProbes lists all warning probes
+	WarnProbes []string `json:"warn_probes,omitempty"`
+	// TeleportNode contains information about Teleport node running on this server
+	TeleportNode *ops.Node `json:"teleport_node,omitempty"`
+	// InstanceID is the node cloud specific instance ID
+	InstanceID string `json:"instance_id,omitempty"`
+	// InstanceType is the node cloud specific instance Type
+	InstanceType string `json:"instance_type,omitempty"`
 }
 
 func (r ClusterOperation) isFailed() bool {
 	return r.State == ops.OperationStateFailed
-}
-
-func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) *ClusterOperation {
-	return &ClusterOperation{
-		Type:       operation.Type,
-		ID:         operation.ID,
-		State:      operation.State,
-		Created:    operation.Created,
-		Progress:   fromProgressEntry(progress),
-		siteDomain: operation.SiteDomain,
-		accountID:  operation.AccountID,
-	}
-}
-
-func fromProgressEntry(src ops.ProgressEntry) ClusterOperationProgress {
-	return ClusterOperationProgress{
-		Message:    src.Message,
-		Completion: src.Completion,
-		Created:    src.Created,
-	}
-}
-
-// fromSystemStatus returns the list of node statuses in the absence
-// of the actual cluster server list so it might be missing information
-// about nodes agent status did not get response back from
-func fromSystemStatus(systemStatus pb.SystemStatus) (out []ClusterServer) {
-	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
-	for _, node := range systemStatus.Nodes {
-		out = append(out, fromNodeStatus(*node))
-	}
-	return out
-}
-
-// fromClusterState generates accurate node status report including nodes missing
-// in the agent report
-func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
-	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
-	nodes := nodes(systemStatus)
-	for _, server := range cluster {
-		node, found := nodes[server.AdvertiseIP]
-		if !found {
-			out = append(out, emptyNodeStatus(server))
-			continue
-		}
-
-		status := fromNodeStatus(*node)
-		status.Hostname = server.Hostname
-		status.Profile = server.Role
-		out = append(out, status)
-	}
-	return out
-}
-
-func planetAgentStatus(ctx context.Context) (*pb.SystemStatus, error) {
-	planetClient, err := httplib.GetPlanetClient()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	httpClient := roundtrip.HTTPClient(planetClient)
-	addr := fmt.Sprintf("https://%v:%v", constants.Localhost, defaults.SatelliteRPCAgentPort)
-	client, err := roundtrip.NewClient(addr, "", httpClient)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	resp, err := client.Get(addr, url.Values{})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	var status pb.SystemStatus
-	err = json.Unmarshal(resp.Bytes(), &status)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return &status, nil
-}
-
-// nodes returns the set of node status objects keyed by IP
-func nodes(systemStatus pb.SystemStatus) (out map[string]*pb.NodeStatus) {
-	out = make(map[string]*pb.NodeStatus)
-	for _, node := range systemStatus.Nodes {
-		publicIP := node.MemberStatus.Tags[publicIPAddrTag]
-		out[publicIP] = node
-	}
-	return out
-}
-
-func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
-	status.AdvertiseIP = node.MemberStatus.Tags[publicIPAddrTag]
-	status.Role = node.MemberStatus.Tags[roleTag]
-	switch node.Status {
-	case pb.NodeStatus_Unknown:
-		status.Status = NodeOffline
-	case pb.NodeStatus_Running:
-		status.Status = NodeHealthy
-	case pb.NodeStatus_Degraded:
-		status.Status = NodeDegraded
-	}
-	for _, probe := range node.Probes {
-		if probe.Status != pb.Probe_Running {
-			status.FailedProbes = append(status.FailedProbes,
-				probeErrorDetail(*probe))
-		}
-	}
-	if len(status.FailedProbes) != 0 {
-		status.Status = NodeDegraded
-	}
-	return status
-}
-
-func emptyNodeStatus(server storage.Server) ClusterServer {
-	return ClusterServer{
-		Status:      NodeOffline,
-		Hostname:    server.Hostname,
-		AdvertiseIP: server.AdvertiseIP,
-	}
-}
-
-// probeErrorDetail describes the failed probe
-func probeErrorDetail(p pb.Probe) string {
-	if p.Checker == monitoring.DiskSpaceCheckerID {
-		detail, err := diskSpaceProbeErrorDetail(p)
-		if err == nil {
-			return detail
-		}
-		logrus.Warnf(trace.DebugReport(err))
-	}
-	detail := p.Detail
-	if p.Detail == "" {
-		detail = p.Checker
-	}
-	return fmt.Sprintf("%v (%v)", detail, p.Error)
-}
-
-// diskSpaceProbeErrorDetail returns an appropriate error message for disk
-// space checker probe
-//
-// The reason is that state directory disk space checker always checks
-// /var/lib/gravity which is default path inside planet but may be different
-// on host so determine the real state directory if needed
-func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
-	var data monitoring.HighWatermarkCheckerData
-	err := json.Unmarshal(p.CheckerData, &data)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	// not state directory checker, return error as-is
-	if data.Path != defaults.GravityDir {
-		return p.Detail, nil
-	}
-	// if status command was run inside planet, the default error message is fine
-	if utils.CheckInPlanet() {
-		return p.Detail, nil
-	}
-	// otherwise determine the real state directory on host and reconstruct the message
-	data.Path, err = state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return data.FailureMessage(), nil
 }
 
 // String returns a textual representation of this system status
@@ -523,3 +448,351 @@ const (
 	// roleTag is the name of the tag containing node role
 	roleTag = "role"
 )
+
+func collectActiveOperations(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
+	activeOperations, err := ops.GetActiveOperations(clusterKey, operator)
+	if err != nil && !trace.IsNotFound(err) {
+		return trace.Wrap(err, "failed to query active operations")
+	}
+	for _, op := range activeOperations {
+		progress, err := operator.GetSiteOperationProgress(op.Key())
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		operation, err := fromOperationAndProgress(op, *progress)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		status.ActiveOperations = append(status.ActiveOperations, operation)
+	}
+	return nil
+}
+
+func fetchOperationByID(clusterKey ops.SiteKey, operationID string, operator ops.Operator, status *Status) error {
+	var (
+		operation *ops.SiteOperation
+		progress  *ops.ProgressEntry
+		err       error
+	)
+	// if operation ID is provided, get info for that operation, otherwise
+	// get info for the most recent operation
+	if operationID != "" {
+		opKey := ops.SiteOperationKey{
+			AccountID:   clusterKey.AccountID,
+			SiteDomain:  clusterKey.SiteDomain,
+			OperationID: operationID,
+		}
+		operation, progress, err = ops.GetOperationWithProgress(opKey, operator)
+	} else {
+		operation, progress, err = ops.GetLastFinishedOperation(clusterKey, operator)
+	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	status.Operation, err = fromOperationAndProgress(*operation, *progress)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func updateClusterNodes(clusterKey ops.SiteKey, operator ops.Operator, status *Status) error {
+	// Collect registered Teleport nodes.
+	teleportNodes, err := operator.GetClusterNodes(clusterKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if status.Agent != nil {
+		for i, server := range status.Agent.Nodes {
+			status.Agent.Nodes[i].TeleportNode = ops.Nodes(teleportNodes).FindByIP(server.AdvertiseIP)
+		}
+		return nil
+	}
+	status.Agent = &Agent{
+		Nodes: make([]ClusterServer, 0, len(teleportNodes)),
+	}
+	// Recreate server state from teleport node metadata
+	for i, server := range teleportNodes {
+		status.Agent.Nodes = append(status.Agent.Nodes, ClusterServer{
+			Status:       NodeOffline,
+			Hostname:     server.Hostname,
+			AdvertiseIP:  server.AdvertiseIP,
+			Role:         server.Role,
+			Profile:      server.Profile,
+			TeleportNode: &teleportNodes[i],
+		})
+	}
+	return nil
+}
+
+func fromPlanetAgent(ctx context.Context, local bool, servers []storage.Server) (*Agent, error) {
+	status, err := planetAgentStatus(ctx, local)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to query cluster status from agent")
+	}
+
+	var nodes []ClusterServer
+	if len(servers) != 0 {
+		nodes = fromClusterState(*status, servers)
+	} else {
+		nodes = fromSystemStatus(*status)
+	}
+
+	return &Agent{
+		SystemStatus: SystemStatus(status.Status),
+		Nodes:        nodes,
+	}, nil
+}
+
+func fromOperationAndProgress(operation ops.SiteOperation, progress ops.ProgressEntry) (*ClusterOperation, error) {
+	resource, err := ops.NewOperation(storage.SiteOperation(operation))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &ClusterOperation{
+		Type:        operation.Type,
+		ID:          operation.ID,
+		State:       operation.State,
+		Created:     operation.Created,
+		Description: ops.DescribeOperation(resource),
+		Progress:    fromProgressEntry(progress),
+		siteDomain:  operation.SiteDomain,
+		accountID:   operation.AccountID,
+	}, nil
+}
+
+func fromProgressEntry(src ops.ProgressEntry) ClusterOperationProgress {
+	return ClusterOperationProgress{
+		Message:    src.Message,
+		Completion: src.Completion,
+		Created:    src.Created,
+	}
+}
+
+// fromSystemStatus returns the list of node statuses in the absence
+// of the actual cluster server list so it might be missing information
+// about nodes agent status did not get response back from
+func fromSystemStatus(systemStatus pb.SystemStatus) (out []ClusterServer) {
+	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
+	for _, node := range systemStatus.Nodes {
+		out = append(out, fromNodeStatus(*node))
+	}
+	return out
+}
+
+// fromClusterState generates accurate node status report including nodes missing
+// in the agent report
+func fromClusterState(systemStatus pb.SystemStatus, cluster []storage.Server) (out []ClusterServer) {
+	out = make([]ClusterServer, 0, len(systemStatus.Nodes))
+	nodes := nodes(systemStatus)
+	for _, server := range cluster {
+		node, found := nodes[server.AdvertiseIP]
+		if !found {
+			out = append(out, emptyNodeStatus(server))
+			continue
+		}
+
+		status := fromNodeStatus(*node)
+		status.Hostname = server.Hostname
+		status.Profile = server.Role
+		status.SELinux = utils.BoolPtr(server.SELinux)
+		out = append(out, status)
+	}
+	return out
+}
+
+func planetAgentStatus(ctx context.Context, local bool) (*pb.SystemStatus, error) {
+	urlFormat := "https://%v:%v"
+	if local {
+		urlFormat = "https://%v:%v/local"
+	}
+	planetClient, err := httplib.GetPlanetClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	httpClient := roundtrip.HTTPClient(planetClient)
+	addr := fmt.Sprintf(urlFormat, constants.Localhost, defaults.SatelliteRPCAgentPort)
+	client, err := roundtrip.NewClient(addr, "", httpClient)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	resp, err := client.Get(ctx, addr, url.Values{})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	var status pb.SystemStatus
+	err = json.Unmarshal(resp.Bytes(), &status)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return &status, nil
+}
+
+// nodes returns the set of node status objects keyed by IP
+func nodes(systemStatus pb.SystemStatus) (out map[string]*pb.NodeStatus) {
+	out = make(map[string]*pb.NodeStatus)
+	for _, node := range systemStatus.Nodes {
+		publicIP := node.MemberStatus.Tags[publicIPAddrTag]
+		out[publicIP] = node
+	}
+	return out
+}
+
+func fromNodeStatus(node pb.NodeStatus) (status ClusterServer) {
+	status.AdvertiseIP = node.MemberStatus.Tags[publicIPAddrTag]
+	status.Role = node.MemberStatus.Tags[roleTag]
+	switch node.Status {
+	case pb.NodeStatus_Unknown:
+		status.Status = NodeOffline
+	case pb.NodeStatus_Running:
+		status.Status = NodeHealthy
+	case pb.NodeStatus_Degraded:
+		status.Status = NodeDegraded
+	}
+	for _, probe := range node.Probes {
+		if probe.Status != pb.Probe_Running {
+			if probe.Severity != pb.Probe_Warning {
+				status.FailedProbes = append(status.FailedProbes,
+					probeErrorDetail(*probe))
+			} else {
+				status.WarnProbes = append(status.WarnProbes,
+					probeErrorDetail(*probe))
+			}
+		}
+	}
+	if len(status.FailedProbes) != 0 {
+		status.Status = NodeDegraded
+	}
+	return status
+}
+
+func emptyNodeStatus(server storage.Server) ClusterServer {
+	return ClusterServer{
+		Status:      NodeOffline,
+		Hostname:    server.Hostname,
+		AdvertiseIP: server.AdvertiseIP,
+	}
+}
+
+// probeErrorDetail describes the failed probe
+func probeErrorDetail(p pb.Probe) string {
+	var detail string
+	var err error
+	switch p.Checker {
+	case monitoring.DiskSpaceCheckerID:
+		if detail, err = diskSpaceProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose disk space probe error.")
+		}
+	case monitoring.PathUIDCheckerID:
+		if detail, err = pathUIDProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose path UID probe error.")
+		}
+	case monitoring.PathGIDCheckerID:
+		if detail, err = pathGIDProbeErrorDetail(p); err != nil {
+			log.WithError(err).Warn("Failed to compose path GID probe error.")
+		}
+	}
+	if detail == "" {
+		detail = p.Detail
+	}
+	if detail == "" {
+		detail = p.Checker
+	}
+	if p.Error == "" {
+		return detail
+	}
+	return fmt.Sprintf("%v (%v)", detail, p.Error)
+}
+
+func pathUIDProbeErrorDetail(p pb.Probe) (string, error) {
+	var data monitoring.PathUIDCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// Not a state directory checker, so no need to update the directory in the message.
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// If status command was run inside planet, the default error message is fine.
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// Otherwise determine the real state directory on host and reconstruct the message.
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return data.FailureMessage(), nil
+}
+
+func pathGIDProbeErrorDetail(p pb.Probe) (string, error) {
+	var data monitoring.PathGIDCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// Not a state directory checker, so no need to update the directory in the message.
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// If status command was run inside planet, the default error message is fine.
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// Otherwise determine the real state directory on host and reconstruct the message.
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	return data.FailureMessage(), nil
+}
+
+// diskSpaceProbeErrorDetail returns an appropriate error message for disk
+// space checker probe
+//
+// The reason is that state directory disk space checker always checks
+// /var/lib/gravity which is default path inside planet but may be different
+// on host so determine the real state directory if needed
+func diskSpaceProbeErrorDetail(p pb.Probe) (string, error) {
+	var data monitoring.HighWatermarkCheckerData
+	err := json.Unmarshal(p.CheckerData, &data)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	// not state directory checker, return error as-is
+	if data.Path != defaults.GravityDir {
+		return p.Detail, nil
+	}
+	// if status command was run inside planet, the default error message is fine
+	if utils.CheckInPlanet() {
+		return p.Detail, nil
+	}
+	// otherwise determine the real state directory on host and reconstruct the message
+	data.Path, err = state.GetStateDir()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	if p.Severity == pb.Probe_Critical {
+		return data.CriticalMessage(), nil
+	}
+
+	if p.Severity == pb.Probe_Warning {
+		return data.WarningMessage(), nil
+	}
+
+	return "", trace.BadParameter("probe does not have warning or critical severity")
+}
+
+func fprintf(n *int64, w io.Writer, format string, a ...interface{}) error {
+	written, err := fmt.Fprintf(w, format, a...)
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	*n += int64(written)
+	return nil
+}

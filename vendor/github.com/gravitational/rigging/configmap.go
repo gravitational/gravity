@@ -16,57 +16,44 @@ package rigging
 
 import (
 	"context"
-	"io"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
-	"k8s.io/api/core/v1"
+	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 // NewConfigMapControl returns new instance of ConfigMap updater
 func NewConfigMapControl(config ConfigMapConfig) (*ConfigMapControl, error) {
-	err := config.CheckAndSetDefaults()
+	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rc *v1.ConfigMap
-	if config.ConfigMap != nil {
-		rc = config.ConfigMap
-	} else {
-		rc, err = ParseConfigMap(config.Reader)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	rc.Kind = KindConfigMap
 	return &ConfigMapControl{
 		ConfigMapConfig: config,
-		configMap:       *rc,
 		Entry: log.WithFields(log.Fields{
-			"configMap": formatMeta(rc.ObjectMeta),
+			"configMap": formatMeta(config.ObjectMeta),
 		}),
 	}, nil
 }
 
 // ConfigMapConfig  is a ConfigMap control configuration
 type ConfigMapConfig struct {
-	// Reader with daemon set to update, will be used if present
-	Reader io.Reader
 	// ConfigMap is already parsed daemon set, will be used if present
-	ConfigMap *v1.ConfigMap
+	*v1.ConfigMap
 	// Client is k8s client
 	Client *kubernetes.Clientset
 }
 
-func (c *ConfigMapConfig) CheckAndSetDefaults() error {
-	if c.Reader == nil && c.ConfigMap == nil {
-		return trace.BadParameter("missing parameter Reader or ConfigMap")
+func (c *ConfigMapConfig) checkAndSetDefaults() error {
+	if c.ConfigMap == nil {
+		return trace.BadParameter("missing parameter ConfigMap")
 	}
 	if c.Client == nil {
 		return trace.BadParameter("missing parameter Client")
 	}
+	updateTypeMetaConfigMap(c.ConfigMap)
 	return nil
 }
 
@@ -74,39 +61,45 @@ func (c *ConfigMapConfig) CheckAndSetDefaults() error {
 // adds various operations, like delete, status check and update
 type ConfigMapControl struct {
 	ConfigMapConfig
-	configMap v1.ConfigMap
 	*log.Entry
 }
 
 func (c *ConfigMapControl) Delete(ctx context.Context, cascade bool) error {
-	c.Infof("delete %v", formatMeta(c.configMap.ObjectMeta))
+	c.Infof("delete %v", formatMeta(c.ConfigMap.ObjectMeta))
 
-	err := c.Client.Core().ConfigMaps(c.configMap.Namespace).Delete(c.configMap.Name, nil)
+	err := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace).Delete(c.ConfigMap.Name, nil)
 	return ConvertError(err)
 }
 
 func (c *ConfigMapControl) Upsert(ctx context.Context) error {
-	c.Infof("upsert %v", formatMeta(c.configMap.ObjectMeta))
+	c.Infof("upsert %v", formatMeta(c.ConfigMap.ObjectMeta))
 
-	configMaps := c.Client.Core().ConfigMaps(c.configMap.Namespace)
-	c.configMap.UID = ""
-	c.configMap.SelfLink = ""
-	c.configMap.ResourceVersion = ""
-	_, err := configMaps.Get(c.configMap.Name, metav1.GetOptions{})
+	configMaps := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace)
+	c.ConfigMap.UID = ""
+	c.ConfigMap.SelfLink = ""
+	c.ConfigMap.ResourceVersion = ""
+	_, err := configMaps.Get(c.ConfigMap.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = configMaps.Create(&c.configMap)
+		_, err = configMaps.Create(c.ConfigMap)
 		return ConvertError(err)
 	}
-	_, err = configMaps.Update(&c.configMap)
+	_, err = configMaps.Update(c.ConfigMap)
 	return ConvertError(err)
 }
 
 func (c *ConfigMapControl) Status() error {
-	configMaps := c.Client.Core().ConfigMaps(c.configMap.Namespace)
-	_, err := configMaps.Get(c.configMap.Name, metav1.GetOptions{})
+	configMaps := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace)
+	_, err := configMaps.Get(c.ConfigMap.Name, metav1.GetOptions{})
 	return ConvertError(err)
+}
+
+func updateTypeMetaConfigMap(r *v1.ConfigMap) {
+	r.Kind = KindConfigMap
+	if r.APIVersion == "" {
+		r.APIVersion = v1.SchemeGroupVersion.String()
+	}
 }

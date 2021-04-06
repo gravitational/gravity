@@ -163,7 +163,7 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 	config.Auth = getWebConfigAuthSettings(h.cfg)
 	config.Modules.OpsCenter.Features.LicenseGenerator.Enabled = true
 
-	cluster, err := h.cfg.Operator.GetLocalSite()
+	cluster, err := h.cfg.Operator.GetLocalSite(r.Context())
 	if err != nil && !trace.IsNotFound(err) {
 		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
 		replyError(w, "failed to get local site", http.StatusInternalServerError)
@@ -176,7 +176,17 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 		}
 		manifest := cluster.App.Manifest
 		config.User.Logo = manifest.Logo
-		config.User.Login.HeaderText = manifest.Metadata.Name
+		// TODO(r0mant): Ideally our manifest would have something like
+		// display name but for now provide custom headers for our
+		// system images.
+		switch manifest.Metadata.Name {
+		case defaults.TelekubePackage:
+			config.User.Login.HeaderText = defaults.GravityDisplayName
+		case defaults.OpsCenterPackage:
+			config.User.Login.HeaderText = defaults.GravityHubDisplayName
+		default:
+			config.User.Login.HeaderText = manifest.Metadata.Name
+		}
 	}
 
 	if h.cfg.Mode == constants.ComponentSite || h.cfg.Wizard {
@@ -194,7 +204,7 @@ func (h *WebHandler) configHandler(w http.ResponseWriter, r *http.Request, p htt
 }
 
 func (h *WebHandler) rootHandler(w http.ResponseWriter, r *http.Request, p httprouter.Params, s session) {
-	cluster, err := h.cfg.Operator.GetLocalSite()
+	cluster, err := h.cfg.Operator.GetLocalSite(r.Context())
 	if err != nil && !trace.IsNotFound(err) {
 		log.Errorf("Failed to get local site: %v.", trace.DebugReport(err))
 		replyError(w, "failed to get local site", http.StatusInternalServerError)
@@ -245,7 +255,9 @@ func (h *WebHandler) defaultHandler(w http.ResponseWriter, r *http.Request, p ht
 		Session: s.Session,
 	}
 
-	indexPage.Execute(w, tmplValues)
+	if err := indexPage.Execute(w, tmplValues); err != nil {
+		log.WithError(err).Warn("Failed to render index page template.")
+	}
 }
 
 // installHandler serves /web/installer/site/<sitename> and its subpaths
@@ -469,7 +481,8 @@ func (h *WebHandler) needsLogin(handle webHandle) httprouter.Handle {
 			if !trace.IsAccessDenied(err) {
 				log.Error(trace.DebugReport(err))
 			}
-			http.Redirect(w, r, "/web/login", http.StatusFound)
+
+			http.Redirect(w, r, "/web/login?redirect_uri="+r.URL.Path, http.StatusFound)
 		}
 	}
 }

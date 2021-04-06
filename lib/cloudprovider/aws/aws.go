@@ -49,16 +49,22 @@ type Instance struct {
 
 // IsRunningOnAWS indicates if the current running process appears to be running
 // on an AWS instance by checking the availability of the AWS metadata API
-func IsRunningOnAWS() bool {
-	session := session.New()
+func IsRunningOnAWS() (bool, error) {
+	session, err := session.NewSession()
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
 	metadata := ec2metadata.New(session)
-	return metadata.Available()
+	return metadata.Available(), nil
 }
 
 // NewLocalInstance creates a new Instance describing the AWS instance
 // we are running on
 func NewLocalInstance() (*Instance, error) {
-	session := session.New()
+	session, err := session.NewSession()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	metadata := ec2metadata.New(session)
 	creds := credentials.NewCredentials(&credentials.ChainProvider{
 		VerboseErrors: true,
@@ -76,6 +82,11 @@ func NewLocalInstance() (*Instance, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	if len(zone) == 0 {
+		return nil, trace.NotFound("could not determine availability zone")
+	}
+
 	regionName := zone[:len(zone)-1]
 	ec2 := ec2.New(session, &aws.Config{
 		Region:      &regionName,

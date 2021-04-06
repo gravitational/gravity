@@ -7,112 +7,116 @@ def propagateParamsToEnv() {
   }
 }
 
-properties([
-  disableConcurrentBuilds(),
-  parameters([
-    choice(choices: ["run", "skip"].join("\n"),
-           defaultValue: 'run',
-           description: 'Run or skip robotest system wide tests.',
-           name: 'RUN_ROBOTEST'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Destroy all VMs on success.',
-           name: 'DESTROY_ON_SUCCESS'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Destroy all VMs on failure.',
-           name: 'DESTROY_ON_FAILURE'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Abort all tests upon first failure.',
-           name: 'FAIL_FAST'),
-    choice(choices: ["gce"].join("\n"),
-           defaultValue: 'gce',
-           description: 'Cloud provider to deploy to.',
-           name: 'DEPLOY_TO'),
-    string(name: 'PARALLEL_TESTS',
-           defaultValue: '4',
-           description: 'Number of parallel tests to run.'),
-    string(name: 'REPEAT_TESTS',
-           defaultValue: '1',
-           description: 'How many times to repeat each test.'),
-    string(name: 'ROBOTEST_VERSION',
-           defaultValue: 'stable-gce',
-           description: 'Robotest tag to use.'),
-    choice(choices: ["true", "false"].join("\n"),
-           defaultValue: 'true',
-           description: 'Whether to use preemptible VMs.',
-           name: 'GCE_PREEMPTIBLE'),
-    choice(choices: ["custom-4-8192", "custom-8-8192"].join("\n"),
-           defaultValue: 'custom-8-8192',
-           description: 'VM type to use.',
-           name: 'GCE_VM'),
-  ]),
-])
+// Define Robotest configuration parameters that may be tweaked per job.
+// This is needed for the Jenkins GitHub Branch Source Plugin
+// which creases a unique Jenkins job for each pull request.
+def setRobotestParameters() {
+  properties([
+      disableConcurrentBuilds(),
+      parameters([
+        // WARNING: changing parameters will not affect the next build, only the following one
+        // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
+        choice(choices: ["skip", "run"].join("\n"),
+          // defaultValue is not applicable to choices. The first choice will be the default.
+          description: 'Run or skip robotest system wide tests.',
+          name: 'RUN_ROBOTEST'),
+        choice(choices: ["true", "false"].join("\n"),
+          description: 'Destroy all VMs on success.',
+          name: 'DESTROY_ON_SUCCESS'),
+        choice(choices: ["true", "false"].join("\n"),
+          description: 'Destroy all VMs on failure.',
+          name: 'DESTROY_ON_FAILURE'),
+        choice(choices: ["true", "false"].join("\n"),
+          description: 'Abort all tests upon first failure.',
+          name: 'FAIL_FAST'),
+      ]),
+  ])
+}
+
+// robotest() defines the robotest pipeline.  It is expected to be run after
+// the gravity build, as it implicitly relies on artifacts & state from those targets.
+//
+// Per https://plugins.jenkins.io/pipeline-stage-view/: If we want to visualize
+// dynamically changing stages, it is better to make it conditional to execute the
+// stage contents, not conditional to include the stage.
+def robotest() {
+  stage('set robotest params') {
+    // For try builds, we DO NOT want to overwrite parameters, as try builds
+    // offer a superset of PR/nightly parameters, and the extra ones will be
+    // lost when setRobotestParameters() is called -- 2020-04 walt
+    echo "Jenkins Job Parameters:"
+    for(int i = 0; i < params.size(); i++) { echo "${params[i]}" }
+    if (env.KEEP_PARAMETERS == 'true') {
+      echo "KEEP_PARAMETERS detected. Ignoring Jenkins job parameters from Jenkinsfile."
+    } else {
+      echo "Overwriting Jenkins job parameters with parameters from Jenkinsfile."
+      setRobotestParameters()
+      propagateParamsToEnv()
+    }
+  }
+  runRobotest = (env.RUN_ROBOTEST == 'run')
+  stage('build robotest images') {
+    if (runRobotest) {
+      // Use a shared cache outside the build directory, to avoid repeat downloads and improve
+      // build time. For more info see:
+      //   https://github.com/gravitational/gravity/blob/4c7ac3ada1e3fb50cf8afdd1d1a4ed4d34bb75d0/assets/robotest/README.md#local-caching
+      withEnv(["ROBOTEST_CACHE_ROOT=/var/lib/gravity/robotest-cache"]) {
+        sh 'make -C e/assets/robotest images'
+      }
+    } else {
+      echo 'skipping building robotest images'
+    }
+  }
+  throttle(['robotest']) {
+    stage('run robotest') {
+      if (runRobotest) {
+        withCredentials([
+          file(credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
+          file(credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'),
+          file(credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'),
+        ]) {
+          sh 'make -C e robotest-run'
+        }
+      } else {
+        echo 'skipping robotest execution'
+      }
+    }
+  } // end throttle
+}
 
 timestamps {
-  node {
+  node { ansiColor('xterm') {
     stage('checkout') {
       checkout scm
-      sh "git submodule update --init --recursive"
-      sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
-    }
-    stage('params') {
-      echo "${params}"
-      propagateParamsToEnv()
+        sh "git submodule update --init --recursive"
+        sh "sudo git clean -ffdx" // supply -f flag twice to force-remove untracked dirs with .git subdirs (e.g. submodules)
     }
     stage('clean') {
       sh "make -C e clean"
     }
-    stage('build-gravity') {
+    stage('build gravity') {
       withCredentials([
-      [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'],
-      [
-        $class: 'UsernamePasswordMultiBinding',
-        credentialsId: 'jenkins-aws-s3',
-        usernameVariable: 'AWS_ACCESS_KEY_ID',
-        passwordVariable: 'AWS_SECRET_ACCESS_KEY',
-      ],
+          sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
+          usernamePassword(credentialsId: 'jenkins-aws-s3', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY'),
       ]) {
         sh 'make -C e production telekube opscenter'
       }
     }
-  }
-  throttle(['robotest']) {
-    node {
-      stage('build-and-test') {
-        parallel (
-        build : {
-          withCredentials([
-          [$class: 'SSHUserPrivateKeyBinding', credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY']]) {
-            sh 'make test && make -C e test'
+  }}
+  node { ansiColor('xterm') {
+    parallel (
+        unittest : {
+          stage("unit test gravity") {
+            withCredentials([
+              sshUserPrivateKey(credentialsId: '08267d86-0b3a-4101-841e-0036bf780b11', keyFileVariable: 'GITHUB_SSH_KEY'),
+            ]) {
+              sh 'make test && make -C e test'
+            }
           }
         },
         robotest : {
-          if (params.RUN_ROBOTEST == 'run') {
-            withCredentials([
-                [
-                  $class: 'UsernamePasswordMultiBinding',
-                  credentialsId: 'jenkins-aws-s3',
-                  usernameVariable: 'AWS_ACCESS_KEY_ID',
-                  passwordVariable: 'AWS_SECRET_ACCESS_KEY'
-                ],
-                [$class: 'StringBinding', credentialsId: 'GET_GRAVITATIONAL_IO_APIKEY', variable: 'GET_GRAVITATIONAL_IO_APIKEY'],
-                [$class: 'FileBinding', credentialsId:'ROBOTEST_LOG_GOOGLE_APPLICATION_CREDENTIALS', variable: 'GOOGLE_APPLICATION_CREDENTIALS'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_KEY', variable: 'SSH_KEY'],
-                [$class: 'FileBinding', credentialsId:'OPS_SSH_PUB', variable: 'SSH_PUB'],
-                ]) {
-                  sh """
-                  make -C e robotest-run-suite \
-                    AWS_KEYPAIR=ops \
-                    AWS_REGION=us-east-1 \
-                    ROBOTEST_VERSION=$ROBOTEST_VERSION"""
-            }
-          }else {
-            echo 'skipped system tests'
-          }
-        } )
-      }
-    }
-  }
+          robotest()
+        }
+    ) // end parallel
+  }} // end ansiColor & node
 }

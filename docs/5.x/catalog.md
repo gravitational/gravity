@@ -1,6 +1,11 @@
+---
+title: Catalog of Kubernetes Applications
+description: How to build and manage a catalog of Kubernetes applications for on-premise deployments
+---
+
 # Application Catalog
 
-!!! note:
+!!! note
     The Application Catalog feature is currently under active development and
     is available starting from 5.4.0 alpha releases.
 
@@ -13,7 +18,7 @@ An application image is a tarball that contains:
 * A Helm chart (possibly with chart dependencies).
 * Vendored Docker images for the chart's Kubernetes resources.
 
-!!! tip:
+!!! tip
     The `tele` and `gravity` binaries have all required Helm functionality
     built-in so the `helm` binary isn't required to be installed on the
     server when building applications, or inside a deployed cluster. The
@@ -33,7 +38,7 @@ Helm Version: v2.12
 
 ### Build an Application Image
 
-For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/master/docs/examples/alpine).
+For this example we will be using a [sample Helm chart](https://github.com/helm/helm/tree/v2.16.8/docs/examples/alpine).
 This chart spins up a single pod of Alpine Linux:
 
 ```bsh
@@ -52,7 +57,7 @@ image reference includes a registry template variable which can be set to
 an appropriate registry during installation:
 
 ```bsh
-image: "{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+image: "{% raw %}{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}{% endraw %}"
 ```
 
 We can now use `tele` to build an application image from this chart:
@@ -66,8 +71,8 @@ chart and the Alpine image layers.
 
 ### Publish an Application Image
 
-!!! note:
-    Publishing applications requires an [Ops Center](/opscenter) and is
+!!! note
+    Publishing applications requires an [Ops Center](opscenter.md) and is
     available only in the Enterprise edition of Gravity.
 
 A built application image can be published to an Ops Center. This allows the
@@ -112,7 +117,7 @@ Digest: sha256:014c089bd8b453b6870d2994eb4240ee69555fc5d760ffe515ef3079f5bcdad8
 Status: Downloaded newer image for ops.example.com/alpine:3.3
 ```
 
-!!! note:
+!!! note
     Pushing Docker images directly to the Ops Center registry with `docker push`
     is not supported. Use `tele push` to publish application image along with
     its charts and layers to the Ops Center.
@@ -162,7 +167,7 @@ between the Open-Source and Enterprise versions of Gravity:
 * For the Open-Source clusters, it is the Gravitational default
 distribution portal (`get.gravitational.io`).
 * For the Enterprise clusters, it is the Ops Center a cluster
-is connected to. See [Configuring Trusted Clusters](/cluster/#configuring-trusted-clusters)
+is connected to. See [Configuring Trusted Clusters](cluster.md#configuring-trusted-clusters)
 for details on how to connect a cluster to an Ops Center.
 
 The `-a` flag makes the command to display both local and remote applications.
@@ -231,7 +236,7 @@ Release         Status      Chart          Revision  Namespace  Updated
 test-release    DEPLOYED    alpine-0.1.0   1         default    Thu Dec  6 21:13:14 UTC
 ```
 
-!!! tip:
+!!! tip
     The `gravity app` set of sub-commands support many of the same flags of
     the respective `helm` commands such as `--set`, `--values`, `--namespace`
     and so on. Check `--help` for each command to see which are supported.

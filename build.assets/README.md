@@ -1,10 +1,51 @@
-### Build Assets
+Gravity
+=======
 
-This directory is used by Jenkinds to build Gravity inside CI/CD pipeline using
-Docker container to ensure reproducible builds.
+Gravity is a Kubernetes packaging solution that takes the drama out of
+on-premises deployments.
 
-To do it manually simply type:
+Project Links
+==============
 
-```
-make
-```
+Gravity Website:  https://gravitational.com/gravity/
+Quick Start    :  https://gravitational.com/gravity/docs/quickstart/
+Gravity Source :  https://github.com/gravitational/gravity
+Blog           :  https://blog.gravitational.com
+
+Introduction
+============
+
+Gravity is an open source toolkit for creating "images" of Kubernetes
+clusters and the applications running inside the clusters. The resulting
+images are called *cluster or application images* and they are just `.tar` files.
+
+A cluster image can be used to re-create full replicas of the original
+cluster in any environment where compliance and consistency matters, i.e. in
+locked-down AWS/GCE/Azure environments or even in air-gapped server rooms. A
+bundle can run without human supervision, as a "kubernetes appliance".
+
+Gravity has been running in production in major financial institutions,
+government data centers and enterprises. Gravitational open sourced it in the
+fall of 2018.
+
+Installing
+==========
+
+Execute `./install.sh` script as root. It will copy `tele`, `gravity` and `tsh`
+binaries into `/usr/local/bin`.
+
+What are these binaries?
+
+* `tele` is a tool to build cluster and application images.
+* `gravity` is a tool to install cluster and application images and manage
+  Gravity clusters and installed applications.
+* `tsh` is a tool to remotely connect to clusters created from the images.
+  tsh supports both SSH and Kubernetes API.
+
+See the quick start to learn how to use these tools:
+https://gravitational.com/gravity/docs/quickstart/
+
+Talk to us
+==========
+
+* Want to join our team? https://jobs.lever.co/gravitational

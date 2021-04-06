@@ -30,7 +30,7 @@ import (
 )
 
 // NewTestPeer creates a new peer instance for tests
-func NewTestPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger,
+func NewTestPeer(c *C, config PeerConfig, serverAddr string,
 	cmd commandExecutor, sysinfo TestSystemInfo) *PeerServer {
 	if config.Credentials.IsEmpty() {
 		config.Credentials = TestCredentials(c)
@@ -41,7 +41,7 @@ func NewTestPeer(c *C, config PeerConfig, serverAddr string, log log.FieldLogger
 	if config.systemInfo == nil {
 		config.systemInfo = sysinfo
 	}
-	peer, err := NewPeer(config, serverAddr, log)
+	peer, err := NewPeer(config, serverAddr)
 	c.Assert(err, IsNil)
 
 	return peer
@@ -70,10 +70,11 @@ func TestServerCredentials(c *C) credentials.TransportCredentials {
 	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
 }
 
-func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
-	stream.Send(&pb.Message{&pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: args}}})
-	stream.Send(&pb.Message{&pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
-	stream.Send(&pb.Message{&pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
+// nolint:errcheck
+func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
+	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: req.Args}}})
+	stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
+	stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
 	return nil
 }
 

@@ -18,15 +18,16 @@ package install
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
+	"github.com/gravitational/gravity/lib/pack/localpack"
 	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
@@ -57,16 +58,14 @@ type FSMConfig struct {
 	Apps app.Applications
 	// Operator is authenticated installer ops client
 	Operator ops.Operator
+	// LocalClusterClient is a factory for creating a client to the installed cluster.
+	LocalClusterClient func(...httplib.ClientOption) (*opsclient.Client, error)
 	// LocalPackages is the machine-local pack service
-	LocalPackages pack.PackageService
+	LocalPackages *localpack.PackageServer
 	// LocalApps is the machine-local apps service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
 	LocalBackend storage.Backend
-	// RemoteOpsURL is an optional URL of the remote Ops Center
-	RemoteOpsURL string
-	// RemoteOpsToken is the auth token for the above Ops Center
-	RemoteOpsToken string
 	// Spec is the FSM spec
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents
@@ -99,6 +98,9 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	if c.LocalPackages == nil {
 		return trace.BadParameter("missing LocalPackages")
 	}
+	if c.LocalClusterClient == nil {
+		return trace.BadParameter("missing LocalClusterClient")
+	}
 	if c.LocalApps == nil {
 		return trace.BadParameter("missing LocalApps")
 	}
@@ -109,7 +111,7 @@ func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 		c.Spec = FSMSpec(*c)
 	}
 	if c.Credentials == nil {
-		c.Credentials, err = rpc.ClientCredentials(defaults.RPCAgentSecretsDir)
+		c.Credentials, err = ClientCredentials(c.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -127,8 +129,8 @@ func NewFSM(config FSMConfig) (*fsm.FSM, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if op.Type != ops.OperationInstall {
-		return nil, trace.BadParameter("expected %v to be install operation, not %v",
+	if op.Type != ops.OperationInstall && op.Type != ops.OperationReconfigure {
+		return nil, trace.BadParameter("expected %v to be install or reconfigure operation, not %v",
 			config.OperationKey, op.Type)
 	}
 	logger := logrus.WithFields(logrus.Fields{
@@ -188,21 +190,15 @@ func (f *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 
 // Complete marks the install operation as either completed or failed based
 // on the state of the operation plan
-func (f *fsmEngine) Complete(fsmErr error) error {
+func (f *fsmEngine) Complete(ctx context.Context, fsmErr error) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fsm.IsCompleted(plan) {
-		err = ops.CompleteOperation(f.OperationKey, f.Operator)
-	} else {
-		err = ops.FailOperation(f.OperationKey, f.Operator, trace.Unwrap(fsmErr).Error())
+	if fsmErr == nil {
+		fsmErr = trace.Errorf("completed manually")
 	}
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	f.Debug("Marked operation complete.")
-	return nil
+	return fsm.CompleteOrFailOperation(ctx, plan, f.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an operation plan changelog entry
@@ -242,15 +238,16 @@ func (f *fsmEngine) GetExecutor(p fsm.ExecutorParams, remote fsm.Remote) (fsm.Ph
 
 // RunCommand executes the phase specified by params on the specified server
 // using the provided runner
-func (f *fsmEngine) RunCommand(ctx context.Context, runner fsm.RemoteRunner, server storage.Server, p fsm.Params) error {
-	args := []string{"install", "--phase", p.PhaseID, fmt.Sprintf("--force=%v", p.Force)}
-	if f.RemoteOpsURL != "" && f.RemoteOpsToken != "" {
-		args = append(args,
-			fmt.Sprintf("--ops-url=%v", f.RemoteOpsURL),
-			fmt.Sprintf("--ops-token=%v", f.RemoteOpsToken))
+func (f *fsmEngine) RunCommand(ctx context.Context, runner rpc.RemoteRunner, server storage.Server, p fsm.Params) error {
+	args := []string{"plan", "execute",
+		"--phase", p.PhaseID,
+		"--operation-id", p.OperationID,
+	}
+	if p.Force {
+		args = append(args, "--force")
 	}
 	if f.Insecure {
-		args = append([]string{"--debug", "--insecure"}, args...)
+		args = append(args, "--debug", "--insecure")
 	}
 	return runner.Run(ctx, server, args...)
 }

@@ -7,7 +7,7 @@ Telekube works with Kubernetes applications. This means the following prerequisi
 * The application is packaged into Docker containers.
 * You have Kubernetes resource definitions for application services, pods, etc. Kubernetes resources should be stored in the resources directory.
 
-!!! tip:
+!!! tip
 		For easy development while porting applications to Kubernetes, we recommend
 		[minikube](https://github.com/kubernetes/minikube), a Kubernetes distribution
 		optimized to run on a developer's machine. Once your application runs on
@@ -82,7 +82,7 @@ Cluster:	remote.cluster.1234
 Expires:	Fri Feb 17 15:46 UTC (19 hours from now)
 ```
 
-!!! note:
+!!! note 
     The `tele login` command needs to
     be executed from a machine with a browser by default.
 
@@ -105,7 +105,7 @@ tarball ("Application Bundle").
 
 An Application Manifest is required to create an Application Bundle. An Application Manifest is
 a YAML file which describes the build and installation process and requirements. The
-[Application Manifest](/pack/#application-manifest) section has further details about it.
+[Application Manifest](#application-manifest) section has further details about it.
 
 `tele build` command will read an Application Manifest and will make sure that
 all of the dependencies are available locally on the build machine. If the
@@ -133,15 +133,19 @@ The example below builds a Docker image called `tele-buildbox`. This image will 
 First, build docker image `tele-buildbox` with `tele` inside:
 
 ```Docker
-FROM quay.io/gravitational/debian-grande:0.0.1
+FROM quay.io/gravitational/debian-grande:buster
 
 ARG TELE_VERSION
-RUN apt-get update
-RUN apt-get -y install curl make git
+RUN apt-get update && \
+    apt-get -y install curl make git apt-transport-https ca-certificates gnupg software-properties-common
+RUN curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian buster stable"
+RUN apt-get update && \
+    apt-get -y install docker-ce-cli
 RUN curl https://get.gravitational.io/telekube/bin/${TELE_VERSION}/linux/x86_64/tele -o /usr/bin/tele && chmod 755 /usr/bin/tele
 ```
 
-Then build the image:
+Set the `TELE_VERSION` argument to the desired Gravity version, then build the docker image:
 
 ```bash
 docker build . -t tele-buildbox:latest
@@ -183,7 +187,7 @@ docker run -e OPS_URL=<opscenter url> \
         bash -c "cd /mnt/app && build.sh"
 ```
 
-!!! note:
+!!! note
     Notice that we are reusing tele loaded cache directory in between builds
     by setting `--state-dir`. You can use unique temporary directory
     to avoid sharing state between builds, or use parallel builds instead.
@@ -195,7 +199,7 @@ After packaging an application into an Application Bundle, it can be deployed an
 installed by publishing it into the Ops Center. The commands below are used to manage the
 publishing process.
 
-!!! note:
+!!! note 
 		The commands below will only work if a user is first
 		logged into an Ops Center by using `tele login`.
 
@@ -621,7 +625,7 @@ hooks:
   restore:
 ```
 
-See [here](/requirements/#identifying-os-distributions-in-manifest) for version matrix to help with
+See [here](requirements.md#identifying-os-distributions-in-manifest) for version matrix to help with
 specifying OS distribution requirements for a node profile.
 
 ## Application Hooks
@@ -690,10 +694,10 @@ hooks:
 
 To see more examples of specific hooks, please refer to the following documentation sections:
 
-* [Application Status](/cluster/#application-status) for `status` hook
-* [Backup & Restore](/cluster/#backup-restore) for `backup` and `restore` hooks
+* [Application Status](cluster.md#application-status) for `status` hook
+* [Backup & Restore](cluster.md#backup-and-restore) for `backup` and `restore` hooks
 
-!!! tip:
+!!! tip
     The `quay.io/gravitational/debian-tall:0.0.1` image is a lightweight (~11MB)
     distribution of Debian Linux that is a good fit for running Go or statically
     linked binaries.
@@ -725,7 +729,7 @@ directories with Helm charts (determined by the presence of `Chart.yaml` file)
 and vendor all Docker images they reference into the resulting installer
 tarball.
 
-!!! note:
+!!! note 
     The machine running `tele build` must have Helm binary [installed](https://docs.helm.sh/using_helm/#installing-helm)
     and available in PATH as well as its [template plugin](https://docs.helm.sh/using_helm/#installing-a-plugin).
 
@@ -735,7 +739,7 @@ Helm templating engine can be used to tag images with an appropriate registry.
 For example, `example.yaml` may contain the following image reference:
 
 ```yaml
-image: {{.Values.registry}}postgres:9.4.4
+image: {% raw %}{{.Values.registry}}{% endraw %}postgres:9.4.4
 ```
 
 And `values.yaml` may define the `registry` templating variable that can be set
@@ -771,7 +775,7 @@ Note how the hook command sets the registry variable to point to the cluster's
 local Docker registry so that when Helm renders resource templates, they contain
 correct image references.
 
-!!! tip:
+!!! tip
     There is a sample application available on [GitHub](https://github.com/gravitational/quickstart/tree/master/mattermost)
     that demonstrates this workflow.
 
@@ -809,7 +813,7 @@ installer:
     - "Bandwagon"
 ```
 
-!!! Note:
+!!! note 
 	  Currently, only one setup endpoint per application is supported.
 
 
@@ -875,7 +879,7 @@ available to each hook.
 
 ## User-Defined Base Image
 
-!!! note:
+!!! note 
     Ability to override default base image is currently only supported in
     the `5.1.x` line of releases starting from `5.1.0-alpha.4`.
 
@@ -903,7 +907,7 @@ Now let's build the Docker image:
 $ docker build . -t custom-planet:1.0.0
 ```
 
-!!! tip "Versioning":
+!!! tip "Versioning"
     The image version must be a valid [semver](https://semver.org/).
 
 Once the custom `planet` image has been built, it can be referenced in the
@@ -967,7 +971,7 @@ of the supported syntax.
 If a mount specifies a file pattern in `path`, `targetPath` will be automatically set to the
 actual match as found on host.
 
-!!! note:
+!!! note 
     When working with mounts, it is important to always specify the `targetPath` to
     differentiate a mount from a volume requirement.
     Leaving the `targetPath` empty does not automatically set it equal to `path`

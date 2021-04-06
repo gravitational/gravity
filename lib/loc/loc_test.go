@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/gravity/lib/compare"
 
+	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 )
 
@@ -75,8 +76,8 @@ func (s *LocatorSuite) TestLocatorFail(c *C) {
 		"example:0.0.1",                 // missing repository
 		"example.com/example:blabla",    // not a sem ver
 		"example.com/example com:0.0.2", // unallowed chars
-		"", //emtpy
-		"arffewfaef aefeafaesf e", //garbage
+		"",                              //emtpy
+		"arffewfaef aefeafaesf e",       //garbage
 		"-:.",
 	}
 	for i, tc := range tcs {
@@ -154,4 +155,60 @@ func (s *LocatorSuite) TestDeduplicate(c *C) {
 		MustParseLocator("test3/qux:1.0.0"),
 	}
 	c.Assert(uniq, compare.DeepEquals, expected)
+}
+
+func (s *LocatorSuite) TestMakeLocator(c *C) {
+	tests := []struct {
+		input   string
+		version string
+		error   error
+		output  string
+	}{
+		{
+			input:  "gravity",
+			output: "gravitational.io/gravity:0.0.0+latest",
+		},
+		{
+			input:  "gravity:0.0.1",
+			output: "gravitational.io/gravity:0.0.1",
+		},
+		{
+			input:  "gravitational.io/gravity:0.0.2",
+			output: "gravitational.io/gravity:0.0.2",
+		},
+		{
+			input:   "gravity",
+			version: "1.0.0",
+			output:  "gravitational.io/gravity:1.0.0",
+		},
+		{
+			input:  "gravity:latest",
+			output: "gravitational.io/gravity:0.0.0+latest",
+		},
+		{
+			input:  "gravity:stable",
+			output: "gravitational.io/gravity:0.0.0+stable",
+		},
+		{
+			input: "gravity:0.0.1:1.0.0",
+			error: trace.BadParameter(""),
+		},
+	}
+	for _, test := range tests {
+		var loc *Locator
+		var err error
+		if test.version != "" {
+			loc, err = MakeLocatorWithDefault(test.input, func(name string) string {
+				return test.version
+			})
+		} else {
+			loc, err = MakeLocator(test.input)
+		}
+		if test.error != nil {
+			c.Assert(err, FitsTypeOf, test.error)
+		} else {
+			c.Assert(err, IsNil)
+			c.Assert(loc.String(), Equals, test.output)
+		}
+	}
 }

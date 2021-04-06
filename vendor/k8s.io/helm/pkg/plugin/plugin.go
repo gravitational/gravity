@@ -16,14 +16,16 @@ limitations under the License.
 package plugin // import "k8s.io/helm/pkg/plugin"
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
-	helm_env "k8s.io/helm/pkg/helm/environment"
-
 	"github.com/ghodss/yaml"
+	yaml2 "gopkg.in/yaml.v2"
+
+	helm_env "k8s.io/helm/pkg/helm/environment"
 )
 
 const pluginFileName = "plugin.yaml"
@@ -32,10 +34,10 @@ const pluginFileName = "plugin.yaml"
 // charts from special sources
 type Downloaders struct {
 	// Protocols are the list of schemes from the charts URL.
-	Protocols []string `json:"protocols"`
+	Protocols []string `json:"protocols" yaml:"protocols"`
 	// Command is the executable path with which the plugin performs
 	// the actual download for the corresponding Protocols
-	Command string `json:"command"`
+	Command string `json:"command" yaml:"command"`
 }
 
 // Metadata describes a plugin.
@@ -43,16 +45,16 @@ type Downloaders struct {
 // This is the plugin equivalent of a chart.Metadata.
 type Metadata struct {
 	// Name is the name of the plugin
-	Name string `json:"name"`
+	Name string `json:"name" yaml:"name"`
 
 	// Version is a SemVer 2 version of the plugin.
-	Version string `json:"version"`
+	Version string `json:"version" yaml:"version"`
 
 	// Usage is the single-line usage text shown in help
-	Usage string `json:"usage"`
+	Usage string `json:"usage" yaml:"usage"`
 
 	// Description is a long description shown in places like `helm help`
-	Description string `json:"description"`
+	Description string `json:"description" yaml:"description"`
 
 	// Command is the command, as a single string.
 	//
@@ -62,26 +64,26 @@ type Metadata struct {
 	//
 	// Note that command is not executed in a shell. To do so, we suggest
 	// pointing the command to a shell script.
-	Command string `json:"command"`
+	Command string `json:"command" yaml:"command"`
 
 	// IgnoreFlags ignores any flags passed in from Helm
 	//
 	// For example, if the plugin is invoked as `helm --debug myplugin`, if this
 	// is false, `--debug` will be appended to `--command`. If this is true,
 	// the `--debug` flag will be discarded.
-	IgnoreFlags bool `json:"ignoreFlags"`
+	IgnoreFlags bool `json:"ignoreFlags" yaml:"ignoreFlags,omitempty"`
 
 	// UseTunnel indicates that this command needs a tunnel.
 	// Setting this will cause a number of side effects, such as the
 	// automatic setting of HELM_HOST.
-	UseTunnel bool `json:"useTunnel"`
+	UseTunnel bool `json:"useTunnel" yaml:"useTunnel,omitempty"`
 
 	// Hooks are commands that will run on events.
 	Hooks Hooks
 
 	// Downloaders field is used if the plugin supply downloader mechanism
 	// for special protocols.
-	Downloaders []Downloaders `json:"downloaders"`
+	Downloaders []Downloaders `json:"downloaders" yaml:"downloaders"`
 }
 
 // Plugin represents a plugin.
@@ -119,10 +121,18 @@ func LoadDir(dirname string) (*Plugin, error) {
 	}
 
 	plug := &Plugin{Dir: dirname}
+	if err := validateMeta(data); err != nil {
+		return nil, err
+	}
 	if err := yaml.Unmarshal(data, &plug.Metadata); err != nil {
 		return nil, err
 	}
 	return plug, nil
+}
+
+func validateMeta(data []byte) error {
+	// This is done ONLY for validation. We need to use ghodss/yaml for the actual parsing.
+	return yaml2.UnmarshalStrict(data, &Metadata{})
 }
 
 // LoadAll loads all plugins found beneath the base directory.
@@ -141,13 +151,22 @@ func LoadAll(basedir string) ([]*Plugin, error) {
 		return plugins, nil
 	}
 
+	loaded := map[string]bool{}
 	for _, yaml := range matches {
 		dir := filepath.Dir(yaml)
 		p, err := LoadDir(dir)
+		pname := p.Metadata.Name
 		if err != nil {
 			return plugins, err
 		}
+
+		if _, ok := loaded[pname]; ok {
+			fmt.Fprintf(os.Stderr, "A plugin named %q already exists. Skipping.", pname)
+			continue
+		}
+
 		plugins = append(plugins, p)
+		loaded[pname] = true
 	}
 	return plugins, nil
 }

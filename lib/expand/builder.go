@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/install/phases"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -38,6 +39,8 @@ type planBuilder struct {
 	Application app.Application
 	// Runtime is the Runtime of the app being installed
 	Runtime app.Application
+	// GravityPackage is the gravity package to install
+	GravityPackage loc.Locator
 	// TeleportPackage is the teleport package to install
 	TeleportPackage loc.Locator
 	// PlanetPackage is the planet package to install
@@ -60,6 +63,48 @@ type planBuilder struct {
 	DNSConfig storage.DNSConfig
 }
 
+// AddInitPhase appends initialization phase to the plan.
+func (b *planBuilder) AddInitPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          installphases.InitPhase,
+		Description: "Initialize operation on the joining node",
+		Data: &storage.OperationPhaseData{
+			Server:  &b.JoiningNode,
+			Master:  &b.Master,
+			Package: &b.Application.Package,
+		},
+	})
+}
+
+// AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
+func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          phases.BootstrapSELinuxPhase,
+		Description: "Configure SELinux",
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
+		},
+	})
+}
+
+// AddChecksPhase appends preflight checks phase to the plan.
+func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID:          ChecksPhase,
+		Description: "Execute pre-flight checks on the joining node",
+		Data: &storage.OperationPhaseData{
+			Server: &b.JoiningNode,
+			Master: &b.Master,
+		},
+		Requires: fsm.RequireIfPresent(plan,
+			installphases.BootstrapSELinuxPhase,
+			installphases.InitPhase,
+			StartAgentPhase),
+	})
+}
+
 // AddConfigurePhase appends package configuration phase to the plan
 func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
@@ -68,6 +113,7 @@ func (b *planBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 		Data: &storage.OperationPhaseData{
 			ExecServer: &b.JoiningNode,
 		},
+		Requires: []string{ChecksPhase},
 	})
 }
 
@@ -86,7 +132,6 @@ func (b *planBuilder) AddBootstrapPhase(plan *storage.OperationPlan) {
 			Package:     &b.Application.Package,
 			Agent:       agent,
 			ServiceUser: &b.ServiceUser,
-			DNSConfig:   &b.DNSConfig,
 		},
 	})
 }
@@ -101,6 +146,13 @@ func (b *planBuilder) AddPullPhase(plan *storage.OperationPlan) {
 			ExecServer:  &b.JoiningNode,
 			Package:     &b.Application.Package,
 			ServiceUser: &b.ServiceUser,
+			Pull: &storage.PullData{
+				Packages: []loc.Locator{
+					b.GravityPackage,
+					b.TeleportPackage,
+					b.PlanetPackage,
+				},
+			},
 		},
 		Requires: []string{installphases.ConfigurePhase, installphases.BootstrapPhase},
 	})
@@ -131,9 +183,10 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.TeleportPackage.Name, b.TeleportPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.JoiningNode,
-					ExecServer: &b.JoiningNode,
-					Package:    &b.TeleportPackage,
+					Server:      &b.JoiningNode,
+					ExecServer:  &b.JoiningNode,
+					Package:     &b.TeleportPackage,
+					ServiceUser: &b.ServiceUser,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
@@ -142,10 +195,11 @@ func (b *planBuilder) AddSystemPhase(plan *storage.OperationPlan) {
 				Description: fmt.Sprintf("Install system package %v:%v",
 					b.PlanetPackage.Name, b.PlanetPackage.Version),
 				Data: &storage.OperationPhaseData{
-					Server:     &b.JoiningNode,
-					ExecServer: &b.JoiningNode,
-					Package:    &b.PlanetPackage,
-					Labels:     pack.RuntimePackageLabels,
+					Server:      &b.JoiningNode,
+					ExecServer:  &b.JoiningNode,
+					Package:     &b.PlanetPackage,
+					ServiceUser: &b.ServiceUser,
+					Labels:      pack.RuntimePackageLabels,
 				},
 				Requires: []string{installphases.PullPhase},
 			},
@@ -168,7 +222,6 @@ func (b *planBuilder) AddStartAgentPhase(plan *storage.OperationPlan) {
 				OpsCenterURL: fmt.Sprintf("https://%v", b.Peer),
 			},
 		},
-		Requires: []string{SystemPhase},
 	})
 }
 
@@ -224,6 +277,15 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 				},
 				Requires: []string{WaitPlanetPhase},
 			},
+			{
+				ID:          WaitTeleportPhase,
+				Description: "Wait for the Teleport node to join cluster",
+				Data: &storage.OperationPhaseData{
+					Server:     &b.JoiningNode,
+					ExecServer: &b.JoiningNode,
+				},
+				Requires: []string{WaitPlanetPhase},
+			},
 		},
 	})
 }
@@ -258,7 +320,7 @@ func (b *planBuilder) AddPostHookPhase(plan *storage.OperationPlan) {
 
 // AddElectPhase appends phase that enables leader election to the plan
 func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
-	plan.Phases = append(plan.Phases, storage.OperationPhase{
+	phase := storage.OperationPhase{
 		ID:          ElectPhase,
 		Description: "Enable leader election on the joined node",
 		Data: &storage.OperationPhaseData{
@@ -266,7 +328,11 @@ func (b *planBuilder) AddElectPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 		},
 		Requires: []string{installphases.WaitPhase},
-	})
+	}
+	if !b.JoiningNode.IsMaster() {
+		phase.Description = "Disable leader election on the joined node"
+	}
+	plan.Phases = append(plan.Phases, phase)
 }
 
 func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
@@ -280,6 +346,11 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 			ctx.Cluster.App.Package)
 	}
 	runtime, err := ctx.Apps.GetApp(*base)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	gravityPackage, err := application.Manifest.Dependencies.ByName(
+		constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -318,6 +389,7 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	return &planBuilder{
 		Application:     *application,
 		Runtime:         *runtime,
+		GravityPackage:  *gravityPackage,
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
 		JoiningNode:     operation.Servers[0],
@@ -331,9 +403,21 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 	}, nil
 }
 
-// fillSteps sets each phase's step number to its index number in the plan
-func fillSteps(plan *storage.OperationPlan) {
-	for i, phase := range fsm.FlattenPlan(plan) {
-		phase.Step = i
+// fillSteps assigns each phase of the provided plan a step number that will
+// be used in the UI to display a progress bar.
+//
+// The UI currently only supports a fixed number of steps (specified by the
+// provided max number) so the plan's phase numbers will be calculated to
+// fit within the specified interval.
+func fillSteps(plan *storage.OperationPlan, maxSteps int) {
+	allPhases := fsm.FlattenPlan(plan)
+	for i, phase := range allPhases {
+		phase.Step = calcStep(maxSteps, len(allPhases), i)
 	}
+}
+
+// calcStep adjusts the provided step number so it does not exceed the specified
+// maximum number.
+func calcStep(maxSteps, actualSteps, stepNumber int) int {
+	return int(float64(maxSteps) / float64(actualSteps) * float64(stepNumber+1))
 }

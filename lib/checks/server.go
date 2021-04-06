@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/rpc"
 	rpcclient "github.com/gravitational/gravity/lib/rpc/client"
 	pb "github.com/gravitational/gravity/lib/rpc/proto"
 	"github.com/gravitational/gravity/lib/storage"
@@ -135,4 +137,37 @@ func GetServerInfo(ctx context.Context, client rpcclient.Client) (*ServerInfo, e
 		LocalTime:     localTime,
 		ServerTime:    *time,
 	}, nil
+}
+
+// GetServer returns a check server by retrieving runtime information for
+// the provided server.
+func GetServer(ctx context.Context, rpc rpc.AgentRepository, server storage.Server) (*Server, error) {
+	connectCtx, cancel := context.WithTimeout(ctx, defaults.AgentConnectTimeout)
+	clt, err := rpc.GetClient(connectCtx, server.AdvertiseIP)
+	cancel()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to connect to agent on %v.\n"+
+			"Make sure the node has an agent running by "+
+			"issuing `gravity agent deploy` from the upgrade node",
+			server.AdvertiseIP)
+	}
+	info, err := GetServerInfo(ctx, clt)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &Server{server, *info}, nil
+}
+
+// GetServers returns a list of check servers by retrieving runtime information
+// for each of the provided servers.
+func GetServers(ctx context.Context, rpc rpc.AgentRepository, servers []storage.Server) ([]Server, error) {
+	result := make([]Server, 0, len(servers))
+	for _, server := range servers {
+		checkServer, err := GetServer(ctx, rpc, server)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		result = append(result, *checkServer)
+	}
+	return result, nil
 }

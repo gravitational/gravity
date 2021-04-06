@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	apps "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
@@ -61,9 +61,6 @@ func (r *Config) checkAndSetDefaults() error {
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:registry")
-	}
-	if r.Emitter == nil {
-		r.Emitter = utils.NopEmitter()
 	}
 	return nil
 }

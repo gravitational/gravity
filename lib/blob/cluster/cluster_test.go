@@ -38,19 +38,18 @@ import (
 	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/roundtrip"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
 
 func TestCluster(t *testing.T) { TestingT(t) }
 
 type ClusterSinglePeer struct {
-	suite   suite.BLOBSuite
-	dir     string
-	cluster *cluster
+	suite suite.BLOBSuite
+	dir   string
 }
 
 var _ = Suite(&ClusterSinglePeer{})
@@ -124,7 +123,7 @@ type ClusterMultiPeers struct {
 	suite        suite.BLOBSuite
 	clusterSuite clusterSuite
 	dir          string
-	objects      []*cluster
+	objects      []*Cluster
 }
 
 func (s *ClusterMultiPeers) SetUpTest(c *C) {
@@ -140,7 +139,7 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	peers := make([]blob.Objects, peersCount)
-	objects := make([]*cluster, peersCount)
+	objects := make([]*Cluster, peersCount)
 	clients := make([]blob.Objects, peersCount)
 
 	getPeer := func(p storage.Peer) (blob.Objects, error) {
@@ -165,12 +164,11 @@ func (s *ClusterMultiPeers) SetUpTest(c *C) {
 			Clock:            fakeClock,
 			ID:               fmt.Sprintf("%v", i),
 			AdvertiseAddr:    "https://localhost",
-			TestMode:         true,
 			GracePeriod:      gracePeriod,
 		})
 		c.Assert(err, IsNil)
-		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		objects[i] = obj
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = obj
 	}
 
@@ -213,8 +211,6 @@ func (s *ClusterMultiPeers) TestCleanup(c *C) {
 type RPCSuite struct {
 	suite        suite.BLOBSuite
 	clusterSuite clusterSuite
-	dir          string
-	objects      []*cluster
 }
 
 func (s *RPCSuite) SetUpTest(c *C) {
@@ -238,7 +234,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	peers := make([]blob.Objects, peersCount)
-	objects := make([]*cluster, peersCount)
+	objects := make([]*Cluster, peersCount)
 	clients := make([]blob.Objects, peersCount)
 	localClients := make([]blob.Objects, peersCount)
 
@@ -267,9 +263,9 @@ func (s *RPCSuite) SetUpTest(c *C) {
 			Clock:            fakeClock,
 			ID:               fmt.Sprintf("%v", i),
 			AdvertiseAddr:    "https://localhost",
-			TestMode:         true,
 			GracePeriod:      gracePeriod,
 		})
+		c.Assert(err, IsNil)
 
 		webHandler, err := handler.New(handler.Config{
 			Users:   usersService,
@@ -289,6 +285,7 @@ func (s *RPCSuite) SetUpTest(c *C) {
 						InsecureSkipVerify: true,
 					}}}),
 		)
+		c.Assert(err, IsNil)
 
 		localClient, err := client.NewPeerAuthenticatedClient(
 			webServer.URL, peerUser, key.Token,
@@ -300,8 +297,8 @@ func (s *RPCSuite) SetUpTest(c *C) {
 		)
 
 		c.Assert(err, IsNil)
-		objects[i] = obj.(*cluster)
-		objects[i].heartbeat()
+		objects[i] = obj
+		c.Assert(objects[i].heartbeat(), IsNil)
 		clients[i] = clusterClient
 		localClients[i] = localClient
 	}
@@ -340,7 +337,7 @@ func (s *RPCSuite) TestCleanup(c *C) {
 }
 
 type clusterSuite struct {
-	objects []*cluster
+	objects []*Cluster
 	clients []blob.Objects
 	clock   clockwork.FakeClock
 }

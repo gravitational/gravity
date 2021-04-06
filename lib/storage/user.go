@@ -17,11 +17,13 @@ limitations under the License.
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/user"
 	"time"
 
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -660,7 +662,9 @@ func UnmarshalUser(bytes []byte) (User, error) {
 		if err := teleutils.UnmarshalWithSchema(teleservices.GetUserSchema(UserSpecV2Extension), &u, bytes); err != nil {
 			return nil, trace.BadParameter(err.Error())
 		}
+		//nolint:errcheck
 		u.Metadata.CheckAndSetDefaults()
+		//nolint:errcheck
 		u.CheckAndSetDefaults()
 		utils.UTC(&u.Spec.CreatedBy.Time)
 		utils.UTC(&u.Spec.Expires)
@@ -721,12 +725,14 @@ func (*userMarshaler) UnmarshalUser(bytes []byte) (teleservices.User, error) {
 
 // GenerateUser generates new user
 func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, error) {
+	expires := in.Expiry()
 	return &UserV2{
 		Kind:    teleservices.KindUser,
 		Version: teleservices.V2,
 		Metadata: teleservices.Metadata{
 			Name:      in.GetName(),
 			Namespace: teledefaults.Namespace,
+			Expires:   &expires,
 		},
 		Spec: UserSpecV2{
 			// always generate password, even though it won't be used
@@ -739,6 +745,7 @@ func (*userMarshaler) GenerateUser(in teleservices.User) (teleservices.User, err
 			SAMLIdentities:   in.GetSAMLIdentities(),
 			GithubIdentities: in.GetGithubIdentities(),
 			Roles:            in.GetRoles(),
+			Expires:          expires,
 		},
 	}, nil
 }
@@ -777,4 +784,19 @@ func ClusterAgent(cluster string) string {
 // ClusterAdminAgent generates the name of the admin agent user for the specified cluster
 func ClusterAdminAgent(clusterName string) string {
 	return fmt.Sprintf("adminagent@%v", clusterName)
+}
+
+// UserFromContext extracts name of the user attached to the provided context.
+//
+// Returns an empty string if no user is attached.
+func UserFromContext(ctx context.Context) string {
+	userI := ctx.Value(constants.UserContext)
+	if userI == nil {
+		return ""
+	}
+	user, ok := userI.(string)
+	if !ok {
+		return ""
+	}
+	return user
 }

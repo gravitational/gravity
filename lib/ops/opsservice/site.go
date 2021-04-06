@@ -17,15 +17,12 @@ limitations under the License.
 package opsservice
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	appservice "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
@@ -35,13 +32,17 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gravitational/license"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // site is an internal helper object that implements operations
@@ -57,9 +58,6 @@ type site struct {
 	key        ops.SiteKey
 	provider   string
 	license    string
-	// resources is additional runtime k8s resources injected during
-	// installation process
-	resources []byte
 
 	// app defines the installation configuration
 	app *appservice.Application
@@ -118,10 +116,6 @@ func (s *site) gceNodeTags() string {
 	return strings.Join(s.backendSite.CloudConfig.GCENodeTags, ",")
 }
 
-func (s *site) hasResources() bool {
-	return len(s.resources) != 0
-}
-
 func (s *site) String() string {
 	return fmt.Sprintf("site(domain=%v)", s.domainName)
 }
@@ -165,17 +159,8 @@ func (s *site) newOperationRecorder(key ops.SiteOperationKey, additionalLogFiles
 	return utils.NewMultiWriteCloser(writers...), nil
 }
 
-func (s *site) loadProvisionerState(state interface{}) error {
-	s.Infof("loadProvisionerState")
-	st, err := s.backend().GetSite(s.key.SiteDomain)
-
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if st.ProvisionerState == nil {
-		return trace.NotFound("no provisioner state found")
-	}
-	return trace.Wrap(json.Unmarshal(st.ProvisionerState, state))
+func (s *site) installToken() string {
+	return s.backendSite.InstallToken
 }
 
 func (s *site) cloudProvider() CloudProvider {
@@ -327,11 +312,18 @@ func (s *site) agentService() ops.AgentService {
 }
 
 func (s *site) agentRunner(ctx *operationContext) *agentRunner {
-	return &agentRunner{ctx, s.agentService()}
+	return &agentRunner{
+		ctx:          ctx,
+		AgentService: s.agentService(),
+	}
 }
 
 func (s *site) packages() pack.PackageService {
 	return s.service.cfg.Packages
+}
+
+func (s *site) apps() appservice.Applications {
+	return s.service.cfg.Apps
 }
 
 func (s *site) clock() timetools.TimeProvider {
@@ -352,15 +344,13 @@ func (s *site) systemVars(op ops.SiteOperation, variables storage.SystemVariable
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	url := strings.Join([]string{s.packages().PortalURL(), "t"}, "/")
-	return &storage.SystemVariables{
-		ClusterName: op.SiteDomain,
-		OpsURL:      url,
-		Token:       token.Token,
-		Devmode:     s.service.cfg.Devmode || s.service.cfg.Local,
-		Docker:      variables.Docker,
-	}, nil
+	result := variables
+	result.ClusterName = op.SiteDomain
+	result.OpsURL = url
+	result.Token = token.Token
+	result.Devmode = s.service.cfg.Devmode || s.service.cfg.Local
+	return &result, nil
 }
 
 func (s *site) setSiteState(state string) error {
@@ -369,27 +359,6 @@ func (s *site) setSiteState(state string) error {
 		return trace.Wrap(err)
 	}
 	site.State = state
-	_, err = s.backend().UpdateSite(*site)
-	return trace.Wrap(err)
-}
-
-func (s *site) updateSiteApp(appPackage string) error {
-	loc, err := loc.ParseLocator(appPackage)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	site, err := s.backend().GetSite(s.key.SiteDomain)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	envelope, err := s.service.cfg.Packages.ReadPackageEnvelope(*loc)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	site.App = envelope.ToPackage()
 	_, err = s.backend().UpdateSite(*site)
 	return trace.Wrap(err)
 }
@@ -403,7 +372,14 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	go s.executeOperationWithContext(ctx, op, fn)
+	go func() {
+		if err := s.executeOperationWithContext(ctx, op, fn); err != nil {
+			s.WithFields(log.Fields{
+				log.ErrorKey: err,
+				"operation":  op,
+			}).Warn("Failed to execute operation.")
+		}
+	}()
 	return nil
 }
 
@@ -413,19 +389,19 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 	opErr := fn(ctx)
 
 	if opErr == nil {
-		return trace.Wrap(opErr)
+		return nil
 	}
 
-	ctx.Errorf("operation failure: %v", trace.DebugReport(opErr))
+	ctx.WithError(opErr).Error("Operation failure.")
 
 	// change the state without "compare" part just to take leverage of
 	// the operation group locking to ensure atomicity
-	_, err := s.compareAndSwapOperationState(swap{
+	_, err := s.compareAndSwapOperationState(context.TODO(), swap{
 		key:        ctx.key(),
 		newOpState: ops.OperationStateFailed,
 	})
 	if err != nil {
-		ctx.Errorf("failed to compare and swap operation state: %v", trace.DebugReport(err))
+		ctx.WithError(err).Error("Failed to compare and swap operation state.")
 	}
 
 	s.reportProgress(ctx, ops.ProgressEntry{
@@ -433,11 +409,13 @@ func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOp
 		Completion: constants.Completed,
 		Message:    opErr.Error(),
 	})
-	return trace.Wrap(err)
+	return trace.Wrap(opErr)
 }
 
+//nolint:unused
 type transformFn func(reader io.Reader) (io.ReadCloser, error)
 
+//nolint:unused
 func (s *site) copyFile(src, dst string, transform transformFn) error {
 	s.Infof("copyFile(src=%v, dst=%v)", src, dst)
 	file, err := os.Open(src)
@@ -463,12 +441,7 @@ func (s *site) copyFile(src, dst string, transform transformFn) error {
 	return nil
 }
 
-func (s *site) copyFileFromString(data, dst string, transform transformFn) error {
-	s.Debugf("rendering \n%s\n to %v", data, dst)
-	reader := strings.NewReader(data)
-	return s.copyFileFromStream(ioutil.NopCloser(reader), dst, transform)
-}
-
+//nolint:unused
 func (s *site) copyFileFromStream(stream io.ReadCloser, dst string, transform transformFn) (err error) {
 	if transform != nil {
 		stream, err = transform(stream)
@@ -489,87 +462,8 @@ func (s *site) copyFileFromStream(stream io.ReadCloser, dst string, transform tr
 	return nil
 }
 
-func (s *site) copyDir(src, dst string, t transformFn) error {
-	s.Infof("copyDir(src=%v, dst=%v)", src, dst)
-	info, err := os.Stat(src)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return trace.Wrap(err)
-	}
-	dir, err := os.Open(src)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer dir.Close()
-
-	fileinfos, err := dir.Readdir(-1)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	for _, f := range fileinfos {
-		fsrc := filepath.Join(src, f.Name())
-		fdst := filepath.Join(dst, f.Name())
-		if f.IsDir() {
-			if err := s.copyDir(fsrc, fdst, t); err != nil {
-				return trace.Wrap(err)
-			}
-		} else {
-			if err := s.copyFile(fsrc, fdst, t); err != nil {
-				return trace.Wrap(err)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *site) render(data []byte, server map[string]interface{}, ctx *operationContext) (io.Reader, error) {
-	t := template.New("tpl")
-	t, err := t.Parse(string(data))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	site, err := s.backend().GetSite(s.domainName)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	variables, err := ctx.operation.GetVars().ToMap()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	context := map[string]interface{}{
-		"variables":   variables,
-		"server":      server,
-		"site_labels": site.Labels,
-		"networking":  s.getNetworkType(ctx),
-	}
-	buf := &bytes.Buffer{}
-	if err := t.Execute(buf, context); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return buf, nil
-}
-
-func (s *site) getNetworkType(ctx *operationContext) string {
-	return s.app.Manifest.GetNetworkType(s.provider, ctx.operation.Provisioner)
-}
-
-func (s *site) renderString(data []byte, server map[string]interface{}, ctx *operationContext) (string, error) {
-	r, err := s.render(data, server, ctx)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	out, err := ioutil.ReadAll(r)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return string(out), nil
-}
-
-func (s *site) compareAndSwapOperationState(swap swap) (*ops.SiteOperation, error) {
-	return s.getOperationGroup().compareAndSwapOperationState(swap)
+func (s *site) compareAndSwapOperationState(ctx context.Context, swap swap) (*ops.SiteOperation, error) {
+	return s.getOperationGroup().compareAndSwapOperationState(ctx, swap)
 }
 
 func (s *site) setOperationState(key ops.SiteOperationKey, state string) (*ops.SiteOperation, error) {
@@ -615,6 +509,10 @@ func (s site) dockerConfig() storage.DockerConfig {
 	return s.backendSite.ClusterState.Docker
 }
 
+func (s site) servers() []storage.Server {
+	return s.backendSite.ClusterState.Servers
+}
+
 func (s site) dnsConfig() storage.DNSConfig {
 	if s.backendSite.DNSConfig.IsEmpty() {
 		return storage.DefaultDNSConfig
@@ -641,6 +539,69 @@ func (s site) gid() string {
 		return s.backendSite.ServiceUser.GID
 	}
 	return defaults.ServiceUserID
+}
+
+func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
+	client, err := s.service.GetKubeClient()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+	err = rigging.ConvertError(err)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	var spec string
+	if configmap != nil {
+		spec = configmap.Data["spec"]
+	}
+	var config *clusterconfig.Resource
+	if spec != "" {
+		config, err = clusterconfig.Unmarshal([]byte(spec))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	} else {
+		config = clusterconfig.NewEmpty()
+	}
+	if err := s.setClusterConfigDefaults(config); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return config, nil
+}
+
+func (s *site) setClusterConfigDefaults(config *clusterconfig.Resource) error {
+	if config.Spec.Global.CloudProvider == "" {
+		config.Spec.Global.CloudProvider = s.provider
+	}
+	installOp, _, err := ops.GetInstallOperation(s.key, s.service)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if installOp == nil {
+		return trace.NotFound("no install operation found for cluster %q", s.key.SiteDomain)
+	}
+	if config.Spec.Global.PodCIDR == "" {
+		config.Spec.Global.PodCIDR = installOp.InstallExpand.Vars.OnPrem.PodCIDR
+	}
+	if config.Spec.Global.ServiceCIDR == "" {
+		config.Spec.Global.ServiceCIDR = installOp.InstallExpand.Vars.OnPrem.ServiceCIDR
+	}
+	return nil
+}
+
+func (s *site) getClusterEnvironmentVariables() (env storage.EnvironmentVariables, err error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = defaults.APIWaitTimeout
+	err = utils.RetryTransient(context.TODO(), b, func() error {
+		env, err = s.service.GetClusterEnvironmentVariables(s.key)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return env, nil
 }
 
 func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, error) {
@@ -675,11 +636,12 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 			Package:         app.Package,
 			PackageEnvelope: app.PackageEnvelope,
 		},
-		Resources: in.Resources,
-		Provider:  in.Provider,
-		Labels:    in.Labels,
+		Resources:                in.Resources,
+		Provider:                 in.Provider,
+		Labels:                   in.Labels,
 		FinalInstallStepComplete: in.FinalInstallStepComplete,
 		Location:                 in.Location,
+		Flavor:                   in.Flavor,
 		UpdateInterval:           in.UpdateInterval,
 		NextUpdateCheck:          in.NextUpdateCheck,
 		ClusterState:             in.ClusterState,
@@ -687,6 +649,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		CloudConfig:              in.CloudConfig,
 		DNSOverrides:             in.DNSOverrides,
 		DNSConfig:                in.DNSConfig,
+		InstallToken:             in.InstallToken,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

@@ -1,3 +1,8 @@
+---
+title: Gravity Manage
+description: How Gravity can remotely manage Gravity Clusters and securely access them via SSH.
+---
+
 # Remote Management
 
 This chapter covers how Gravity can remotely manage Gravity Clusters
@@ -44,13 +49,13 @@ covers these topics in depth.
 The command `tele create` command can be used to provision a new remote cluster. The new
 cluster will be remotely accessible and managed via the Ops Center.
 
-!!! note:
+!!! note
 	The `tele create` operation is only available for creating clusters on programmable
 	infrastructure. At this time only AWS is supported.
 
 An Gravity Cluster is defined by two things:
 
-1. The Application Manifest [manifest](pack/#application-manifest).
+1. The Application Manifest [manifest](pack.md#application-manifest).
 2. The Cluster Spec.
 
 The _Application Manifest_ declares **what** should be inside a cluster:
@@ -62,7 +67,7 @@ The _Application Manifest_ declares **what** should be inside a cluster:
   are CI/CD tools, databases, etc.
 
 The _Cluster Spec_ provides the infrastructure resources that satisfy the requirements
-defined by the Application Manifest. Remember that in case of a [manual installation](quickstart/#installing-the-application)
+defined by the Application Manifest. Remember that in case of a [manual installation](quickstart.md#installing)
 of an application bundle the user is responsible to provide the same information manually
 to create a cluster.
 
@@ -113,7 +118,7 @@ execute:
 $ tele create cluster.yaml
 ```
 
-!!! tip "Important":
+!!! tip "Important"
     `tele create` only supports AWS clusters and does not allow updating clusters
     after they have been created. This capability is still evolvling and user feedback is welcome.
     `tele create` requires `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
@@ -132,7 +137,7 @@ If the node does not satisfy any of the requirements, the command will output
 a list of failed checks and exit with a non-0 return code.
 
 If the list of failed checks includes unloaded kernel modules and unset kernel
-parameters required for installation (see [System Requirements](/requirements/#kernel-modules)),
+parameters required for installation (see [System Requirements](requirements.md#kernel-modules)),
 this command can be re-run with `--autofix` flag to attempt to fix those issues:
 
 ```bsh
@@ -144,7 +149,7 @@ will be loaded by all install agents automatically.
 
 ### Customized Cluster Provisioning
 
-Cluster provisioning can be customized by the [Application Manifest](pack/#application-manifest)
+Cluster provisioning can be customized by the [Application Manifest](pack.md#application-manifest)
 author. This is achieved by implementing four _provisioning hooks_ and listing them in the
 Application Manifest. A provisioning hook is a Kubernetes job and can be
 implemented using any language.
@@ -172,12 +177,12 @@ hooks:
       job: file://path/to/job.yaml
 ```
 
-As shown in the [Application Manifest](pack/#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
+As shown in the [Application Manifest](pack.md#application-manifest) documentation, a hook must be implemented as a Kubernetes job.
 A job must be declared using standard [Kubernetes job syntax](https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec),
 either in a separate YAML file as shown above, or inline.
 
 
-!!! tip "Important":
+!!! tip "Important"
     * Gravity requires all 4 hooks when using custom provisioning.
     * Docker images in custom provisioning jobs are not embedded into the application
       and are pulled from the registries directly. When using private registries, use
@@ -279,7 +284,7 @@ of clusters via Ops Center. Ops Center roles make it possible using
 `where` expressions in rules:
 
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -290,12 +295,23 @@ spec:
     - developers
     namespaces:
     - default
+    kubernetes_groups:
+    - admin
     rules:
-      - resources: [cluster]
-        verbs: [connect, read]
-        where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
-        actions:
-          - assignKubernetesGroups("admin")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      where: contains(user.spec.traits["roles"], resource.metadata.labels["team"])
 ```
 
 The role `developers` uses special property `user.spec.traits`
@@ -313,7 +329,7 @@ Kubernetes access to clusters marked with label `team:developers`
 
 Users can use `deny` rules to limit access to some privileged Clusters:
 
-```bsh
+```yaml
 kind: role
 version: v3
 metadata:
@@ -323,9 +339,21 @@ spec:
     namespaces:
     - default
     rules:
-      - resources: [cluster]
-        verbs: [connect, read, list]
-        where: equals(resource.metadata.labels["env"], "production")
+    - resources:
+      - role
+      verbs:
+      - read
+    - resources:
+      - app
+      verbs:
+      - list
+    - resources:
+      - cluster
+      verbs:
+      - connect
+      - read
+      - list
+      where: equals(resource.metadata.labels["env"], "production")
 ```
 
 The role `deny-production` when assigned to the user, will limit access to all clusters
@@ -345,7 +373,7 @@ You can also copy files using secure file copy (scp):
 $ tsh --cluster=example.east scp <src> admin@node2:<dest>
 ```
 
-!!! tip "Tip":
+!!! tip "Tip"
     `tsh` remembers the flags of every successfully executed command. This means
     you do not need to specify `--cluster=name` every time and do something as simple
     as `tsh ssh login@node`

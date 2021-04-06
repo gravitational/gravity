@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -121,7 +121,6 @@ const manifestSchema = `
             },
             "flavors": {
               "type": "object",
-              "required": ["items"],
               "additionalProperties": false,
               "properties": {
                 "prompt": {"type": "string"},
@@ -244,7 +243,8 @@ const manifestSchema = `
                         "recursive": {"type": "boolean"},
                         "mode": {"type": "string"},
                         "uid": {"type": "number"},
-                        "gid": {"type": "number"}
+                        "gid": {"type": "number"},
+                        "seLinuxLabel": {"type": "string"}
                       }
                     }
                   },
@@ -314,9 +314,32 @@ const manifestSchema = `
           "type": "object",
           "additionalProperties": false,
           "properties": {
+            "default": {"type": "string"},
             "aws": {"$ref": "#/definitions/providerAWS"},
             "azure": {"$ref": "#/definitions/providerAzure"},
             "generic": {"$ref": "#/definitions/providerGeneric"}
+          }
+        },
+        "ingress": {
+          "type": "object",
+          "properties": {
+            "nginx": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"}
+              }
+            }
+          }
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "openebs": {
+              "type": "object",
+              "properties": {
+                "enabled": {"type": "boolean"}
+              }
+            }
           }
         },
         "license": {
@@ -573,6 +596,7 @@ const manifestSchema = `
             },
             "logs": {"$ref": "#/definitions/onOff"},
             "monitoring": {"$ref": "#/definitions/onOff"},
+            "opsCenter": {"$ref": "#/definitions/onOff"},
             "catalog": {"$ref": "#/definitions/onOff"},
             "kubernetes": {"$ref": "#/definitions/onOff"},
             "configuration": {"$ref": "#/definitions/onOff"}
@@ -644,6 +668,7 @@ const manifestSchema = `
       "additionalProperties": false,
       "properties": {
         "baseImage": {"type": "string"},
+        "allowPrivileged": {"type": "boolean"},
         "args": {
           "type": "array",
           "items": {"type": "string"}
@@ -673,7 +698,7 @@ const manifestSchema = `
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "hairpinMode": {"enum": ["promiscuous-bridge", "hairpin-veth"], "default": "promiscuous-bridge"},
+            "hairpinMode": {"enum": ["promiscuous-bridge", "hairpin-veth"], "default": ""},
             "args": {
               "type": "array",
               "items": {"type": "string"}

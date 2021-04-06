@@ -53,9 +53,6 @@ const (
 	// SystemDevice defines the name of the agent download URI query parameter for system (state) device
 	SystemDevice = "system_device"
 
-	// DockerDevice defines the name of the agent download URI query parameter for docker devicemapper device
-	DockerDevice = "docker_device"
-
 	// AdvertiseAddr is advertise IP address used in agents
 	AdvertiseAddr = "advertise_addr"
 
@@ -105,6 +102,10 @@ const (
 	OpsCenterNode = "node"
 	// OpsCenterFlavor is the Ops Center app flavor
 	OpsCenterFlavor = "single"
+
+	// SELinuxLabelNone is a special placeholder for a SELinux label indicating
+	// that no labeling should be performed for the directory
+	SELinuxLabelNone = "none"
 )
 
 // ServiceRole defines the type for the node service role

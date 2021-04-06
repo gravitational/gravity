@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/rpc"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -39,9 +40,13 @@ type Engine interface {
 	GetPlan() (*storage.OperationPlan, error)
 	// RunCommand executes the phase specified by params on the specified
 	// server using the provided runner
-	RunCommand(context.Context, RemoteRunner, storage.Server, Params) error
-	// Complete is called to mark operation complete
-	Complete(error) error
+	RunCommand(context.Context, rpc.RemoteRunner, storage.Server, Params) error
+	// Complete transitions the operation to a completed state.
+	// Completed state is either successful or failed depending on the state of
+	// the operation plan.
+	// The optional error can be used to specify the reason for failure and
+	// defines the final operation failure
+	Complete(context.Context, error) error
 }
 
 // ExecutorParams combines parameters needed for creating a new executor
@@ -67,10 +72,22 @@ func (p ExecutorParams) Key() ops.SiteOperationKey {
 type Params struct {
 	// PhaseID is the id of the phase to execute/rollback
 	PhaseID string
+	// OperationID is the operation ID this phase is executed for
+	OperationID string
 	// Force is whether to force execution/rollback
 	Force bool
+	// Resume determines whether a failed/in-progress phase is rerun.
+	//
+	// It is different from Force which forces a phase in any state
+	// to be rerun - this is unexpected when the operation is resumed
+	// and only the unfinished/failed steps are re-executed
+	Resume bool
+	// Rollback indicates that the specified phase should be rolled back.
+	Rollback bool
 	// Progress is optional progress reporter
 	Progress utils.Progress
+	// DryRun allows to only print phases without executing/rolling back.
+	DryRun bool
 }
 
 // CheckAndSetDefaults makes sure all required parameters are set
@@ -79,9 +96,14 @@ func (p *Params) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing PhaseID")
 	}
 	if p.Progress == nil {
-		p.Progress = utils.NewNopProgress()
+		p.Progress = utils.DiscardProgress
 	}
 	return nil
+}
+
+// IsResume returns true if parameters describe a resume command
+func (p Params) IsResume() bool {
+	return p.PhaseID == RootPhase
 }
 
 // FSM is the generic FSM implementation that provides methods for phases
@@ -105,7 +127,7 @@ type Config struct {
 	// Engine is the specific FSM engine
 	Engine
 	// Runner is used to run remote commands
-	Runner RemoteRunner
+	Runner rpc.RemoteRunner
 	// Insecure allows to turn off cert validation in dev mode
 	Insecure bool
 	// Logger allows to override default logger
@@ -136,20 +158,55 @@ func New(config Config) (*FSM, error) {
 }
 
 // ExecutePlan iterates over all phases of the plan and executes them in order
-func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress, force bool) error {
+func (f *FSM) ExecutePlan(ctx context.Context, progress utils.Progress) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	// Make sure the plan is being executed/resumed on the correct node.
+	err = CheckPlanCoordinator(plan)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	for _, phase := range plan.Phases {
-		f.Debugf("Executing phase %q.", phase.ID)
+		f.WithField("phase", phase.ID).Debug("Executing phase.")
 		err := f.ExecutePhase(ctx, Params{
 			PhaseID:  phase.ID,
 			Progress: progress,
-			Force:    force,
+			Resume:   true,
 		})
 		if err != nil {
 			return trace.Wrap(err, "failed to execute phase %q", phase.ID)
+		}
+	}
+	return nil
+}
+
+// RollbackPlan rolls back all phases of the plan that have been attempted so
+// far in the reverse order.
+func (f *FSM) RollbackPlan(ctx context.Context, progress utils.Progress, dryRun bool) error {
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	allPhases := plan.GetLeafPhases()
+	for i := len(allPhases) - 1; i >= 0; i -= 1 {
+		phase := allPhases[i]
+		log := f.WithFields(logrus.Fields{"phase": phase.ID, "state": phase.GetState()})
+		if phase.IsUnstarted() || phase.IsRolledBack() {
+			log.Info("Skip rollback.")
+			continue
+		}
+		log.Info("Rollback.")
+		err := f.RollbackPhase(ctx, Params{
+			PhaseID:  phase.ID,
+			Progress: progress,
+			DryRun:   dryRun,
+		})
+		if err != nil {
+			return trace.Wrap(err)
 		}
 	}
 	return nil
@@ -165,6 +222,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	p.OperationID = plan.OperationID
 	phase, err := FindPhase(plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -172,7 +230,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 	if phase.IsCompleted() && !p.Force {
 		return nil
 	}
-	if phase.IsInProgress() && !(p.Force || phase.HasSubphases()) {
+	if phase.IsInProgress() && !(p.Force || p.Resume || phase.HasSubphases()) {
 		return trace.BadParameter(
 			"phase %q is in progress, use --force flag to force execution", phase.ID)
 	}
@@ -207,22 +265,22 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = CanRollback(plan, p.PhaseID)
-	if err != nil {
-		if !p.Force {
-			return trace.Wrap(err)
+	// No need to verify if phase can be rolled back during dry runs.
+	if !p.DryRun {
+		err = CanRollback(plan, p.PhaseID)
+		if err != nil {
+			if !p.Force {
+				return trace.Wrap(err)
+			}
+			f.WithError(err).Warn("Forcing rollback.")
 		}
-		f.Warnf("Forcing rollback: %v.", trace.DebugReport(err))
 	}
 	phase, err := FindPhase(plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	if !phase.HasSubphases() {
-		//
-		// Check whether this phase should be run on a local or remote server
-		// If it should be run on a remote server, throw an error
-		//
+		// Check whether this phase should be run on a local or remote server.
 		var execServer *storage.Server
 		if phase.Data != nil {
 			if phase.Data.ExecServer != nil {
@@ -232,22 +290,39 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 			}
 		}
 
+		execWhere := CanRunLocally
 		if execServer != nil {
-			execWhere, err := canExecuteOnServer(ctx, *execServer, f.Runner, f.FieldLogger)
+			execWhere, err = canExecuteOnServer(ctx, *execServer, f.Runner, f.FieldLogger)
 			if err != nil {
 				return trace.Wrap(err)
 			}
-			if execWhere != CanRunLocally {
-				return trace.BadParameter("rollback phase %v must be run from server %v", p.PhaseID, execServer.Hostname)
-			}
 		}
 
-		p.Progress.NextStep("Rolling back %q", phase.ID)
-		err = f.rollbackPhase(ctx, p, *phase)
-		if err != nil {
-			return trace.Wrap(err)
+		switch execWhere {
+		case CanRunLocally:
+			message := fmt.Sprintf("Rolling back %q locally", phase.ID)
+			if p.DryRun {
+				p.Progress.NextStep("[DRY-RUN] %v", message)
+				return nil
+			}
+			p.Progress.NextStep(message)
+			return f.rollbackPhaseLocally(ctx, p, *phase)
+
+		case CanRunRemotely:
+			message := fmt.Sprintf("Rolling back %q on node %v", phase.ID, execServer.Hostname)
+			if p.DryRun {
+				p.Progress.NextStep("[DRY-RUN] %v", message)
+				return nil
+			}
+			p.Progress.NextStep(message)
+			return f.rollbackPhaseRemotely(ctx, p, *phase, *execServer)
+
+		default:
+			return trace.BadParameter(
+				`Node %[1]v does not appear to have an upgrade agent running so phase %[2]q rollback cannot be performed remotely from this node.
+You can redeploy upgrade agents on all cluster nodes using "./gravity agent deploy", or execute "./gravity plan rollback --phase=%[2]v" directly from %[1]v."`,
+				execServer.Hostname, p.PhaseID)
 		}
-		return nil
 	}
 	for i := len(phase.Phases) - 1; i >= 0; i-- {
 		p.PhaseID = phase.Phases[i].ID
@@ -257,6 +332,22 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 		}
 	}
 	return nil
+}
+
+// ChangePhaseState updates the specified phase state.
+func (f *FSM) ChangePhaseState(ctx context.Context, change StateChange) error {
+	if err := change.Check(); err != nil {
+		return trace.Wrap(err)
+	}
+	plan, err := f.GetPlan()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	// Make sure the phase exists in the plan.
+	if _, err := FindPhase(plan, change.Phase); err != nil {
+		return trace.Wrap(err)
+	}
+	return f.Engine.ChangePhaseState(ctx, change)
 }
 
 // SetPreExec sets the hook that's called before phase execution
@@ -350,9 +441,11 @@ func (f *FSM) executePhaseLocally(ctx context.Context, p Params, phase storage.O
 		p.Progress.NextStep("Executing %q locally", phase.ID)
 		return trace.Wrap(f.executeOnePhase(ctx, p, phase))
 	}
-	if phase.Parallel {
+
+	if phase.LimitParallel > 1 {
 		return trace.Wrap(f.executeSubphasesConcurrently(ctx, p, phase))
 	}
+
 	return trace.Wrap(f.executeSubphasesSequentially(ctx, p, phase))
 }
 
@@ -369,17 +462,32 @@ func (f *FSM) executeSubphasesSequentially(ctx context.Context, p Params, phase 
 
 func (f *FSM) executeSubphasesConcurrently(ctx context.Context, p Params, phase storage.OperationPhase) error {
 	errorsCh := make(chan error, len(phase.Phases))
+	phaseC := make(chan storage.OperationPhase, len(phase.Phases))
+
 	for _, subphase := range phase.Phases {
-		go func(p Params, subphase storage.OperationPhase) {
-			p.PhaseID = subphase.ID
-			err := f.ExecutePhase(ctx, p)
-			if err != nil {
-				logrus.Warnf("Failed to execute phase %q: %v.",
-					p.PhaseID, trace.DebugReport(err))
-			}
-			errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
-		}(p, subphase)
+		phaseC <- subphase
 	}
+
+	close(phaseC)
+
+	for i := 0; i < phase.LimitParallel; i++ {
+		go func(p Params) {
+			for subphase := range phaseC {
+				p.PhaseID = subphase.ID
+
+				err := f.ExecutePhase(ctx, p)
+				if err != nil {
+					logrus.WithFields(logrus.Fields{
+						logrus.ErrorKey: err,
+						"phase":         p.PhaseID,
+					}).Warn("Failed to execute phase.")
+				}
+
+				errorsCh <- trace.Wrap(err, "failed to execute phase %q", p.PhaseID)
+			}
+		}(p)
+	}
+
 	return utils.CollectErrors(ctx, errorsCh)
 }
 
@@ -446,7 +554,7 @@ func (f *FSM) executeOnePhase(ctx context.Context, p Params, phase storage.Opera
 	return nil
 }
 
-func (f *FSM) rollbackPhase(ctx context.Context, p Params, phase storage.OperationPhase) error {
+func (f *FSM) rollbackPhaseLocally(ctx context.Context, p Params, phase storage.OperationPhase) error {
 	plan, err := f.GetPlan()
 	if err != nil {
 		return trace.Wrap(err)
@@ -495,6 +603,31 @@ func (f *FSM) rollbackPhase(ctx context.Context, p Params, phase storage.Operati
 	return nil
 }
 
+func (f *FSM) rollbackPhaseRemotely(ctx context.Context, p Params, phase storage.OperationPhase, server storage.Server) error {
+	err := f.RunCommand(ctx, f.Runner, server, Params{
+		PhaseID:  p.PhaseID,
+		Force:    p.Force,
+		Resume:   p.Resume,
+		Rollback: true,
+		Progress: p.Progress,
+	})
+	if err == nil {
+		// if the remote phase rollback is successful, we need to mark it in our local database
+		// because etcd might not be available to synchronize the changes back to us
+		err = f.ChangePhaseState(ctx,
+			StateChange{
+				Phase: phase.ID,
+				State: storage.OperationPhaseStateRolledBack,
+			})
+	}
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
 // prerequisitesComplete checks if specified phase can be executed in the
 // provided plan
 func (f *FSM) prerequisitesComplete(phaseID string) error {
@@ -529,6 +662,18 @@ type StateChange struct {
 	State string
 	// Error is the error that happened during phase execution
 	Error trace.Error
+}
+
+// Check verifies that state change is valid.
+func (c StateChange) Check() error {
+	if c.Phase == "" {
+		return trace.BadParameter("phase name must not be empty")
+	}
+	if !storage.IsValidOperationPhaseState(c.State) {
+		return trace.BadParameter("unknown phase state %q, supported are: %v",
+			c.State, storage.OperationPhaseStates)
+	}
+	return nil
 }
 
 // String returns a textual representation of this state change

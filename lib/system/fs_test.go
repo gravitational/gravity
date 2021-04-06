@@ -62,7 +62,7 @@ xfs
 		},
 		{
 			lsblk: failingRunner{trace.Errorf("error")},
-			err:   `error, failed to determine filesystem type on /dev/foo`,
+			err:   "failed to determine filesystem type on /dev/foo\n\terror",
 		},
 	}
 	for _, testCase := range testCases {
@@ -77,14 +77,14 @@ xfs
 	}
 }
 
-func (r testRunner) RunStream(w io.Writer, args ...string) error {
-	fmt.Fprintf(w, string(r))
+func (r testRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
+	fmt.Fprint(stdout, string(r))
 	return nil
 }
 
 type testRunner string
 
-func (r failingRunner) RunStream(w io.Writer, args ...string) error {
+func (r failingRunner) RunStream(ctx context.Context, stdout, stderr io.Writer, args ...string) error {
 	return r.error
 }
 

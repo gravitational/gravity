@@ -30,8 +30,10 @@ import (
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/session"
+
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
+	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -211,12 +213,12 @@ func (sl *DiskSessionLogger) finalize() error {
 
 // eventsFileName consists of session id and the first global event index recorded there
 func eventsFileName(dataDir string, sessionID session.ID, eventIndex int64) string {
-	return filepath.Join(dataDir, fmt.Sprintf("%v-%v.events.gz", sessionID.String(), eventIndex))
+	return filepath.Join(dataDir, fmt.Sprintf("%v-%v.%v", sessionID.String(), eventIndex, eventsSuffix))
 }
 
 // chunksFileName consists of session id and the first global offset recorded
 func chunksFileName(dataDir string, sessionID session.ID, offset int64) string {
-	return filepath.Join(dataDir, fmt.Sprintf("%v-%v.chunks.gz", sessionID.String(), offset))
+	return filepath.Join(dataDir, fmt.Sprintf("%v-%v.%v", sessionID.String(), offset, chunksSuffix))
 }
 
 func (sl *DiskSessionLogger) openEventsFile(eventIndex int64) error {
@@ -300,7 +302,7 @@ func (sl *DiskSessionLogger) PostSessionSlice(slice SessionSlice) error {
 	return sl.flush()
 }
 
-// EventFromChunk retuns event converted from session chunk
+// EventFromChunk returns event converted from session chunk
 func EventFromChunk(sessionID string, chunk *SessionChunk) (EventFields, error) {
 	var fields EventFields
 	eventStart := time.Unix(0, chunk.Time).In(time.UTC).Round(time.Millisecond)
@@ -312,6 +314,9 @@ func EventFromChunk(sessionID string, chunk *SessionChunk) (EventFields, error) 
 	fields[EventIndex] = chunk.EventIndex
 	fields[EventTime] = eventStart
 	fields[EventType] = chunk.EventType
+	if fields[EventID] == "" {
+		fields[EventID] = uuid.New()
+	}
 	return fields, nil
 }
 
@@ -478,3 +483,11 @@ func newGzipReader(file *os.File) (*gzipReader, error) {
 		file:       file,
 	}, nil
 }
+
+const (
+	// eventsSuffix is the suffix of the archive that contians session events.
+	eventsSuffix = "events.gz"
+
+	// chunksSuffix is the suffix of the archive that contains session chunks.
+	chunksSuffix = "chunks.gz"
+)

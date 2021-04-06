@@ -50,10 +50,6 @@ in_progress ->
 */
 package ops
 
-import (
-	"time"
-)
-
 const (
 	SiteLabelName                 = "Name"
 	SystemRepository              = "gravitational.io"
@@ -85,6 +81,12 @@ const (
 	SiteStateUninstalling = "uninstalling"
 	// SiteStateGarbageCollecting is the state of the cluster when it's removing unused resources
 	SiteStateGarbageCollecting = "collecting_garbage"
+	// SiteStateUpdatingEnviron is the state of the cluster when it's updating runtime environment variables on nodes
+	SiteStateUpdatingEnviron = "updating_cluster_environ"
+	// SiteStateUpdatingConfig is the state of the cluster when it's updating configuration
+	SiteStateUpdatingConfig = "updating_cluster_config"
+	// SiteStateReconfiguring is the state of the cluster when its advertise IP is being reconfigured
+	SiteStateReconfiguring = "reconfiguring"
 	// SiteStateDegraded means that the application installed on a deployed site is failing its health check
 	SiteStateDegraded = "degraded"
 	// SiteStateOffline means that OpsCenter cannot connect to remote site
@@ -96,6 +98,13 @@ const (
 	OperationStateInstallPrechecks    = "install_prechecks"
 	OperationStateInstallProvisioning = "install_provisioning"
 	OperationStateInstallDeploying    = "install_deploying"
+
+	// OperationReconfigure is the name of the operation that reconfigures
+	// the cluster advertise IP.
+	OperationReconfigure = "operation_reconfigure"
+	// OperationReconfigureInProgress is the operation state indicating
+	// cluster advertise IP is being reconfigured.
+	OperationReconfigureInProgress = "reconfigure_in_progress"
 
 	// OperationStateReady indicates that the operation is ready to
 	// be executed by the installer process
@@ -123,6 +132,14 @@ const (
 	// garbage collection operation
 	OperationGarbageCollect           = "operation_gc"
 	OperationGarbageCollectInProgress = "gc_in_progress"
+
+	// runtime environment variables update operation
+	OperationUpdateRuntimeEnviron           = "operation_update_environ"
+	OperationUpdateRuntimeEnvironInProgress = "update_environ_in_progress"
+
+	// configuration update operation
+	OperationUpdateConfig           = "operation_update_config"
+	OperationUpdateConfigInProgress = "update_config_in_progress"
 
 	// common operation states
 	OperationStateCompleted = "completed"
@@ -178,53 +195,35 @@ const (
 
 	// AdvertiseAddrParam specifies the name of the agent parameter for advertise address
 	AdvertiseAddrParam = "advertise_addr"
-
-	// RetentionDefault is retention policy name for high-res metrics
-	RetentionDefault = "default"
-	// RetentionMedium is retention policy name for medium-res metrics
-	RetentionMedium = "medium"
-	// RetentionLong is retention policy name for low-res metrics
-	RetentionLong = "long"
-
-	// MaxRetentionDefault is the maximum duration for "default" retention policy
-	MaxRetentionDefault = 30 * 24 * time.Hour // ~1 month
-	// MaxRetentionMedium is the maximum duration for "medium" retention policy
-	MaxRetentionMedium = 6 * 30 * 24 * time.Hour // ~6 months
-	// MaxRetentionLong is the maximum duration for "long" retention policy
-	MaxRetentionLong = 5 * 365 * 24 * time.Hour // ~5 years
 )
 
 var (
-	// AllRetentions is a list of names of all retention policies
-	AllRetentions = []string{RetentionDefault, RetentionMedium, RetentionLong}
-
-	// RetentionLimits maps retention policy name to its maximum duration
-	RetentionLimits = map[string]time.Duration{
-		RetentionDefault: MaxRetentionDefault,
-		RetentionMedium:  MaxRetentionMedium,
-		RetentionLong:    MaxRetentionLong,
-	}
-
 	// OperationStartedToClusterState defines states the cluster transitions
 	// into when a certain operation starts
 	OperationStartedToClusterState = map[string]string{
-		OperationInstall:        SiteStateInstalling,
-		OperationExpand:         SiteStateExpanding,
-		OperationUpdate:         SiteStateUpdating,
-		OperationShrink:         SiteStateShrinking,
-		OperationUninstall:      SiteStateUninstalling,
-		OperationGarbageCollect: SiteStateGarbageCollecting,
+		OperationInstall:              SiteStateInstalling,
+		OperationExpand:               SiteStateExpanding,
+		OperationUpdate:               SiteStateUpdating,
+		OperationShrink:               SiteStateShrinking,
+		OperationUninstall:            SiteStateUninstalling,
+		OperationGarbageCollect:       SiteStateGarbageCollecting,
+		OperationUpdateRuntimeEnviron: SiteStateUpdatingEnviron,
+		OperationUpdateConfig:         SiteStateUpdatingConfig,
+		OperationReconfigure:          SiteStateReconfiguring,
 	}
 
 	// OperationSucceededToClusterState defines states the cluster transitions
 	// into when a certain operation completes successfully
 	OperationSucceededToClusterState = map[string]string{
-		OperationInstall:        SiteStateActive,
-		OperationExpand:         SiteStateActive,
-		OperationUpdate:         SiteStateActive,
-		OperationShrink:         SiteStateActive,
-		OperationUninstall:      SiteStateNotInstalled,
-		OperationGarbageCollect: SiteStateActive,
+		OperationInstall:              SiteStateActive,
+		OperationExpand:               SiteStateActive,
+		OperationUpdate:               SiteStateActive,
+		OperationShrink:               SiteStateActive,
+		OperationUninstall:            SiteStateNotInstalled,
+		OperationGarbageCollect:       SiteStateActive,
+		OperationUpdateRuntimeEnviron: SiteStateActive,
+		OperationUpdateConfig:         SiteStateActive,
+		OperationReconfigure:          SiteStateActive,
 	}
 
 	// OperationFailedToClusterState defines states the cluster transitions
@@ -232,11 +231,14 @@ var (
 	// If an state transition for a specific operation is missing, the cluster
 	// state is left unchanged
 	OperationFailedToClusterState = map[string]string{
-		OperationInstall:        SiteStateFailed,
-		OperationExpand:         SiteStateActive,
-		OperationUpdate:         SiteStateUpdating,
-		OperationShrink:         SiteStateActive,
-		OperationUninstall:      SiteStateFailed,
-		OperationGarbageCollect: SiteStateActive,
+		OperationInstall:              SiteStateFailed,
+		OperationExpand:               SiteStateActive,
+		OperationUpdate:               SiteStateUpdating,
+		OperationShrink:               SiteStateActive,
+		OperationUninstall:            SiteStateFailed,
+		OperationGarbageCollect:       SiteStateActive,
+		OperationUpdateRuntimeEnviron: SiteStateUpdatingEnviron,
+		OperationUpdateConfig:         SiteStateUpdatingConfig,
+		OperationReconfigure:          SiteStateFailed,
 	}
 )

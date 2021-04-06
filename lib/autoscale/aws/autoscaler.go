@@ -21,10 +21,13 @@ import (
 	"fmt"
 
 	gaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
+	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/aws/aws-sdk-go/service/ssm"
@@ -39,10 +42,6 @@ const (
 	InstanceLaunching = "autoscaling:EC2_INSTANCE_LAUNCHING"
 	// InstanceTermination is AWS instance terminating lifecycle autoscaling event
 	InstanceTerminating = "autoscaling:EC2_INSTANCE_TERMINATING"
-	// sourceDestCheck is AWS source destination check property
-	sourceDestCheck = "sourceDestCheck"
-	// instanceIDFilter is AWS instance ID filter
-	instanceIDFilter = "instance-id"
 )
 
 // Autoscaler is AWS autoscaler server, it enables nodes
@@ -76,6 +75,8 @@ type Config struct {
 	Queue SQS
 	// Cloud is Elastic Compute Cloud, AWS cloud service
 	Cloud EC2
+	// AutoScaling is a client for the AWS AutoScaling service
+	AutoScaling *autoscaling.AutoScaling
 	// NewLocalInstance is used to retrieve local instance metadata
 	NewLocalInstance NewLocalInstance
 }
@@ -116,6 +117,9 @@ func New(cfg Config) (*Autoscaler, error) {
 	if cfg.Cloud == nil {
 		cfg.Cloud = ec2.New(sess)
 	}
+	if cfg.AutoScaling == nil {
+		cfg.AutoScaling = autoscaling.New(sess)
+	}
 	a := &Autoscaler{
 		Config: cfg,
 		Entry:  log.WithFields(log.Fields{trace.Component: "autoscale"}),
@@ -140,6 +144,61 @@ func (a *Autoscaler) TurnOffSourceDestinationCheck(ctx context.Context, instance
 	_, err := a.Cloud.ModifyInstanceAttributeWithContext(ctx, &ec2.ModifyInstanceAttributeInput{
 		InstanceId:      aws.String(instanceID),
 		SourceDestCheck: &ec2.AttributeBooleanValue{Value: aws.Bool(false)},
+	})
+	return trace.Wrap(err)
+}
+
+// DescribeInstance returns information about instance with the specified ID.
+func (a *Autoscaler) DescribeInstance(ctx context.Context, instanceID string) (*ec2.Instance, error) {
+	a.Debugf("DescribeInstance(%v)", instanceID)
+	resp, err := a.Cloud.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
+	})
+	if err != nil {
+		return nil, utils.ConvertEC2Error(err)
+	}
+	if len(resp.Reservations) == 0 || len(resp.Reservations[0].Instances) == 0 {
+		return nil, trace.NotFound("instance %v not found", instanceID)
+	}
+	if len(resp.Reservations) != 1 || len(resp.Reservations[0].Instances) != 1 {
+		return nil, trace.BadParameter("expected 1 instance with ID %v, got: %s", instanceID, resp)
+	}
+	return resp.Reservations[0].Instances[0], nil
+}
+
+// DescribeInstancesWithSourceDestinationCheck returns all instances from the
+// specified list that have source/destination check enabled.
+func (a *Autoscaler) DescribeInstancesWithSourceDestinationCheck(ctx context.Context, instanceIDs []string) (result []*ec2.Instance, err error) {
+	resp, err := a.Cloud.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice(instanceIDs),
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("source-dest-check"),
+				Values: aws.StringSlice([]string{"true"}),
+			},
+		},
+	})
+	if err != nil {
+		return nil, utils.ConvertEC2Error(err)
+	}
+	for _, reservation := range resp.Reservations {
+		result = append(result, reservation.Instances...)
+	}
+	return result, nil
+}
+
+// WaitUntilInstanceTerminated blocks until the instance with the specified ID
+// is terminated.
+//
+// Note: If an incorrect or non-existent ID is provided, the method will block
+// indefinitely (or until timeout has been reached) so it is advised to query
+// the instance using DescribeInstance method prior to calling it.
+func (a *Autoscaler) WaitUntilInstanceTerminated(ctx context.Context, instanceID string) error {
+	a.Debugf("WaitUntilInstanceTerminated(%v)", instanceID)
+	localCtx, cancel := context.WithTimeout(ctx, defaults.InstanceTerminationTimeout)
+	defer cancel()
+	err := a.Cloud.WaitUntilInstanceTerminatedWithContext(localCtx, &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
 	})
 	return trace.Wrap(err)
 }
@@ -238,4 +297,14 @@ func ConvertError(err error, args ...interface{}) error {
 		}
 	}
 	return err
+}
+
+func instanceState(instance ec2.Instance) string {
+	// All fields on the ec2.Instance object are pointers so while
+	// mandatory fields like state likely can't be nil, be on the
+	// safe side and make sure.
+	if instance.State != nil {
+		return aws.StringValue(instance.State.Name)
+	}
+	return ""
 }

@@ -23,16 +23,22 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"strings"
+	"syscall"
 
-	"github.com/cenkalti/backoff"
+	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/cenkalti/backoff"
 	etcd "github.com/coreos/etcd/client"
 	"github.com/gravitational/trace"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -85,8 +91,7 @@ func IsClosedConnectionError(err error) bool {
 
 // IsClusterUnavailableError determines if the specified error is a cluster unavailable error
 func IsClusterUnavailableError(err error) bool {
-	text := trace.Unwrap(err).Error()
-	return isEtcdClusterErrorMessage(text)
+	return isEtcdClusterErrorMessage(trace.UserMessage(err))
 }
 
 // IsKubeAuthError determines whether the specified error is an authorization
@@ -107,13 +112,19 @@ func IsTransientClusterError(err error) bool {
 	}
 
 	switch {
-	case trace.IsConnectionProblem(err):
+	case IsConnectionProblem(err):
 		return true
 	case IsConnectionResetError(err):
+		return true
+	case IsConnectionRefusedError(err):
 		return true
 	case IsClusterUnavailableError(err) || isEtcdClusterError(err):
 		return true
 	case isKubernetesEtcdClusterError(err):
+		return true
+	case IsKubeAuthError(err):
+		// Kubernetes replies with unauthorized for certain
+		// operations when etcd is down
 		return true
 	default:
 		return false
@@ -130,13 +141,16 @@ func IsNetworkError(err error) bool {
 }
 
 // NewUninstallServiceError returns a plan out of sync error
-func NewUninstallServiceError(servicePackage loc.Locator) error {
-	return &ErrorUninstallService{Package: servicePackage}
+func NewUninstallServiceError(err error, servicePackage loc.Locator) error {
+	return &ErrorUninstallService{
+		Package: servicePackage,
+		Err:     err,
+	}
 }
 
 // Error implements error interface
 func (r *ErrorUninstallService) Error() string {
-	return fmt.Sprintf("failed uninstalling %v service", r.Package)
+	return fmt.Sprintf("failed uninstalling %v service: %v", r.Package, r.Err)
 }
 
 // IsStreamClosedError determines if the given error is a response/stream closed
@@ -154,6 +168,16 @@ func IsStreamClosedError(err error) bool {
 	return false
 }
 
+// IsResourceBusyError determines if the specified error identifies a 'device or resource busy' error
+func IsResourceBusyError(err error) bool {
+	switch err := trace.Unwrap(err).(type) {
+	case *os.PathError:
+		return isResourceBusyError(err.Err)
+	default:
+		return isResourceBusyError(err)
+	}
+}
+
 // IsClosedResponseBodyErrorMessage determines if the error message
 // describes a closed response body error
 func IsClosedResponseBodyErrorMessage(err string) bool {
@@ -164,12 +188,23 @@ func IsClosedResponseBodyErrorMessage(err string) bool {
 type ErrorUninstallService struct {
 	// Package refers to the service that failed to uninstall
 	Package loc.Locator
+	// Err specifies the actual error encountered while uninstalling
+	// the service
+	Err error
 }
 
 // IsPathError determines if the specified err is of type os.PathError
 func IsPathError(err error) bool {
 	_, ok := trace.Unwrap(err).(*os.PathError)
 	return ok
+}
+
+func isResourceBusyError(err error) bool {
+	sysErr, ok := err.(syscall.Errno)
+	if !ok {
+		return false
+	}
+	return sysErr == syscall.EBUSY
 }
 
 func isKubernetesEtcdClusterError(err error) bool {
@@ -187,7 +222,10 @@ func isEtcdClusterError(err error) bool {
 }
 
 func isEtcdClusterErrorMessage(message string) bool {
-	return isEtcdClusterMisconfigured(message) || isEtcdClusterHasNoLeader(message)
+	return isEtcdClusterMisconfigured(message) ||
+		isEtcdClusterHasNoLeader(message) ||
+		isEtcdClusterLeaderChanged(message) ||
+		isEtcdClusterRequestTimedOut(message)
 }
 
 func isEtcdClusterMisconfigured(message string) bool {
@@ -197,6 +235,14 @@ func isEtcdClusterMisconfigured(message string) bool {
 func isEtcdClusterHasNoLeader(message string) bool {
 	return strings.Contains(message, "etcd member") &&
 		strings.Contains(message, "has no leader")
+}
+
+func isEtcdClusterLeaderChanged(message string) bool {
+	return strings.Contains(message, "etcdserver: leader changed")
+}
+
+func isEtcdClusterRequestTimedOut(message string) bool {
+	return strings.Contains(message, "etcdserver: request timed out")
 }
 
 // MarshalJSON marshals this message as JSON.
@@ -233,6 +279,26 @@ func (r message) Error() string {
 type message struct {
 	// Message is the error message
 	Message string `json:"message"`
+}
+
+// ConvertEC2Error converts error from AWS EC2 API to appropriate trace error.
+func ConvertEC2Error(err error) error {
+	if err == nil {
+		return nil
+	}
+	awsErr, ok := err.(awserr.Error)
+	if !ok {
+		return err
+	}
+	// For some reason, AWS Go SDK does not define constants for EC2 error
+	// codes so we're using strings here.
+	switch awsErr.Code() {
+	case "InvalidInstanceID.NotFound":
+		return trace.NotFound(awsErr.Message())
+	case "InvalidInstanceID.Malformed":
+		return trace.BadParameter(awsErr.Message())
+	}
+	return err
 }
 
 // ConvertS3Error converts an error from AWS S3 API to an appropriate trace error
@@ -292,16 +358,181 @@ func IsConnectionResetError(err error) bool {
 		"connection reset by peer")
 }
 
+// IsConnectionRefusedError determines whether err is a
+// 'connection refused' error.
+// err is expected to be non-nil
+func IsConnectionRefusedError(err error) bool {
+	if urlError, ok := trace.Unwrap(err).(*url.Error); ok {
+		if opError, ok := urlError.Err.(*net.OpError); ok {
+			errno, ok := opError.Err.(syscall.Errno)
+			return ok && errno == syscall.ECONNREFUSED
+		}
+	}
+	return strings.Contains(trace.Unwrap(err).Error(),
+		"connection refused")
+}
+
+// IsConnectionProblem determines whether err signifies a connection
+// problem
+func IsConnectionProblem(err error) bool {
+	if trace.IsConnectionProblem(err) {
+		return true
+	}
+	if urlError, ok := trace.Unwrap(err).(*url.Error); ok {
+		return trace.IsConnectionProblem(urlError.Err)
+	}
+	return false
+}
+
 // ShouldReconnectPeer implements the error classification for peer connection errors
 //
 // It detects unrecoverable errors and aborts the reconnect attempts
 func ShouldReconnectPeer(err error) error {
-	if isPeerDeniedError(err.Error()) {
-		return &backoff.PermanentError{err}
+	switch {
+	case isPermissionDeniedError(err),
+		isLicenseError(err.Error()),
+		isHostAlreadyRegisteredError(err.Error()):
+		return &backoff.PermanentError{Err: err}
 	}
 	return err
 }
 
-func isPeerDeniedError(message string) bool {
-	return strings.Contains(message, "AccessDenied")
+// NewFailedPreconditionError returns a new failed precondition error
+// with optional original error err
+func NewFailedPreconditionError(err error) error {
+	return WrapExitCodeError(defaults.FailedPreconditionExitCode, err)
+}
+
+// ExitCodeError defines an interface for exit code errors
+type ExitCodeError interface {
+	error
+	// ExitCode returns the numeric error code to exit with
+	ExitCode() int
+	// OrigError returns the original error this error wraps.
+	OrigError() error
+}
+
+// NewPreconditionFailedError returns a new error signifying a failed
+// precondition
+func NewPreconditionFailedError(err error) error {
+	return exitCodeError{
+		code: defaults.FailedPreconditionExitCode,
+		err:  err,
+	}
+}
+
+// NewExitCodeError returns a new error with the specified exit code
+func NewExitCodeError(exitCode int) error {
+	if exitCode == 0 {
+		return nil
+	}
+	return exitCodeError{code: exitCode}
+}
+
+// NewExitCodeError returns a new error that wraps a specific exit code and message
+func NewExitCodeErrorWithMessage(exitCode int, message string) error {
+	return exitCodeError{
+		code:    exitCode,
+		message: message,
+	}
+}
+
+// WrapExitCodeError returns a new error with the specified exit code
+// that wrap another error
+func WrapExitCodeError(exitCode int, err error) error {
+	return exitCodeError{
+		code: exitCode,
+		err:  err,
+	}
+}
+
+// ExitStatusFromError returns the exit status from the specified error.
+// If the error is not exit status error, return nil
+func ExitStatusFromError(err error) *int {
+	exitErr, ok := trace.Unwrap(err).(*exec.ExitError)
+	if !ok {
+		return nil
+	}
+	if waitStatus, ok := exitErr.ProcessState.Sys().(syscall.WaitStatus); ok {
+		status := waitStatus.ExitStatus()
+		return &status
+	}
+	return nil
+}
+
+// IsCompareFailedError returns true to indicate this error
+// complies with compare failed error protocol
+func (ClusterDegradedError) IsCompareFailedError() bool {
+	return true
+}
+
+// Error returns the text representation of this error
+func (ClusterDegradedError) Error() string {
+	return "cluster is degraded"
+}
+
+// ClusterDegradedError indicates that the cluster is degraded
+type ClusterDegradedError struct{}
+
+// ExitCode interprets this value as exit code.
+// Implements ExitCodeError
+func (r exitCodeError) ExitCode() int {
+	return r.code
+}
+
+// IsClusterDegradedError determines if the error indicates that
+// the cluster is degraded
+func IsClusterDegradedError(err error) bool {
+	if _, ok := trace.Unwrap(err).(ClusterDegradedError); ok {
+		return true
+	}
+	// Handle the case when the error has come over the wire
+	return strings.Contains(err.Error(), "cluster is degraded")
+}
+
+// Error returns this exit code as error string.
+// Implements error
+func (r exitCodeError) Error() string {
+	if r.err != nil {
+		return r.err.Error()
+	}
+	if r.message != "" {
+		return r.message
+	}
+	return fmt.Sprintf("exit with code %v", r.code)
+}
+
+// OrigError returns the original error if available.
+// If no error has been stored, it returns this error
+func (r exitCodeError) OrigError() error {
+	if r.err == nil {
+		return r
+	}
+	return r.err
+}
+
+type exitCodeError struct {
+	code    int
+	message string
+	// err specifies optional original error
+	err error
+}
+
+func isPermissionDeniedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if statusErr, ok := status.FromError(trace.Unwrap(err)); ok {
+		return statusErr.Code() == codes.PermissionDenied
+	}
+	return trace.IsAccessDenied(err)
+}
+
+func isLicenseError(message string) bool {
+	return strings.Contains(message, "license allows maximum of")
+}
+
+func isHostAlreadyRegisteredError(message string) bool {
+	return strings.Contains(message, "One of existing peers already has hostname") ||
+		strings.Contains(message, "One of existing servers already has hostname")
 }

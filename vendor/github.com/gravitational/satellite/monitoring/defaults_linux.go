@@ -30,7 +30,6 @@ func DefaultPortChecker() health.Checker {
 		PortRange{Protocol: protoTCP, From: 4001, To: 4001, Description: "etcd"},
 		PortRange{Protocol: protoTCP, From: 7001, To: 7001, Description: "etcd"},
 		PortRange{Protocol: protoTCP, From: 6443, To: 6443, Description: "kubernetes API server"},
-		PortRange{Protocol: protoTCP, From: 30000, To: 32767, Description: "kubernetes internal services range"},
 		PortRange{Protocol: protoTCP, From: 10248, To: 10255, Description: "kubernetes internal services range"},
 		PortRange{Protocol: protoTCP, From: 5000, To: 5000, Description: "docker registry"},
 		PortRange{Protocol: protoTCP, From: 3022, To: 3025, Description: "teleport internal ssh control panel"},
@@ -55,6 +54,7 @@ func PreInstallPortChecker() health.Checker {
 func DefaultProcessChecker() health.Checker {
 	return &ProcessChecker{[]string{
 		"dockerd",
+		"docker-current", // Docker daemon name when installed from RHEL repos.
 		"lxd",
 		"coredns",
 		"kube-apiserver",
@@ -74,6 +74,10 @@ func BasicCheckers(checkers ...health.Checker) health.Checker {
 		name: "local",
 		checkers: []health.Checker{
 			NewIPForwardChecker(),
+			NewCNIForwardingChecker(),
+			NewFlannelForwardingChecker(),
+			NewWormholeBridgeForwardingChecker(),
+			NewWormholeWgForwardingChecker(),
 			NewBridgeNetfilterChecker(),
 			NewMayDetachMountsChecker(),
 			DefaultProcessChecker(),
@@ -109,7 +113,6 @@ func DefaultBootConfigParams() health.Checker {
 		BootConfigParam{Name: "CONFIG_VETH"},
 		BootConfigParam{Name: "CONFIG_BRIDGE"},
 		BootConfigParam{Name: "CONFIG_BRIDGE_NETFILTER"},
-		BootConfigParam{Name: "CONFIG_NF_NAT_IPV4"},
 		BootConfigParam{Name: "CONFIG_IP_NF_FILTER"},
 		BootConfigParam{Name: "CONFIG_IP_NF_TARGET_MASQUERADE"},
 		BootConfigParam{Name: "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE"},
@@ -117,7 +120,12 @@ func DefaultBootConfigParams() health.Checker {
 		BootConfigParam{Name: "CONFIG_NETFILTER_XT_MATCH_IPVS"},
 		BootConfigParam{Name: "CONFIG_IP_NF_NAT"},
 		BootConfigParam{Name: "CONFIG_NF_NAT"},
-		BootConfigParam{Name: "CONFIG_NF_NAT_NEEDED"},
+		BootConfigParam{
+			// https://cateee.net/lkddb/web-lkddb/NF_NAT_NEEDED.html
+			// CONFIG_NF_NAT_NEEDED has been removed as of kernel 5.2
+			Name:             "CONFIG_NF_NAT_NEEDED",
+			KernelConstraint: KernelVersionLessThan(KernelVersion{Release: 5, Major: 2}),
+		},
 		BootConfigParam{Name: "CONFIG_POSIX_MQUEUE"},
 		BootConfigParam{
 			// See: https://lists.gt.net/linux/kernel/2465684#2465684
@@ -130,8 +138,9 @@ func DefaultBootConfigParams() health.Checker {
 }
 
 // NewDNSChecker sends some default queries to monitor DNS / service discovery health
-func NewDNSChecker(questionA []string) health.Checker {
+func NewDNSChecker(questionA []string, nameservers ...string) health.Checker {
 	return &DNSChecker{
-		QuestionA: questionA,
+		QuestionA:   questionA,
+		Nameservers: nameservers,
 	}
 }

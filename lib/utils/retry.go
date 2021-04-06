@@ -62,7 +62,10 @@ type AbortRetry struct {
 
 // Error returns the abort error string representation
 func (a *AbortRetry) Error() string {
-	return fmt.Sprintf("Abort(%v)", a.Err)
+	if a.Err == nil {
+		return "Abort error"
+	}
+	return a.Err.Error()
 }
 
 // OriginalError returns the original error message this abort error wraps
@@ -100,7 +103,7 @@ func Retry(period time.Duration, maxAttempts int, fn func() error) error {
 		}
 		time.Sleep(period)
 	}
-	log.Errorf("All attempts failed:\n%v.", trace.DebugReport(err))
+	log.WithError(err).Warn("All attempts failed.")
 	return err
 }
 
@@ -112,7 +115,7 @@ func RetryFor(ctx context.Context, timeout time.Duration, fn func() error) error
 		if err == nil {
 			return nil
 		}
-		if time.Now().Sub(start) > timeout {
+		if time.Since(start) > timeout {
 			return trace.Wrap(err, "retry exceeded %v", timeout)
 		}
 		switch origErr := err.(type) {
@@ -130,7 +133,6 @@ func RetryFor(ctx context.Context, timeout time.Duration, fn func() error) error
 			return trace.Wrap(err)
 		}
 	}
-	return nil
 }
 
 // RetryRead reads the contents of the reader to the temporary file
@@ -174,7 +176,7 @@ func RetryOnNetworkError(period time.Duration, maxAttempts int, fn func() error)
 		case *net.OpError:
 			return Continue("network error: %v", err)
 		}
-		if trace.IsConnectionProblem(err) {
+		if trace.IsConnectionProblem(err) || trace.IsEOF(err) {
 			return Continue("network error: %v", err)
 		}
 		if err != nil {
@@ -212,11 +214,7 @@ func RetryTransient(ctx context.Context, interval backoff.BackOff, fn func() err
 		}
 		switch {
 		case IsTransientClusterError(err):
-			// Retry on transient etcd errors
-			return trace.Wrap(err)
-		case IsKubeAuthError(err):
-			// Kubernetes replies with unauthorized for certain
-			// operations when etcd is down
+			// Retry on transient errors
 			return trace.Wrap(err)
 		default:
 			return &backoff.PermanentError{Err: err}
@@ -235,7 +233,7 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = fn()
 		return err
 	}, b, func(err error, d time.Duration) {
-		log.Infof("Retrying: %v (time %v).", trace.UserMessage(err), d)
+		log.WithError(err).Infof("Retrying in %v.", d)
 	})
 
 	switch errOrig := trace.Unwrap(err).(type) {
@@ -244,21 +242,21 @@ func RetryWithInterval(ctx context.Context, interval backoff.BackOff, fn func() 
 		err = errOrig.Err
 	}
 	if err != nil {
-		log.Errorf("All attempts failed: %v.", trace.DebugReport(err))
+		log.WithError(err).Warn("All attempts failed.")
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
 // NewUnlimitedExponentialBackOff returns a backoff interval without time restriction
-func NewUnlimitedExponentialBackOff() backoff.BackOff {
+func NewUnlimitedExponentialBackOff() *backoff.ExponentialBackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = 0
 	return b
 }
 
 // NewExponentialBackOff creates a new backoff interval with the specified timeout
-func NewExponentialBackOff(timeout time.Duration) backoff.BackOff {
+func NewExponentialBackOff(timeout time.Duration) *backoff.ExponentialBackOff {
 	b := backoff.NewExponentialBackOff()
 	b.MaxElapsedTime = timeout
 	return b

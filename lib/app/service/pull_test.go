@@ -120,7 +120,7 @@ dependencies:
   - example.com/new:0.0.2
   - example.com/existing:0.0.1
 `
-	apptest.CreateDummyApplication2(s.srcApp, locator, dependencies, c)
+	apptest.CreateDummyApplicationWithDependencies(s.srcApp, locator, dependencies, c)
 
 	pulled, err := PullApp(AppPullRequest{
 		SrcPack:  s.srcPack,

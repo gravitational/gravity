@@ -18,75 +18,25 @@ package process
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/processconfig"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
-	"github.com/gravitational/gravity/lib/users"
 
 	"github.com/gravitational/teleport/lib/backend"
 	telecfg "github.com/gravitational/teleport/lib/config"
 	teleservices "github.com/gravitational/teleport/lib/services"
-	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 )
-
-// WizardProcessConfig returns new process config in wizard mode
-func WizardProcessConfig(hostname, readStateDir, stateDir string) (*processconfig.Config, error) {
-	assetsDir, err := ioutil.TempDir("", "assets")
-	if err != nil {
-		return nil, trace.Wrap(err, "failed to create temporary directory for assets")
-	}
-	healthAddr, _ := teleutils.ParseAddr(fmt.Sprintf(":%v", defaults.WizardHealthPort))
-	adminRole, err := users.NewAdminRole()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &processconfig.Config{
-		Mode:         constants.ComponentInstaller,
-		WebAssetsDir: assetsDir,
-		DataDir:      stateDir,
-		Hostname:     hostname,
-		HealthAddr:   *healthAddr,
-		BackendType:  constants.BoltBackend,
-		OpsCenter:    processconfig.OpsCenterConfig{},
-		Pack: processconfig.PackageServiceConfig{
-			ListenAddr: teleutils.NetAddr{
-				AddrNetwork: "tcp",
-				Addr:        fmt.Sprintf(":%v", defaults.WizardPackServerPort),
-			},
-			AdvertiseAddr: teleutils.NetAddr{
-				AddrNetwork: "tcp",
-				Addr:        fmt.Sprintf("%v:%v", hostname, defaults.WizardPackServerPort),
-			},
-			ReadDir: readStateDir,
-		},
-		Users: []processconfig.User{
-			{
-				Email:    defaults.WizardUser,
-				Password: defaults.WizardPassword,
-				Org:      defaults.SystemAccountOrg,
-				Type:     storage.AdminUser,
-				Roles:    []string{adminRole.GetName()},
-			},
-		},
-	}, nil
-}
 
 // WizardTeleportConfig generates a teleport configuration for the gravity wizard process
 func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 	return &telecfg.FileConfig{
 		Global: telecfg.Global{
 			DataDir: stateDir,
-			Logger: telecfg.Log{
-				Output:   "stderr",
-				Severity: "warn",
-			},
 			Storage: backend.Config{
 				// TODO Eventually we should change this to "dir" backend
 				// because bolt backend is being deprecated in teleport
@@ -103,8 +53,7 @@ func WizardTeleportConfig(clusterName, stateDir string) *telecfg.FileConfig {
 				EnabledFlag:   "yes",
 				ListenAddress: fmt.Sprintf("localhost:%v", defaults.WizardAuthServerPort),
 			},
-			ClusterName: telecfg.ClusterName(fmt.Sprintf("%v%v",
-				constants.InstallerTunnelPrefix, clusterName)),
+			ClusterName: telecfg.ClusterName(constants.InstallerClusterName(clusterName)),
 		},
 		Proxy: telecfg.Proxy{
 			Service: telecfg.Service{

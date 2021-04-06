@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/trace"
@@ -82,6 +84,65 @@ func DetectPlanetEnvironment() {
 // the container
 func CheckInPlanet() bool {
 	return runningInsideContainer
+}
+
+// Getenv returns the map of name->value pairs that captures the specified list
+// of environment variables. Only variables with a value are captured
+func Getenv(envs ...string) (environ map[string]string) {
+	environ = make(map[string]string)
+	for _, env := range envs {
+		if value, ok := os.LookupEnv(env); ok {
+			environ[env] = value
+		}
+	}
+	return environ
+}
+
+// GetenvWithDefault returns the value of the environment variable given
+// with name or defaultValue if the variable does not exist
+func GetenvWithDefault(name, defaultValue string) string {
+	if value, ok := os.LookupEnv(name); ok {
+		return value
+	}
+	return defaultValue
+}
+
+// GetenvsByPrefix returns environment variables with names matching specified prefix.
+func GetenvsByPrefix(prefix string) (environ map[string]string) {
+	environ = make(map[string]string)
+	for _, env := range os.Environ() {
+		name := strings.SplitN(env, "=", 2)[0]
+		if strings.HasPrefix(name, prefix) {
+			environ[name] = os.Getenv(name)
+		}
+	}
+	return environ
+}
+
+// GetenvInt returns the specified environment variable value parsed as an integer.
+func GetenvInt(name string) (int, error) {
+	valueS, ok := os.LookupEnv(name)
+	if !ok {
+		return 0, trace.NotFound("environment variable %v not set", name)
+	}
+	valueI, err := strconv.Atoi(valueS)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	return valueI, nil
+}
+
+// GetenvDuration returns the specified environment variable value parsed as a duration.
+func GetenvDuration(name string) (dur time.Duration, err error) {
+	valueS, ok := os.LookupEnv(name)
+	if !ok {
+		return dur, trace.NotFound("environment variable %v not set", name)
+	}
+	valueD, err := time.ParseDuration(valueS)
+	if err != nil {
+		return 0, trace.Wrap(err)
+	}
+	return valueD, nil
 }
 
 // runningInsideContainer specifies if this process is executing inside

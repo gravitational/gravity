@@ -99,10 +99,18 @@ func (r Probes) GetFailed() []*pb.Probe {
 func (r Probes) Status() pb.NodeStatus_Type {
 	result := pb.NodeStatus_Running
 	for _, probe := range r {
-		if probe.Status == pb.Probe_Failed {
+		if probe.Status == pb.Probe_Failed && probe.Severity != pb.Probe_Warning {
 			result = pb.NodeStatus_Degraded
 			break
 		}
 	}
 	return result
 }
+
+// ByDetail implements sort.Interface.
+// Enables probes to be sorted by detail.
+type ByDetail Probes
+
+func (r ByDetail) Len() int           { return len(r) }
+func (r ByDetail) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
+func (r ByDetail) Less(i, j int) bool { return r[i].Detail < r[j].Detail }

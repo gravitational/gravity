@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  labels:
+    service: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: mysql
+  template:
+    metadata:
+      labels:
+        service: mysql
+    spec:
+      {{ if .Values.psp.enabled }}
+      serviceAccountName: robot-shop
+      {{ end }}
+      containers:
+      - name: mysql
+        image: {{ .Values.registry }}{{ .Values.image.repo }}/rs-mysql-db:{{ .Values.image.version }}
+      {{ if .Values.securitySettingIstio }}
+        # added for Istio
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN"]
+      {{ end }}
+        ports:
+        - containerPort: 3306
+        resources:
+          limits:
+            cpu: 200m
+            memory: 1024Mi
+          requests:
+            cpu: 100m
+            memory: 700Mi
+      restartPolicy: Always

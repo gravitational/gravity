@@ -29,11 +29,11 @@ import (
 	"time"
 
 	appservice "github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/docker"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -41,11 +41,12 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/utils"
-	fileutils "github.com/gravitational/gravity/lib/utils"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -77,6 +78,8 @@ type Config struct {
 	CacheResources bool
 	// UnpackedDir is the dir where packages are unpacked
 	UnpackedDir string
+	// ExcludeDeps defines a list of dependencies that will be excluded for the app image
+	ExcludeDeps []loc.Locator
 	// GetClient constructs kubernetes clients.
 	// Either this or Client must be set to use the kubernetes API.
 	GetClient func() (*kubernetes.Clientset, error)
@@ -229,7 +232,7 @@ func syncWithRegistry(ctx context.Context, registryDir string, imageService dock
 	if empty {
 		return trace.BadParameter("registry directory %v is empty", registryDir)
 	}
-	if _, err = imageService.Sync(ctx, registryDir, utils.NopEmitter()); err != nil {
+	if _, err = imageService.Sync(ctx, registryDir, utils.DiscardPrinter); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
@@ -284,15 +287,17 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if req.Env == nil {
-		req.Env = make(map[string]string)
-	}
-	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
 
 	client, err := r.getKubeClient()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+
+	err = r.injectEnvVars(&req, client)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	runner, err := hooks.NewRunner(client)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -316,6 +321,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		AgentPassword:      creds.Password,
 		GravityPackage:     req.GravityPackage,
 		ServiceUser:        req.ServiceUser,
+		Values:             req.Values,
 	}
 
 	ref, err := runner.Start(ctx, params)
@@ -328,6 +334,24 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		Application: req.Application,
 		Hook:        req.Hook,
 	}, nil
+}
+
+// injectEnvVars updates the provided hook run request with additional
+// environment variables such as cluster information.
+func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kubernetes.Clientset) error {
+	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(
+		constants.ClusterInfoMap, metav1.GetOptions{})
+	if err != nil {
+		return rigging.ConvertError(err)
+	}
+	if req.Env == nil {
+		req.Env = make(map[string]string)
+	}
+	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
+	for name, value := range configMap.Data {
+		req.Env[name] = value
+	}
+	return nil
 }
 
 // WaitAppHook waits for app hook to complete or fail
@@ -349,12 +373,12 @@ func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.Hoo
 }
 
 // DeleteAppHookJob deletes app hook job
-func (r *applications) DeleteAppHookJob(ctx context.Context, ref appservice.HookRef) error {
+func (r *applications) DeleteAppHookJob(ctx context.Context, req appservice.DeleteAppHookJobRequest) error {
 	client, err := r.getKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return appservice.DeleteAppHookJob(ctx, client, ref)
+	return appservice.DeleteAppHookJob(ctx, client, req)
 }
 
 // StatusApp retrieves the status of a running application
@@ -479,23 +503,17 @@ func (r *applications) getAppResources(locator loc.Locator) (io.ReadCloser, erro
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	defer reader.Close()
 
-	unpackedDir, cleanup, err := unpackedSource(reader, true)
+	stream, err := unpackedResources(reader)
 	if err != nil {
-		cleanup()
+		reader.Close()
 		return nil, trace.Wrap(err)
 	}
-	reader, writer := io.Pipe()
-	go func() {
-		err := archive.CompressDirectory(unpackedDir, writer)
-		if errClose := writer.CloseWithError(err); errClose != nil {
-			r.Warnf("Failed to close writer: %v.", errClose)
-		}
-	}()
-	return &fileutils.CleanupReadCloser{
-		ReadCloser: reader,
-		Cleanup:    cleanup,
+	return &utils.CleanupReadCloser{
+		ReadCloser: stream,
+		Cleanup: func() {
+			reader.Close()
+		},
 	}, nil
 }
 
@@ -618,7 +636,7 @@ func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, ma
 // CreateImportOperation initiates import for an application specified with req.
 // Returns the import operation to keep track of the import progress.
 func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*storage.AppOperation, error) {
-	unpackedDir, cleanup, err := unpackedSource(req.Source, false)
+	unpackedDir, cleanup, err := unpackedSource(req.Source)
 	if err != nil {
 		cleanup()
 		return nil, trace.Wrap(err)
@@ -629,6 +647,12 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 		cleanup()
 		return nil, trace.Wrap(err)
 	}
+
+	m, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	r.Config.ExcludeDeps = appservice.AppsToExclude(*m)
 
 	manifest, err := r.resolveManifest(manifestBytes)
 	if err != nil {
@@ -799,6 +823,10 @@ func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, 
 			return nil, trace.Wrap(err)
 		}
 	}
+
+	message := "Dependency %v excluded from manifest"
+	manifest.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(manifest.Dependencies.Apps), r.Config.ExcludeDeps, message))
+
 	if err = schema.CheckAndSetDefaults(manifest); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -824,6 +852,10 @@ func (r *applications) canDelete(locator loc.Locator) error {
 		return trace.Wrap(err)
 	}
 	for _, app := range apps {
+		base := app.Manifest.Base()
+		if base != nil && base.IsEqualTo(locator) {
+			return trace.BadParameter("%v is a base app for %v", locator, app)
+		}
 		for _, dep := range app.Manifest.Dependencies.Apps {
 			if dep.Locator.IsEqualTo(locator) {
 				return trace.BadParameter("%v depends on %v", app, locator)

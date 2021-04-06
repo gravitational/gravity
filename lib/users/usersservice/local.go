@@ -29,11 +29,13 @@ import (
 
 // NewLocalKeyStore returns new user-local key storage
 func NewLocalKeyStore(path string) (*users.KeyStore, error) {
-	path, err := utils.EnsureLocalPath(path, defaults.LocalConfigDir, defaults.LocalConfigFile)
+	path, err := utils.GetLocalPath(path, defaults.LocalConfigDir, defaults.LocalConfigFile)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return users.NewCredsService(users.CredsConfig{Backend: &LocalLogins{path: path, Clock: clockwork.NewRealClock()}})
+	return users.NewCredsService(users.CredsConfig{
+		Backend: &LocalLogins{path: path, Clock: clockwork.NewRealClock()},
+	})
 }
 
 // LocalLogins store local logins with remote ops centers

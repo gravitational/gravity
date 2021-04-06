@@ -1,0 +1,17 @@
+registry: ""
+wordpressNamespace: default
+wordpressServiceType: NodePort
+
+#Password for the mysql db
+mysqlPassword: YWRtaW4=
+
+#Storage sizes for the persistent claims
+wordpressStorageSize: 2Gi
+mysqlStorageSize: 3Gi
+
+#Storage type
+storageClassType: openebs-hostpath
+
+#Wordpress and Mysql Image tags
+wordpressTag: 5.4-apache
+mysqlTag: 5.7

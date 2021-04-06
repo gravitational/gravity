@@ -19,9 +19,9 @@ limitations under the License.
 package constants
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/coreos/go-semver/semver"
 	"k8s.io/apimachinery/pkg/version"
 )
 
@@ -166,11 +166,17 @@ const (
 	// KubectlBin is the name of the kubectl binary
 	KubectlBin = "kubectl"
 
+	// FioBin is the name of the fio binary
+	FioBin = "fio"
+
 	// TelePackage is the name of the package with 'tele' binary
 	TelePackage = "tele"
 
 	// TshPackage is the name of the package with 'tsh' binary
 	TshPackage = "tsh"
+
+	// FioPackage is the name of the package with fio binary.
+	FioPackage = "fio"
 
 	// BootstrapConfigPackage specifies the name of the package with default roles/security policies
 	BootstrapConfigPackage = "rbac-app"
@@ -181,9 +187,6 @@ const (
 	// TrustedClusterPackage is the name of the package that contains trusted
 	// cluster spec for external Ops Center when installing in wizard mode
 	TrustedClusterPackage = "trusted-cluster"
-
-	// TerraformGravityPackage specifies the package name of the gravity terraform provider
-	TerraformGravityPackage = "terraform-provider-gravity"
 
 	// DevmodeEnvVar is the name of environment variable that is passed inside hook
 	// container indicating whether the OpsCenter/Site is started in dev mode
@@ -204,20 +207,22 @@ const (
 	// If not empty, turns the preflight checks off
 	PreflightChecksOffEnvVar = "GRAVITY_CHECKS_OFF"
 
-	// DockerRegistry is a default name for private docker registry
-	DockerRegistry = "leader.telekube.local:5000"
+	// AgentStatusTimeoutEnvVar is the name of the environment variable that specifies the agent status timeout value
+	AgentStatusTimeoutEnvVar = "GRAVITY_AGENT_STATUS_TIMEOUT"
 
-	// LocalRegistryAddr is the address of the local docker registry
-	LocalRegistryAddr = "127.0.0.1:5000"
+	// GravityEnvVarPrefix is the prefix for gravity-specific environment variables.
+	GravityEnvVarPrefix = "GRAVITY_"
+
+	// HTTPProxyEnvVar is the HTTP_PROXY environment variable.
+	HTTPProxyEnvVar = "HTTP_PROXY"
+	// HTTPSProxyEnvVar is the HTTPS_PROXY environment variable.
+	HTTPSProxyEnvVar = "HTTPS_PROXY"
 
 	// Localhost is local host
 	Localhost = "127.0.0.1"
 
 	// DockerEngineURL is the address of the local docker engine API
 	DockerEngineURL = "unix://var/run/docker.sock"
-
-	// DockerRegistryPort is the default port for connecting to private docker registries
-	DockerRegistryPort = "5000"
 
 	// SiteInitLock is a name of a distributed site lock that is used for one time
 	// import procedure
@@ -228,9 +233,6 @@ const (
 
 	// GravityServicePortName is the port name of the service
 	GravityServicePortName = "web"
-
-	// OneshotService is a service that executes one time
-	OneshotService = "oneshot"
 
 	// RootUID is the root user ID
 	RootUID = 0
@@ -274,6 +276,14 @@ const (
 	CoreDNSKeyPair = "coredns"
 	// FrontProxyClientKeyPair is a cert/key used for accessing external APIs through aggregation layer
 	FrontProxyClientKeyPair = "front-proxy-client"
+	// LograngeAdaptorKeyPair is a cert/key used by logrange adaptor component
+	LograngeAdaptorKeyPair = "logrange-adaptor"
+	// LograngeAggregatorKeyPair is a cert/key used by logrange aggregator component
+	LograngeAggregatorKeyPair = "logrange-aggregator"
+	// LograngeCollectorKeyPair is a cert/key used by logrange collector component
+	LograngeCollectorKeyPair = "logrange-collector"
+	// LograngeForwarderKeyPair is a cert/key used by logrange forwarder component
+	LograngeForwarderKeyPair = "logrange-forwarder"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"
@@ -434,6 +444,9 @@ const (
 	// ShortDateFormat is the short version of human readable timestamp format
 	ShortDateFormat = "2006-01-02 15:04"
 
+	// TimeFormat is the time format that only displays time
+	TimeFormat = "15:04"
+
 	// LatestVersion is the shortcut for the latest Telekube version
 	LatestVersion = "latest"
 	// StableVersion is the shortcut for the latest stable Telekube version
@@ -443,6 +456,8 @@ const (
 	KindConfigMap = "ConfigMap"
 	// KindService is the Kubernetes Service resource kind
 	KindService = "Service"
+	// KindJob is the Kubernetes Job resource kind
+	KindJob = "Job"
 
 	// KubernetesKindUser defines the kubernetes user resource type
 	KubernetesKindUser = "User"
@@ -460,11 +475,15 @@ const (
 
 	// KubeSystemNamespace is a k8s namespace
 	KubeSystemNamespace = "kube-system"
+	// AllNamespaces is the filter to search across all namespaces
+	AllNamespaces = ""
 
 	// GrafanaContextCookie hold the name of the cluster used in
 	// certain web handlers to determine the currently selected domain without including it
 	// in the URL
 	GrafanaContextCookie = "grv_grafana"
+	// SessionCookie is the name of the cookie that contains web session.
+	SessionCookie = "session"
 
 	// RoleAdmin is admin role
 	RoleAdmin = "@teleadmin"
@@ -483,6 +502,9 @@ const (
 
 	// OperatorContext is for operator associated with User ACL context
 	OperatorContext = "telekube.operator.context"
+
+	// UserContext is a context field that contains authenticated user name
+	UserContext = "user.context"
 
 	// PrivilegedKubeconfig is a path to privileged kube config
 	// that is stored on K8s master node
@@ -518,6 +540,31 @@ const (
 	// kubernetes, use a lowercase notation instead to make it backwards-compatible
 	ClusterPrivateKeyMapKey = "privatekey"
 
+	// ClusterEnvironmentMap is the name of the ConfigMap that contains cluster environment
+	ClusterEnvironmentMap = "runtimeenvironment"
+
+	// PreviousKeyValuesAnnotationKey defines the annotation field that keeps the old
+	// environment variables after the update
+	PreviousKeyValuesAnnotationKey = "previous-values"
+
+	// ClusterConfigurationMap is the name of the ConfigMap that hosts cluster configuration resource
+	ClusterConfigurationMap = "cluster-configuration"
+
+	// OpenEBSNDMConfigMap is the name of the ConfigMap with OpenEBS node device
+	// manager configuration.
+	OpenEBSNDMConfigMap = "openebs-ndm-config"
+	// OpenEBSNDMDaemonSet is the name of the OpenEBS node device manager DaemonSet
+	OpenEBSNDMDaemonSet = "openebs-ndm"
+
+	// ClusterInfoMap is the name of the ConfigMap that contains cluster information.
+	ClusterInfoMap = "cluster-info"
+	// ClusterNameEnv is the environment variable that contains cluster domain name.
+	ClusterNameEnv = "GRAVITY_CLUSTER_NAME"
+	// ClusterProviderEnv is the environment variable that contains cluster cloud provider.
+	ClusterProviderEnv = "GRAVITY_CLUSTER_PROVIDER"
+	// ClusterFlavorEnv is the environment variable that contains initial cluster flavor.
+	ClusterFlavorEnv = "GRAVITY_CLUSTER_FLAVOR"
+
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
 	SMTPSecret = "smtp-configuration-update"
 
@@ -542,20 +589,11 @@ const (
 	// AuthGatewayConfigMap is the name of config map with auth gateway configuration.
 	AuthGatewayConfigMap = "auth-gateway"
 
-	// LVMSystemDir specifies the default location where lvm2 keeps state and configuration data
-	LVMSystemDir = "/etc/lvm"
-	// LVMSystemDirEnvvar defines the name of the environment variable that overrides the
-	// default system location
-	LVMSystemDirEnvvar = "LVM_SYSTEM_DIR"
+	// RPCAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
+	RPCAgentUpgradeFunction = "upgrade"
 
-	// ReportFilterSystem defines a report filter to fetch system diagnostics
-	ReportFilterSystem = "system"
-
-	// ReportFilterKubernetes defines a report filter to fetch kubernetes diagnostics
-	ReportFilterKubernetes = "kubernetes"
-
-	// RpcAgentUpgradeFunction requests deployed agents to run automatic upgrade operation on leader node
-	RpcAgentUpgradeFunction = "upgrade"
+	// RPCAgentSyncPlanFunction requests deployed agents to synchronize local backend with cluster
+	RPCAgentSyncPlanFunction = "sync-plan"
 
 	// TelekubeMountDir is a directory where telekube mounts specific secrets
 	// and other configuration parameters
@@ -604,15 +642,14 @@ const (
 	// AWSLBIdleTimeoutAnnotation is the kubernetes annotation that specifies
 	// idle timeout for an AWS load balancer
 	AWSLBIdleTimeoutAnnotation = "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout"
+	// ExternalDNSHostnameAnnotation is the service annotation that is understood
+	// by external DNS controllers.
+	ExternalDNSHostnameAnnotation = "external-dns.alpha.kubernetes.io/hostname"
 
-	// HairpinModeVeth specifies the network mode when hairpin flag is configured on container's veth pair
-	HairpinModeVeth = "hairpin-veth"
-
-	// HairpinModePromiscuousBridge specifies the network mode when the docker bridge is put in promiscuous mode
-	// that forces it to accept hairpin packets.
-	// This is currently different from kubelet's hairpin-mode setting of "promiscuous-bridge" which assumes
-	// existence of the cbr0 bridge (as managed by kubenet network plugin, for instance)
-	HairpinModePromiscuousBridge = "promiscuous-bridge"
+	// AttachDetachAnnotation is the Kubernetes node annotation that indicates
+	// that the node is managed by attach-detach controller running as a part
+	// of the controller manager.
+	AttachDetachAnnotation = "volumes.kubernetes.io/controller-managed-attach-detach"
 
 	// FinalStep is the number of the final install operation step in UI
 	FinalStep = 9
@@ -625,8 +662,6 @@ const (
 	InstallModeInteractive = "interactive"
 	// InstallModeCLI means installation is running in unattended CLI mode
 	InstallModeCLI = "cli"
-	// InstallModeOpsCenter means installation was started from an Ops Center
-	InstallModeOpsCenter = "opscenter"
 
 	// HelmChartFile is a helm chart name
 	HelmChartFile = "Chart.yaml"
@@ -647,9 +682,10 @@ const (
 	FailureMark = "×"
 	// InProgressMark is used in CLI to visually indicate progress
 	InProgressMark = "→"
-
-	// MasterRole is the name of the master node role
-	MasterRole = "master"
+	// WarnMark is used in CLI to visually indicate a warning
+	WarnMark = "!"
+	// RollbackMark is used in CLI to visually indicate rollback
+	RollbackMark = "⤺"
 
 	// WireguardNetworkType is a network type that is used for wireguard/wormhole support
 	WireguardNetworkType = "wireguard"
@@ -665,6 +701,39 @@ const (
 	AnnotationLogo = "gravitational.io/logo"
 	// AnnotationSize contains image size in bytes.
 	AnnotationSize = "gravitational.io/size"
+
+	// ServiceAutoscaler is the name of the service that monitors autoscaling
+	// events and launches appropriate operations.
+	//
+	// Used in audit events.
+	ServiceAutoscaler = "@autoscaler"
+	// ServiceStatusChecker is the name of the service that periodically
+	// checks cluster health status and activates/deactivates it.
+	//
+	// Used in audit events.
+	ServiceStatusChecker = "@statuschecker"
+	// ServiceSystem is the identifier used as a "user" field for events
+	// that are triggered not by a human user but by a system process.
+	//
+	// Used in audit events.
+	ServiceSystem = "@system"
+
+	// GravitySystemContainerType specifies the SELinux domain for the system containers.
+	// For instance, application hook init containers run as system containers
+	GravitySystemContainerType = "gravity_container_system_t"
+
+	// GravityCLITag is used to tag gravity cli command log entries in the
+	// system journal.
+	GravityCLITag = "gravity-cli"
+
+	// Redacted is used as a replacement string for sensitive data.
+	Redacted = "*****"
+
+	// GravityAgentOffline indicates the gravity-agent service is offline.
+	GravityAgentOffline = "Offline"
+
+	// GravityAgentDeployed indicates the gravity-agent service has been deployed.
+	GravityAgentDeployed = "Deployed"
 )
 
 var (
@@ -674,11 +743,14 @@ var (
 	EncodingPEM Format = "pem"
 	// EncodingText is for the plaint-text encoding format
 	EncodingText Format = "text"
+	// EncodingShort is for short output format
+	EncodingShort Format = "short"
 	// EncodingYAML is for the YAML encoding format
 	EncodingYAML Format = "yaml"
 	// OutputFormats is a list of recognized output formats for gravity CLI commands
 	OutputFormats = []Format{
 		EncodingText,
+		EncodingShort,
 		EncodingJSON,
 		EncodingYAML,
 	}
@@ -705,10 +777,6 @@ var (
 		DockerStorageDriverOverlay2,
 	}
 
-	// PlanetMultiRegistryVersion is the planet release starting from which registries
-	// are running on all master nodes
-	PlanetMultiRegistryVersion = semver.New("0.1.55")
-
 	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
 	KubernetesServiceDomainNames = []string{
 		"kubernetes",
@@ -722,7 +790,24 @@ var (
 	LegacyBaseImageName = "telekube"
 	// BaseImageName is the current base cluster image name
 	BaseImageName = "gravity"
+
+	// LegacyHubImageName is the legacy name of the Hub cluster image.
+	LegacyHubImageName = "opscenter"
+	// HubImageName is the name of the Hub cluster image.
+	HubImageName = "hub"
 )
+
+// ExternalDNS formats the provided hostname as a wildcard A record for use
+// with external DNS provisioners.
+func ExternalDNS(hostname string) string {
+	return fmt.Sprintf("%[1]v,*.%[1]v", hostname)
+}
+
+// InstallerClusterName returns the name for the installer trusted cluster
+// for the specified cluster
+func InstallerClusterName(clusterName string) string {
+	return fmt.Sprintf("%v%v", InstallerTunnelPrefix, clusterName)
+}
 
 // Format is the type for supported output formats
 type Format string

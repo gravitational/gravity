@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,22 @@ import (
 func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 		switch {
+		case strings.HasPrefix(p.Phase.ID, installphases.InitPhase):
+			return installphases.NewInit(p,
+				config.Operator,
+				config.Apps,
+				config.Packages)
+
+		case strings.HasPrefix(p.Phase.ID, installphases.BootstrapSELinuxPhase):
+			return installphases.NewSELinux(p,
+				config.Operator,
+				config.Apps)
+
+		case strings.HasPrefix(p.Phase.ID, ChecksPhase):
+			return phases.NewChecks(p,
+				config.Operator,
+				config.Runner)
+
 		case strings.HasPrefix(p.Phase.ID, installphases.ConfigurePhase):
 			return installphases.NewConfigure(p,
 				config.Operator)
@@ -79,6 +95,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,
 				config.Operator,
+				config.LocalPackages,
 				remote)
 
 		case strings.HasPrefix(p.Phase.ID, WaitPlanetPhase):
@@ -87,8 +104,11 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 
 		case strings.HasPrefix(p.Phase.ID, WaitK8sPhase):
 			return phases.NewWaitK8s(p,
-				config.Operator,
-				config.DNSConfig)
+				config.Operator)
+
+		case strings.HasPrefix(p.Phase.ID, WaitTeleportPhase):
+			return phases.NewWaitTeleport(p,
+				config.Operator)
 
 		case strings.HasPrefix(p.Phase.ID, PostHookPhase):
 			return installphases.NewHook(p,
@@ -107,6 +127,8 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 }
 
 const (
+	// ChecksPhase runs preflight checks on the joining node
+	ChecksPhase = "/checks"
 	// PreHookPhase runs pre-expand application hook
 	PreHookPhase = "/preHook"
 	// EtcdBackupPhase backs up etcd data on a master node
@@ -119,6 +141,8 @@ const (
 	WaitPlanetPhase = "/wait/planet"
 	// WaitK8sPhase waits for joining node to register with Kubernetes
 	WaitK8sPhase = "/wait/k8s"
+	// WaitTeleportPhase waits for Teleport on the joining node to join the cluster
+	WaitTeleportPhase = "/wait/teleport"
 	// PostHookPhase runs post-expand application hook
 	PostHookPhase = "/postHook"
 	// ElectPhase enables leader election on master node

@@ -22,7 +22,6 @@ import (
 	"io"
 	"net"
 	"sync"
-	"time"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
@@ -129,6 +128,10 @@ type Server struct {
 	closeCancel  context.CancelFunc
 
 	clock clockwork.Clock
+
+	// hostUUID is the UUID of the underlying proxy that the forwarding server
+	// is running in.
+	hostUUID string
 }
 
 // ServerConfig is the configuration needed to create an instance of a Server.
@@ -157,6 +160,10 @@ type ServerConfig struct {
 
 	// Clock is an optoinal clock to override default real time clock
 	Clock clockwork.Clock
+
+	// HostUUID is the UUID of the underlying proxy that the forwarding server
+	// is running in.
+	HostUUID string
 }
 
 // CheckDefaults makes sure all required parameters are passed in.
@@ -225,6 +232,7 @@ func New(c ServerConfig) (*Server, error) {
 		sessionServer:   c.AuthClient,
 		dataDir:         c.DataDir,
 		clock:           c.Clock,
+		hostUUID:        c.HostUUID,
 	}
 
 	// Set the ciphers, KEX, and MACs that the in-memory server will send to the
@@ -272,6 +280,12 @@ func (s *Server) ID() string {
 	return s.id
 }
 
+// HostUUID is the UUID of the underlying proxy that the forwarding server
+// is running in.
+func (s *Server) HostUUID() string {
+	return s.hostUUID
+}
+
 // GetNamespace returns the namespace the forwarding server resides in.
 func (s *Server) GetNamespace() string {
 	return defaults.Namespace
@@ -289,10 +303,10 @@ func (s *Server) Component() string {
 }
 
 // EmitAuditEvent sends an event to the Audit Log.
-func (s *Server) EmitAuditEvent(eventType string, fields events.EventFields) {
+func (s *Server) EmitAuditEvent(event events.Event, fields events.EventFields) {
 	auditLog := s.GetAuditLog()
 	if auditLog != nil {
-		if err := auditLog.EmitAuditEvent(eventType, fields); err != nil {
+		if err := auditLog.EmitAuditEvent(event, fields); err != nil {
 			s.log.Error(err)
 		}
 	} else {
@@ -367,6 +381,12 @@ func (s *Server) Serve() {
 	config.KeyExchanges = s.kexAlgorithms
 	config.MACs = s.macAlgorithms
 
+	clusterConfig, err := s.GetAccessPoint().GetClusterConfig()
+	if err != nil {
+		s.log.Errorf("Unable to fetch cluster config: %v.", err)
+		return
+	}
+
 	s.log.Debugf("Supported ciphers: %q.", s.ciphers)
 	s.log.Debugf("Supported KEX algorithms: %q.", s.kexAlgorithms)
 	s.log.Debugf("Supported MAC algorithms: %q.", s.macAlgorithms)
@@ -411,9 +431,19 @@ func (s *Server) Serve() {
 	}
 
 	// The keep-alive loop will keep pinging the remote server and after it has
-	// missed a certain number of keep alive requests it will cancel the
+	// missed a certain number of keep-alive requests it will cancel the
 	// closeContext which signals the server to shutdown.
-	go s.keepAliveLoop()
+	go srv.StartKeepAliveLoop(srv.KeepAliveParams{
+		Conns: []srv.RequestSender{
+			s.sconn,
+			s.remoteClient,
+		},
+		Interval:     clusterConfig.GetKeepAliveInterval(),
+		MaxCount:     clusterConfig.GetKeepAliveCountMax(),
+		CloseContext: s.closeContext,
+		CloseCancel:  s.closeCancel,
+	})
+
 	go s.handleConnection(chans, reqs)
 }
 
@@ -507,39 +537,6 @@ func (s *Server) handleConnection(chans <-chan ssh.NewChannel, reqs <-chan *ssh.
 	}
 }
 
-func (s *Server) keepAliveLoop() {
-	var missed int
-
-	// Tick at 1/3 of the idle timeout duration.
-	tickerCh := time.NewTicker(defaults.DefaultIdleConnectionDuration / 3)
-	defer tickerCh.Stop()
-
-	for {
-		select {
-		case <-tickerCh.C:
-			// Send a keep alive to the target node and the client to ensure both are alive.
-			proxyToNodeOk := s.sendKeepAliveWithTimeout(s.remoteClient, defaults.ReadHeadersTimeout)
-			proxyToClientOk := s.sendKeepAliveWithTimeout(s.sconn, defaults.ReadHeadersTimeout)
-			if proxyToNodeOk && proxyToClientOk {
-				missed = 0
-				continue
-			}
-
-			// If 3 keep alives are missed, the connection is dead, call cancel and cleanup.
-			missed += 1
-			if missed == 3 {
-				s.log.Infof("Missed %v keep alive messages, closing connection.", missed)
-				s.closeCancel()
-				return
-			}
-		// If Close() was called on the server (connection is done) then no more
-		// need to wait for keep alives.
-		case <-s.closeContext.Done():
-			return
-		}
-	}
-}
-
 func (s *Server) rejectChannel(chans <-chan ssh.NewChannel, err error) {
 	for newChannel := range chans {
 		err := newChannel.Reject(ssh.ConnectionFailed, err.Error())
@@ -551,6 +548,16 @@ func (s *Server) rejectChannel(chans <-chan ssh.NewChannel, err error) {
 }
 
 func (s *Server) handleGlobalRequest(req *ssh.Request) {
+	// Version requests are internal Teleport requests, they should not be
+	// forwarded to the remote server.
+	if req.Type == teleport.VersionRequest {
+		err := req.Reply(true, []byte(teleport.Version))
+		if err != nil {
+			s.log.Debugf("Failed to reply to version request: %v.", err)
+		}
+		return
+	}
+
 	ok, payload, err := s.remoteClient.SendRequest(req.Type, req.WantReply, req.Payload)
 	if err != nil {
 		s.log.Warnf("Failed to forward global request %v: %v", req.Type, err)
@@ -569,7 +576,7 @@ func (s *Server) handleChannel(nch ssh.NewChannel) {
 	channelType := nch.ChannelType()
 
 	switch channelType {
-	// Channels of type "session" handle requests that are invovled in running
+	// Channels of type "session" handle requests that are involved in running
 	// commands on a server, subsystem requests, and agent forwarding.
 	case "session":
 		ch, requests, err := nch.Accept()
@@ -634,7 +641,7 @@ func (s *Server) handleDirectTCPIPRequest(ch ssh.Channel, req *sshutils.DirectTC
 	defer conn.Close()
 
 	// Emit a port forwarding audit event.
-	s.EmitAuditEvent(events.PortForwardEvent, events.EventFields{
+	s.EmitAuditEvent(events.PortForward, events.EventFields{
 		events.PortForwardAddr:    dstAddr,
 		events.PortForwardSuccess: true,
 		events.EventLogin:         s.identityContext.Login,
@@ -833,35 +840,6 @@ func (s *Server) handleEnv(ch ssh.Channel, req *ssh.Request, ctx *srv.ServerCont
 	}
 
 	return nil
-}
-
-// RequestSender is an interface that impliments SendRequest. It is used so
-// server and client connections can be passed to functions to send requests.
-type RequestSender interface {
-	// SendRequest is used to send a out-of-band request.
-	SendRequest(name string, wantReply bool, payload []byte) (bool, []byte, error)
-}
-
-// sendKeepAliveWithTimeout sends a keepalive@openssh.com message to the remote
-// client. A manual timeout is needed here because SendRequest will wait for a
-// response forever.
-func (s *Server) sendKeepAliveWithTimeout(conn RequestSender, timeout time.Duration) bool {
-	errorCh := make(chan error, 1)
-
-	go func() {
-		_, _, err := conn.SendRequest(teleport.KeepAliveReqType, true, nil)
-		errorCh <- err
-	}()
-
-	select {
-	case err := <-errorCh:
-		if err != nil {
-			return false
-		}
-		return true
-	case <-time.After(timeout):
-		return false
-	}
 }
 
 func (s *Server) replyError(ch ssh.Channel, req *ssh.Request, err error) {

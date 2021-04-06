@@ -2,11 +2,21 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: telekube-serviceaccounts
+  name: telekube-system-admin
 subjects:
   - kind: ServiceAccount
     name: default
     namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: telekube-default-admin
+subjects:
   - kind: ServiceAccount
     name: default
     namespace: default
@@ -94,7 +104,7 @@ subjects:
 - kind: Group
   name: restricted-psp-users
 ---
-apiVersion: extensions/v1beta1
+apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: restricted
@@ -121,7 +131,7 @@ spec:
   volumes:
   - '*'
 ---
-apiVersion: extensions/v1beta1
+apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
   name: privileged
@@ -142,6 +152,8 @@ spec:
   seLinux:
     rule: RunAsAny
   hostNetwork: true
+  hostPID: true
+  hostIPC: true
   volumes:
   - '*'
 ---
@@ -170,6 +182,7 @@ rules:
   - podsecuritypolicies
   resourceNames:
   - privileged
+  - restricted
   verbs:
   - use
 ---
@@ -213,25 +226,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: privileged-psp-user
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: telekube:controller-restricted-psp
-subjects:
-- kind: ServiceAccount
-  name: daemon-set-controller
-  namespace: kube-system
-- kind: ServiceAccount
-  name: job-controller
-  namespace: kube-system
-- kind: ServiceAccount
-  name: generic-garbage-collector
-  namespace: kube-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: restricted-psp-user
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

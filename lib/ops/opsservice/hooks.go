@@ -33,7 +33,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -295,12 +295,12 @@ func (s *site) runIntegrationHook(ctx *operationContext, job *batchv1.Job, reque
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = client.Core().Secrets(pack.secret.Namespace).Create(pack.secret)
+	_, err = client.CoreV1().Secrets(pack.secret.Namespace).Create(pack.secret)
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
 	defer func() {
-		err := client.Core().Secrets(pack.secret.Namespace).Delete(pack.secret.Name, nil)
+		err := client.CoreV1().Secrets(pack.secret.Namespace).Delete(pack.secret.Name, nil)
 		if err != nil {
 			ctx.Warningf("Failed to delete secret: %v", trace.DebugReport(err))
 		}
@@ -311,7 +311,9 @@ func (s *site) runIntegrationHook(ctx *operationContext, job *batchv1.Job, reque
 		return trace.Wrap(err)
 	}
 	defer func() {
-		err := s.appService.DeleteAppHookJob(context.TODO(), *ref)
+		err := s.appService.DeleteAppHookJob(context.TODO(), app.DeleteAppHookJobRequest{
+			HookRef: *ref,
+		})
 		if err != nil {
 			ctx.Warningf("Failed to delete hook job: %v.", trace.DebugReport(err))
 		}

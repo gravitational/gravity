@@ -17,6 +17,7 @@ limitations under the License.
 package client
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -183,7 +184,7 @@ func (c *Client) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return c.OpenFile(endpoint, url.Values{})
+	return c.OpenFile(context.TODO(), endpoint, url.Values{})
 }
 
 // PostForm is a generic method that issues http POST request to the server
@@ -193,15 +194,15 @@ func (c *Client) PostForm(
 	files ...roundtrip.File) (*roundtrip.Response, error) {
 
 	return telehttplib.ConvertResponse(
-		c.Client.PostForm(endpoint, vals, files...))
+		c.Client.PostForm(context.TODO(), endpoint, vals, files...))
 }
 
 // Get issues http GET request to the server
 func (c *Client) Get(u string, params url.Values) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Get(u, params))
+	return telehttplib.ConvertResponse(c.Client.Get(context.TODO(), u, params))
 }
 
 // Delete issues http DELETE Request to the server
 func (c *Client) Delete(u string) (*roundtrip.Response, error) {
-	return telehttplib.ConvertResponse(c.Client.Delete(u))
+	return telehttplib.ConvertResponse(c.Client.Delete(context.TODO(), u))
 }

@@ -17,11 +17,14 @@ limitations under the License.
 package fsm
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -42,31 +45,37 @@ type Logger struct {
 
 // Debug logs a debug message
 func (l *Logger) Debug(args ...interface{}) {
+	initQueue()
 	l.FieldLogger.Debug(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "debug"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "debug"):
+	default:
+		l.FieldLogger.Debug("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
 // Info logs an info message
 func (l *Logger) Info(args ...interface{}) {
+	initQueue()
 	l.FieldLogger.Info(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "info"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "info"):
+	default:
+		l.FieldLogger.Info("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
 // Warn logs a warning message
 func (l *Logger) Warn(args ...interface{}) {
+	initQueue()
 	l.FieldLogger.Warn(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "warn"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "warn"):
+	default:
+		l.FieldLogger.Warn("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -77,11 +86,13 @@ func (l *Logger) Warning(args ...interface{}) {
 
 // Error logs an error message
 func (l *Logger) Error(args ...interface{}) {
+	initQueue()
 	l.FieldLogger.Error(args...)
-	err := l.Operator.CreateLogEntry(l.Key, l.makeLogEntry(
-		fmt.Sprint(args...), "error"))
-	if err != nil {
-		l.FieldLogger.Error(trace.DebugReport(err))
+
+	select {
+	case logEntryC <- l.makeLogEntry(fmt.Sprint(args...), "error"):
+	default:
+		l.FieldLogger.Error("Operation logger dropped message: ", fmt.Sprint(args...))
 	}
 }
 
@@ -111,14 +122,58 @@ func (l *Logger) Errorf(format string, args ...interface{}) {
 }
 
 // makeLogEntry creates a log entry object to submit via Operator
-func (l *Logger) makeLogEntry(message, severity string) ops.LogEntry {
-	return ops.LogEntry{
-		AccountID:   l.Key.AccountID,
-		ClusterName: l.Key.SiteDomain,
-		OperationID: l.Key.OperationID,
-		Severity:    severity,
-		Message:     message,
-		Server:      l.Server,
-		Created:     time.Now().UTC(),
+func (l *Logger) makeLogEntry(message, severity string) logEntryWrapper {
+	return logEntryWrapper{
+		operator: l.Operator,
+		key:      l.Key,
+		entry: ops.LogEntry{
+			AccountID:   l.Key.AccountID,
+			ClusterName: l.Key.SiteDomain,
+			OperationID: l.Key.OperationID,
+			Severity:    severity,
+			Message:     message,
+			Server:      l.Server,
+			Created:     time.Now().UTC(),
+		},
+	}
+}
+
+type logEntryWrapper struct {
+	entry    ops.LogEntry
+	operator ops.Operator
+	key      ops.SiteOperationKey
+}
+
+var (
+	// logEntryC is used to queue log entries and unblock execution while etcd is down during upgrades
+	// this has the potential to lose queued log messages if the process dies while etcd is down
+	logEntryC chan logEntryWrapper
+
+	// logEntryOnce bootstraps the LogEntry queue on the first log entry
+	logEntryOnce sync.Once
+)
+
+func initQueue() {
+	logEntryOnce.Do(func() {
+		// initialize the queue to a reasonably large value, to queue all the messages during etcd upgrade
+		logEntryC = make(chan logEntryWrapper, 4096)
+		go loop()
+	})
+}
+
+func loop() {
+	for {
+		msg := <-logEntryC
+		b := utils.NewExponentialBackOff(10 * time.Minute)
+		err := utils.RetryWithInterval(context.TODO(), b, func() error {
+			return trace.Wrap(msg.operator.CreateLogEntry(msg.key, msg.entry))
+		})
+		if err != nil {
+			logrus.WithFields(logrus.Fields{
+				logrus.ErrorKey: err,
+				"msg":           msg.entry.String(),
+				"key":           msg.key,
+			}).Error("Failed to write log entry to operator.")
+		}
 	}
 }

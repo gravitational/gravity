@@ -86,7 +86,7 @@ func (r *RoleV2) CheckAndSetDefaults() error {
 			return trace.BadParameter("wildcard matcher is not allowed in logins")
 		}
 		if !cstrings.IsValidUnixUser(login) {
-			return trace.BadParameter("'%v' is not a valid user name", login)
+			return trace.BadParameter("%q is not a valid user name", login)
 		}
 	}
 	for key, val := range r.Spec.NodeLabels {
@@ -287,6 +287,7 @@ func (*roleMarshaler) UnmarshalRole(data []byte) (teleservices.Role, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
+		//nolint:errcheck
 		role.CheckAndSetDefaults()
 		roleV3 := role.V3()
 		roleV3.SetRawObject(role)
@@ -298,6 +299,7 @@ func (*roleMarshaler) UnmarshalRole(data []byte) (teleservices.Role, error) {
 			return nil, trace.BadParameter(err.Error())
 		}
 		// we are ignoring error from this function on purpose here
+		//nolint:errcheck
 		role.CheckAndSetDefaults()
 		return &role, nil
 	}

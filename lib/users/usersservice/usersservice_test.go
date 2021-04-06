@@ -45,7 +45,6 @@ import (
 func TestUsers(t *testing.T) { TestingT(t) }
 
 type UsersSuite struct {
-	server  *UsersService
 	backend storage.Backend
 	suite   suite.CredsSuite
 	dir     string
@@ -64,6 +63,7 @@ func (s *UsersSuite) SetUpTest(c *C) {
 	s.backend, err = keyval.NewBolt(keyval.BoltConfig{
 		Path: filepath.Join(s.dir, "bolt.db"),
 	})
+	c.Assert(err, IsNil)
 
 	s.suite.Users, err = New(Config{
 		Backend: s.backend,
@@ -286,19 +286,12 @@ func (s *UsersSuite) TestPasswordRecovery(c *C) {
 		Username: email,
 		Password: "password2",
 	})
-	c.Assert(err, IsNil, Commentf(
-		"should be able to login with the new password"))
+	c.Assert(err, NotNil, Commentf(
+		"Basic auth shouln't work with OTP token set"))
 
 	resetReq.Password = users.Password("password2")
 	_, err = s.suite.Users.ResetUserWithToken(resetReq)
 	c.Assert(err, NotNil, Commentf("should not be able to reuse password reset token"))
-
-	_, _, err = s.suite.Users.AuthenticateUser(httplib.AuthCreds{
-		Type:     httplib.AuthBasic,
-		Username: email,
-		Password: "password3",
-	})
-	c.Assert(err, NotNil, Commentf("password shouldn't have been changed"))
 }
 
 // TestPasswordRecovery verifies that:
@@ -320,10 +313,16 @@ func (s *UsersSuite) TestCreateUserWithToken(c *C) {
 	err = s.suite.Users.SetAuthPreference(cap)
 	c.Assert(err, IsNil)
 
+	role, err := users.NewAdminRole()
+	c.Assert(err, IsNil)
+	err = s.suite.Users.UpsertRole(role, 0)
+	c.Assert(err, IsNil)
+
 	invite := storage.UserInvite{
 		Name:      name,
 		ExpiresIn: time.Hour,
 		CreatedBy: "mother@example.com",
+		Roles:     []string{role.GetName()},
 	}
 
 	userToken, err := s.suite.Users.CreateInviteToken("https://localhost:434/xxx", invite)
@@ -354,11 +353,12 @@ func (s *UsersSuite) TestCreateUserWithToken(c *C) {
 
 func (s *UsersSuite) TestBuiltinRoles(c *C) {
 	type check struct {
-		hasAccess        bool
-		verb             string
-		namespace        string
-		rule             string
-		context          *users.Context
+		hasAccess bool
+		verb      string
+		namespace string
+		rule      string
+		context   *users.Context
+		//nolint:structcheck
 		kubernetesGroups []string
 	}
 	testCases := []struct {
@@ -493,7 +493,7 @@ func newInstallTokenRole(name string, clusterName, repoName string) storage.Role
 		Namespaces:    []string{teleservices.Wildcard},
 		// do not allow any valid logins but the login list should not be empty,
 		// otherwise teleport will reject the web session
-		Logins: []string{""},
+		Logins: []string{"invalid-login"},
 		Resources: map[string][]string{
 			storage.KindCluster:   teleservices.RW(),
 			storage.KindApp:       teleservices.RO(),

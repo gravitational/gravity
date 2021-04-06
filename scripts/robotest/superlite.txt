@@ -1,1 +1,0 @@
-'install={"flavor":"one","nodes":1}'

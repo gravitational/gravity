@@ -20,8 +20,6 @@ import (
 	"archive/tar"
 	"context"
 	"io"
-	"io/ioutil"
-	"path/filepath"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -31,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/satellite/agent/proto/agentpb"
@@ -79,12 +76,11 @@ func (p *waitExecutor) Execute(ctx context.Context) error {
 	go p.waitForAPI(ctx, done)
 	select {
 	case <-done:
+		p.Info("Kubernetes API is available.")
 		return nil
 	case <-ctx.Done():
 		return trace.Wrap(ctx.Err())
 	}
-	p.Info("Kubernetes API is available.")
-	return nil
 }
 
 // waitForAPI tries to query the kubernetes API in a loop until it gets a successful result
@@ -94,17 +90,32 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 	for {
 		select {
 		case <-timer.C:
-			_, err := p.Client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
-			if err != nil {
-				p.Info("Waiting for kubernetes API to start: ", err)
+			if err := p.tryQueryAPI(); err != nil {
+				p.Infof("Waiting for Kubernetes API to start: %v", err)
 				continue
 			}
+			p.Debug("Kubernetes API is available.")
+			if err := p.tryQueryNamespace(); err != nil {
+				p.Infof("Waiting for kube-system namespace: %v", err)
+				continue
+			}
+			p.Debug("Kube-system namespace is available.")
 			close(done)
 			return
 		case <-ctx.Done():
 			return
 		}
 	}
+}
+
+func (p *waitExecutor) tryQueryAPI() error {
+	_, err := p.Client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
+	return trace.Wrap(err)
+}
+
+func (p *waitExecutor) tryQueryNamespace() error {
+	_, err := p.Client.CoreV1().Namespaces().Get(defaults.KubeSystemNamespace, metav1.GetOptions{})
+	return trace.Wrap(err)
 }
 
 // Rollback is no-op for this phase
@@ -271,76 +282,5 @@ func (p *rbacExecutor) PreCheck(ctx context.Context) error {
 
 // PostCheck is no-op for this phase
 func (*rbacExecutor) PostCheck(ctx context.Context) error {
-	return nil
-}
-
-// NewResources returns a new "resources" phase executor
-func NewResources(p fsm.ExecutorParams, operator ops.Operator) (*resourcesExecutor, error) {
-	logger := &fsm.Logger{
-		FieldLogger: logrus.WithFields(logrus.Fields{
-			constants.FieldPhase: p.Phase.ID,
-		}),
-		Key:      opKey(p.Plan),
-		Operator: operator,
-		Server:   p.Phase.Data.Server,
-	}
-	return &resourcesExecutor{
-		FieldLogger:    logger,
-		ExecutorParams: p,
-	}, nil
-}
-
-type resourcesExecutor struct {
-	// FieldLogger is used for logging
-	logrus.FieldLogger
-	// ExecutorParams is common executor params
-	fsm.ExecutorParams
-}
-
-// Execute executes the resources phase
-func (p *resourcesExecutor) Execute(ctx context.Context) error {
-	p.Progress.NextStep("Creating user-supplied Kubernetes resources")
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	err = ioutil.WriteFile(filepath.Join(state.ShareDir(stateDir), "resources.yaml"),
-		p.Phase.Data.Resources, defaults.SharedReadMask)
-	if err != nil {
-		return trace.Wrap(err, "failed to write user resources on disk")
-	}
-	out, err := utils.RunInPlanetCommand(
-		ctx,
-		p.FieldLogger,
-		defaults.KubectlBin,
-		"--kubeconfig",
-		constants.PrivilegedKubeconfig,
-		"apply",
-		"-f",
-		filepath.Join(defaults.PlanetShareDir, "resources.yaml"),
-	)
-	if err != nil {
-		return trace.Wrap(err, "failed to create user resources: %s", out)
-	}
-	p.Info("Created user-supplied Kubernetes resources.")
-	return nil
-}
-
-// Rollback is no-op for this phase
-func (*resourcesExecutor) Rollback(ctx context.Context) error {
-	return nil
-}
-
-// PreCheck makes sure this phase is executed on a master node
-func (p *resourcesExecutor) PreCheck(ctx context.Context) error {
-	err := fsm.CheckMasterServer(p.Plan.Servers)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
-}
-
-// PostCheck is no-op for this phase
-func (*resourcesExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }

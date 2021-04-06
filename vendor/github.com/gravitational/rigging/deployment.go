@@ -16,12 +16,12 @@ package rigging
 
 import (
 	"context"
-	"io"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -29,46 +29,34 @@ import (
 
 // NewDeploymentControl returns new instance of Deployment updater
 func NewDeploymentControl(config DeploymentConfig) (*DeploymentControl, error) {
-	err := config.CheckAndSetDefaults()
+	err := config.checkAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rc *appsv1.Deployment
-	if config.Deployment != nil {
-		rc = config.Deployment
-	} else {
-		rc, err = ParseDeployment(config.Reader)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
-	rc.Kind = KindDeployment
 	return &DeploymentControl{
 		DeploymentConfig: config,
-		deployment:       *rc,
-		Entry: log.WithFields(log.Fields{
-			"deployment": formatMeta(rc.ObjectMeta),
+		FieldLogger: log.WithFields(log.Fields{
+			"deployment": formatMeta(config.ObjectMeta),
 		}),
 	}, nil
 }
 
 // DeploymentConfig  is a Deployment control configuration
 type DeploymentConfig struct {
-	// Reader with deployment to update, will be used if present
-	Reader io.Reader
-	// Deployment is already parsed deployment, will be used if present
-	Deployment *appsv1.Deployment
+	// Deployment specifies the existing deployment
+	*appsv1.Deployment
 	// Client is k8s client
 	Client *kubernetes.Clientset
 }
 
-func (c *DeploymentConfig) CheckAndSetDefaults() error {
-	if c.Reader == nil && c.Deployment == nil {
-		return trace.BadParameter("missing parameter Reader or Deployment")
+func (c *DeploymentConfig) checkAndSetDefaults() error {
+	if c.Deployment == nil {
+		return trace.BadParameter("missing parameter Deployment")
 	}
 	if c.Client == nil {
 		return trace.BadParameter("missing parameter Client")
 	}
+	updateTypeMetaDeployment(c.Deployment)
 	return nil
 }
 
@@ -76,20 +64,19 @@ func (c *DeploymentConfig) CheckAndSetDefaults() error {
 // adds various operations, like delete, status check and update
 type DeploymentControl struct {
 	DeploymentConfig
-	deployment appsv1.Deployment
-	*log.Entry
+	log.FieldLogger
 }
 
 func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
-	c.Infof("delete %v", formatMeta(c.deployment.ObjectMeta))
+	c.Infof("delete %v", formatMeta(c.Deployment.ObjectMeta))
 
-	deployments := c.Client.Apps().Deployments(c.deployment.Namespace)
-	currentDeployment, err := deployments.Get(c.deployment.Name, metav1.GetOptions{})
+	deployments := c.Client.AppsV1().Deployments(c.Deployment.Namespace)
+	currentDeployment, err := deployments.Get(c.Deployment.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 
-	pods := c.Client.Core().Pods(c.deployment.Namespace)
+	pods := c.Client.CoreV1().Pods(c.Deployment.Namespace)
 	currentPods, err := c.collectPods(currentDeployment)
 	if err != nil {
 		return trace.Wrap(err)
@@ -105,7 +92,7 @@ func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
 		}
 	}
 	deletePolicy := metav1.DeletePropagationForeground
-	err = deployments.Delete(c.deployment.Name, &metav1.DeleteOptions{
+	err = deployments.Delete(c.Deployment.Name, &metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
@@ -113,7 +100,7 @@ func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	err = waitForObjectDeletion(func() error {
-		_, err := deployments.Get(c.deployment.Name, metav1.GetOptions{})
+		_, err := deployments.Get(c.Deployment.Name, metav1.GetOptions{})
 		return ConvertError(err)
 	})
 	if err != nil {
@@ -121,7 +108,7 @@ func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	// wait until all Pods have been cleaned up
-	err = waitForPods(pods, currentPods, *c.Entry)
+	err = waitForPods(pods, currentPods)
 	if err != nil {
 		c.Warningf("failed to wait for Pods to clean up: %v", trace.DebugReport(err))
 	}
@@ -129,36 +116,36 @@ func (c *DeploymentControl) Delete(ctx context.Context, cascade bool) error {
 }
 
 func (c *DeploymentControl) Upsert(ctx context.Context) error {
-	c.Infof("upsert %v", formatMeta(c.deployment.ObjectMeta))
+	c.Infof("upsert %v", formatMeta(c.Deployment.ObjectMeta))
 
-	deployments := c.Client.Apps().Deployments(c.deployment.Namespace)
-	c.deployment.UID = ""
-	c.deployment.SelfLink = ""
-	c.deployment.ResourceVersion = ""
-	_, err := deployments.Get(c.deployment.Name, metav1.GetOptions{})
+	deployments := c.Client.AppsV1().Deployments(c.Deployment.Namespace)
+	c.Deployment.UID = ""
+	c.Deployment.SelfLink = ""
+	c.Deployment.ResourceVersion = ""
+	_, err := deployments.Get(c.Deployment.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = deployments.Create(&c.deployment)
+		_, err = deployments.Create(c.Deployment)
 		return ConvertError(err)
 	}
-	_, err = deployments.Update(&c.deployment)
+	_, err = deployments.Update(c.Deployment)
 	return ConvertError(err)
 }
 
 func (c *DeploymentControl) nodeSelector() labels.Selector {
 	set := make(labels.Set)
-	for key, val := range c.deployment.Spec.Template.Spec.NodeSelector {
+	for key, val := range c.Deployment.Spec.Template.Spec.NodeSelector {
 		set[key] = val
 	}
 	return set.AsSelector()
 }
 
 func (c *DeploymentControl) Status() error {
-	deployments := c.Client.Extensions().Deployments(c.deployment.Namespace)
-	currentDeployment, err := deployments.Get(c.deployment.Name, metav1.GetOptions{})
+	deployments := c.Client.ExtensionsV1beta1().Deployments(c.Deployment.Namespace)
+	currentDeployment, err := deployments.Get(c.Deployment.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
@@ -166,7 +153,7 @@ func (c *DeploymentControl) Status() error {
 	if currentDeployment.Spec.Replicas != nil {
 		replicas = *(currentDeployment.Spec.Replicas)
 	}
-	deployment := formatMeta(c.deployment.ObjectMeta)
+	deployment := formatMeta(c.Deployment.ObjectMeta)
 	if currentDeployment.Status.UpdatedReplicas != replicas {
 		return trace.CompareFailed("deployment %v not successful: expected replicas: %v, updated: %v",
 			deployment, replicas, currentDeployment.Status.UpdatedReplicas)
@@ -183,8 +170,15 @@ func (c *DeploymentControl) collectPods(deployment *appsv1.Deployment) (map[stri
 	if deployment.Spec.Selector != nil {
 		labels = deployment.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(deployment.Namespace, labels, c.Entry, c.Client, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(deployment.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindDeployment && ref.UID == deployment.UID
 	})
 	return pods, ConvertError(err)
+}
+
+func updateTypeMetaDeployment(r *appsv1.Deployment) {
+	r.Kind = KindDeployment
+	if r.APIVersion == "" {
+		r.APIVersion = v1beta1.SchemeGroupVersion.String()
+	}
 }

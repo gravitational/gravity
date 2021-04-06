@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2018-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,16 +32,19 @@ import (
 	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/ops/opsclient"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/roundtrip"
+	"github.com/gravitational/teleport/lib/auth"
 	telehttplib "github.com/gravitational/teleport/lib/httplib"
 	teleservices "github.com/gravitational/teleport/lib/services"
-	"github.com/gravitational/teleport/lib/utils"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	"github.com/julienschmidt/httprouter"
@@ -61,16 +64,37 @@ type WebHandlerConfig struct {
 	// Packages is the pack service
 	Packages pack.PackageService
 	// Authenticator is used to authenticate web requests
-	Authenticator httplib.Authenticator
+	Authenticator users.Authenticator
 	// Devmode is whether the process is started in dev mode
 	Devmode bool
 	// PublicAdvertiseAddr is the process public advertise address
-	PublicAdvertiseAddr utils.NetAddr
+	PublicAdvertiseAddr teleutils.NetAddr
+}
+
+// CheckAndSetDefaults validates the config and sets some defaults.
+func (c *WebHandlerConfig) CheckAndSetDefaults() error {
+	if c.Operator == nil {
+		return trace.BadParameter("missing parameter Operator")
+	}
+	if c.Users == nil {
+		return trace.BadParameter("missing parameter Users")
+	}
+	if c.Applications == nil {
+		return trace.BadParameter("missing parameter Applications")
+	}
+	if c.Packages == nil {
+		return trace.BadParameter("missing parameter Packages")
+	}
+	if c.Authenticator == nil {
+		c.Authenticator = users.NewAuthenticatorFromIdentity(c.Users)
+	}
+	return nil
 }
 
 type WebHandler struct {
 	httprouter.Router
-	cfg WebHandlerConfig
+	cfg        WebHandlerConfig
+	middleware *auth.AuthMiddleware
 }
 
 // GetConfig returns config web handler was initialized with
@@ -79,29 +103,33 @@ func (h *WebHandler) GetConfig() WebHandlerConfig {
 }
 
 func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
-	if cfg.Operator == nil {
-		return nil, trace.BadParameter("missing parameter Operator")
+	if err := cfg.CheckAndSetDefaults(); err != nil {
+		return nil, trace.Wrap(err)
 	}
-	if cfg.Users == nil {
-		return nil, trace.BadParameter("missing parameter Users")
-	}
-	if cfg.Applications == nil {
-		return nil, trace.BadParameter("missing parameter Applications")
-	}
-	if cfg.Packages == nil {
-		return nil, trace.BadParameter("missing parameter Packages")
-	}
+
 	h := &WebHandler{
 		cfg: cfg,
 	}
+
+	// Wrap the router in the authentication middleware which will detect
+	// if the client is trying to authenticate using a client certificate,
+	// extract user information from it and add it to the request context.
+	h.middleware = &auth.AuthMiddleware{
+		AccessPoint: users.NewAccessPoint(cfg.Users),
+	}
+	h.middleware.Wrap(&h.Router)
 
 	h.OPTIONS("/*path", h.options)
 
 	// Report portal status
 	h.GET("/portal/v1/status", h.getStatus)
 
+	// Return server version
+	h.GET("/portal/v1/version", h.needsAuth(h.getVersion))
+
 	// Applications API
 	h.GET("/portal/v1/apps", h.needsAuth(h.getApps))
+	h.GET("/portal/v1/gravity", h.needsAuth(h.getGravityBinary))
 
 	// Accounts API
 	h.POST("/portal/v1/accounts", h.needsAuth(h.createAccount))
@@ -113,15 +141,20 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.GET("/portal/v1/currentuserinfo", h.needsAuth(h.getCurrentUserInfo))
 	h.POST("/portal/v1/users", h.needsAuth(h.createUser))
 	h.DELETE("/portal/v1/users/:user_email", h.needsAuth(h.deleteLocalUser))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/users/:user_email", h.needsAuth(h.updateUser))
 
 	// API keys API
 	h.POST("/portal/v1/apikeys/user/:user_email", h.needsAuth(h.createAPIKey))
 	h.GET("/portal/v1/apikeys/user/:user_email", h.needsAuth(h.getAPIKeys))
 	h.DELETE("/portal/v1/apikeys/user/:user_email/:api_key", h.needsAuth(h.deleteAPIKey))
 
-	// Tokens
+	// Invites API
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.createUserInvite))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.getUserInvites))
+	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites/:name", h.needsAuth(h.deleteUserInvite))
+
+	// Tokens API
 	h.POST("/portal/v1/tokens/install", h.needsAuth(h.createInstallToken))
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userinvites", h.needsAuth(h.inviteUser))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/userresets", h.needsAuth(h.resetUser))
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/provision", h.needsAuth(h.createProvisioningToken))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/tokens/expand", h.needsAuth(h.getExpandToken))
@@ -192,6 +225,9 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	// garbage collection
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/gc", h.needsAuth(h.createClusterGarbageCollectOperation))
 
+	// cluster reconfiguration
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure", h.needsAuth(h.createClusterReconfigureOperation))
+
 	// update - update installed application to a new version
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/update", h.needsAuth(h.createSiteUpdateOperation))
 
@@ -225,14 +261,27 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/smtp", h.needsAuth(h.deleteSMTPConfig))
 
 	// monitoring
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention", h.needsAuth(h.getRetentionPolicies))
-	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/retention", h.needsAuth(h.updateRetentionPolicy))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts", h.needsAuth(h.getAlerts))
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts/:name", h.needsAuth(h.updateAlert))
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alerts/:name", h.needsAuth(h.deleteAlert))
 	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.getAlertTargets))
 	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.updateAlertTarget))
 	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/alert-targets", h.needsAuth(h.deleteAlertTarget))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/monitoring/metrics", h.needsAuth(h.getClusterMetrics))
+
+	// environment variables
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.getEnvironmentVariables))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/envars", h.needsAuth(h.updateEnvironmentVariables))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/envars", h.needsAuth(h.createUpdateEnvarsOperation))
+
+	// cluster configuration
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.getClusterConfiguration))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/config", h.needsAuth(h.updateClusterConfig))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/operations/config", h.needsAuth(h.createUpdateConfigOperation))
+
+	// persistent storage configuration
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage", h.needsAuth(h.getPersistentStorage))
+	h.PUT("/portal/v1/accounts/:account_id/sites/:site_domain/persistentstorage", h.needsAuth(h.updatePersistentStorage))
 
 	// validation
 	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/validation/remoteaccess", h.needsAuth(h.validateRemoteAccess))
@@ -257,20 +306,42 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 		h.needsAuth(h.deleteGithubConnector))
 
 	// user handlers
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/users", h.needsAuth(h.upsertUser))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name", h.needsAuth(h.getUser))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users", h.needsAuth(h.getUsers))
-	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name", h.needsAuth(h.deleteUser))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/users",
+		h.needsAuth(h.upsertUser))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name",
+		h.needsAuth(h.getUser))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/users",
+		h.needsAuth(h.getUsers))
+	h.DELETE("/portal/v1/accounts/:account_id/sites/:site_domain/users/:name",
+		h.needsAuth(h.deleteUser))
 
 	// cluster configuration
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.upsertClusterAuthPreference))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference", h.needsAuth(h.getClusterAuthPreference))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference",
+		h.needsAuth(h.upsertClusterAuthPreference))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authentication/preference",
+		h.needsAuth(h.getClusterAuthPreference))
 
 	// auth gateway settings
-	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.upsertAuthGateway))
-	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway", h.needsAuth(h.getAuthGateway))
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway",
+		h.needsAuth(h.upsertAuthGateway))
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/authgateway",
+		h.needsAuth(h.getAuthGateway))
+
+	// application releases
+	h.GET("/portal/v1/accounts/:account_id/sites/:site_domain/releases",
+		h.needsAuth(h.getReleases))
+
+	// audit log events
+	h.POST("/portal/v1/accounts/:account_id/sites/:site_domain/events",
+		h.needsAuth(h.emitAuditEvent))
 
 	return h, nil
+}
+
+// ServeHTTP lets the authentication middleware serve the request before
+// passing it through to the router.
+func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.middleware.ServeHTTP(w, r)
 }
 
 func (h *WebHandler) options(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -287,12 +358,16 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	serverProfile := p[1].Value
 	instructions, err := h.cfg.Operator.GetSiteInstructions(token, serverProfile, r.URL.Query())
 	if err != nil {
-		trace.WriteError(w, err)
+		log.WithError(err).Warn("Failed to query cluster install instructions.")
+		trace.WriteError(w, trace.Unwrap(err))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(instructions))
+	if _, err := w.Write([]byte(instructions)); err != nil {
+		log.WithError(err).Warn("Failed to write response.")
+	}
 }
 
 /*
@@ -305,6 +380,20 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 */
 func (h *WebHandler) getStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	roundtrip.ReplyJSON(w, http.StatusOK, map[string]interface{}{"status": "healthy"})
+}
+
+/*
+   getVersion returns the server version information.
+
+   GET /portal/v1/version
+*/
+func (h *WebHandler) getVersion(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	version, err := context.Operator.GetVersion(r.Context())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, version)
+	return nil
 }
 
 /* getApps returns information about apps available for installation
@@ -320,7 +409,7 @@ Success response:
   }]
 
 */
-func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	repositories, err := h.cfg.Packages.GetRepositories()
 	if err != nil {
 		return trace.Wrap(err)
@@ -340,62 +429,98 @@ func (h *WebHandler) getApps(w http.ResponseWriter, r *http.Request, p httproute
 	return nil
 }
 
+/* getGravityBinary exports the cluster's gravity binary.
+
+   GET /portal/v1/gravity
+*/
+func (h *WebHandler) getGravityBinary(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	cluster, err := context.Operator.GetLocalSite(r.Context())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	gravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	_, reader, err := h.cfg.Packages.ReadPackage(*gravityPackage)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer reader.Close()
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename=gravity")
+	_, err = io.Copy(w, reader)
+	return trace.Wrap(err)
+}
+
 /*  inviteUser resets user credentials and returns a user token
 
     POST /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/resets
 */
-func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) resetUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var req ops.UserResetRequest
+	var req ops.CreateUserResetRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-
-	userToken, err := ctx.Identity.CreateResetToken(
-		fmt.Sprintf("https://%v", h.cfg.PublicAdvertiseAddr.String()),
-		req.Name,
-		req.TTL)
+	resetToken, err := context.Operator.CreateUserReset(r.Context(), req)
 	if err != nil {
-		log.Debugf("User reset error: %v.", err)
 		return trace.Wrap(err)
 	}
-
-	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
+	roundtrip.ReplyJSON(w, http.StatusOK, resetToken)
 	return nil
 }
 
-/*  inviteUser creates a user invite and returns user token
+/*  createUserInvite creates a new invite token for a user.
 
     POST /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites
 */
-func (h *WebHandler) inviteUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	var req ops.UserInviteRequest
+	var req ops.CreateUserInviteRequest
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-
-	invite := storage.UserInvite{
-		CreatedBy: ctx.User.GetName(),
-		Name:      req.Name,
-		Roles:     req.Roles,
-		ExpiresIn: req.TTL,
-	}
-
-	advertiseURL := fmt.Sprintf("https://%v", h.cfg.PublicAdvertiseAddr.String())
-	userToken, err := ctx.Identity.CreateInviteToken(advertiseURL, invite)
+	inviteToken, err := context.Operator.CreateUserInvite(r.Context(), req)
 	if err != nil {
-		log.Debugf("User invite error: %v.", err)
 		return trace.Wrap(err)
 	}
+	roundtrip.ReplyJSON(w, http.StatusOK, inviteToken)
+	return nil
+}
 
-	roundtrip.ReplyJSON(w, http.StatusOK, userToken)
+/*  getUserInvites returns all active user invites.
+
+    GET /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites
+*/
+func (h *WebHandler) getUserInvites(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	invites, err := context.Operator.GetUserInvites(r.Context(), siteKey(p))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, invites)
+	return nil
+}
+
+/*  deleteUserInvite deletes the specified user invite.
+
+    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/usertokens/invites/:name
+*/
+func (h *WebHandler) deleteUserInvite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	err := context.Operator.DeleteUserInvite(r.Context(), ops.DeleteUserInviteRequest{
+		SiteKey: siteKey(p),
+		Name:    p.ByName("name"),
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("invite deleted"))
 	return nil
 }
 
@@ -414,7 +539,7 @@ Success response:
   }
 
 */
-func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
@@ -423,7 +548,7 @@ func (h *WebHandler) createAccount(w http.ResponseWriter, r *http.Request, p htt
 	if err := json.Unmarshal(data, &req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	account, err := ctx.Operator.CreateAccount(req)
+	account, err := context.Operator.CreateAccount(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -539,6 +664,22 @@ func (h *WebHandler) createUser(w http.ResponseWriter, r *http.Request, p httpro
 	return nil
 }
 
+/* updateUser updates the specified user information.
+
+   PUT /portal/v1/accounts/:account_id/sites/:site_domain/users/:user_email
+*/
+func (h *WebHandler) updateUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.UpdateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	if err := context.Operator.UpdateUser(r.Context(), req); err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("user updated"))
+	return nil
+}
+
 /* deleteUser deletes a user by name
 
    DELETE /portal/v1/users/:user_name
@@ -549,7 +690,7 @@ func (h *WebHandler) createUser(w http.ResponseWriter, r *http.Request, p httpro
      "message": "user jenkins deleted"
    }
 */
-func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	name := p[0].Value
 	err := h.cfg.Users.DeleteUser(name)
 	if err != nil {
@@ -570,13 +711,14 @@ func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p h
    }
 
 */
-func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	d := json.NewDecoder(r.Body)
 	var req ops.NewAPIKeyRequest
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	key, err := h.cfg.Operator.CreateAPIKey(req)
+
+	key, err := context.Operator.CreateAPIKey(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -598,9 +740,9 @@ func (h *WebHandler) createAPIKey(w http.ResponseWriter, r *http.Request, p http
      ...
    ]
 */
-func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	userEmail := p.ByName("user_email")
-	keys, err := h.cfg.Operator.GetAPIKeys(userEmail)
+	keys, err := context.Operator.GetAPIKeys(userEmail)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -610,7 +752,7 @@ func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httpro
 
 /* deleteAPIKey deletes an api key
 
-   DELETE /portal/v1/users/:user_email/apikeys/:api_key
+   DELETE /portal/v1/apikeys/user/:user_email/:api_key
 
    Success response:
 
@@ -618,8 +760,8 @@ func (h *WebHandler) getAPIKeys(w http.ResponseWriter, r *http.Request, p httpro
      "message": "api key deleted"
    }
 */
-func (h *WebHandler) deleteAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
-	err := h.cfg.Operator.DeleteAPIKey(p[0].Value, p[1].Value)
+func (h *WebHandler) deleteAPIKey(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	err := context.Operator.DeleteAPIKey(r.Context(), p[0].Value, p[1].Value)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -743,7 +885,7 @@ func (h *WebHandler) getTrustedClusterToken(w http.ResponseWriter, r *http.Reque
 	}
   }
 */
-func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *HandlerContext) error {
+func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
 	data, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return trace.Wrap(err)
@@ -769,7 +911,7 @@ func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httpro
 		return trace.Wrap(err)
 	}
 
-	site, err := ctx.Operator.CreateSite(req)
+	site, err := context.Operator.CreateSite(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -802,7 +944,7 @@ Success response:
    }
 */
 func (h *WebHandler) getLocalSite(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	site, err := context.Operator.GetLocalSite()
+	site, err := context.Operator.GetLocalSite(r.Context())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -923,7 +1065,19 @@ func (h *WebHandler) activateSite(w http.ResponseWriter, r *http.Request, p http
    GET /portal/v1/accounts/:account_id/sites/:site_domain/report
 */
 func (h *WebHandler) getSiteReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteReport(siteKey(p))
+	var since time.Duration
+	if val := r.URL.Query().Get("since"); val != "" {
+		var err error
+		if since, err = time.ParseDuration(val); err != nil {
+			return trace.Wrap(err)
+		}
+	}
+
+	report, err := context.Operator.GetSiteReport(r.Context(),
+		ops.GetClusterReportRequest{
+			SiteKey: siteKey(p),
+			Since:   since,
+		})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1104,11 +1258,11 @@ func (h *WebHandler) validateServers(w http.ResponseWriter, r *http.Request, p h
 	if err := d.Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	err := context.Operator.ValidateServers(req)
+	resp, err := context.Operator.ValidateServers(context.Context, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("ok"))
+	roundtrip.ReplyJSON(w, http.StatusOK, resp)
 	return nil
 }
 
@@ -1135,7 +1289,7 @@ func (h *WebHandler) stepDown(w http.ResponseWriter, r *http.Request, p httprout
     }
 */
 func (h *WebHandler) checkSiteStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	if err := context.Operator.CheckSiteStatus(siteKey(p)); err != nil {
+	if err := context.Operator.CheckSiteStatus(r.Context(), siteKey(p)); err != nil {
 		return trace.Wrap(err)
 	}
 	roundtrip.ReplyJSON(w, http.StatusOK, statusOK("ok"))
@@ -1202,7 +1356,7 @@ func (h *WebHandler) validateRemoteAccess(w http.ResponseWriter, r *http.Request
    }]
 */
 func (h *WebHandler) getSiteOperations(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	operations, err := context.Operator.GetSiteOperations(siteKey(p))
+	operations, err := context.Operator.GetSiteOperations(siteKey(p), ops.FilterFromURLValues(r.URL.Query()))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1314,7 +1468,7 @@ func (h *WebHandler) createSiteInstallOperation(w http.ResponseWriter, r *http.R
 		}
 		req.Provisioner = provisioner
 	}
-	op, err := context.Operator.CreateSiteInstallOperation(req)
+	op, err := context.Operator.CreateSiteInstallOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1387,7 +1541,7 @@ func (h *WebHandler) completeSiteOperation(w http.ResponseWriter, r *http.Reques
 		return trace.BadParameter(err.Error())
 	}
 	opKey := siteOperationKey(p)
-	err := context.Operator.SetOperationState(opKey, req)
+	err := context.Operator.SetOperationState(r.Context(), opKey, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1457,7 +1611,13 @@ func (h *WebHandler) getOperationPlan(w http.ResponseWriter, r *http.Request, p 
    Success response: {"status": "ok", "message": "packages configured"}
 */
 func (h *WebHandler) configurePackages(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.ConfigurePackages(siteOperationKey(p))
+	d := json.NewDecoder(r.Body)
+	var req ops.ConfigurePackagesRequest
+	if err := d.Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	req.SiteOperationKey = siteOperationKey(p)
+	err := context.Operator.ConfigurePackages(req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1487,7 +1647,7 @@ Success response:
    }
 */
 func (h *WebHandler) getSiteInstallOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	agentReport, err := context.Operator.GetSiteInstallOperationAgentReport(siteOperationKey(p))
+	agentReport, err := context.Operator.GetSiteInstallOperationAgentReport(r.Context(), siteOperationKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1566,7 +1726,7 @@ func (h *WebHandler) createSiteExpandOperation(w http.ResponseWriter, r *http.Re
 		req.Provisioner = installOp.Provisioner
 	}
 
-	op, err := context.Operator.CreateSiteExpandOperation(req)
+	op, err := context.Operator.CreateSiteExpandOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1598,7 +1758,7 @@ Success response:
    }
 */
 func (h *WebHandler) getSiteExpandOperationAgentReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	agentReport, err := context.Operator.GetSiteExpandOperationAgentReport(siteOperationKey(p))
+	agentReport, err := context.Operator.GetSiteExpandOperationAgentReport(r.Context(), siteOperationKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1664,7 +1824,7 @@ func (h *WebHandler) createSiteUninstallOperation(w http.ResponseWriter, r *http
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteUninstallOperation(req)
+	op, err := context.Operator.CreateSiteUninstallOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1719,7 +1879,9 @@ func (h *WebHandler) streamOperationLogs(w http.ResponseWriter, r *http.Request,
 
 */
 func (h *WebHandler) getSiteOperationCrashReport(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	report, err := context.Operator.GetSiteOperationCrashReport(siteOperationKey(p))
+	report, err := context.Operator.GetSiteReport(r.Context(), ops.GetClusterReportRequest{
+		SiteKey: siteKey(p),
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1821,7 +1983,7 @@ func (h *WebHandler) createSiteShrinkOperation(w http.ResponseWriter, r *http.Re
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteShrinkOperation(req)
+	op, err := context.Operator.CreateSiteShrinkOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1858,7 +2020,7 @@ func (h *WebHandler) createSiteUpdateOperation(w http.ResponseWriter, r *http.Re
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.SiteDomain = key.SiteDomain
-	op, err := context.Operator.CreateSiteAppUpdateOperation(req)
+	op, err := context.Operator.CreateSiteAppUpdateOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1895,13 +2057,30 @@ func (h *WebHandler) createClusterGarbageCollectOperation(w http.ResponseWriter,
 	key := siteKey(p)
 	req.AccountID = key.AccountID
 	req.ClusterName = key.SiteDomain
-	op, err := context.Operator.CreateClusterGarbageCollectOperation(req)
+	op, err := context.Operator.CreateClusterGarbageCollectOperation(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	log.Infof("got operation: %#v", op)
 	roundtrip.ReplyJSON(w, http.StatusOK, op)
+	return nil
+}
+
+/* createClusterReconfigureOperation creates a new cluster reconfiguration operation.
+
+   POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/reconfigure
+*/
+func (h *WebHandler) createClusterReconfigureOperation(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.CreateClusterReconfigureOperationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return trace.BadParameter(err.Error())
+	}
+	key, err := context.Operator.CreateClusterReconfigureOperation(r.Context(), req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	roundtrip.ReplyJSON(w, http.StatusOK, key)
 	return nil
 }
 
@@ -1946,7 +2125,7 @@ func (h *WebHandler) createLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.CreateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.CreateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1970,7 +2149,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
 	if req.TTL != 0 {
 		forwarder.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
-	err = context.Operator.UpdateLogForwarder(siteKey(p), forwarder)
+	err = context.Operator.UpdateLogForwarder(r.Context(), siteKey(p), forwarder)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1983,7 +2162,7 @@ func (h *WebHandler) updateLogForwarder(w http.ResponseWriter, r *http.Request, 
    DELETE /portal/v1/accounts/:account_id/sites/:site_domain/logs/forwarders/:name
 */
 func (h *WebHandler) deleteLogForwarder(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteLogForwarder(siteKey(p), p.ByName("name"))
+	err := context.Operator.DeleteLogForwarder(r.Context(), siteKey(p), p.ByName("name"))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2032,7 +2211,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
 		config.SetTTL(clockwork.NewRealClock(), req.TTL)
 	}
 
-	err = context.Operator.UpdateSMTPConfig(siteKey(p), config)
+	err = context.Operator.UpdateSMTPConfig(r.Context(), siteKey(p), config)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2051,7 +2230,7 @@ func (h *WebHandler) updateSMTPConfig(w http.ResponseWriter, r *http.Request, p 
      }
 */
 func (h *WebHandler) deleteSMTPConfig(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteSMTPConfig(siteKey(p))
+	err := context.Operator.DeleteSMTPConfig(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2105,7 +2284,7 @@ func (h *WebHandler) getAppInstaller(w http.ResponseWriter, r *http.Request, p h
 	}
 	installerReq.AccountID = accountID
 
-	reader, err := h.cfg.Operator.GetAppInstaller(installerReq)
+	reader, err := context.Operator.GetAppInstaller(installerReq)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2157,7 +2336,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return trace.BadParameter(err.Error())
 	}
-	cert, err := context.Operator.UpdateClusterCertificate(req)
+	cert, err := context.Operator.UpdateClusterCertificate(r.Context(), req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2174,7 +2353,7 @@ func (h *WebHandler) updateClusterCert(w http.ResponseWriter, r *http.Request, p
     200 certificate deleted
 */
 func (h *WebHandler) deleteClusterCert(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
-	err := context.Operator.DeleteClusterCertificate(siteKey(p))
+	err := context.Operator.DeleteClusterCertificate(r.Context(), siteKey(p))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -2182,12 +2361,23 @@ func (h *WebHandler) deleteClusterCert(w http.ResponseWriter, r *http.Request, p
 	return nil
 }
 
-func (s *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p httprouter.Params) error) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		if err := fn(w, r, p); err != nil {
-			trace.WriteError(w, err)
-		}
+/* emitAuditEvent saves the provided event in the audit log.
+
+     POST /portal/v1/accounts/:account_id/sites/:site_domain/events
+
+   Success response:
+
+     { "message": "audit log event saved" }
+*/
+func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
+	var req ops.AuditEventRequest
+	err := telehttplib.ReadJSON(r, &req)
+	if err != nil {
+		return trace.Wrap(err)
 	}
+	events.Emit(r.Context(), context.Operator, req.Event, events.Fields(req.Fields))
+	roundtrip.ReplyJSON(w, http.StatusOK, message("audit log event saved"))
+	return nil
 }
 
 func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
@@ -2196,83 +2386,47 @@ func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
 
 // GetHandlerContext authenticates the user that made the request and returns
 // the appropriate handler context
-func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.Backend, operator ops.Operator, auth httplib.Authenticator, usersService users.Identity) (*HandlerContext, error) {
-	authCreds, err := httplib.ParseAuthHeaders(r)
-	if err != nil {
-		return nil, trace.Wrap(err, "credentials error")
-	}
-	cookie, err := r.Cookie("session")
-	hasCookie := err == nil && cookie != nil && cookie.Value != ""
+func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.Backend, operator ops.Operator, authenticator users.Authenticator, usersService users.Identity) (*HandlerContext, error) {
+	logger := log.WithFields(fields.FromRequest(r))
 
-	var user storage.User
-	var checker teleservices.AccessChecker
-	ctx := context.TODO()
-	// this authentication is for robots like install and update agents
-	if !hasCookie {
-		user, checker, err = usersService.AuthenticateUser(*authCreds)
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// hide the error from remote user for security reasons
-			return nil, trace.AccessDenied("bad username or password")
-		}
-	} else {
-		if auth == nil {
-			log.Debug("Web sessions are not supported.")
-			// hide the error from remote user for security reasons
-			return nil, trace.AccessDenied("web sessions are not supported")
-		}
-		session, err := auth(w, r, true)
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		user, err = usersService.GetTelekubeUser(session.GetUser())
-		if err != nil {
-			log.Debugf("Authentication error: %v.", err)
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		checker, err = usersService.GetAccessChecker(user)
-		if err != nil {
-			log.Errorf("Failed to fetch roles: %v.", trace.DebugReport(err))
-			// we hide the error from the remote user to avoid giving any hints
-			return nil, trace.AccessDenied("bad username or password")
-		}
-		// enrich context with user web session
-		ctx = context.WithValue(
-			ctx, constants.WebSessionContext, session.GetWebSession())
+	authResult, err := authenticator.Authenticate(w, r)
+	if err != nil {
+		logger.WithError(err).Warn("Authentication error.")
+		return nil, trace.AccessDenied("bad username or password") // Hide the actual error.
+	}
+
+	// Enrich the request context with additional auth info.
+	ctx := r.Context()
+	ctx = context.WithValue(ctx, constants.UserContext, authResult.User.GetName())
+	if authResult.Session != nil {
+		ctx = context.WithValue(ctx, constants.WebSessionContext, authResult.Session.GetWebSession())
 	}
 
 	// create a permission aware wrapper packages service
 	// and pass it to the handlers, so every action will be automatically
 	// checked against current user
-	wrappedOperator := ops.OperatorWithACL(operator, usersService, user, checker)
-	wrappedIdentity := users.IdentityWithACL(backend, usersService, user, checker)
+	wrappedOperator := ops.OperatorWithACL(operator, usersService, authResult.User, authResult.Checker)
+	wrappedIdentity := users.IdentityWithACL(backend, usersService, authResult.User, authResult.Checker)
 	if err != nil {
-		log.Errorf("Failed to init identity service: %v.", trace.DebugReport(err))
+		logger.WithError(err).Error("Failed to init identity service.")
 		return nil, trace.BadParameter("internal server error")
 	}
 	// enrich context with operator bound to current user
 	ctx = context.WithValue(ctx, constants.OperatorContext, wrappedOperator)
 	handlerContext := &HandlerContext{
 		Operator: wrappedOperator,
-		User:     user,
-		Checker:  checker,
+		User:     authResult.User,
+		Checker:  authResult.Checker,
 		Identity: wrappedIdentity,
 		Context:  ctx,
-	}
-	if authCreds.IsToken() {
-		// remember token that was used for signups
-		handlerContext.Token = authCreds.Password
 	}
 	return handlerContext, nil
 }
 
 // NeedsAuth is authentication wrapper for ops handlers
-func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, webAuth httplib.Authenticator, usersService users.Identity, fn ServiceHandle) httprouter.Handle {
+func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, authenticator users.Authenticator, usersService users.Identity, fn ServiceHandle) httprouter.Handle {
 	handler := func(w http.ResponseWriter, r *http.Request, params httprouter.Params) error {
-		handlerContext, err := GetHandlerContext(w, r, backend, operator, webAuth, usersService)
+		handlerContext, err := GetHandlerContext(w, r, backend, operator, authenticator, usersService)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -2286,16 +2440,15 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, web
 		err := handler(w, r, params)
 		if err != nil {
 			if trace.IsAccessDenied(err) {
-				log.Debugf("Access denied for %v %v: %v.", r.Method, r.URL.Path,
-					trace.DebugReport(err))
+				log.WithFields(fields.FromRequest(r)).WithError(err).Warn("Access denied.")
 			}
-			trace.WriteError(w, err)
+			trace.WriteError(w, trace.Unwrap(err))
 		}
 	}
 }
 
 func getLastOperation(key ops.SiteKey, operationType string, context *HandlerContext) (*ops.SiteOperation, error) {
-	operations, err := context.Operator.GetSiteOperations(key)
+	operations, err := context.Operator.GetSiteOperations(key, ops.OperationsFilter{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -2343,8 +2496,6 @@ type HandlerContext struct {
 	Checker teleservices.AccessChecker
 	// Context is the request context
 	Context context.Context
-	// token is opaque token that was used for logins
-	Token string
 }
 
 func statusOK(message string) interface{} {

@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Gravitational, Inc.
+Copyright 2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,13 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import 'es6-shim';
 import React from 'react';
-import ReactDOM from 'react-dom';
-import Root from  './app/index';
-import cfg from './app/config';
-import history from './app/services/history';
+import history from 'app/services/history';
 
-history.init();
+import ReactDOM from 'react-dom';
+import Root from  './index';
+import cfg from './config';
+
+// apply configuration provided by the backend
 cfg.init(window.GRV_CONFIG);
 
-ReactDOM.render( ( <Root/> ), document.getElementById('app'));
+// use browser history
+history.init();
+
+ReactDOM.render( ( <Root history={history.original()}/> ), document.getElementById('app'));

@@ -33,32 +33,29 @@ const (
 	ExitCodeUndefined = -1
 )
 
-func osExec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
+func osExec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
 	cmd := &osCommand{}
-	return trace.Wrap(cmd.exec(ctx, stream, args, log))
+	return trace.Wrap(cmd.exec(ctx, stream, req, log))
 }
 
 // exec executes the command specified with args streaming stdout/stderr to stream
-// TODO: separate RPC failures (like failure to send messages to the stream) from command errors
-func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, log log.FieldLogger) error {
+func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
 	seq := atomic.AddInt32(&c.seq, 1)
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, req.Args[0], req.Args[1:]...)
 	cmd.Stdout = &streamWriter{stream, pb.ExecOutput_STDOUT, seq}
 	cmd.Stderr = &streamWriter{stream, pb.ExecOutput_STDERR, seq}
+	cmd.Dir = req.WorkingDir
 
 	err := cmd.Start()
 	if err != nil {
-		return trace.Wrap(err, "failed to start %v", cmd.Path)
+		return trace.Wrap(err, "failed to start").AddField("path", cmd.Path)
 	}
 
-	stream.Send(&pb.Message{&pb.Message_ExecStarted{&pb.ExecStarted{
-		Args: args,
-		Seq:  seq,
-	}}})
+	notifyAndLogError(stream, newCommandStartedEvent(seq, req.Args))
 	err = cmd.Wait()
 	if err == nil {
-		err = stream.Send(&pb.Message{&pb.Message_ExecCompleted{&pb.ExecCompleted{Seq: seq}}})
-		return trace.Wrap(err)
+		notifyAndLogError(stream, newCommandCompletedEvent(seq))
+		return nil
 	}
 
 	exitCode := ExitCodeUndefined
@@ -68,15 +65,47 @@ func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, a
 		}
 	}
 
-	errWrite := stream.Send(&pb.Message{&pb.Message_ExecCompleted{&pb.ExecCompleted{
-		Seq:      seq,
-		ExitCode: int32(exitCode),
-		Error:    pb.EncodeError(trace.Wrap(err)),
-	}}})
-	if errWrite != nil {
-		log.Warnf("failed to send exec completed message: %v", err)
-	}
+	notifyAndLogError(stream, newCommandCompletedWithErrorEvent(seq, int32(exitCode), err))
 	return trace.Wrap(err)
+}
+
+func notifyAndLogError(stream pb.OutgoingMessageStream, msg *pb.Message) {
+	if err := stream.Send(msg); err != nil {
+		log.WithError(err).Warnf("Failed to notify stream: %v.", msg)
+	}
+}
+
+func newCommandStartedEvent(seq int32, args []string) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecStarted{
+			ExecStarted: &pb.ExecStarted{
+				Args: args,
+				Seq:  seq,
+			},
+		},
+	}
+}
+
+func newCommandCompletedEvent(seq int32) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecCompleted{
+			ExecCompleted: &pb.ExecCompleted{
+				Seq: seq,
+			},
+		},
+	}
+}
+
+func newCommandCompletedWithErrorEvent(seq, exitCode int32, err error) *pb.Message {
+	return &pb.Message{
+		Element: &pb.Message_ExecCompleted{
+			ExecCompleted: &pb.ExecCompleted{
+				Seq:      seq,
+				ExitCode: exitCode,
+				Error:    pb.EncodeError(err),
+			},
+		},
+	}
 }
 
 type osCommand struct {
@@ -97,7 +126,7 @@ func (s *streamWriter) Write(p []byte) (n int, err error) {
 		Seq:  s.seq,
 	}
 
-	err = s.stream.Send(&pb.Message{&pb.Message_ExecOutput{data}})
+	err = s.stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: data}})
 	if err != nil {
 		return 0, err
 	}
@@ -105,15 +134,15 @@ func (s *streamWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func (r execFunc) exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, logger log.FieldLogger) error {
-	return r(ctx, stream, args, logger)
+func (r execFunc) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, logger log.FieldLogger) error {
+	return r(ctx, stream, req, logger)
 }
 
-type execFunc func(ctx context.Context, stream pb.OutgoingMessageStream, args []string, logger log.FieldLogger) error
+type execFunc func(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, logger log.FieldLogger) error
 
 type commandExecutor interface {
 	// exec executes a local command specified with args and streams
 	// output into the specified stream.
 	// Returns an error if the command execution was insuccessful
-	exec(ctx context.Context, stream pb.OutgoingMessageStream, args []string, logger log.FieldLogger) error
+	exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, logger log.FieldLogger) error
 }

@@ -31,8 +31,8 @@ func MergeInto(req NewPackageServiceRequest, preset NewPackageServiceRequest) Ne
 	if req.StartCommand == "" {
 		req.StartCommand = preset.StartCommand
 	}
-	if req.StartPreCommand == "" {
-		req.StartPreCommand = preset.StartPreCommand
+	if len(req.StartPreCommands) == 0 {
+		req.StartPreCommands = preset.StartPreCommands
 	}
 	if req.StartPostCommand == "" {
 		req.StartPostCommand = preset.StartPostCommand
