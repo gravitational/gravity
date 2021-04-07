@@ -1209,12 +1209,7 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 		return trace.Wrap(err)
 	}
 
-	config.serviceURL, err = autoscaler.GetServiceURL(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	config.token, err = autoscaler.GetJoinToken(ctx)
+	config.serviceURL, config.token, err = autoscaler.GetServiceURLAndJoinToken(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
