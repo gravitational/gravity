@@ -37,14 +37,14 @@ SELINUX_BRANCH ?= distro/centos_rhel/7
 GOLFLAGS ?= -w -s
 
 # Git repositories
-TELEPORT_REPO = git@github.com:gravitational/teleport.git
-PLANET_REPO = git@github.com:gravitational/planet.git
-LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
-MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
-STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
-BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
-FIO_REPO = git@github.com:axboe/fio.git
-SELINUX_REPO = git@github.com:gravitational/selinux.git
+TELEPORT_REPO = https://github.com/gravitational/teleport.git
+PLANET_REPO = https://github.com/gravitational/planet.git
+LOGGING_APP_REPO = https://github.com/gravitational/logging-app.git
+MONITORING_APP_REPO = https://github.com/gravitational/monitoring-app.git
+STORAGE_APP_REPO = https://github.com/gravitational/storage-app.git
+BANDWAGON_REPO = https://github.com/gravitational/bandwagon.git
+FIO_REPO = https://github.com/axboe/fio.git
+SELINUX_REPO = https://github.com/gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
