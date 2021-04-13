@@ -459,7 +459,7 @@ github.com/gravitational/oxy/connlimit
 github.com/gravitational/oxy/forward
 github.com/gravitational/oxy/ratelimit
 github.com/gravitational/oxy/utils
-# github.com/gravitational/rigging v0.0.0-20210315200250-d036093ec3e6
+# github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip

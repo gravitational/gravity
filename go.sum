@@ -555,6 +555,8 @@ github.com/gravitational/prometheus-operator v0.40.1 h1:UBPTo1YwPf0DpfeMdxNUYppU
 github.com/gravitational/prometheus-operator v0.40.1/go.mod h1:QOoL5cVI3b1OHgpw8s+pH+Ok4AFRp2HOUvBpqs7UWcg=
 github.com/gravitational/rigging v0.0.0-20210315200250-d036093ec3e6 h1:VSqf00uKNCBk9M1M+XbsurG2ng7AKCZIxJe8i0IE+JI=
 github.com/gravitational/rigging v0.0.0-20210315200250-d036093ec3e6/go.mod h1:5yvtnIG1UfRmWJBtZZ9zKfq5aBykqAJB7vwyL9+BmoU=
+github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d h1:CLFlJ9tlb6rIpHpABOLorKv+PUopS6H/vSjCbwcNz1Q=
+github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d/go.mod h1:5yvtnIG1UfRmWJBtZZ9zKfq5aBykqAJB7vwyL9+BmoU=
 github.com/gravitational/roundtrip v1.0.0 h1:eb+0EABfSKC8607CQ4oOyWCm9zVIfio/wW78TjQqLSc=
 github.com/gravitational/roundtrip v1.0.0/go.mod h1:qccpLd30tAJVSpx7aOEEnws4ZT3njPwdbtT8lNQxbAs=
 github.com/gravitational/satellite v0.0.9-0.20210313001929-72cbba4dc99c h1:9/0jYNoK+00pQlRAE49TOqvmRhO29GIRH9QW7GUfsiw=
