@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Gravitational, Inc.
+Copyright 2016-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -346,8 +346,6 @@ type Agent interface {
 	Start() error
 	// Close stops background activity and releases resources.
 	Close() error
-	// Join makes an attempt to join a cluster specified by the list of peers.
-	Join(peers []string) error
 	// Time reports the current server time.
 	Time() time.Time
 	// LocalStatus reports the health status of the local agent node.
@@ -364,8 +362,6 @@ type Agent interface {
 	RecordClusterEvents(ctx context.Context, events []*pb.TimelineEvent) error
 	// RecordLocalEvents records the events into the local timeline.
 	RecordLocalEvents(ctx context.Context, events []*pb.TimelineEvent) error
-	// IsMember returns whether this agent is already a member of serf cluster
-	IsMember() (ok bool, err error)
 	// GetConfig returns the agent configuration.
 	GetConfig() Config
 	// CheckerRepository allows to add checks to the agent.

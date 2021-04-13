@@ -223,8 +223,8 @@ type queries struct {
 }
 
 const (
-	snapshotSizeLimit = 128 * 1024 // Maximum 128 KB snapshot
-	UserEventSizeLimit = 9 * 1024  // Maximum 9KB for event name and payload
+	snapshotSizeLimit  = 128 * 1024 // Maximum 128 KB snapshot
+	UserEventSizeLimit = 9 * 1024   // Maximum 9KB for event name and payload
 )
 
 // Create creates a new Serf instance, starting all the background tasks
@@ -445,7 +445,7 @@ func (s *Serf) KeyManager() *KeyManager {
 // If coalesce is enabled, nodes are allowed to coalesce this event.
 // Coalescing is only available starting in v0.2
 func (s *Serf) UserEvent(name string, payload []byte, coalesce bool) error {
-	payloadSizeBeforeEncoding := len(name)+len(payload)
+	payloadSizeBeforeEncoding := len(name) + len(payload)
 
 	// Check size before encoding to prevent needless encoding and return early if it's over the specified limit.
 	if payloadSizeBeforeEncoding > s.config.UserEventSizeLimit {
@@ -541,6 +541,7 @@ func (s *Serf) Query(name string, payload []byte, params *QueryParam) (*QueryRes
 		ID:          uint32(rand.Int31()),
 		Addr:        local.Addr,
 		Port:        local.Port,
+		SourceNode:  local.Name,
 		Filters:     filters,
 		Flags:       flags,
 		RelayFactor: params.RelayFactor,
@@ -781,15 +782,26 @@ func (s *Serf) Members() []Member {
 	return members
 }
 
-// RemoveFailedNode forcibly removes a failed node from the cluster
+// RemoveFailedNode is a backwards compatible form
+// of forceleave
+func (s *Serf) RemoveFailedNode(node string) error {
+	return s.forceLeave(node, false)
+}
+
+func (s *Serf) RemoveFailedNodePrune(node string) error {
+	return s.forceLeave(node, true)
+}
+
+// ForceLeave forcibly removes a failed node from the cluster
 // immediately, instead of waiting for the reaper to eventually reclaim it.
 // This also has the effect that Serf will no longer attempt to reconnect
 // to this node.
-func (s *Serf) RemoveFailedNode(node string) error {
+func (s *Serf) forceLeave(node string, prune bool) error {
 	// Construct the message to broadcast
 	msg := messageLeave{
 		LTime: s.clock.Time(),
 		Node:  node,
+		Prune: prune,
 	}
 	s.clock.Increment()
 
@@ -1060,6 +1072,7 @@ func (s *Serf) handleNodeUpdate(n *memberlist.Node) {
 
 // handleNodeLeaveIntent is called when an intent to leave is received.
 func (s *Serf) handleNodeLeaveIntent(leaveMsg *messageLeave) bool {
+
 	// Witness a potentially newer time
 	s.clock.Witness(leaveMsg.LTime)
 
@@ -1090,6 +1103,10 @@ func (s *Serf) handleNodeLeaveIntent(leaveMsg *messageLeave) bool {
 	case StatusAlive:
 		member.Status = StatusLeaving
 		member.statusLTime = leaveMsg.LTime
+
+		if leaveMsg.Prune {
+			s.handlePrune(member)
+		}
 		return true
 	case StatusFailed:
 		member.Status = StatusLeft
@@ -1098,6 +1115,7 @@ func (s *Serf) handleNodeLeaveIntent(leaveMsg *messageLeave) bool {
 		// Remove from the failed list and add to the left list. We add
 		// to the left list so that when we do a sync, other nodes will
 		// remove it from their failed list.
+
 		s.failedMembers = removeOldMember(s.failedMembers, member.Name)
 		s.leftMembers = append(s.leftMembers, member)
 
@@ -1112,10 +1130,38 @@ func (s *Serf) handleNodeLeaveIntent(leaveMsg *messageLeave) bool {
 				Members: []Member{member.Member},
 			}
 		}
+
+		if leaveMsg.Prune {
+			s.handlePrune(member)
+		}
+
+		return true
+
+	case StatusLeaving, StatusLeft:
+		if leaveMsg.Prune {
+			s.handlePrune(member)
+		}
 		return true
 	default:
 		return false
 	}
+}
+
+// handlePrune waits for nodes that are leaving and then forcibly
+// erases a member from the list of members
+func (s *Serf) handlePrune(member *memberState) {
+	if member.Status == StatusLeaving {
+		time.Sleep(s.config.BroadcastTimeout + s.config.LeavePropagateDelay)
+	}
+
+	s.logger.Printf("[INFO] serf: EventMemberReap (forced): %s %s", member.Name, member.Member.Addr)
+
+	//If we are leaving or left we may be in that list of members
+	if member.Status == StatusLeaving || member.Status == StatusLeft {
+		s.leftMembers = removeOldMember(s.leftMembers, member.Name)
+	}
+	s.eraseNode(member)
+
 }
 
 // handleNodeJoinIntent is called when a node broadcasts a
@@ -1281,11 +1327,15 @@ func (s *Serf) handleQuery(query *messageQuery) bool {
 		if err != nil {
 			s.logger.Printf("[ERR] serf: failed to format ack: %v", err)
 		} else {
-			addr := net.UDPAddr{IP: query.Addr, Port: int(query.Port)}
-			if err := s.memberlist.SendTo(&addr, raw); err != nil {
+			udpAddr := net.UDPAddr{IP: query.Addr, Port: int(query.Port)}
+			addr := memberlist.Address{
+				Addr: udpAddr.String(),
+				Name: query.SourceNode,
+			}
+			if err := s.memberlist.SendToAddress(addr, raw); err != nil {
 				s.logger.Printf("[ERR] serf: failed to send ack: %v", err)
 			}
-			if err := s.relayResponse(query.RelayFactor, addr, &ack); err != nil {
+			if err := s.relayResponse(query.RelayFactor, udpAddr, query.SourceNode, &ack); err != nil {
 				s.logger.Printf("[ERR] serf: failed to relay ack: %v", err)
 			}
 		}
@@ -1300,6 +1350,7 @@ func (s *Serf) handleQuery(query *messageQuery) bool {
 			id:          query.ID,
 			addr:        query.Addr,
 			port:        query.Port,
+			sourceNode:  query.SourceNode,
 			deadline:    time.Now().Add(query.Timeout),
 			relayFactor: query.RelayFactor,
 		}
@@ -1438,6 +1489,30 @@ func (s *Serf) resolveNodeConflict() {
 	}
 }
 
+//eraseNode takes a node completely out of the member list
+func (s *Serf) eraseNode(m *memberState) {
+	// Delete from members
+	delete(s.members, m.Name)
+
+	// Tell the coordinate client the node has gone away and delete
+	// its cached coordinates.
+	if !s.config.DisableCoordinates {
+		s.coordClient.ForgetNode(m.Name)
+
+		s.coordCacheLock.Lock()
+		delete(s.coordCache, m.Name)
+		s.coordCacheLock.Unlock()
+	}
+
+	// Send an event along
+	if s.config.EventCh != nil {
+		s.config.EventCh <- MemberEvent{
+			Type:    EventMemberReap,
+			Members: []Member{m.Member},
+		}
+	}
+}
+
 // handleReap periodically reaps the list of failed and left members, as well
 // as old buffered intents.
 func (s *Serf) handleReap() {
@@ -1488,27 +1563,10 @@ func (s *Serf) reap(old []*memberState, now time.Time, timeout time.Duration) []
 		n--
 		i--
 
-		// Delete from members
-		delete(s.members, m.Name)
-
-		// Tell the coordinate client the node has gone away and delete
-		// its cached coordinates.
-		if !s.config.DisableCoordinates {
-			s.coordClient.ForgetNode(m.Name)
-
-			s.coordCacheLock.Lock()
-			delete(s.coordCache, m.Name)
-			s.coordCacheLock.Unlock()
-		}
-
-		// Send an event along
+		// Delete from members and send out event
 		s.logger.Printf("[INFO] serf: EventMemberReap: %s", m.Name)
-		if s.config.EventCh != nil {
-			s.config.EventCh <- MemberEvent{
-				Type:    EventMemberReap,
-				Members: []Member{m.Member},
-			}
-		}
+		s.eraseNode(m)
+
 	}
 
 	return old
@@ -1551,8 +1609,13 @@ func (s *Serf) reconnect() {
 	addr := net.UDPAddr{IP: mem.Addr, Port: int(mem.Port)}
 	s.logger.Printf("[INFO] serf: attempting reconnect to %v %s", mem.Name, addr.String())
 
+	joinAddr := addr.String()
+	if mem.Name != "" {
+		joinAddr = mem.Name + "/" + addr.String()
+	}
+
 	// Attempt to join at the memberlist level
-	s.memberlist.Join([]string{addr.String()})
+	s.memberlist.Join([]string{joinAddr})
 }
 
 // getQueueMax will get the maximum queue depth, which might be dynamic depending
@@ -1657,8 +1720,13 @@ func (s *Serf) handleRejoin(previous []*PreviousNode) {
 			continue
 		}
 
+		joinAddr := prev.Addr
+		if prev.Name != "" {
+			joinAddr = prev.Name + "/" + prev.Addr
+		}
+
 		s.logger.Printf("[INFO] serf: Attempting re-join to previously known node: %s", prev)
-		_, err := s.memberlist.Join([]string{prev.Addr})
+		_, err := s.memberlist.Join([]string{joinAddr})
 		if err == nil {
 			s.logger.Printf("[INFO] serf: Re-joined to previously known node: %s", prev)
 			return

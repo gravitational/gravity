@@ -19,10 +19,11 @@ import (
 
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/gravitational/trace"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1beta1 "k8s.io/api/scheduling/v1beta1"
 	extensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -252,6 +253,28 @@ func ParseAPIService(r io.Reader) (*apiregistrationv1.APIService, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &apiService, nil
+}
+
+// ParseValidatingWebhookConfiguration parses a ValidatingWebhookConfiguration
+// resources from the provided data stream.
+func ParseValidatingWebhookConfiguration(r io.Reader) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	var webhook admissionregistrationv1.ValidatingWebhookConfiguration
+	err := yaml.NewYAMLOrJSONDecoder(r, DefaultBufferSize).Decode(&webhook)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &webhook, nil
+}
+
+// ParseMutatingWebhookConfiguration parses a MutatingWebhookConfiguration
+// resources from the provided data stream.
+func ParseMutatingWebhookConfiguration(r io.Reader) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+	var webhook admissionregistrationv1.MutatingWebhookConfiguration
+	err := yaml.NewYAMLOrJSONDecoder(r, DefaultBufferSize).Decode(&webhook)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return &webhook, nil
 }
 
 // ParseServiceMonitor parses a ServiceMonitor resource from the provided data

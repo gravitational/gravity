@@ -50,7 +50,7 @@ import (
 	"github.com/gravitational/teleport/lib/events"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/proto/hapi/release"
+	"helm.sh/helm/v3/pkg/release"
 )
 
 // TeleportProxyService is SSH proxy access portal - gives
@@ -1925,15 +1925,15 @@ func (s *Site) IsOpsCenter() bool {
 func (s *Site) ReleaseStatus() string {
 	switch s.State {
 	case SiteStateInstalling:
-		return release.Status_PENDING_INSTALL.String()
+		return release.StatusPendingInstall.String()
 	case SiteStateFailed:
-		return release.Status_FAILED.String()
+		return release.StatusFailed.String()
 	case SiteStateUpdating:
-		return release.Status_PENDING_UPGRADE.String()
+		return release.StatusPendingUpgrade.String()
 	case SiteStateUninstalling:
-		return release.Status_DELETING.String()
+		return release.StatusUninstalling.String()
 	default:
-		return release.Status_DEPLOYED.String()
+		return release.StatusDeployed.String()
 	}
 }
 

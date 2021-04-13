@@ -90,7 +90,7 @@ type Services struct {
 func (r *Services) removeDNSServices(ctx context.Context) error {
 	services := r.client.Services(metav1.NamespaceSystem)
 	for _, service := range dnsServices {
-		err := removeService(ctx, service, &metav1.DeleteOptions{}, services)
+		err := removeService(ctx, service, metav1.DeleteOptions{}, services)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -103,7 +103,7 @@ func (r *Services) resetServices(ctx context.Context) error {
 		logger := r.WithField("service", utils.FormatMeta(service.ObjectMeta))
 		services := r.client.Services(service.Namespace)
 		logger.Info("Remove service.")
-		err := removeService(ctx, service.Name, &metav1.DeleteOptions{}, services)
+		err := removeService(ctx, service.Name, metav1.DeleteOptions{}, services)
 		if err != nil {
 			return trace.Wrap(err)
 		}

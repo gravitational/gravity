@@ -139,7 +139,7 @@ func (r *Init) recreateService(ctx context.Context, name string, service v1.Serv
 	} else {
 		r.WithField("service", utils.FormatMeta(service.ObjectMeta)).Info("Recreate service.")
 	}
-	if err := removeService(ctx, name, &metav1.DeleteOptions{}, services); err != nil && !trace.IsNotFound(err) {
+	if err := removeService(ctx, name, metav1.DeleteOptions{}, services); err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err, "failed to delete service: %v/%v", service.Namespace, name)
 	}
 	service.ResourceVersion = "0"

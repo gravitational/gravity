@@ -69,16 +69,21 @@ const (
 	// status query reply.
 	statusQueryReplyTimeout = 30 * time.Second
 
-	// nodeStatusTimeout specifies the amount of time to wait for a node status
+	// nodeStatusTimeoutLocal specifies the amount of time to wait for a node status
 	// query reply. The timeout is smaller than the statusQueryReplyTimeout so
 	// that the node status collection step can return results before the
 	// deadline.
-	nodeStatusTimeout = statusQueryReplyTimeout - (5 * time.Second)
+	nodeStatusTimeoutLocal = statusQueryReplyTimeout - (5 * time.Second)
+
+	// nodestatusTimeoutRemote specifies the amount of time to wait for a node status from a remote node.
+	// This timeout is set low, because the remote node pre-caches the status, and as such is expected to respond
+	// quickly.
+	nodeStatusTimeoutRemote = time.Second
 
 	// checksTimeout specifies the amount of time to wait for a check to complete.
 	// The checksTimeout is smaller than the nodeStatusTimeout so that the checks
 	// can return results before the deadline.
-	checksTimeout = nodeStatusTimeout - (5 * time.Second)
+	checksTimeout = nodeStatusTimeoutLocal - (5 * time.Second)
 
 	// probeTimeout specifies the amount of time to wait for a probe to complete.
 	// The probeTimeout is smaller than the checksTimeout so that the probe

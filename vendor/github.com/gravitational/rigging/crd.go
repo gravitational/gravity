@@ -70,7 +70,7 @@ type CustomResourceDefinitionControl struct {
 func (c *CustomResourceDefinitionControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.CustomResourceDefinition.ObjectMeta))
 
-	err := c.Client.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(c.CustomResourceDefinition.Name, nil)
+	err := c.Client.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(ctx, c.CustomResourceDefinition.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -81,23 +81,29 @@ func (c *CustomResourceDefinitionControl) Upsert(ctx context.Context) error {
 	c.CustomResourceDefinition.UID = ""
 	c.CustomResourceDefinition.SelfLink = ""
 	c.CustomResourceDefinition.ResourceVersion = ""
-	existing, err := CustomResourceDefinitions.Get(c.CustomResourceDefinition.Name, metav1.GetOptions{})
+	existing, err := CustomResourceDefinitions.Get(ctx, c.CustomResourceDefinition.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = CustomResourceDefinitions.Create(c.CustomResourceDefinition)
+		_, err = CustomResourceDefinitions.Create(ctx, c.CustomResourceDefinition, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("customresourcedefinition", formatMeta(c.CustomResourceDefinition.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
 	c.CustomResourceDefinition.ResourceVersion = existing.ResourceVersion
-	_, err = CustomResourceDefinitions.Update(c.CustomResourceDefinition)
+	_, err = CustomResourceDefinitions.Update(ctx, c.CustomResourceDefinition, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *CustomResourceDefinitionControl) Status() error {
+func (c *CustomResourceDefinitionControl) Status(ctx context.Context) error {
 	CustomResourceDefinitions := c.Client.ApiextensionsV1beta1().CustomResourceDefinitions()
-	_, err := CustomResourceDefinitions.Get(c.CustomResourceDefinition.Name, metav1.GetOptions{})
+	_, err := CustomResourceDefinitions.Get(ctx, c.CustomResourceDefinition.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

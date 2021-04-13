@@ -1,6 +1,6 @@
 # Rig
 
-Rig tool uses third-party resources to add changeset semantics to Kubernetes operations:
+The Rig tool adds changeset semantics to Kubernetes operations. For example:
 
 ```sh
 # upsert a daemon set (changeset is created automatically)
@@ -17,18 +17,9 @@ rig revert -c change1
 rig freeze -c change1
 ```
 
-**Environment variables**
+## Usage
 
-Use environment variables to bind rig to particular changeset
-
-```sh
-export RIG_CHANGESET=cs1
-rig upsert -f daemonset.yaml
-```
-
-## Changeset management
-
-You can view your changesets to see what happened:
+You can view changesets to see what happened:
 
 **View all changesets**
 
@@ -49,9 +40,14 @@ rig get change1 -o yaml
 rig cs delete change1
 ```
 
-## Details
+Environment variables can be used to bind rig to particular changeset:
 
-### Supported resources
+```sh
+export RIG_CHANGESET=cs1
+rig upsert -f daemonset.yaml
+```
+
+## Supported Resources
 
 The following resources are supported:
 
@@ -62,13 +58,15 @@ The following resources are supported:
 * Secret
 * Deployment
 
-### Updates
+## Rolling Updates
 
 Only `Deployment` updates are rolling, updating of daemon sets or replication controllers simply deletes all the pods
 
-### Status checks
+## Status checks
 
-Rig adds additional condition to consider `Deployment`, `DaemonSet` or `ReplicatonController` as ready - all pods must be in `Running` state.
+As a precondition to declaring `Deployment`, `DaemonSet` or `ReplicatonController` as ready, rig requires all pods must be in `Running` state.
 
+## Contributing
 
-
+Rig is developed by [Teleport](https://goteleport.com/). If you'd like to contribute to Rig, check out our
+[contributing guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CODE_OF_CONDUCT.md).

@@ -107,7 +107,7 @@ func (o *Operator) UpdateClusterConfiguration(req ops.UpdateClusterConfigRequest
 		"spec": string(req.Config),
 	}
 	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
+		_, err := configmaps.Update(context.TODO(), configmap, metav1.UpdateOptions{})
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
@@ -154,7 +154,7 @@ func (s *site) createUpdateConfigOperation(ctx context.Context, req ops.CreateUp
 }
 
 func getOrCreateClusterConfigMap(client corev1.ConfigMapInterface) (configmap *v1.ConfigMap, err error) {
-	configmap, err = client.Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+	configmap, err = client.Get(context.TODO(), constants.ClusterConfigurationMap, metav1.GetOptions{})
 	if err != nil {
 		if !trace.IsNotFound(rigging.ConvertError(err)) {
 			return nil, trace.Wrap(err)
@@ -165,7 +165,7 @@ func getOrCreateClusterConfigMap(client corev1.ConfigMapInterface) (configmap *v
 		return configmap, nil
 	}
 	configmap = NewConfigurationConfigMap(nil)
-	configmap, err = client.Create(configmap)
+	configmap, err = client.Create(context.TODO(), configmap, metav1.CreateOptions{})
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
