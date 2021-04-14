@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [7.1](#71-releases) | 7.1.0-alpha.5 | No  | pre-release          | March 16, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
+| [7.1](#71-releases) | 7.1.0-alpha.6 | No  | pre-release          | April 14, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.30        | Yes | April 3, 2020        | January 15, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
@@ -53,6 +53,21 @@ extend updates past End of Support through customer agreements if required.
 ## 7.1 Releases
 
 7.1 is currently pre-release.
+
+### 7.1.0-alpha.6 (April 14, 2021)
+
+#### Improvements
+* Add GCE Alias IP support for flannel ([#2439](https://github.com/gravitational/gravity/pull/2439), [planet#830](https://github.com/gravitational/planet/pull/830), [flannel#10](https://github.com/gravitational/flannel/pull/10)).
+* Improve performance of AWS autoscaling integration ([#2458](https://github.com/gravitational/gravity/pull/2458)).
+* Improve satellite cluster health monitoring on large clusters up to 1000 nodes ([#2439](https://github.com/gravitational/gravity/pull/2439), [planet#828](https://github.com/gravitational/planet/pull/828), [satellite#297](https://github.com/gravitational/satellite/pull/297)).
+
+#### Bugfixes
+* Fix ownership of monitoring and logrange directories ([#2448](https://github.com/gravitational/gravity/pull/2448)).
+* Remove `gravity app sync`'s dependence on a kubernetes config ([#2438](https://github.com/gravitational/gravity/pull/2438)).
+
+#### Internal Changes
+* Upgrade internal kubernetes client go to v1.19.8 and helm to v3.4.2 ([#2433](https://github.com/gravitational/gravity/pull/2433), [planet#827](https://github.com/gravitational/planet/pull/827), [rigging#100](https://github.com/gravitational/rigging/pull/100), [satellite#299](https://github.com/gravitational/satellite/pull/299)).
+* Improve build and release processes ([#2451](https://github.com/gravitational/gravity/pull/2451), [#2466](https://github.com/gravitational/gravity/pull/2466)).
 
 ### 7.1.0-alpha.5 (March 16, 2021)
 
