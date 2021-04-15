@@ -15,9 +15,9 @@ build:
 
 .PHONY: test
 test:
-	go test -v -test.parallel=0 ./ ./tool/...
+	go test -v ./ ./tool/...
 
-BUILDBOX := quay.io/gravitational/debian-venti:go1.12.9-buster
+BUILDBOX := quay.io/gravitational/debian-venti:go1.16.2-buster
 
 # Directory with sources inside the container
 DST := /gopath/src/github.com/gravitational/rigging
@@ -32,6 +32,7 @@ IMAGE := quay.io/gravitational/rig:$(VERSION)
 .PHONY: docker-build
 docker-build:
 	docker run -i --rm=true \
+		   -u $$(id -u):$$(id -g) -e GOCACHE=/tmp/.cache \
 		   -v $(SRC):$(DST) \
 		   -v $(BUILDDIR):$(DST)/build \
 		   $(BUILDBOX) \
@@ -46,13 +47,13 @@ docker-test:
 		   /bin/bash -c "make -C $(DST) test"
 
 .PHONY: docker-image
-docker-image:
-	$(eval TEMPDIR = "$(shell mktemp -d)")
+docker-image: docker-build
+	$(eval TEMPDIR = "$(shell mktemp -d $(BUILDDIR)/tmp.XXXXXX)")
 	if [ -z "$(TEMPDIR)" ]; then \
 	  echo "TEMPDIR is not set"; exit 1; \
 	fi;
 	mkdir -p $(TEMPDIR)/build
-	BUILDDIR=$(TEMPDIR)/build $(MAKE) docker-build
+	cp build/rig $(TEMPDIR)/build/rig
 	cp -r docker/rig.dockerfile $(TEMPDIR)/Dockerfile
 	cd $(TEMPDIR) && docker build --pull -t $(IMAGE) .
 	rm -rf $(TEMPDIR)

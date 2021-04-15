@@ -223,6 +223,10 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
 		filepath.Join(stateDir, "logrange"),
+		// names prometheus-db/alertmanager-db are hardcoded subPath values
+		// in prometheus-operator
+		filepath.Join(stateDir, "monitoring", "prometheus-db"),
+		filepath.Join(stateDir, "monitoring", "alertmanager-db"),
 	}
 	for _, dir := range mkdirList {
 		p.Infof("Creating system directory %v.", dir)
@@ -247,6 +251,8 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		filepath.Join(stateDir, "site"),
 		filepath.Join(stateDir, "secrets"),
 		filepath.Join(stateDir, "backup"),
+		filepath.Join(stateDir, "monitoring"),
+		filepath.Join(stateDir, "logrange"),
 	}
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
@@ -254,7 +260,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v",
 			p.ServiceUser.UID, p.ServiceUser.GID), dir).CombinedOutput()
 		if err != nil {
-			return trace.Wrap(err, "failed to chmod %v: %s", dir, out)
+			return trace.Wrap(err, "failed to chown %v: %s", dir, out)
 		}
 	}
 	chmodList := []string{
@@ -294,10 +300,10 @@ func (p *bootstrapExecutor) configureApplicationVolumes() error {
 		uid, gid := mount.UID, mount.GID
 		if !existingDir {
 			if uid == nil {
-				uid = utils.IntPtr(defaults.ServiceUID)
+				uid = utils.IntPtr(p.ServiceUser.UID)
 			}
 			if gid == nil {
-				gid = utils.IntPtr(defaults.ServiceGID)
+				gid = utils.IntPtr(p.ServiceUser.GID)
 			}
 		}
 		// Only chown directories/files if necessary

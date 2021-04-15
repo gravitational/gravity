@@ -26,9 +26,8 @@ import (
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/lib/services"
-
 	"github.com/gravitational/version"
-	helm "k8s.io/helm/pkg/version"
+	"helm.sh/helm/v3/pkg/chartutil"
 )
 
 // Modules allows to customize certain behavioral aspects of Gravity
@@ -141,7 +140,7 @@ func (m *defaultModules) Version() proto.Version {
 		Edition:   "open-source",
 		Version:   ver.Version,
 		GitCommit: ver.GitCommit,
-		Helm:      helm.Version,
+		Helm:      chartutil.DefaultCapabilities.HelmVersion.Version,
 	}
 }
 

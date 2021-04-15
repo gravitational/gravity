@@ -67,14 +67,15 @@ type podsExecutor struct {
 // Execute removes the old Kubernetes pods.
 func (p *podsExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Recreating Kubernetes pods")
-	pods, err := p.Client.CoreV1().Pods(constants.AllNamespaces).List(metav1.ListOptions{})
+	pods, err := p.Client.CoreV1().Pods(constants.AllNamespaces).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	for _, pod := range pods.Items {
-		err := p.Client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, &metav1.DeleteOptions{
-			GracePeriodSeconds: utils.Int64Ptr(0),
-		})
+		err := p.Client.CoreV1().Pods(pod.Namespace).
+			Delete(ctx, pod.Name, metav1.DeleteOptions{
+				GracePeriodSeconds: utils.Int64Ptr(0),
+			})
 		if err != nil {
 			p.Errorf("Failed to remove pod %v/%v: %v.", pod.Namespace, pod.Name, err)
 		} else {

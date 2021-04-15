@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
-	helmclt "github.com/gravitational/gravity/lib/helm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -440,9 +439,6 @@ func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvir
 	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.checkTiller(localEnv, updateApp.Manifest); err != nil {
-		return trace.Wrap(err)
-	}
 	if err := r.checkRuntimeEnvironment(localEnv, cluster, operator); err != nil {
 		return trace.Wrap(err)
 	}
@@ -480,33 +476,6 @@ for more information on managing runtime environment variables.
 This warning can be bypassed by providing a --force flag to the upgrade command.`, err, bytes)
 	}
 	log.Info("Runtime environment variables are valid.")
-	return nil
-}
-
-// checkTiller verifies tiller server health before kicking off upgrade.
-func (r *clusterInitializer) checkTiller(env *localenv.LocalEnvironment, manifest schema.Manifest) error {
-	if manifest.CatalogDisabled() {
-		log.Info("Tiller server is disabled, not checking its health.")
-		return nil
-	}
-	err := helmclt.Ping(env.DNS.Addr())
-	if err != nil {
-		log.WithError(err).Error("Failed to ping tiller pod.")
-		if r.force {
-			env.PrintStep(color.YellowString(`Tiller server health check failed, "helm upgrade" may not work!`))
-			return nil
-		}
-		return trace.BadParameter(`Tiller server health check failed with the following error:
-
-    %q
-
-This means that "helm upgrade" and other Helm commands may not work correctly. If
-the application upgrade requires Helm, make sure that Tiller pod is up, running
-and reachable before retrying the upgrade.
-
-This warning can be bypassed by providing a --force flag to the upgrade command.`, err)
-	}
-	log.Info("Tiller server ping success.")
 	return nil
 }
 

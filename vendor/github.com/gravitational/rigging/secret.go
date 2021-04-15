@@ -67,7 +67,7 @@ type SecretControl struct {
 func (c *SecretControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Secret.ObjectMeta))
 
-	err := c.Client.CoreV1().Secrets(c.Secret.Namespace).Delete(c.Secret.Name, nil)
+	err := c.Client.CoreV1().Secrets(c.Secret.Namespace).Delete(ctx, c.Secret.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -78,22 +78,28 @@ func (c *SecretControl) Upsert(ctx context.Context) error {
 	c.Secret.UID = ""
 	c.Secret.SelfLink = ""
 	c.Secret.ResourceVersion = ""
-	_, err := secrets.Get(c.Secret.Name, metav1.GetOptions{})
+	existing, err := secrets.Get(ctx, c.Secret.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = secrets.Create(c.Secret)
+		_, err = secrets.Create(ctx, c.Secret, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
-	_, err = secrets.Update(c.Secret)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("secret", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = secrets.Update(ctx, c.Secret, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *SecretControl) Status() error {
+func (c *SecretControl) Status(ctx context.Context) error {
 	secrets := c.Client.CoreV1().Secrets(c.Secret.Namespace)
-	_, err := secrets.Get(c.Secret.Name, metav1.GetOptions{})
+	_, err := secrets.Get(ctx, c.Secret.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

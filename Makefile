@@ -46,7 +46,7 @@ RELEASE_OUT ?=
 TELEPORT_TAG = 3.2.17
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 7.1.25-$(K8S_VER_SUFFIX)
+PLANET_TAG := 7.1.26-$(K8S_VER_SUFFIX)
 PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
@@ -162,6 +162,7 @@ RBAC_APP_OUT := $(GRAVITY_BUILDDIR)/rbac-app.tar.gz
 TELEKUBE_APP_OUT := $(GRAVITY_BUILDDIR)/telekube-app.tar.gz
 TILLER_APP_OUT := $(GRAVITY_BUILDDIR)/tiller-app.tar.gz
 TELEKUBE_OUT := $(GRAVITY_BUILDDIR)/telekube.tar
+OPSCENTER_OUT := $(GRAVITY_BUILDDIR)/opscenter.tar
 SELINUX_ASSETSDIR := $(TOP)/lib/system/selinux/internal/policy/assets/centos
 SELINUX_ASSETS := $(SELINUX_ASSETSDIR)/gravity.pp.bz2 \
 		$(SELINUX_ASSETSDIR)/container.pp.bz2 \
@@ -487,33 +488,33 @@ selinux-policy-package:
 # publish-artifacts uploads build artifacts to the distribution Ops Center
 #
 .PHONY: publish-artifacts
-publish-artifacts: opscenter telekube
+publish-artifacts: $(OPSCENTER_OUT) $(TELEKUBE_OUT)
 	if [ -z "$(TELE_KEY)" ] || [ -z "$(DISTRIBUTION_OPSCENTER)" ]; then \
 	   echo "TELE_KEY or DISTRIBUTION_OPSCENTER are not set"; exit 1; \
 	fi;
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/telekube.tar  --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
-	$(GRAVITY_BUILDDIR)/tele push $(GRAVITY_BUILDDIR)/opscenter.tar --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
+	$(GRAVITY_BUILDDIR)/tele push $(TELEKUBE_OUT)  --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
+	$(GRAVITY_BUILDDIR)/tele push $(OPSCENTER_OUT) --hub=$(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
 
 #
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
 #
 .PHONY: scan-artifacts
-scan-artifacts: telekube
+scan-artifacts: $(TELEKUBE_OUT)
 	$(GRAVITY) app sync \
 		--registry=$(TELE_COPY_TO_REGISTRY) \
 		--registry-username=$(TELE_COPY_TO_USER) \
 		--registry-password=$(TELE_COPY_TO_PASS) \
 		--scan-repository=$(TELE_COPY_TO_REPOSITORY) \
 		--scan-prefix=$(TELE_COPY_TO_PREFIX) \
-		$(GRAVITY_BUILDDIR)/telekube.tar
+		$(TELEKUBE_OUT)
 
 #
 # builds telekube installer
 #
 .PHONY: telekube
-telekube: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 telekube: $(TELEKUBE_OUT)
 
+$(TELEKUBE_OUT): GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
 $(TELEKUBE_OUT): packages
 	GRAVITY_K8S_VERSION=$(K8S_VER) $(GRAVITY_BUILDDIR)/tele build \
 		$(ASSETSDIR)/telekube/resources/app.yaml -f \
@@ -547,8 +548,8 @@ $(GRAVITY_BUILDDIR)/wormhole.tar: packages
 # Uploads opscenter to S3 is used to test custom releases of the ops center
 #
 .PHONY: upload-opscenter
-upload-opscenter:
-	aws s3 cp $(GRAVITY_BUILDDIR)/opscenter.tar s3://testreleases.gravitational.io/$(GRAVITY_TAG)/opscenter.tar
+upload-opscenter: $(OPSCENTER_OUT)
+	aws s3 cp $(OPSCENTER_OUT) s3://testreleases.gravitational.io/$(GRAVITY_TAG)/opscenter.tar
 
 #
 # Uploads gravity to test builds
@@ -562,10 +563,10 @@ upload-binaries:
 # builds opscenter installer
 #
 .PHONY: opscenter
-opscenter: GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
-opscenter: $(GRAVITY_BUILDDIR)/opscenter.tar
+opscenter: $(OPSCENTER_OUT)
 
-$(GRAVITY_BUILDDIR)/opscenter.tar: packages
+$(OPSCENTER_OUT): GRAVITY=$(GRAVITY_OUT) --state-dir=$(PACKAGES_DIR)
+$(OPSCENTER_OUT): packages
 	mkdir -p $(BUILDDIR)
 # this is for Jenkins pipeline integration
 	@echo env.GRAVITY_BUILDDIR=\"$(GRAVITY_BUILDDIR)\" > $(BUILDDIR)/properties.groovy
@@ -588,7 +589,7 @@ $(GRAVITY_BUILDDIR)/opscenter.tar: packages
 	cat $(TEMPDIR)/resources/app.yaml
 	$(GRAVITY_BUILDDIR)/tele build $(TEMPDIR)/resources/app.yaml -f \
 		--state-dir=$(PACKAGES_DIR) \
-		-o $(GRAVITY_BUILDDIR)/opscenter.tar
+		-o $(OPSCENTER_OUT)
 	rm -rf $(TEMPDIR)
 
 #
@@ -633,20 +634,6 @@ $(GRAVITY_BUILDDIR):
 .PHONY: $(BINARIES)
 $(BINARIES): selinux grpc
 	GO111MODULE=on go install -mod=vendor -ldflags $(GRAVITY_LINKFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$@
-
-.PHONY: wizard-publish
-wizard-publish: BUILD_BUCKET_URL = s3://get.gravitational.io
-wizard-publish: S3_OPTS = --region us-west-1
-wizard-publish: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
-wizard-publish:
-	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/kubernetes:0.0.0+latest /tmp/k8s
-	tar -C /tmp -czf $(K8S_OUT) k8s
-	aws s3 cp $(S3_OPTS) $(K8S_OUT) $(BUILD_BUCKET_URL)/telekube/$(K8S_OUT)
-
-.PHONY: wizard-gen
-wizard-gen: K8S_OUT := kubernetes-$(GRAVITY_VERSION).tar.gz
-wizard-gen:
-	gravity ops create-wizard --ops-url=$(LOCAL_OPS_URL) gravitational.io/telekube:0.0.0+latest /tmp/telekube
 
 .PHONY: dev
 dev: goinstall

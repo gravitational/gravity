@@ -50,10 +50,9 @@ import (
 	teledefaults "github.com/gravitational/teleport/lib/defaults"
 	kubeclient "github.com/gravitational/teleport/lib/kube/client"
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/getter"
-	"k8s.io/helm/pkg/helm/environment"
-	"k8s.io/helm/pkg/helm/helmpath"
-	"k8s.io/helm/pkg/repo"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/helmpath"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 type loginConfig struct {
@@ -462,39 +461,25 @@ func cleanKubeconfig(entries []users.LoginEntry) error {
 // and updates its index.
 func loginHelm(opsCenterURL string, login users.LoginEntry) error {
 	log.Infof("Adding Helm repository %v.", opsCenterURL)
-	home := helmpath.Home(environment.DefaultHelmHome)
-	err := ensureDirectories(home)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	reposFile, err := ensureReposFile(home.RepositoryFile())
-	if err != nil {
-		return trace.Wrap(err)
-	}
+
 	hostname, err := utils.URLHostname(opsCenterURL)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	entry := repo.Entry{
-		Name:     hostname,
-		Cache:    home.CacheIndex(hostname),
-		URL:      fmt.Sprintf("%v/charts", opsCenterURL),
-		Username: login.Email,
-		Password: login.Password,
+
+	opts := repoAddOptions{
+		name:      hostname,
+		url:       fmt.Sprintf("%v/charts", opsCenterURL),
+		username:  login.Email,
+		password:  login.Password,
+		repoFile:  defaultReposFile,
+		repoCache: helmpath.CachePath(hostname),
 	}
-	repository, err := repo.NewChartRepository(&entry, getter.All(environment.EnvSettings{}))
-	if err != nil {
+
+	if err := opts.repoAdd(); err != nil {
 		return trace.Wrap(err)
 	}
-	err = repository.DownloadIndexFile(home.Cache())
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	reposFile.Update(&entry)
-	err = reposFile.WriteFile(home.RepositoryFile(), defaults.SharedReadMask)
-	if err != nil {
-		return trace.ConvertSystemError(err)
-	}
+
 	return nil
 }
 
@@ -541,36 +526,33 @@ func logoutHub(ctx context.Context, entry users.LoginEntry, httpClient *http.Cli
 // logoutHelm removes local Helm repositories and their index files for
 // the specified Ops Centers.
 func logoutHelm(entries []users.LoginEntry) error {
-	home := helmpath.Home(environment.DefaultHelmHome)
-	_, err := utils.StatFile(home.RepositoryFile())
-	if trace.IsNotFound(err) {
+	repoFile, err := repo.LoadFile(defaultReposFile)
+	if os.IsNotExist(errors.Cause(err)) || len(repoFile.Repositories) == 0 {
+		log.Debug("No repositories configured.")
 		return nil
 	}
-	reposFile, err := repo.LoadRepositoriesFile(home.RepositoryFile())
+
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	// find repos corresponding to the provided login entries
+
 	var names []string
-	for _, repo := range reposFile.Repositories {
+	for _, repository := range repoFile.Repositories {
 		for _, login := range entries {
-			if repo.URL == fmt.Sprintf("%v/charts", login.OpsCenterURL) {
-				names = append(names, repo.Name)
+			if repository.URL == fmt.Sprintf("%v/charts", login.OpsCenterURL) {
+				names = append(names, repository.Name)
 			}
 		}
 	}
 	log.Infof("Removing Helm repositories %v.", names)
-	for _, name := range names {
-		reposFile.Remove(name)
+
+	opts := repoRemoveOptions{
+		names:     names,
+		repoFile:  defaultReposFile,
+		repoCache: helmpath.CachePath(),
 	}
-	err = reposFile.WriteFile(home.RepositoryFile(), defaults.SharedReadMask)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	for _, name := range names {
-		os.RemoveAll(home.CacheIndex(name))
-	}
-	return nil
+
+	return trace.Wrap(opts.repoRemove())
 }
 
 // loginRegistry performs "docker login" into the specified Ops Center.
@@ -600,7 +582,7 @@ func logoutRegistry(entries []users.LoginEntry) error {
 	_, err := exec.LookPath("docker")
 	if err != nil {
 		if isExecutableNotFoundError(err) {
-			log.Infof("Docker executable not found, skip registry logout.")
+			log.Info("Docker executable not found, skip registry logout.")
 			return nil
 		}
 		return trace.ConvertSystemError(err)

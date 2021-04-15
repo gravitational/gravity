@@ -8,8 +8,11 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -21,7 +24,7 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type SystemStatus_Type int32
 
@@ -197,7 +200,7 @@ func (m *StatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_StatusRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -237,7 +240,7 @@ func (m *StatusResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_StatusResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -283,7 +286,7 @@ func (m *LocalStatusRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return xxx_messageInfo_LocalStatusRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -323,7 +326,7 @@ func (m *LocalStatusResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_LocalStatusResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -372,7 +375,7 @@ func (m *LastSeenRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_LastSeenRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -421,7 +424,7 @@ func (m *LastSeenResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_LastSeenResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -474,7 +477,7 @@ func (m *SystemStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_SystemStatus.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -546,7 +549,7 @@ func (m *MemberStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_MemberStatus.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -619,7 +622,7 @@ func (m *NodeStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_NodeStatus.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -701,7 +704,7 @@ func (m *Probe) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Probe.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -791,7 +794,7 @@ func (m *Timestamp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Timestamp.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -845,7 +848,7 @@ func (m *TimeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_TimeRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -887,7 +890,7 @@ func (m *TimeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_TimeResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -938,7 +941,7 @@ func (m *UpdateRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_UpdateRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -992,7 +995,7 @@ func (m *UpdateResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_UpdateResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1033,7 +1036,7 @@ func (m *TimelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_TimelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1081,7 +1084,7 @@ func (m *TimelineResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_TimelineResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1144,7 +1147,7 @@ func (m *TimelineEvent) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_TimelineEvent.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1170,37 +1173,37 @@ type isTimelineEvent_Data interface {
 }
 
 type TimelineEvent_ClusterHealthy struct {
-	ClusterHealthy *ClusterHealthy `protobuf:"bytes,2,opt,name=clusterHealthy,proto3,oneof"`
+	ClusterHealthy *ClusterHealthy `protobuf:"bytes,2,opt,name=clusterHealthy,proto3,oneof" json:"clusterHealthy,omitempty"`
 }
 type TimelineEvent_ClusterDegraded struct {
-	ClusterDegraded *ClusterDegraded `protobuf:"bytes,3,opt,name=clusterDegraded,proto3,oneof"`
+	ClusterDegraded *ClusterDegraded `protobuf:"bytes,3,opt,name=clusterDegraded,proto3,oneof" json:"clusterDegraded,omitempty"`
 }
 type TimelineEvent_ClusterUpgrade struct {
-	ClusterUpgrade *ClusterUpgrade `protobuf:"bytes,4,opt,name=clusterUpgrade,proto3,oneof"`
+	ClusterUpgrade *ClusterUpgrade `protobuf:"bytes,4,opt,name=clusterUpgrade,proto3,oneof" json:"clusterUpgrade,omitempty"`
 }
 type TimelineEvent_NodeAdded struct {
-	NodeAdded *NodeAdded `protobuf:"bytes,5,opt,name=nodeAdded,proto3,oneof"`
+	NodeAdded *NodeAdded `protobuf:"bytes,5,opt,name=nodeAdded,proto3,oneof" json:"nodeAdded,omitempty"`
 }
 type TimelineEvent_NodeRemoved struct {
-	NodeRemoved *NodeRemoved `protobuf:"bytes,6,opt,name=nodeRemoved,proto3,oneof"`
+	NodeRemoved *NodeRemoved `protobuf:"bytes,6,opt,name=nodeRemoved,proto3,oneof" json:"nodeRemoved,omitempty"`
 }
 type TimelineEvent_NodeHealthy struct {
-	NodeHealthy *NodeHealthy `protobuf:"bytes,7,opt,name=nodeHealthy,proto3,oneof"`
+	NodeHealthy *NodeHealthy `protobuf:"bytes,7,opt,name=nodeHealthy,proto3,oneof" json:"nodeHealthy,omitempty"`
 }
 type TimelineEvent_NodeDegraded struct {
-	NodeDegraded *NodeDegraded `protobuf:"bytes,8,opt,name=nodeDegraded,proto3,oneof"`
+	NodeDegraded *NodeDegraded `protobuf:"bytes,8,opt,name=nodeDegraded,proto3,oneof" json:"nodeDegraded,omitempty"`
 }
 type TimelineEvent_ProbeSucceeded struct {
-	ProbeSucceeded *ProbeSucceeded `protobuf:"bytes,9,opt,name=probeSucceeded,proto3,oneof"`
+	ProbeSucceeded *ProbeSucceeded `protobuf:"bytes,9,opt,name=probeSucceeded,proto3,oneof" json:"probeSucceeded,omitempty"`
 }
 type TimelineEvent_ProbeFailed struct {
-	ProbeFailed *ProbeFailed `protobuf:"bytes,10,opt,name=probeFailed,proto3,oneof"`
+	ProbeFailed *ProbeFailed `protobuf:"bytes,10,opt,name=probeFailed,proto3,oneof" json:"probeFailed,omitempty"`
 }
 type TimelineEvent_LeaderElected struct {
-	LeaderElected *LeaderElected `protobuf:"bytes,11,opt,name=leaderElected,proto3,oneof"`
+	LeaderElected *LeaderElected `protobuf:"bytes,11,opt,name=leaderElected,proto3,oneof" json:"leaderElected,omitempty"`
 }
 type TimelineEvent_UnknownEvent struct {
-	UnknownEvent *UnknownEvent `protobuf:"bytes,12,opt,name=unknownEvent,proto3,oneof"`
+	UnknownEvent *UnknownEvent `protobuf:"bytes,12,opt,name=unknownEvent,proto3,oneof" json:"unknownEvent,omitempty"`
 }
 
 func (*TimelineEvent_ClusterHealthy) isTimelineEvent_Data()  {}
@@ -1306,9 +1309,9 @@ func (m *TimelineEvent) GetUnknownEvent() *UnknownEvent {
 	return nil
 }
 
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*TimelineEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _TimelineEvent_OneofMarshaler, _TimelineEvent_OneofUnmarshaler, _TimelineEvent_OneofSizer, []interface{}{
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*TimelineEvent) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
 		(*TimelineEvent_ClusterHealthy)(nil),
 		(*TimelineEvent_ClusterDegraded)(nil),
 		(*TimelineEvent_ClusterUpgrade)(nil),
@@ -1321,234 +1324,6 @@ func (*TimelineEvent) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer)
 		(*TimelineEvent_LeaderElected)(nil),
 		(*TimelineEvent_UnknownEvent)(nil),
 	}
-}
-
-func _TimelineEvent_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*TimelineEvent)
-	// data
-	switch x := m.Data.(type) {
-	case *TimelineEvent_ClusterHealthy:
-		_ = b.EncodeVarint(2<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ClusterHealthy); err != nil {
-			return err
-		}
-	case *TimelineEvent_ClusterDegraded:
-		_ = b.EncodeVarint(3<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ClusterDegraded); err != nil {
-			return err
-		}
-	case *TimelineEvent_ClusterUpgrade:
-		_ = b.EncodeVarint(4<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ClusterUpgrade); err != nil {
-			return err
-		}
-	case *TimelineEvent_NodeAdded:
-		_ = b.EncodeVarint(5<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.NodeAdded); err != nil {
-			return err
-		}
-	case *TimelineEvent_NodeRemoved:
-		_ = b.EncodeVarint(6<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.NodeRemoved); err != nil {
-			return err
-		}
-	case *TimelineEvent_NodeHealthy:
-		_ = b.EncodeVarint(7<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.NodeHealthy); err != nil {
-			return err
-		}
-	case *TimelineEvent_NodeDegraded:
-		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.NodeDegraded); err != nil {
-			return err
-		}
-	case *TimelineEvent_ProbeSucceeded:
-		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ProbeSucceeded); err != nil {
-			return err
-		}
-	case *TimelineEvent_ProbeFailed:
-		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.ProbeFailed); err != nil {
-			return err
-		}
-	case *TimelineEvent_LeaderElected:
-		_ = b.EncodeVarint(11<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.LeaderElected); err != nil {
-			return err
-		}
-	case *TimelineEvent_UnknownEvent:
-		_ = b.EncodeVarint(12<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.UnknownEvent); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("TimelineEvent.Data has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _TimelineEvent_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*TimelineEvent)
-	switch tag {
-	case 2: // data.clusterHealthy
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ClusterHealthy)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_ClusterHealthy{msg}
-		return true, err
-	case 3: // data.clusterDegraded
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ClusterDegraded)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_ClusterDegraded{msg}
-		return true, err
-	case 4: // data.clusterUpgrade
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ClusterUpgrade)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_ClusterUpgrade{msg}
-		return true, err
-	case 5: // data.nodeAdded
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(NodeAdded)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_NodeAdded{msg}
-		return true, err
-	case 6: // data.nodeRemoved
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(NodeRemoved)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_NodeRemoved{msg}
-		return true, err
-	case 7: // data.nodeHealthy
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(NodeHealthy)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_NodeHealthy{msg}
-		return true, err
-	case 8: // data.nodeDegraded
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(NodeDegraded)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_NodeDegraded{msg}
-		return true, err
-	case 9: // data.probeSucceeded
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ProbeSucceeded)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_ProbeSucceeded{msg}
-		return true, err
-	case 10: // data.probeFailed
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(ProbeFailed)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_ProbeFailed{msg}
-		return true, err
-	case 11: // data.leaderElected
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(LeaderElected)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_LeaderElected{msg}
-		return true, err
-	case 12: // data.unknownEvent
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(UnknownEvent)
-		err := b.DecodeMessage(msg)
-		m.Data = &TimelineEvent_UnknownEvent{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _TimelineEvent_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*TimelineEvent)
-	// data
-	switch x := m.Data.(type) {
-	case *TimelineEvent_ClusterHealthy:
-		s := proto.Size(x.ClusterHealthy)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_ClusterDegraded:
-		s := proto.Size(x.ClusterDegraded)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_ClusterUpgrade:
-		s := proto.Size(x.ClusterUpgrade)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_NodeAdded:
-		s := proto.Size(x.NodeAdded)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_NodeRemoved:
-		s := proto.Size(x.NodeRemoved)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_NodeHealthy:
-		s := proto.Size(x.NodeHealthy)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_NodeDegraded:
-		s := proto.Size(x.NodeDegraded)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_ProbeSucceeded:
-		s := proto.Size(x.ProbeSucceeded)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_ProbeFailed:
-		s := proto.Size(x.ProbeFailed)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_LeaderElected:
-		s := proto.Size(x.LeaderElected)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TimelineEvent_UnknownEvent:
-		s := proto.Size(x.UnknownEvent)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
 }
 
 func init() {
@@ -1777,6 +1552,32 @@ type AgentServer interface {
 	UpdateLocalTimeline(context.Context, *UpdateRequest) (*UpdateResponse, error)
 }
 
+// UnimplementedAgentServer can be embedded to have forward compatible implementations.
+type UnimplementedAgentServer struct {
+}
+
+func (*UnimplementedAgentServer) Status(ctx context.Context, req *StatusRequest) (*StatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+func (*UnimplementedAgentServer) LocalStatus(ctx context.Context, req *LocalStatusRequest) (*LocalStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LocalStatus not implemented")
+}
+func (*UnimplementedAgentServer) LastSeen(ctx context.Context, req *LastSeenRequest) (*LastSeenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LastSeen not implemented")
+}
+func (*UnimplementedAgentServer) Time(ctx context.Context, req *TimeRequest) (*TimeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Time not implemented")
+}
+func (*UnimplementedAgentServer) Timeline(ctx context.Context, req *TimelineRequest) (*TimelineResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Timeline not implemented")
+}
+func (*UnimplementedAgentServer) UpdateTimeline(ctx context.Context, req *UpdateRequest) (*UpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateTimeline not implemented")
+}
+func (*UnimplementedAgentServer) UpdateLocalTimeline(ctx context.Context, req *UpdateRequest) (*UpdateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateLocalTimeline not implemented")
+}
+
 func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
 	s.RegisterService(&_Agent_serviceDesc, srv)
 }
@@ -1947,7 +1748,7 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 func (m *StatusRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1955,20 +1756,26 @@ func (m *StatusRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StatusRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *StatusResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1976,30 +1783,38 @@ func (m *StatusResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StatusResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StatusResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Status != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status.Size()))
-		n1, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n1
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Status != nil {
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *LocalStatusRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2007,20 +1822,26 @@ func (m *LocalStatusRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LocalStatusRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LocalStatusRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *LocalStatusResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2028,30 +1849,38 @@ func (m *LocalStatusResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LocalStatusResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LocalStatusResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Status != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status.Size()))
-		n2, err := m.Status.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n2
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Status != nil {
+		{
+			size, err := m.Status.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *LastSeenRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2059,26 +1888,33 @@ func (m *LastSeenRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LastSeenRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LastSeenRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *LastSeenResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2086,30 +1922,38 @@ func (m *LastSeenResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LastSeenResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LastSeenResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Timestamp != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n3, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n3
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *SystemStatus) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2117,53 +1961,64 @@ func (m *SystemStatus) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SystemStatus) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SystemStatus) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Status != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Nodes) > 0 {
-		for _, msg := range m.Nodes {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintAgent(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if len(m.Summary) > 0 {
+		i -= len(m.Summary)
+		copy(dAtA[i:], m.Summary)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Summary)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-	}
-	if m.Timestamp != nil {
+		i--
 		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n4, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	}
+	if len(m.Nodes) > 0 {
+		for iNdEx := len(m.Nodes) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Nodes[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAgent(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
 		}
-		i += n4
 	}
-	if len(m.Summary) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Summary)))
-		i += copy(dAtA[i:], m.Summary)
+	if m.Status != 0 {
+		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *MemberStatus) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2171,54 +2026,64 @@ func (m *MemberStatus) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MemberStatus) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MemberStatus) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Addr) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Addr)))
-		i += copy(dAtA[i:], m.Addr)
-	}
-	if m.Status != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Tags) > 0 {
-		for k, _ := range m.Tags {
-			dAtA[i] = 0x22
-			i++
+		for k := range m.Tags {
 			v := m.Tags[k]
-			mapSize := 1 + len(k) + sovAgent(uint64(len(k))) + 1 + len(v) + sovAgent(uint64(len(v)))
-			i = encodeVarintAgent(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAgent(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintAgent(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintAgent(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintAgent(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x22
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Status != 0 {
+		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if len(m.Addr) > 0 {
+		i -= len(m.Addr)
+		copy(dAtA[i:], m.Addr)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Addr)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *NodeStatus) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2226,53 +2091,64 @@ func (m *NodeStatus) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *NodeStatus) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *NodeStatus) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.MemberStatus != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.MemberStatus.Size()))
-		n5, err := m.MemberStatus.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n5
-	}
-	if m.Status != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Probes) > 0 {
-		for _, msg := range m.Probes {
+		for iNdEx := len(m.Probes) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Probes[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAgent(dAtA, i, uint64(size))
+			}
+			i--
 			dAtA[i] = 0x22
-			i++
-			i = encodeVarintAgent(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+		}
+	}
+	if m.Status != 0 {
+		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.MemberStatus != nil {
+		{
+			size, err := m.MemberStatus.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Probe) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2280,60 +2156,71 @@ func (m *Probe) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Probe) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Probe) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Checker) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Checker)))
-		i += copy(dAtA[i:], m.Checker)
-	}
-	if len(m.Detail) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Detail)))
-		i += copy(dAtA[i:], m.Detail)
-	}
-	if len(m.Code) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Code)))
-		i += copy(dAtA[i:], m.Code)
-	}
-	if m.Status != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
-	}
-	if len(m.Error) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Error)))
-		i += copy(dAtA[i:], m.Error)
-	}
-	if len(m.CheckerData) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.CheckerData)))
-		i += copy(dAtA[i:], m.CheckerData)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Severity != 0 {
-		dAtA[i] = 0x38
-		i++
 		i = encodeVarintAgent(dAtA, i, uint64(m.Severity))
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.CheckerData) > 0 {
+		i -= len(m.CheckerData)
+		copy(dAtA[i:], m.CheckerData)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.CheckerData)))
+		i--
+		dAtA[i] = 0x32
 	}
-	return i, nil
+	if len(m.Error) > 0 {
+		i -= len(m.Error)
+		copy(dAtA[i:], m.Error)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Error)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.Status != 0 {
+		i = encodeVarintAgent(dAtA, i, uint64(m.Status))
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Code) > 0 {
+		i -= len(m.Code)
+		copy(dAtA[i:], m.Code)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Code)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Detail) > 0 {
+		i -= len(m.Detail)
+		copy(dAtA[i:], m.Detail)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Detail)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Checker) > 0 {
+		i -= len(m.Checker)
+		copy(dAtA[i:], m.Checker)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Checker)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Timestamp) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2341,30 +2228,36 @@ func (m *Timestamp) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Timestamp) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Timestamp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Seconds != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Seconds))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Nanoseconds != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintAgent(dAtA, i, uint64(m.Nanoseconds))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Seconds != 0 {
+		i = encodeVarintAgent(dAtA, i, uint64(m.Seconds))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimeRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2372,20 +2265,26 @@ func (m *TimeRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimeRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimeResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2393,30 +2292,38 @@ func (m *TimeResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimeResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Timestamp != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n6, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n6
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *UpdateRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2424,36 +2331,45 @@ func (m *UpdateRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UpdateRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UpdateRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Event != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Event.Size()))
-		n7, err := m.Event.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.Event.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n7
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintAgent(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *UpdateResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2461,20 +2377,26 @@ func (m *UpdateResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *UpdateResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *UpdateResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2482,37 +2404,45 @@ func (m *TimelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Params) > 0 {
-		for k, _ := range m.Params {
-			dAtA[i] = 0xa
-			i++
+		for k := range m.Params {
 			v := m.Params[k]
-			mapSize := 1 + len(k) + sovAgent(uint64(len(k))) + 1 + len(v) + sovAgent(uint64(len(v)))
-			i = encodeVarintAgent(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAgent(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
 			i = encodeVarintAgent(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintAgent(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintAgent(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimelineResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2520,32 +2450,40 @@ func (m *TimelineResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimelineResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.Events) > 0 {
-		for _, msg := range m.Events {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintAgent(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.Events) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Events[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintAgent(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimelineEvent) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -2553,195 +2491,284 @@ func (m *TimelineEvent) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TimelineEvent) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Timestamp != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.Timestamp.Size()))
-		n8, err := m.Timestamp.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
-		}
-		i += n8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Data != nil {
-		nn9, err := m.Data.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size := m.Data.Size()
+			i -= size
+			if _, err := m.Data.MarshalTo(dAtA[i:]); err != nil {
+				return 0, err
+			}
 		}
-		i += nn9
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Timestamp != nil {
+		{
+			size, err := m.Timestamp.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *TimelineEvent_ClusterHealthy) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_ClusterHealthy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ClusterHealthy != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterHealthy.Size()))
-		n10, err := m.ClusterHealthy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ClusterHealthy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n10
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_ClusterDegraded) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_ClusterDegraded) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ClusterDegraded != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterDegraded.Size()))
-		n11, err := m.ClusterDegraded.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ClusterDegraded.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n11
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_ClusterUpgrade) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_ClusterUpgrade) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ClusterUpgrade != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.ClusterUpgrade.Size()))
-		n12, err := m.ClusterUpgrade.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ClusterUpgrade.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n12
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_NodeAdded) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_NodeAdded) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.NodeAdded != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.NodeAdded.Size()))
-		n13, err := m.NodeAdded.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NodeAdded.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n13
+		i--
+		dAtA[i] = 0x2a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_NodeRemoved) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_NodeRemoved) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.NodeRemoved != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.NodeRemoved.Size()))
-		n14, err := m.NodeRemoved.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NodeRemoved.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n14
+		i--
+		dAtA[i] = 0x32
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_NodeHealthy) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_NodeHealthy) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.NodeHealthy != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.NodeHealthy.Size()))
-		n15, err := m.NodeHealthy.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NodeHealthy.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n15
+		i--
+		dAtA[i] = 0x3a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_NodeDegraded) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_NodeDegraded) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.NodeDegraded != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.NodeDegraded.Size()))
-		n16, err := m.NodeDegraded.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.NodeDegraded.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n16
+		i--
+		dAtA[i] = 0x42
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_ProbeSucceeded) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_ProbeSucceeded) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ProbeSucceeded != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.ProbeSucceeded.Size()))
-		n17, err := m.ProbeSucceeded.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ProbeSucceeded.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n17
+		i--
+		dAtA[i] = 0x4a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_ProbeFailed) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_ProbeFailed) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.ProbeFailed != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.ProbeFailed.Size()))
-		n18, err := m.ProbeFailed.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.ProbeFailed.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n18
+		i--
+		dAtA[i] = 0x52
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_LeaderElected) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_LeaderElected) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.LeaderElected != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.LeaderElected.Size()))
-		n19, err := m.LeaderElected.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.LeaderElected.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n19
+		i--
+		dAtA[i] = 0x5a
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func (m *TimelineEvent_UnknownEvent) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TimelineEvent_UnknownEvent) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	if m.UnknownEvent != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintAgent(dAtA, i, uint64(m.UnknownEvent.Size()))
-		n20, err := m.UnknownEvent.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		{
+			size, err := m.UnknownEvent.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintAgent(dAtA, i, uint64(size))
 		}
-		i += n20
+		i--
+		dAtA[i] = 0x62
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 func encodeVarintAgent(dAtA []byte, offset int, v uint64) int {
+	offset -= sovAgent(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *StatusRequest) Size() (n int) {
 	if m == nil {
@@ -3227,14 +3254,7 @@ func (m *TimelineEvent_UnknownEvent) Size() (n int) {
 }
 
 func sovAgent(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozAgent(x uint64) (n int) {
 	return sovAgent(uint64((x << 1) ^ uint64((int64(x) >> 63))))
@@ -5730,6 +5750,7 @@ func (m *TimelineEvent) Unmarshal(dAtA []byte) error {
 func skipAgent(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
+	depth := 0
 	for iNdEx < l {
 		var wire uint64
 		for shift := uint(0); ; shift += 7 {
@@ -5761,10 +5782,8 @@ func skipAgent(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			return iNdEx, nil
 		case 1:
 			iNdEx += 8
-			return iNdEx, nil
 		case 2:
 			var length int
 			for shift := uint(0); ; shift += 7 {
@@ -5785,55 +5804,30 @@ func skipAgent(dAtA []byte) (n int, err error) {
 				return 0, ErrInvalidLengthAgent
 			}
 			iNdEx += length
-			if iNdEx < 0 {
-				return 0, ErrInvalidLengthAgent
-			}
-			return iNdEx, nil
 		case 3:
-			for {
-				var innerWire uint64
-				var start int = iNdEx
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return 0, ErrIntOverflowAgent
-					}
-					if iNdEx >= l {
-						return 0, io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					innerWire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				innerWireType := int(innerWire & 0x7)
-				if innerWireType == 4 {
-					break
-				}
-				next, err := skipAgent(dAtA[start:])
-				if err != nil {
-					return 0, err
-				}
-				iNdEx = start + next
-				if iNdEx < 0 {
-					return 0, ErrInvalidLengthAgent
-				}
-			}
-			return iNdEx, nil
+			depth++
 		case 4:
-			return iNdEx, nil
+			if depth == 0 {
+				return 0, ErrUnexpectedEndOfGroupAgent
+			}
+			depth--
 		case 5:
 			iNdEx += 4
-			return iNdEx, nil
 		default:
 			return 0, fmt.Errorf("proto: illegal wireType %d", wireType)
 		}
+		if iNdEx < 0 {
+			return 0, ErrInvalidLengthAgent
+		}
+		if depth == 0 {
+			return iNdEx, nil
+		}
 	}
-	panic("unreachable")
+	return 0, io.ErrUnexpectedEOF
 }
 
 var (
-	ErrInvalidLengthAgent = fmt.Errorf("proto: negative length found during unmarshaling")
-	ErrIntOverflowAgent   = fmt.Errorf("proto: integer overflow")
+	ErrInvalidLengthAgent        = fmt.Errorf("proto: negative length found during unmarshaling")
+	ErrIntOverflowAgent          = fmt.Errorf("proto: integer overflow")
+	ErrUnexpectedEndOfGroupAgent = fmt.Errorf("proto: unexpected end of group")
 )

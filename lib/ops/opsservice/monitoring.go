@@ -116,7 +116,8 @@ func (o *Operator) GetAlerts(key ops.SiteKey) (alerts []storage.Alert, err error
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).
+		List(context.TODO(), options)
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}
@@ -183,7 +184,8 @@ func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string
 	options := metav1.ListOptions{
 		LabelSelector: labels.String(),
 	}
-	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).List(options)
+	configmaps, err := client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).
+		List(ctx, options)
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -199,7 +201,8 @@ func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string
 		return trace.NotFound("alert %q not found", name)
 	}
 
-	err = client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(name, nil)
+	err = client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).
+		Delete(ctx, name, metav1.DeleteOptions{})
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -268,7 +271,8 @@ func (o *Operator) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).Delete(constants.AlertTargetConfigMap, nil))
+	err = rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.MonitoringNamespace).
+		Delete(ctx, constants.AlertTargetConfigMap, metav1.DeleteOptions{}))
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("no alert targets found")
@@ -281,7 +285,7 @@ func (o *Operator) DeleteAlertTarget(ctx context.Context, key ops.SiteKey) error
 }
 
 func getConfigMap(client corev1.ConfigMapInterface, name string) (string, error) {
-	config, err := client.Get(name, metav1.GetOptions{})
+	config, err := client.Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		return "", trace.Wrap(rigging.ConvertError(err))
 	}
@@ -306,7 +310,7 @@ func updateConfigMap(client corev1.ConfigMapInterface, name, namespace, data str
 		},
 	}
 
-	_, err := client.Create(config)
+	_, err := client.Create(context.TODO(), config, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err == nil {
 		return nil
@@ -316,6 +320,6 @@ func updateConfigMap(client corev1.ConfigMapInterface, name, namespace, data str
 		return trace.Wrap(err)
 	}
 
-	_, err = client.Update(config)
+	_, err = client.Update(context.TODO(), config, metav1.UpdateOptions{})
 	return trace.Wrap(rigging.ConvertError(err))
 }

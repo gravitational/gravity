@@ -24,7 +24,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/strvals"
+	"helm.sh/helm/v3/pkg/strvals"
 )
 
 // Vals merges values from files specified via -f/--values and directly via

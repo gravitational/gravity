@@ -109,12 +109,14 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 }
 
 func (p *waitExecutor) tryQueryAPI() error {
-	_, err := p.Client.CoreV1().ComponentStatuses().Get("scheduler", metav1.GetOptions{})
+	_, err := p.Client.CoreV1().ComponentStatuses().
+		Get(context.TODO(), "scheduler", metav1.GetOptions{})
 	return trace.Wrap(err)
 }
 
 func (p *waitExecutor) tryQueryNamespace() error {
-	_, err := p.Client.CoreV1().Namespaces().Get(defaults.KubeSystemNamespace, metav1.GetOptions{})
+	_, err := p.Client.CoreV1().Namespaces().
+		Get(context.TODO(), defaults.KubeSystemNamespace, metav1.GetOptions{})
 	return trace.Wrap(err)
 }
 

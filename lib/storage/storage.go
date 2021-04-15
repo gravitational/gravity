@@ -44,8 +44,8 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/sirupsen/logrus"
 	"github.com/tstranex/u2f"
+	"helm.sh/helm/v3/pkg/repo"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/helm/pkg/repo"
 	kubeletapis "k8s.io/kubernetes/pkg/kubelet/apis"
 )
 

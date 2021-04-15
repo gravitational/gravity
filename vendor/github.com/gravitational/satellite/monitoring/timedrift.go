@@ -19,17 +19,15 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/gravitational/satellite/agent"
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
+	"github.com/gravitational/satellite/lib/membership"
 	"github.com/gravitational/satellite/lib/rpc/client"
 
 	"github.com/gravitational/trace"
-	serf "github.com/hashicorp/serf/client"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 )
@@ -59,22 +57,14 @@ type timeDriftChecker struct {
 	log.FieldLogger
 	// mu protects the clients map.
 	mu sync.Mutex
-	// clients contains RPC clients for other cluster nodes.
-	clients map[string]client.Client
 }
 
 // TimeDriftCheckerConfig stores configuration for the time drift check.
 type TimeDriftCheckerConfig struct {
-	// CAFile is the path to the certificate authority file for Satellite agent.
-	CAFile string
-	// CertFile is the path to the Satellite agent client certificate file.
-	CertFile string
-	// KeyFile is the path to the Satellite agent private key file.
-	KeyFile string
-	// SerfClient is the client to the local serf agent.
-	SerfClient agent.SerfClient
-	// SerfMember is the local serf member.
-	SerfMember *serf.Member
+	// NodeName specifies the name of the node that is running the check.
+	NodeName string
+	// Cluster specifies the cluster membership interface.
+	membership.Cluster
 	// DialRPC is used to create Satellite RPC client.
 	DialRPC client.DialRPC
 	// Clock is used in tests to mock time.
@@ -83,23 +73,18 @@ type TimeDriftCheckerConfig struct {
 
 // CheckAndSetDefaults validates the config and sets default values.
 func (c *TimeDriftCheckerConfig) CheckAndSetDefaults() error {
-	if c.CAFile == "" {
-		return trace.BadParameter("agent CA certificate file can't be empty")
+	var errs []error
+	if c.NodeName == "" {
+		errs = append(errs, trace.BadParameter("NodeName must be provided"))
 	}
-	if c.CertFile == "" {
-		return trace.BadParameter("agent certificate file can't be empty")
-	}
-	if c.KeyFile == "" {
-		return trace.BadParameter("agent certificate key file can't be empty")
-	}
-	if c.SerfClient == nil {
-		return trace.BadParameter("local serf client can't be empty")
-	}
-	if c.SerfMember == nil {
-		return trace.BadParameter("local serf member can't be empty")
+	if c.Cluster == nil {
+		errs = append(errs, trace.BadParameter("Cluster must be provided"))
 	}
 	if c.DialRPC == nil {
-		c.DialRPC = client.DefaultDialRPC(c.CAFile, c.CertFile, c.KeyFile)
+		errs = append(errs, trace.BadParameter("DialRPC must be provided"))
+	}
+	if len(errs) > 0 {
+		return trace.NewAggregate(errs...)
 	}
 	if c.Clock == nil {
 		c.Clock = clockwork.NewRealClock()
@@ -115,7 +100,6 @@ func NewTimeDriftChecker(conf TimeDriftCheckerConfig) (c health.Checker, err err
 	return &timeDriftChecker{
 		TimeDriftCheckerConfig: conf,
 		FieldLogger:            log.WithField(trace.Component, timeDriftCheckerID),
-		clients:                make(map[string]client.Client),
 	}, nil
 }
 
@@ -131,7 +115,7 @@ func (c *timeDriftChecker) Check(ctx context.Context, r health.Reporter) {
 		return
 	}
 	if r.NumProbes() == 0 {
-		r.Add(c.successProbe())
+		r.Add(successProbeTimeDrift(c.NodeName))
 	}
 }
 
@@ -142,7 +126,7 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err er
 		return trace.Wrap(err)
 	}
 
-	nodesC := make(chan serf.Member, len(nodes))
+	nodesC := make(chan *pb.MemberStatus, len(nodes))
 	for _, node := range nodes {
 		nodesC <- node
 	}
@@ -165,7 +149,7 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err er
 
 				if isDriftHigh(drift) {
 					mutex.Lock()
-					r.Add(c.failureProbe(node, drift))
+					r.Add(failureProbeTimeDrift(c.NodeName, node.Name, drift))
 					mutex.Unlock()
 				}
 			}
@@ -204,7 +188,7 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err er
 //   mean the node time is falling behind.
 
 // * Compare abs(Drift) with the threshold.
-func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node serf.Member) (time.Duration, error) {
+func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node *pb.MemberStatus) (time.Duration, error) {
 	agentClient, err := c.getAgentClient(ctx, node)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -248,35 +232,12 @@ func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node serf.Member) (
 	return drift, nil
 }
 
-// successProbe constructs a probe that represents successful time drift check.
-func (c *timeDriftChecker) successProbe() *pb.Probe {
-	return &pb.Probe{
-		Checker: c.Name(),
-		Detail: fmt.Sprintf("time drift between %s and other nodes is within the allowed threshold of %s",
-			c.SerfMember.Addr, timeDriftThreshold),
-		Status: pb.Probe_Running,
-	}
-}
-
-// failureProbe constructs a probe that represents failed time drift check
-// against the specified node.
-func (c *timeDriftChecker) failureProbe(node serf.Member, drift time.Duration) *pb.Probe {
-	return &pb.Probe{
-		Checker: c.Name(),
-		Detail: fmt.Sprintf("time drift between %s and %s is higher than the allowed threshold of %s: %s",
-			c.SerfMember.Addr, node.Addr, timeDriftThreshold, drift),
-		Status: pb.Probe_Failed,
-	}
-}
-
 // nodesToCheck returns nodes to check time drift against.
-func (c *timeDriftChecker) nodesToCheck() (result []serf.Member, err error) {
-	nodes, err := c.SerfClient.Members()
+func (c *timeDriftChecker) nodesToCheck() (result []*pb.MemberStatus, err error) {
+	nodes, err := c.Cluster.Members()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
-	c.removeExpiredClients(nodes)
 
 	for _, node := range nodes {
 		if c.shouldCheckNode(node) {
@@ -286,68 +247,39 @@ func (c *timeDriftChecker) nodesToCheck() (result []serf.Member, err error) {
 	return result, nil
 }
 
-// removeExpiredClients closes client connections to nodes that have left the
-// cluster and deletes the entry from the cache.
-func (c *timeDriftChecker) removeExpiredClients(members []serf.Member) {
-	currentMembers := make(map[string]struct{})
-	for _, member := range members {
-		currentMembers[member.Addr.String()] = struct{}{}
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for addr, conn := range c.clients {
-		if _, ok := currentMembers[addr]; ok {
-			continue
-		}
-		if err := conn.Close(); err != nil {
-			log.WithError(err).WithField("address", addr).Error("Failed to close client connection.")
-			continue
-		}
-		log.WithField("address", addr).Info("Closed client connection.")
-		delete(c.clients, addr)
-	}
-}
-
 // shouldCheckNode returns true if the check should be run against specified
 // serf member.
-func (c *timeDriftChecker) shouldCheckNode(node serf.Member) bool {
-	return strings.ToLower(node.Status) == strings.ToLower(pb.MemberStatus_Alive.String()) &&
-		c.SerfMember.Addr.String() != node.Addr.String()
+func (c *timeDriftChecker) shouldCheckNode(node *pb.MemberStatus) bool {
+	return node.Status == pb.MemberStatus_Alive && c.NodeName != node.Name
 }
 
 // getAgentClient returns Satellite agent client for the provided node.
-func (c *timeDriftChecker) getAgentClient(ctx context.Context, node serf.Member) (client.Client, error) {
-	c.mu.Lock()
-	if conn, exists := c.clients[node.Addr.String()]; exists {
-		c.mu.Unlock()
-		return conn, nil
-	}
-	c.mu.Unlock()
-
-	newConn, err := c.DialRPC(ctx, &node)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Close newly created client connection if a new client was already cached while dialing.
-	if conn, exists := c.clients[node.Addr.String()]; exists {
-		if err := newConn.Close(); err != nil {
-			log.WithError(err).WithField("address", node.Addr.String()).Error("Failed to close client connection.")
-		}
-		return conn, nil
-	}
-
-	// Cache and return new client connection.
-	c.clients[node.Addr.String()] = newConn
-	return newConn, nil
+func (c *timeDriftChecker) getAgentClient(ctx context.Context, node *pb.MemberStatus) (client.Client, error) {
+	return c.DialRPC(ctx, node.Addr)
 }
 
 // isDriftHigh returns true if the provided drift value is over the threshold.
 func isDriftHigh(drift time.Duration) bool {
 	return drift < 0 && -drift > timeDriftThreshold || drift > timeDriftThreshold
+}
+
+// successProbeTimeDrift constructs a probe that represents successful time drift check.
+func successProbeTimeDrift(node string) *pb.Probe {
+	return &pb.Probe{
+		Checker: timeDriftCheckerID,
+		Detail: fmt.Sprintf("time drift between %s and other nodes is within the allowed threshold of %s",
+			node, timeDriftThreshold),
+		Status: pb.Probe_Running,
+	}
+}
+
+// failureProbeTimeDrift constructs a probe that represents failed time drift check
+// between the specified nodes.
+func failureProbeTimeDrift(node1, node2 string, drift time.Duration) *pb.Probe {
+	return &pb.Probe{
+		Checker: timeDriftCheckerID,
+		Detail:  fmt.Sprintf("time drift between %s and %s is %s", node1, node2, drift),
+		Error:   fmt.Sprintf("time drift is higher than the allowed threshold of %s", timeDriftThreshold),
+		Status:  pb.Probe_Failed,
+	}
 }

@@ -475,7 +475,7 @@ func (env *LocalEnvironment) GravityCommand(gravityPath string, args ...string) 
 func (env *LocalEnvironment) getKubeClient() (*kubernetes.Clientset, error) {
 	_, err := os.Stat(constants.PrivilegedKubeconfig)
 	if err == nil {
-		client, _, err := utils.GetKubeClientFromPath(constants.PrivilegedKubeconfig)
+		client, _, err := utils.GetKubeClient(constants.PrivilegedKubeconfig)
 		return client, trace.Wrap(err)
 	}
 	log.Warnf("Privileged kubeconfig unavailable, falling back to cluster client: %v.", err)

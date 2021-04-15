@@ -52,8 +52,8 @@ func (o *Operator) GetClusterEndpoints(key ossops.SiteKey) (storage.Endpoints, e
 // GetClusterEndpoints retrieves the Ops Center endpoints from its config map
 // using the provided Kubernetes client
 func GetClusterEndpoints(client *kubernetes.Clientset) (storage.Endpoints, error) {
-	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(
-		constants.OpsConfigMapName, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).
+		Get(context.TODO(), constants.OpsConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -85,8 +85,8 @@ func (o *Operator) UpdateClusterEndpoints(ctx context.Context, key ossops.SiteKe
 	}
 	// first, update gravity-opscenter config map and set appropriate
 	// advertise addresses based on the provided endpoints
-	configMap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
-		constants.OpsConfigMapName, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(ctx, constants.OpsConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -106,7 +106,8 @@ func (o *Operator) UpdateClusterEndpoints(ctx context.Context, key ossops.SiteKe
 		return trace.Wrap(err)
 	}
 	configMap.Data[constants.OpsConfigMapGravity] = string(newData)
-	_, err = client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Update(ctx, configMap, metav1.UpdateOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}

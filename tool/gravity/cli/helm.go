@@ -35,22 +35,21 @@ import (
 	"github.com/gravitational/gravity/lib/ops/events"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/storage"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 type releaseInstallConfig struct {
 	// Image is an application image to install, can be path or locator.
 	Image string
-	// Name is an optional release name.
-	Name string
+	// Release is an optional release name.
+	Release string
 	// Namespace is a namespace to install release into.
 	Namespace string
-	// helmConfig combines Helm configuration parameters.
-	helmConfig
 	// valuesConfig combines values set on the CLI.
 	valuesConfig
 	// registryConfig is registry configuration.
@@ -66,12 +65,12 @@ func (c *releaseInstallConfig) setDefaults(env *localenv.LocalEnvironment) error
 }
 
 type releaseUpgradeConfig struct {
+	// Namespace is the namespace that the release is installed in.
+	Namespace string
 	// Release is a name of release to upgrade.
 	Release string
 	// Image is an application image to upgrade to, can be path or locator.
 	Image string
-	// helmConfig combines Helm configuration parameters.
-	helmConfig
 	// valuesConfig combines values set on the CLI.
 	valuesConfig
 	// registryConfig is registry configuration.
@@ -87,31 +86,35 @@ func (c *releaseUpgradeConfig) setDefaults(env *localenv.LocalEnvironment) error
 }
 
 type releaseRollbackConfig struct {
+	// Namespace is the namespace that the release is installed in.
+	Namespace string
 	// Release is a name of release to rollback.
 	Release string
 	// Revision is a version number to rollback to.
 	Revision int
-	// helmConfig combines Helm configuration parameters.
-	helmConfig
 }
 
 type releaseUninstallConfig struct {
+	// Namespace is the namespace that the release is installed in.
+	Namespace string
 	// Release is a release name to uninstall.
 	Release string
-	// helmConfig combines Helm configuration parameters.
-	helmConfig
 }
 
 type releaseHistoryConfig struct {
+	// Namespace is the namespace that the release is installed in.
+	Namespace string
 	// Release is a release name to display revisions for.
 	Release string
-	// helmConfig combines Helm configuration parameters.
-	helmConfig
 }
 
-type helmConfig struct {
-	// TillerNamespace is the namespace where Tiller server is running.
-	TillerNamespace string
+type releaseListConfig struct {
+	// Namespace is the namespace to search for releases.
+	Namespace string
+	// Filter is an optional release name filter as a perl regex.
+	Filter string
+	// All returns releases with all possible statuses.
+	All bool
 }
 
 type valuesConfig struct {
@@ -180,44 +183,33 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: conf.TillerNamespace,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer helmClient.Close()
-	release, err := helmClient.Install(helm.InstallParameters{
+
+	release, err := helm.Install(helm.InstallParameters{
 		Path:      filepath.Join(tmp, "resources"),
 		Values:    conf.Files,
 		Set:       conf.Values,
-		Name:      conf.Name,
+		Release:   conf.Release,
 		Namespace: conf.Namespace,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	env.EmitAuditEvent(context.TODO(), events.ApplicationInstall, events.FieldsForRelease(release))
 	env.PrintStep("Installed release %v", release.GetName())
 	return nil
 }
 
-func releaseList(env *localenv.LocalEnvironment, all bool, tillerNamespace string) error {
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: tillerNamespace,
+func releaseList(env *localenv.LocalEnvironment, conf releaseListConfig) error {
+	releases, err := helm.List(helm.ListParameters{
+		Namespace: conf.Namespace,
+		Filter:    conf.Filter,
+		All:       conf.All,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer helmClient.Close()
-	releases, err := helmClient.List(helm.ListParameters{
-		All: all,
-	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
+
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 1, '\t', 0)
 	fmt.Fprintf(w, "Release\tStatus\tChart\tRevision\tNamespace\tUpdated\n")
@@ -252,18 +244,15 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 		conf.Image = result.Path
 		defer result.Close() // Remove downloaded tarball after upgrade.
 	}
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: conf.TillerNamespace,
+
+	release, err := getRelease(helm.ListParameters{
+		Namespace: conf.Namespace,
+		Filter:    conf.Release,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer helmClient.Close()
-	release, err := helmClient.Get(conf.Release)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+
 	imageEnv, err := localenv.NewImageEnvironment(conf.Image)
 	if err != nil {
 		return trace.Wrap(err)
@@ -287,11 +276,12 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	release, err = helmClient.Upgrade(helm.UpgradeParameters{
-		Release: release.GetName(),
-		Path:    filepath.Join(tmp, "resources"),
-		Values:  conf.Files,
-		Set:     conf.Values,
+	release, err = helm.Upgrade(helm.UpgradeParameters{
+		Namespace: conf.Namespace,
+		Release:   release.GetName(),
+		Path:      filepath.Join(tmp, "resources"),
+		Values:    conf.Files,
+		Set:       conf.Values,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -303,36 +293,33 @@ func releaseUpgrade(env *localenv.LocalEnvironment, conf releaseUpgradeConfig) e
 }
 
 func releaseRollback(env *localenv.LocalEnvironment, conf releaseRollbackConfig) error {
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: conf.TillerNamespace,
+	err := helm.Rollback(helm.RollbackParameters{
+		Namespace: conf.Namespace,
+		Release:   conf.Release,
+		Revision:  conf.Revision,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	defer helmClient.Close()
-	release, err := helmClient.Rollback(helm.RollbackParameters{
-		Release:  conf.Release,
-		Revision: conf.Revision,
+
+	release, err := getRelease(helm.ListParameters{
+		Namespace: conf.Namespace,
+		Filter:    conf.Release,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
 	env.EmitAuditEvent(context.TODO(), events.ApplicationRollback, events.FieldsForRelease(release))
 	env.PrintStep("Rolled back release %v to %v", release.GetName(), release.GetChart())
 	return nil
 }
 
 func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfig) error {
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: conf.TillerNamespace,
+	release, err := helm.Uninstall(helm.UninstallParameters{
+		Namespace: conf.Namespace,
+		Release:   conf.Release,
 	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer helmClient.Close()
-	release, err := helmClient.Uninstall(conf.Release)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -342,15 +329,10 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 }
 
 func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) error {
-	helmClient, err := helm.NewClient(helm.ClientConfig{
-		DNSAddress:      env.DNS.Addr(),
-		TillerNamespace: conf.TillerNamespace,
+	releases, err := helm.Revisions(helm.RevisionsParameters{
+		Namespace: conf.Namespace,
+		Release:   conf.Release,
 	})
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	defer helmClient.Close()
-	releases, err := helmClient.Revisions(conf.Release)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -368,6 +350,23 @@ func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) e
 	}
 	w.Flush()
 	return nil
+}
+
+// getRelease returns the specified release. Returns NotFound if release does not
+// exist.
+func getRelease(params helm.ListParameters) (storage.Release, error) {
+	releases, err := helm.List(params)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	for _, rel := range releases {
+		if rel.GetName() == params.Filter {
+			return rel, nil
+		}
+	}
+
+	return nil, trace.NotFound("release %v not found", params.Filter)
 }
 
 func appSearch(env *localenv.LocalEnvironment, pattern string, remoteOnly, all bool) error {

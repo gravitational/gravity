@@ -547,7 +547,7 @@ func (s *site) getClusterConfiguration() (*clusterconfig.Resource, error) {
 		return nil, trace.Wrap(err)
 	}
 	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterConfigurationMap, metav1.GetOptions{})
+		Get(context.TODO(), constants.ClusterConfigurationMap, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)

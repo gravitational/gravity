@@ -32,10 +32,11 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	helmutils "github.com/gravitational/gravity/lib/utils/helm"
 
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/provenance"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/provenance"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/ghodss/yaml"
@@ -101,7 +102,7 @@ func (r *clusterRepository) FetchChart(locator loc.Locator) (io.ReadCloser, erro
 		return nil, trace.Wrap(err)
 	}
 	// Load and package a Helm chart.
-	chart, err := chartutil.LoadDir(filepath.Join(tmpDir, "resources"))
+	chart, err := loader.LoadDir(filepath.Join(tmpDir, "resources"))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -259,7 +260,7 @@ func (r *clusterRepository) chartForLocator(locator loc.Locator) (*chart.Chart, 
 		return nil, trace.Wrap(err)
 	}
 	defer reader.Close()
-	chart, err := chartutil.LoadArchive(reader)
+	chart, err := loader.LoadArchive(reader)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

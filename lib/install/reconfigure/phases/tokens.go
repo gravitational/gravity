@@ -69,7 +69,7 @@ type tokensExecutor struct {
 func (p *tokensExecutor) Execute(ctx context.Context) error {
 	// Remove service account tokens.
 	p.Progress.NextStep("Cleaning up Kubernetes service account tokens")
-	secrets, err := p.Client.CoreV1().Secrets(constants.AllNamespaces).List(metav1.ListOptions{})
+	secrets, err := p.Client.CoreV1().Secrets(constants.AllNamespaces).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -84,7 +84,7 @@ func (p *tokensExecutor) Execute(ctx context.Context) error {
 			p.Infof("Skipping secret %v/%v", secret.Namespace, secret.Name)
 			continue
 		}
-		err := p.Client.CoreV1().Secrets(secret.Namespace).Delete(secret.Name, &metav1.DeleteOptions{})
+		err := p.Client.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return trace.Wrap(err, "failed to remove secret %v/%v: %v", secret.Namespace, secret.Name, err)
 		} else {

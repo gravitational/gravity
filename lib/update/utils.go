@@ -117,7 +117,7 @@ func SplitServers(servers []storage.UpdateServer) (masters, nodes []storage.Upda
 }
 
 func hasEndpoints(client corev1.CoreV1Interface, labels labels.Set) error {
-	list, err := client.Endpoints(metav1.NamespaceSystem).List(
+	list, err := client.Endpoints(metav1.NamespaceSystem).List(context.TODO(),
 		metav1.ListOptions{
 			LabelSelector: labels.String(),
 		},

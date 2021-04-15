@@ -66,7 +66,7 @@ type PrometheusControl struct {
 func (c *PrometheusControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Prometheus.ObjectMeta))
 
-	err := c.Client.MonitoringV1().Prometheuses(c.Prometheus.Namespace).Delete(c.Prometheus.Name, nil)
+	err := c.Client.MonitoringV1().Prometheuses(c.Prometheus.Namespace).Delete(ctx, c.Prometheus.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -77,23 +77,29 @@ func (c *PrometheusControl) Upsert(ctx context.Context) error {
 	c.Prometheus.UID = ""
 	c.Prometheus.SelfLink = ""
 	c.Prometheus.ResourceVersion = ""
-	currentPrometheus, err := client.Get(c.Prometheus.Name, metav1.GetOptions{})
+	currentPrometheus, err := client.Get(ctx, c.Prometheus.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = client.Create(c.Prometheus)
+		_, err = client.Create(ctx, c.Prometheus, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
+
+	if checkCustomerManagedResource(currentPrometheus.Annotations) {
+		c.WithField("prometheus", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
 	c.Prometheus.ResourceVersion = currentPrometheus.ResourceVersion
-	_, err = client.Update(c.Prometheus)
+	_, err = client.Update(ctx, c.Prometheus, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *PrometheusControl) Status() error {
+func (c *PrometheusControl) Status(ctx context.Context) error {
 	client := c.Client.MonitoringV1().Prometheuses(c.Prometheus.Namespace)
-	_, err := client.Get(c.Prometheus.Name, metav1.GetOptions{})
+	_, err := client.Get(ctx, c.Prometheus.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

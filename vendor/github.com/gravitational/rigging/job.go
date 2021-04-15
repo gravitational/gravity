@@ -43,20 +43,20 @@ func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Job.ObjectMeta))
 
 	jobs := c.BatchV1().Jobs(c.Job.Namespace)
-	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
+	currentJob, err := jobs.Get(ctx, c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
 
 	pods := c.CoreV1().Pods(c.Job.Namespace)
-	currentPods, err := c.collectPods(currentJob)
+	currentPods, err := c.collectPods(ctx, currentJob)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	c.Info("deleting current job")
+	c.Debug("deleting current job")
 	deletePolicy := metav1.DeletePropagationForeground
-	err = jobs.Delete(c.Job.Name, &metav1.DeleteOptions{
+	err = jobs.Delete(ctx, c.Job.Name, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
@@ -64,7 +64,7 @@ func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	err = waitForObjectDeletion(func() error {
-		_, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
+		_, err := jobs.Get(ctx, c.Job.Name, metav1.GetOptions{})
 		return ConvertError(err)
 	})
 	if err != nil {
@@ -74,7 +74,7 @@ func (c *JobControl) Delete(ctx context.Context, cascade bool) error {
 	if !cascade {
 		c.Info("cascade not set, returning")
 	}
-	err = deletePods(pods, currentPods, c.FieldLogger)
+	err = deletePods(ctx, pods, currentPods, c.FieldLogger)
 	return trace.Wrap(err)
 }
 
@@ -82,7 +82,7 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Job.ObjectMeta))
 
 	jobs := c.BatchV1().Jobs(c.Job.Namespace)
-	currentJob, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
+	currentJob, err := jobs.Get(ctx, c.Job.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
@@ -93,6 +93,11 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 	}
 
 	if currentJob != nil {
+		if checkCustomerManagedResource(currentJob.Annotations) {
+			c.WithField("job", formatMeta(c.Job.ObjectMeta)).Info("Skipping update since object is customer managed.")
+			return nil
+		}
+
 		control, err := NewJobControl(JobConfig{Job: currentJob, Clientset: c.Clientset})
 		if err != nil {
 			return ConvertError(err)
@@ -103,7 +108,7 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 		}
 	}
 
-	c.Info("creating new job")
+	c.Debug("creating new job")
 	c.Job.UID = ""
 	c.Job.SelfLink = ""
 	c.Job.ResourceVersion = ""
@@ -114,15 +119,15 @@ func (c *JobControl) Upsert(ctx context.Context) error {
 	}
 
 	err = withExponentialBackoff(func() error {
-		_, err := jobs.Create(c.Job)
+		_, err := jobs.Create(ctx, c.Job, metav1.CreateOptions{})
 		return ConvertError(err)
 	})
 	return trace.Wrap(err)
 }
 
-func (c *JobControl) Status() error {
+func (c *JobControl) Status(ctx context.Context) error {
 	jobs := c.BatchV1().Jobs(c.Job.Namespace)
-	job, err := jobs.Get(c.Job.Name, metav1.GetOptions{})
+	job, err := jobs.Get(ctx, c.Job.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
@@ -150,12 +155,12 @@ func (c *JobControl) Status() error {
 	return nil
 }
 
-func (c *JobControl) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
+func (c *JobControl) collectPods(ctx context.Context, job *batchv1.Job) (map[string]v1.Pod, error) {
 	var labels map[string]string
 	if job.Spec.Selector != nil {
 		labels = job.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(job.Namespace, labels, c.FieldLogger, c.Clientset, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(ctx, job.Namespace, labels, c.FieldLogger, c.Clientset, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindJob && ref.UID == job.UID
 	})
 	return pods, ConvertError(err)

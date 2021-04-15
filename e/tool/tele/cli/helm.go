@@ -15,61 +15,149 @@
 package cli
 
 import (
+	"context"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/utils"
 
-	"k8s.io/helm/pkg/helm/helmpath"
-	"k8s.io/helm/pkg/repo"
-
+	"github.com/gofrs/flock"
 	"github.com/gravitational/trace"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/helmpath"
+	"helm.sh/helm/v3/pkg/repo"
+	"sigs.k8s.io/yaml"
 )
 
-// ensureDirectories checks to see if $HELM_HOME exists.
-//
-// If $HELM_HOME does not exist, this function will create it.
-//
-// This method was adopted from Helm:
-//
-// https://github.com/helm/helm/blob/v2.12.0/cmd/helm/init.go#L348
-func ensureDirectories(home helmpath.Home) error {
-	configDirectories := []string{
-		home.String(),
-		home.Repository(),
-		home.Cache(),
-		home.LocalRepository(),
-		home.Plugins(),
-		home.Starters(),
-		home.Archive(),
+// defaultReposFile is the default repositories file. This file contains repository
+// names and URLs.
+var defaultReposFile = helmpath.ConfigPath("repositories.yaml")
+
+type repoAddOptions struct {
+	name      string
+	url       string
+	username  string
+	password  string
+	repoFile  string
+	repoCache string
+}
+
+// repoAdd adds a chart repository. Code ported from:
+// https://github.com/helm/helm/blob/v3.4.2/cmd/helm/repo_add.go
+func (o *repoAddOptions) repoAdd() error {
+	// Ensure the file directory exists as it is required for file locking
+	err := os.MkdirAll(filepath.Dir(o.repoFile), os.ModePerm)
+	if err != nil && !os.IsExist(err) {
+		return trace.Wrap(err)
 	}
-	for _, path := range configDirectories {
-		if fi, err := os.Stat(path); err != nil {
-			log.Infof("Creating %v.", path)
-			if err := os.MkdirAll(path, defaults.SharedDirMask); err != nil {
-				return trace.ConvertSystemError(err)
-			}
-		} else if !fi.IsDir() {
-			return trace.BadParameter("%v must be a directory", path)
-		}
+
+	// Acquire a file lock for process synchronization
+	fileLock := flock.New(strings.Replace(o.repoFile, filepath.Ext(o.repoFile), ".lock", 1))
+	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
+	if err == nil && locked {
+		defer fileLock.Unlock()
 	}
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	bytes, err := ioutil.ReadFile(o.repoFile)
+	if err != nil && !os.IsNotExist(err) {
+		return trace.Wrap(err)
+	}
+
+	var repoFile repo.File
+	if err := yaml.Unmarshal(bytes, &repoFile); err != nil {
+		return trace.Wrap(err)
+	}
+
+	entry := repo.Entry{
+		Name:     o.name,
+		URL:      o.url,
+		Username: o.username,
+		Password: o.password,
+	}
+
+	repository, err := repo.NewChartRepository(&entry, getter.All(cli.New()))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if o.repoCache != "" {
+		repository.CachePath = o.repoCache
+	}
+
+	if _, err := repository.DownloadIndexFile(); err != nil {
+		return trace.Wrap(err, "looks like %q is not a valid chart repository or cannot be reached", o.url)
+	}
+
+	repoFile.Update(&entry)
+
+	if err := repoFile.WriteFile(o.repoFile, defaults.SharedReadMask); err != nil {
+		return trace.Wrap(err)
+	}
+
+	log.WithField("repo", o.name).Info("Repo has been added to your repositories.")
 	return nil
 }
 
-// ensureReposFile returns the repositories file.
-//
-// If the repositories file does not exist, an empty one is initialized.
-func ensureReposFile(path string) (*repo.RepoFile, error) {
-	_, err := utils.StatFile(path)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
+type repoRemoveOptions struct {
+	names     []string
+	repoFile  string
+	repoCache string
+}
+
+// repoRemove removes one or more chart repositories. Returns without any changes
+// if no repositories are configured. Code ported from:
+// https://github.com/helm/helm/blob/v3.4.2/cmd/helm/repo_remove.go
+func (o *repoRemoveOptions) repoRemove() error {
+	repoFile, err := repo.LoadFile(o.repoFile)
+	if os.IsNotExist(errors.Cause(err)) || len(repoFile.Repositories) == 0 {
+		log.Debug("No repositories configured.")
+		return nil
 	}
-	if trace.IsNotFound(err) {
-		log.Infof("Creating %v.", path)
-		err := repo.NewRepoFile().WriteFile(path, defaults.SharedReadMask)
-		if err != nil {
-			return nil, trace.Wrap(err)
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	for _, name := range o.names {
+		if !repoFile.Remove(name) {
+			log.WithField("repo", name).Debug("Repo was not found.")
+			continue
+		}
+		if err := repoFile.WriteFile(o.repoFile, defaults.SharedReadMask); err != nil {
+			return trace.Wrap(err)
+		}
+		if err := removeRepoCache(o.repoCache, name); err != nil {
+			return trace.Wrap(err)
+		}
+		log.WithField("repo", name).Info("Repo has been removed from your repositories.")
+	}
+
+	return nil
+}
+
+func removeRepoCache(root, name string) error {
+	chartsFile := filepath.Join(root, helmpath.CacheChartsFile(name))
+	if _, err := os.Stat(chartsFile); err == nil {
+		if err := os.Remove(chartsFile); err != nil {
+			log.WithField("charts-file", chartsFile).Debug("Failed to remove charts file.")
 		}
 	}
-	return repo.LoadRepositoriesFile(path)
+
+	indexFile := filepath.Join(root, helmpath.CacheIndexFile(name))
+	if _, err := os.Stat(indexFile); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return trace.Wrap(err, "unable to remove index file %s", indexFile)
+	}
+	return trace.Wrap(os.Remove(indexFile))
 }

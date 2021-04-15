@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
 	"fmt"
 	goruntime "runtime"
 	"sort"
@@ -657,7 +658,8 @@ type phaseBuilder struct {
 }
 
 func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
-	_, err := client.RbacV1().ClusterRoles().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
+	_, err := client.RbacV1().ClusterRoles().
+		Get(context.TODO(), libphase.CoreDNSResourceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -666,7 +668,8 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 		return false, trace.Wrap(err)
 	}
 
-	_, err = client.RbacV1().ClusterRoleBindings().Get(libphase.CoreDNSResourceName, metav1.GetOptions{})
+	_, err = client.RbacV1().ClusterRoleBindings().
+		Get(context.TODO(), libphase.CoreDNSResourceName, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -675,7 +678,8 @@ func shouldUpdateCoreDNS(client *kubernetes.Clientset) (bool, error) {
 		return false, trace.Wrap(err)
 	}
 
-	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Get("coredns", metav1.GetOptions{})
+	_, err = client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Get(context.TODO(), "coredns", metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {

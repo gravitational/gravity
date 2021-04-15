@@ -289,13 +289,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 
 	// operations on gravity applications
 	g.AppCmd.CmdClause = g.Command("app", "Operations with application images and releases.").Alias("helm")
-	g.AppCmd.TillerNamespace = g.AppCmd.Flag("tiller-namespace", "Namespace where Tiller is running").Default(defaults.KubeSystemNamespace).String()
+	g.AppCmd.Namespace = g.AppCmd.Flag("namespace", "Namespace scope for this request.").Default(defaults.Namespace).String()
 
 	// helm-specific flags
 	g.AppInstallCmd.CmdClause = g.AppCmd.Command("install", "Install an application from the specified application image.")
 	g.AppInstallCmd.Image = g.AppInstallCmd.Arg("image", "Specifies application image to install. Can be an image tarball, an unpacked image tarball, or an image name in the form of <name>:<version>.").Required().String()
 	g.AppInstallCmd.Name = g.AppInstallCmd.Flag("name", "Release name. If not specified, will be auto-generated.").String()
-	g.AppInstallCmd.Namespace = g.AppInstallCmd.Flag("namespace", "Namespace to install release into.").Default(defaults.Namespace).String()
 	g.AppInstallCmd.Set = g.AppInstallCmd.Flag("set", "Set values on the command line. Can specify multiple or comma-separated: key1=val1,key2=val2.").Strings()
 	g.AppInstallCmd.Values = g.AppInstallCmd.Flag("values", "Set values from the provided YAML file.").Strings()
 	g.AppInstallCmd.Registry = g.AppInstallCmd.Flag("registry", "Address of Docker registry to push application images to.").String()

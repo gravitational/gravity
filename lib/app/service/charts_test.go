@@ -28,8 +28,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	check "gopkg.in/check.v1"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 type chartsSuite struct {
@@ -120,7 +120,7 @@ func (s *chartsSuite) TestFetchChart(c *check.C) {
 	defer reader.Close()
 
 	// Load the chart archive to make sure it's valid and verify some details.
-	chart, err := chartutil.LoadArchive(reader)
+	chart, err := loader.LoadArchive(reader)
 	c.Assert(err, check.IsNil)
 	compare.DeepCompare(c, chart, test.Chart(alpine))
 }

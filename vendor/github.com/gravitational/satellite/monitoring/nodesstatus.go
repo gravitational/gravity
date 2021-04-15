@@ -56,7 +56,7 @@ func (r *nodesStatusChecker) Check(ctx context.Context, reporter health.Reporter
 		LabelSelector: labels.Everything().String(),
 		FieldSelector: fields.Everything().String(),
 	}
-	statuses, err := r.client.Nodes().List(listOptions)
+	statuses, err := r.client.Nodes().List(context.TODO(), listOptions)
 	if err != nil {
 		reason := "failed to query nodes"
 		reporter.Add(NewProbeFromErr(r.Name(), reason, trace.Wrap(err)))
@@ -221,7 +221,7 @@ type nodeLister interface {
 }
 
 func (r kubeNodeLister) Nodes(options metav1.ListOptions) (*v1.NodeList, error) {
-	nodes, err := r.client.Nodes().List(options)
+	nodes, err := r.client.Nodes().List(context.TODO(), options)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

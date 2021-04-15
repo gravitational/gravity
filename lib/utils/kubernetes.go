@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -75,29 +76,16 @@ func SaveKubeConfig(config clientcmdapi.Config) error {
 // using in-cluster configuration if available and falling back to
 // configuration file under configPath otherwise
 func GetKubeClient(configPath string) (client *kubernetes.Clientset, config *rest.Config, err error) {
-	config, err = rest.InClusterConfig()
-	if err != nil {
+	if configPath == "" {
+		config, err = rest.InClusterConfig()
+	} else {
 		config, err = clientcmd.BuildConfigFromFlags("", configPath)
-		if err != nil {
-			return nil, nil, trace.Wrap(err)
-		}
 	}
-
-	client, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	return client, config, nil
-}
 
-// GetKubeClientFromPath creates a kubernetes client from the specified configPath
-func GetKubeClientFromPath(configPath string) (*kubernetes.Clientset, *rest.Config, error) {
-	config, err := clientcmd.BuildConfigFromFlags("", configPath)
-	if err != nil {
-		return nil, nil, trace.ConvertSystemError(err)
-	}
-
-	client, err := kubernetes.NewForConfig(config)
+	client, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -112,7 +100,7 @@ func GetLocalKubeClient() (*kubernetes.Clientset, *rest.Config, error) {
 		return nil, nil, trace.Wrap(err)
 	}
 
-	client, config, err := GetKubeClientFromPath(configPath)
+	client, config, err := GetKubeClient(configPath)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -144,7 +132,7 @@ func GetMasters(nodes map[string]v1.Node) (ips []string) {
 
 // GetNodes returns the map of kubernetes nodes keyed by advertise IPs
 func GetNodes(client corev1.NodeInterface) (nodes map[string]v1.Node, err error) {
-	nodeList, err := client.List(metav1.ListOptions{})
+	nodeList, err := client.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, rigging.ConvertError(err)
 	}

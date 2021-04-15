@@ -40,7 +40,7 @@ func NewFinal(params fsm.ExecutorParams, client corev1.CoreV1Interface, logger l
 func (r *Final) Execute(ctx context.Context) error {
 	services := r.client.Services(metav1.NamespaceSystem)
 	for _, service := range []string{r.suffix.serviceName(), r.suffix.workerServiceName()} {
-		if err := removeService(ctx, service, &metav1.DeleteOptions{}, services); err != nil {
+		if err := removeService(ctx, service, metav1.DeleteOptions{}, services); err != nil {
 			return trace.Wrap(err)
 		}
 	}

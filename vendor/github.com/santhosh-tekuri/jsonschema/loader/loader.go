@@ -35,8 +35,12 @@ func (filePathLoader) Load(path string) (io.ReadCloser, error) {
 
 type fileURLLoader struct{}
 
-func (fileURLLoader) Load(url string) (io.ReadCloser, error) {
-	f := strings.TrimPrefix(url, "file://")
+func (fileURLLoader) Load(s string) (io.ReadCloser, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+	f := u.Path
 	if runtime.GOOS == "windows" {
 		f = strings.TrimPrefix(f, "/")
 		f = filepath.FromSlash(f)
@@ -87,7 +91,7 @@ func get(s string) (Loader, error) {
 //
 // If no Loader is registered against the URI Scheme, then it
 // returns *SchemeNotRegisteredError
-func Load(url string) (io.ReadCloser, error) {
+var Load = func(url string) (io.ReadCloser, error) {
 	loader, err := get(url)
 	if err != nil {
 		return nil, err
