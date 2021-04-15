@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [7.1](#71-releases) | 7.1.0-alpha.6 | No  | pre-release          | April 14, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.30        | Yes | April 3, 2020        | January 15, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.31        | Yes | April 3, 2020        | April 15, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -114,6 +114,27 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 ## 7.0 Releases
 
+### 7.0.31 LTS (April 15, 2021)
+
+#### Improvements
+* Add GCE Alias IP support for flannel ([#2440](https://github.com/gravitational/gravity/pull/2440), [planet#831](https://github.com/gravitational/planet/pull/831), [flannel#10](https://github.com/gravitational/flannel/pull/10)).
+* Expose additional logrange fields in logging-app ([#2403](https://github.com/gravitational/gravity/pull/2403), [logging-app#75](https://github.com/gravitational/logging-app/pull/75)).
+
+#### Bugfixes
+* Remove stack traces from web API calls ([#2468](https://github.com/gravitational/gravity/pull/2468), [teleport#5070](https://github.com/gravitational/teleport/pull/5070), [trace#60](https://github.com/gravitational/trace/pull/60)).
+* Set a high planet pid limit, instead of the sometimes ignored 'unlimited pids' ([#2470](https://github.com/gravitational/gravity/pull/2470), [#834](https://github.com/gravitational/planet/pull/834), [#2444](https://github.com/gravitational/gravity/issues/2444)).
+* Fix a logging-app panic ([#2464](https://github.com/gravitational/gravity/pull/2464), [logging-app#79](https://github.com/gravitational/logging-app/pull/79)).
+* Fix an error while gathering mount points in monitoring-app ([#2452](https://github.com/gravitational/gravity/pull/2452), [monitoring-app#208](https://github.com/gravitational/monitoring-app/pull/208)).
+* Fix an error where `gravity plan` would occasionally display the wrong operation ([#2412](https://github.com/gravitational/gravity/pull/2412), [#2309](https://github.com/gravitational/gravity/issues/2309)).
+
+#### Internal Changes
+* Change ownership of logging-app data ([#2447](https://github.com/gravitational/gravity/pull/2447), [#2464](https://github.com/gravitational/gravity/pull/2464), [logging-app#79](https://github.com/gravitational/logging-app/pull/79)).
+* Experimentally allow Kubernetes High Availability mode to be enabled in the cluster manifest ([#2411](https://github.com/gravitational/gravity/pull/2411), [planet#823](https://github.com/gravitational/planet/pull/823)).
+
+!!! warning
+    Upgrading to this release will cause logging-app abandon root owned data in `/var/lib/gravity/logrange/lr` and `/var/lib/gravity/logrange/data`.
+    This data needs to be cleaned by hand.
+
 ### 7.0.30 LTS (January 15, 2021)
 
 #### Bugfixes
@@ -126,6 +147,7 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 #### Bugfixes
 * Fix an issue with file descriptors leaking in monitoring network health ([#2383](https://github.com/gravitational/gravity/pull/2383), [monitoring-app#204](https://github.com/gravitational/monitoring-app/pull/204), [satellite#294](https://github.com/gravitational/satellite/pull/294)).
+
 ### 7.0.28 LTS (December 7, 2020)
 
 #### Improvements
@@ -134,7 +156,6 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 #### Bugfixes
 * Shutdown kubernetes control plane immediately when elections are disabled ([#2355](https://github.com/gravitational/gravity/pull/2355), [planet#805](https://github.com/gravitational/planet/pull/805)).
-
 
 ### 7.0.27 LTS (November 23, 2020)
 
