@@ -1088,8 +1088,7 @@
   version = "v1.0.1"
 
 [[projects]]
-  branch = "branch/3.2-g"
-  digest = "1:3e9462c52e2458c00d1bf1dd97c5bb857409c9b0cda2d6df8ddb5a87e121282a"
+  digest = "1:cf07cd9006c70916a1e5192f23f3494b02544eee15f22345279a12a4195c41c9"
   name = "github.com/gravitational/teleport"
   packages = [
     ".",
@@ -1147,18 +1146,19 @@
     "lib/wrappers",
   ]
   pruneopts = "UT"
-  revision = "eccdab5226f7c1b82314c8fdc44d4876eb347ca4"
+  revision = "f1f03fe76ea5ac53f04a12e61926b90a722a283f"
+  version = "v3.2.17"
 
 [[projects]]
-  digest = "1:403af811cfc53bf78a655e601b01dc9a149aa154cbd63384784b25799cdbea8c"
+  digest = "1:9188ded093eaf67ca87972ebf857c4f27f3e969f777faa0022790729b5b1ddd5"
   name = "github.com/gravitational/trace"
   packages = [
     ".",
     "trail",
   ]
   pruneopts = "UT"
-  revision = "2d27a078e25b4e8f656d1354fddf37d316d1e9bf"
-  version = "1.1.11"
+  revision = "bbab4b868a4a8a002ffc76d005d53996506ef059"
+  version = "v1.1.14"
 
 [[projects]]
   digest = "1:841d5835e94129658adabece66a4cc54d2cec9a40fa8b51743ea35d0519dd6c2"
