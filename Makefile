@@ -480,8 +480,8 @@ publish-artifacts: $(OPSCENTER_OUT) $(TELEKUBE_OUT)
 	fi;
 	$(GRAVITY_BUILDDIR)/tele logout
 	$(GRAVITY_BUILDDIR)/tele login -o $(DISTRIBUTION_OPSCENTER) --token=$(TELE_KEY)
-	$(GRAVITY_BUILDDIR)/tele push $(TELEKUBE_OUT)
-	$(GRAVITY_BUILDDIR)/tele push $(OPSCENTER_OUT)
+	$(GRAVITY_BUILDDIR)/tele push -f $(TELEKUBE_OUT)
+	$(GRAVITY_BUILDDIR)/tele push -f $(OPSCENTER_OUT)
 
 #
 # scan-artifacts uploads a copy of all vendored containers to a docker registry for scanning and vulnerability reporting
