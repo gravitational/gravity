@@ -568,7 +568,7 @@ steps:
         from_secret: OPS_REPO
       GITHUB_OPS_DEPLOY_KEY:
         from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: master
+      OPS_REF: walt/ansible-debug
     commands:
     - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
     - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
@@ -632,6 +632,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: caab2cfccea5948cc372cd269e409daf721baf73000a0f50ea26e6165db53761
+hmac: 9b1db37f1d69f5f5da54fcb92998e7252a3bd3cb6d751ccdd181d234eb25b9a8
 
 ...
