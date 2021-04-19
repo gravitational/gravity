@@ -69,7 +69,7 @@ func (p *nodeExecutor) Execute(ctx context.Context) error {
 	}
 	for ip, node := range nodes {
 		if ip != p.Phase.Data.Server.AdvertiseIP {
-			err := p.Client.CoreV1().Nodes().Delete(node.Name, &metav1.DeleteOptions{})
+			err := p.Client.CoreV1().Nodes().Delete(ctx, node.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return rigging.ConvertError(err)
 			}

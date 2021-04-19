@@ -138,14 +138,14 @@ type DeleteJobRequest struct {
 
 // DeleteJob deletes job by ref
 func (r *Runner) DeleteJob(ctx context.Context, req DeleteJobRequest) error {
-	var opts *metav1.DeleteOptions
+	var opts metav1.DeleteOptions
 	if req.Cascade {
 		propagationPolicy := metav1.DeletePropagationForeground
-		opts = &metav1.DeleteOptions{
+		opts = metav1.DeleteOptions{
 			PropagationPolicy: &propagationPolicy,
 		}
 	}
-	err := r.client.BatchV1().Jobs(req.Namespace).Delete(req.Name, opts)
+	err := r.client.BatchV1().Jobs(req.Namespace).Delete(ctx, req.Name, opts)
 	if err = rigging.ConvertError(err); err != nil {
 		return err
 	} else {
@@ -183,18 +183,18 @@ func (r *Runner) Start(ctx context.Context, p Params) (*JobRef, error) {
 	r.Debug(string(jobBytes), ".")
 
 	// try to create the namespace and ignore "already exists" errors
-	_, err = r.client.CoreV1().Namespaces().Create(&v1.Namespace{
+	_, err = r.client.CoreV1().Namespaces().Create(ctx, &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobNamespace,
 		},
-	})
+	}, metav1.CreateOptions{})
 	if err = rigging.ConvertError(err); err != nil {
 		if !trace.IsAlreadyExists(err) {
 			return nil, trace.Wrap(err)
 		}
 	}
 
-	job, err = r.client.BatchV1().Jobs(jobNamespace).Create(job)
+	job, err = r.client.BatchV1().Jobs(jobNamespace).Create(ctx, job, metav1.CreateOptions{})
 	if err = rigging.ConvertError(err); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -251,7 +251,7 @@ func (r *Runner) StreamLogs(ctx context.Context, ref JobRef, out io.Writer) erro
 	localContext, localCancel := context.WithCancel(ctx)
 	defer localCancel()
 
-	job, err := r.client.BatchV1().Jobs(ref.Namespace).Get(ref.Name, metav1.GetOptions{})
+	job, err := r.client.BatchV1().Jobs(ref.Namespace).Get(ctx, ref.Name, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -350,7 +350,7 @@ func (r *Runner) checkJob(ctx context.Context, job *batchv1.Job, jobControl *rig
 		}
 	}
 
-	return jobControl.Status()
+	return jobControl.Status(ctx)
 }
 
 func (r *Runner) evalJobStatus(ctx context.Context, eventsC <-chan watch.Event) error {
@@ -382,7 +382,7 @@ func (r *Runner) evalJobStatus(ctx context.Context, eventsC <-chan watch.Event) 
 }
 
 func newJobWatch(client batch.BatchV1Interface, ref JobRef) (watch.Interface, error) {
-	watcher, err := client.Jobs(ref.Namespace).Watch(metav1.ListOptions{
+	watcher, err := client.Jobs(ref.Namespace).Watch(context.TODO(), metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind: rigging.KindJob,
 		},
@@ -396,7 +396,7 @@ func newJobWatch(client batch.BatchV1Interface, ref JobRef) (watch.Interface, er
 }
 
 func newPodWatch(client core.CoreV1Interface, ref JobRef) (watch.Interface, error) {
-	watcher, err := client.Pods(ref.Namespace).Watch(metav1.ListOptions{
+	watcher, err := client.Pods(ref.Namespace).Watch(context.TODO(), metav1.ListOptions{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Pod",
 		},
@@ -425,7 +425,7 @@ func podSelector(job *batchv1.Job) labels.Set {
 // with podName: pod pairs
 func (r *Runner) collectPods(job *batchv1.Job) (map[string]v1.Pod, error) {
 	set := podSelector(job)
-	podList, err := r.client.CoreV1().Pods(job.Namespace).List(metav1.ListOptions{
+	podList, err := r.client.CoreV1().Pods(job.Namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: set.AsSelector().String(),
 	})
 	if err != nil {
@@ -451,7 +451,7 @@ func (r *Runner) streamPodContainerLogs(ctx context.Context, pod *v1.Pod, contai
 		Container: containerName,
 		Follow:    true,
 	})
-	readCloser, err := req.Stream()
+	readCloser, err := req.Stream(ctx)
 	if err != nil {
 		r.Warningf("Failed to stream: %v.", err)
 		return trace.Wrap(err)

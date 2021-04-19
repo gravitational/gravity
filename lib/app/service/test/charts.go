@@ -23,9 +23,8 @@ import (
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/loc"
 
-	"github.com/golang/protobuf/ptypes/any"
 	check "gopkg.in/check.v1"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
 )
 
 // CreateHelmChartApp creates a new test Helm chart application with the
@@ -44,26 +43,44 @@ func CreateHelmChartApp(c *check.C, apps app.Applications, locator loc.Locator) 
 // Chart returns chart object corresponding to the test chart defined below.
 func Chart(locator loc.Locator) *chart.Chart {
 	return &chart.Chart{
-		Metadata: &chart.Metadata{
-			Name:    locator.Name,
-			Version: locator.Version,
-		},
-		Values: &chart.Config{
-			Raw: valuesYAML,
-		},
-		Files: []*any.Any{
+		Raw: []*chart.File{
 			{
-				TypeUrl: "app.yaml",
-				Value: []byte(fmt.Sprintf(appYAML,
-					locator.Name, locator.Version)),
+				Name: "Chart.yaml",
+				Data: []byte(fmt.Sprintf(chartYAML, locator.Name, locator.Version)),
+			},
+			{
+				Name: "values.yaml",
+				Data: []byte(valuesYAML),
+			},
+			{
+				Name: "app.yaml",
+				Data: []byte(fmt.Sprintf(appYAML, locator.Name, locator.Version)),
+			},
+		},
+		Metadata: &chart.Metadata{
+			Name:       locator.Name,
+			Version:    locator.Version,
+			APIVersion: "v1",
+		},
+		Values: map[string]interface{}{
+			"image": map[string]interface{}{
+				"registry": "localhost:5000",
+			},
+		},
+		Files: []*chart.File{
+			{
+				Name: "app.yaml",
+				Data: []byte(fmt.Sprintf(appYAML, locator.Name, locator.Version)),
 			},
 		},
 	}
 }
 
 var (
-	chartYAML = `name: %v
-version: %v`
+	chartYAML = `apiVersion: v1
+name: %v
+version: %v
+`
 	valuesYAML = `image:
   registry:
     localhost:5000`

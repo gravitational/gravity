@@ -17,6 +17,7 @@ limitations under the License.
 package webapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"path/filepath"
@@ -191,7 +192,7 @@ func (m *Handler) clusterContainerConnect(w http.ResponseWriter, r *http.Request
 
 func validatePodTerminalRequest(client *kubernetes.Clientset, req PodTerminalRequest) error {
 	// Make sure the requested pod exists.
-	pod, err := client.CoreV1().Pods(req.Pod.Namespace).Get(req.Pod.Name, metav1.GetOptions{})
+	pod, err := client.CoreV1().Pods(req.Pod.Namespace).Get(context.TODO(), req.Pod.Name, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}

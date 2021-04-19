@@ -35,9 +35,9 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func removeService(ctx context.Context, name string, opts *metav1.DeleteOptions, services corev1.ServiceInterface) error {
+func removeService(ctx context.Context, name string, opts metav1.DeleteOptions, services corev1.ServiceInterface) error {
 	return utils.RetryTransient(ctx, newOperationBackoff(), func() error {
-		err := services.Delete(name, opts)
+		err := services.Delete(ctx, name, opts)
 		if err != nil && !errors.IsNotFound(err) {
 			return rigging.ConvertError(err)
 		}
@@ -49,7 +49,7 @@ func createServiceFromTemplate(ctx context.Context, service v1.Service, services
 	utils.LoggerWithService(service, logger).Debug("Recreate service with original cluster IP.")
 	return utils.RetryWithInterval(ctx, newOperationBackoff(), func() error {
 		service.ResourceVersion = "0"
-		_, err := services.Create(&service)
+		_, err := services.Create(ctx, &service, metav1.CreateOptions{})
 		if err == nil || errors.IsAlreadyExists(err) {
 			return nil
 		}
@@ -71,7 +71,7 @@ func createServiceWithClusterIP(ctx context.Context, service v1.Service, alloc *
 		service.Spec.ClusterIP = ip.String()
 		logger.WithField("cluster-ip", service.Spec.ClusterIP).Info("Recreate service with cluster IP.")
 		service.ResourceVersion = "0"
-		_, err = services.Create(&service)
+		_, err = services.Create(ctx, &service, metav1.CreateOptions{})
 		if err == nil || errors.IsAlreadyExists(err) {
 			return nil
 		}

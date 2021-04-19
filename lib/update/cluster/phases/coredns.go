@@ -69,16 +69,17 @@ func NewPhaseCoreDNS(p fsm.ExecutorParams, operator ops.Operator, client *kubern
 
 // Execute will add rbac permissions for coredns to sync cluster information
 func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
-	_, err := p.kubernetesOperation.Client.RbacV1().ClusterRoles().Create(&rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{Name: CoreDNSResourceName},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Verbs:     []string{"list", "watch"},
-				Resources: []string{"endpoints", "services", "namespaces", "pods"},
+	_, err := p.kubernetesOperation.Client.RbacV1().ClusterRoles().
+		Create(ctx, &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: CoreDNSResourceName},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Verbs:     []string{"list", "watch"},
+					Resources: []string{"endpoints", "services", "namespaces", "pods"},
+				},
 			},
-		},
-	})
+		}, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsAlreadyExists(err) {
@@ -90,21 +91,22 @@ func (p *updatePhaseCoreDNS) Execute(ctx context.Context) error {
 		p.Infof("ClusterRole/%v created.", CoreDNSResourceName)
 	}
 
-	_, err = p.kubernetesOperation.Client.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: CoreDNSResourceName},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     CoreDNSResourceName,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:     "User",
-				Name:     "coredns",
+	_, err = p.kubernetesOperation.Client.RbacV1().ClusterRoleBindings().
+		Create(ctx, &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: CoreDNSResourceName},
+			RoleRef: rbacv1.RoleRef{
 				APIGroup: "rbac.authorization.k8s.io",
+				Kind:     "ClusterRole",
+				Name:     CoreDNSResourceName,
 			},
-		},
-	})
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:     "User",
+					Name:     "coredns",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+		}, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsAlreadyExists(err) {
@@ -128,7 +130,7 @@ func (p *updatePhaseCoreDNS) Rollback(context.Context) error {
 // generateCorefile will generate a coredns corefile, only if not already present on the system
 // with settings from the cluster configuration and local system. It should not overwrite an existing
 // Corefile, as that may have been modified by a user.
-func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
+func (p *updatePhaseCoreDNS) generateCorefile(ctx context.Context) error {
 	p.Info("Generating CoreDNS Corefile.")
 
 	conf, err := libinstall.GenerateCorefile(libinstall.CorednsConfig{
@@ -140,15 +142,16 @@ func (p *updatePhaseCoreDNS) generateCorefile(context.Context) error {
 	}
 	p.Debug("Generated corefile: ", conf)
 
-	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(&v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "coredns",
-			Namespace: constants.KubeSystemNamespace,
-		},
-		Data: map[string]string{
-			"Corefile": conf,
-		},
-	})
+	_, err = p.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Create(ctx, &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "coredns",
+				Namespace: constants.KubeSystemNamespace,
+			},
+			Data: map[string]string{
+				"Corefile": conf,
+			},
+		}, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err)

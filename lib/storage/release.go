@@ -28,7 +28,7 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
-	"k8s.io/helm/pkg/proto/hapi/release"
+	"helm.sh/helm/v3/pkg/release"
 )
 
 // Release represents a single instance of a running application.
@@ -61,26 +61,46 @@ type Release interface {
 
 // NewRelease creates a new release resource from the provided Helm release.
 func NewRelease(release *release.Release) (Release, error) {
-	md := release.GetChart().GetMetadata()
+	if err := verifyRelease(release); err != nil {
+		return nil, trace.Wrap(err, "release is missing relevant fields")
+	}
+
 	return &ReleaseV1{
 		Kind:    KindRelease,
 		Version: services.V1,
 		Metadata: services.Metadata{
-			Name:        release.GetName(),
-			Description: md.GetDescription(),
+			Name:        release.Name,
+			Description: release.Chart.Metadata.Description,
 		},
 		Spec: ReleaseSpecV1{
-			ChartName:    md.GetName(),
-			ChartVersion: md.GetVersion(),
-			AppVersion:   md.GetAppVersion(),
-			Namespace:    release.GetNamespace(),
+			ChartName:    release.Chart.Metadata.Name,
+			ChartVersion: release.Chart.Metadata.Version,
+			AppVersion:   release.Chart.Metadata.AppVersion,
+			Namespace:    release.Namespace,
 		},
 		Status: ReleaseStatusV1{
-			Status:   release.GetInfo().GetStatus().GetCode().String(),
-			Revision: int(release.GetVersion()),
-			Updated:  time.Unix(release.GetInfo().GetLastDeployed().Seconds, 0),
+			Status:   release.Info.Status.String(),
+			Revision: release.Version,
+			Updated:  release.Info.LastDeployed.Time,
 		},
 	}, nil
+}
+
+// verifyRelease returns an error if any relevant fields are missing.
+func verifyRelease(release *release.Release) error {
+	if release == nil {
+		return trace.BadParameter("release is nil")
+	}
+	if release.Chart == nil {
+		return trace.BadParameter("chart is nil")
+	}
+	if release.Chart.Metadata == nil {
+		return trace.BadParameter("metadata is nil")
+	}
+	if release.Info == nil {
+		return trace.BadParameter("info is nil")
+	}
+	return nil
 }
 
 // ReleaseV1 defines the release resource.

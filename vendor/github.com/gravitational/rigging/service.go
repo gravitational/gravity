@@ -67,7 +67,7 @@ type ServiceControl struct {
 func (c *ServiceControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.Service.ObjectMeta))
 
-	err := c.Client.CoreV1().Services(c.Service.Namespace).Delete(c.Service.Name, nil)
+	err := c.Client.CoreV1().Services(c.Service.Namespace).Delete(ctx, c.Service.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -75,7 +75,7 @@ func (c *ServiceControl) Upsert(ctx context.Context) error {
 	c.Infof("upsert %v", formatMeta(c.Service.ObjectMeta))
 
 	services := c.Client.CoreV1().Services(c.Service.Namespace)
-	currentService, err := services.Get(c.Service.Name, metav1.GetOptions{})
+	currentService, err := services.Get(ctx, c.Service.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
@@ -84,18 +84,24 @@ func (c *ServiceControl) Upsert(ctx context.Context) error {
 		c.Service.UID = ""
 		c.Service.SelfLink = ""
 		c.Service.ResourceVersion = ""
-		_, err = services.Create(c.Service)
+		_, err = services.Create(ctx, c.Service, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
+
+	if checkCustomerManagedResource(currentService.Annotations) {
+		c.WithField("service", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
 	c.Service.Spec.ClusterIP = currentService.Spec.ClusterIP
 	c.Service.ResourceVersion = currentService.ResourceVersion
-	_, err = services.Update(c.Service)
+	_, err = services.Update(ctx, c.Service, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *ServiceControl) Status() error {
+func (c *ServiceControl) Status(ctx context.Context) error {
 	services := c.Client.CoreV1().Services(c.Service.Namespace)
-	_, err := services.Get(c.Service.Name, metav1.GetOptions{})
+	_, err := services.Get(ctx, c.Service.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

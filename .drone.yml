@@ -29,16 +29,12 @@ steps:
   - name: build
     image: docker:git
     environment:
-      GITHUB_RO_KEY_PR:
-        from_secret: GITHUB_RO_KEY_PR
       AWS_ACCESS_KEY_ID:
         from_secret: AWS_S3_RO_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production telekube opscenter
       - make build-tsh
     volumes:
@@ -132,16 +128,12 @@ steps:
   - name: build
     image: docker:git
     environment:
-      GITHUB_RO_KEY_PR:
-        from_secret: GITHUB_RO_KEY_PR
       AWS_ACCESS_KEY_ID:
         from_secret: AWS_S3_RO_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production telekube opscenter
       - make build-tsh
     volumes:
@@ -417,7 +409,6 @@ steps:
         from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - make -C e production
     volumes:
       - name: dockersock
@@ -500,16 +491,12 @@ steps:
   - name: build
     image: docker:git
     environment:
-      GITHUB_RO_KEY_PR:
-        from_secret: GITHUB_RO_KEY_PR
       AWS_ACCESS_KEY_ID:
         from_secret: AWS_S3_RO_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - mkdir -m 0700 /root/.ssh && echo "$GITHUB_RO_KEY_PR" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - cd gravity
       - make production telekube build-tsh release hub-vars
     volumes:
@@ -607,7 +594,6 @@ steps:
         from_secret: DISTRIBUTION_OPSCENTER_TOKEN
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - ssh-keyscan -H github.com > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
       - cd gravity
       - make -C e production
       - e/build/current/tele login --hub get.gravitational.io --token $TELE_KEY
@@ -646,6 +632,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: 66fb20c94f617c28f44f3e0a13d95a98c37b29404d408eea0402f26ca300c5b2
+hmac: caab2cfccea5948cc372cd269e409daf721baf73000a0f50ea26e6165db53761
 
 ...

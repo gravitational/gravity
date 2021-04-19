@@ -22,7 +22,7 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -74,7 +74,7 @@ func (c *StatefulSetControl) Upsert(ctx context.Context) error {
 	c.Infof("Upsert %v", formatMeta(c.StatefulSet.ObjectMeta))
 
 	collection := c.Client.AppsV1().StatefulSets(c.StatefulSet.Namespace)
-	currentResource, err := collection.Get(c.StatefulSet.Name, metav1.GetOptions{})
+	currentResource, err := collection.Get(ctx, c.StatefulSet.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
@@ -84,6 +84,11 @@ func (c *StatefulSetControl) Upsert(ctx context.Context) error {
 	}
 
 	if currentResource != nil {
+		if checkCustomerManagedResource(currentResource.Annotations) {
+			c.WithField("statefulset", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+			return nil
+		}
+
 		control, err := NewStatefulSetControl(StatefulSetConfig{StatefulSet: currentResource, Client: c.Client})
 		if err != nil {
 			return trace.Wrap(err)
@@ -101,7 +106,7 @@ func (c *StatefulSetControl) Upsert(ctx context.Context) error {
 	c.StatefulSet.ResourceVersion = ""
 
 	err = withExponentialBackoff(func() error {
-		_, err = collection.Create(c.StatefulSet)
+		_, err = collection.Create(ctx, c.StatefulSet, metav1.CreateOptions{})
 		return ConvertError(err)
 	})
 	return trace.Wrap(err)
@@ -109,12 +114,12 @@ func (c *StatefulSetControl) Upsert(ctx context.Context) error {
 }
 
 // collectPods returns pods created by this statefulset
-func (c *StatefulSetControl) collectPods(statefulSet *appsv1.StatefulSet) (map[string]v1.Pod, error) {
+func (c *StatefulSetControl) collectPods(ctx context.Context, statefulSet *appsv1.StatefulSet) (map[string]v1.Pod, error) {
 	var labels map[string]string
 	if statefulSet.Spec.Selector != nil {
 		labels = statefulSet.Spec.Selector.MatchLabels
 	}
-	pods, err := CollectPods(statefulSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
+	pods, err := CollectPods(ctx, statefulSet.Namespace, labels, c.FieldLogger, c.Client, func(ref metav1.OwnerReference) bool {
 		return ref.Kind == KindStatefulSet && ref.UID == statefulSet.UID
 	})
 	return pods, trace.Wrap(err)
@@ -125,20 +130,20 @@ func (c *StatefulSetControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("Deleting statefulset %v.", formatMeta(c.StatefulSet.ObjectMeta))
 
 	collection := c.Client.AppsV1().StatefulSets(c.StatefulSet.Namespace)
-	currentResource, err := collection.Get(c.StatefulSet.Name, metav1.GetOptions{})
+	currentResource, err := collection.Get(ctx, c.StatefulSet.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		return ConvertError(err)
 	}
 	pods := c.Client.CoreV1().Pods(c.StatefulSet.Namespace)
-	currentPods, err := c.collectPods(currentResource)
+	currentPods, err := c.collectPods(ctx, currentResource)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	c.Infof("Deleting current statefulset %v.", formatMeta(currentResource.ObjectMeta))
 	deletePolicy := metav1.DeletePropagationForeground
-	err = collection.Delete(c.StatefulSet.Name, &metav1.DeleteOptions{
+	err = collection.Delete(ctx, c.StatefulSet.Name, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
@@ -146,7 +151,7 @@ func (c *StatefulSetControl) Delete(ctx context.Context, cascade bool) error {
 	}
 
 	err = waitForObjectDeletion(func() error {
-		_, err := collection.Get(c.StatefulSet.Name, metav1.GetOptions{})
+		_, err := collection.Get(ctx, c.StatefulSet.Name, metav1.GetOptions{})
 		return ConvertError(err)
 	})
 	if err != nil {
@@ -156,7 +161,7 @@ func (c *StatefulSetControl) Delete(ctx context.Context, cascade bool) error {
 	if !cascade {
 		c.Debug("Cascade not set, returning.")
 	}
-	err = deletePods(pods, currentPods, c.FieldLogger)
+	err = deletePods(ctx, pods, currentPods, c.FieldLogger)
 	return trace.Wrap(err)
 }
 
@@ -169,18 +174,18 @@ func (c *StatefulSetControl) nodeSelector() labels.Selector {
 }
 
 // Status returns status of pods for this resource
-func (c *StatefulSetControl) Status() error {
+func (c *StatefulSetControl) Status(ctx context.Context) error {
 	collection := c.Client.AppsV1().StatefulSets(c.StatefulSet.Namespace)
-	currentResource, err := collection.Get(c.StatefulSet.Name, metav1.GetOptions{})
+	currentResource, err := collection.Get(ctx, c.StatefulSet.Name, metav1.GetOptions{})
 	if err != nil {
 		return ConvertError(err)
 	}
-	currentPods, err := c.collectPods(currentResource)
+	currentPods, err := c.collectPods(ctx, currentResource)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	nodes, err := c.Client.CoreV1().Nodes().List(metav1.ListOptions{
+	nodes, err := c.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: c.nodeSelector().String(),
 	})
 	if err != nil {

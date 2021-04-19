@@ -66,7 +66,7 @@ type PrometheusRuleControl struct {
 func (c *PrometheusRuleControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.PrometheusRule.ObjectMeta))
 
-	err := c.Client.MonitoringV1().PrometheusRules(c.PrometheusRule.Namespace).Delete(c.PrometheusRule.Name, nil)
+	err := c.Client.MonitoringV1().PrometheusRules(c.PrometheusRule.Namespace).Delete(ctx, c.PrometheusRule.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -77,23 +77,29 @@ func (c *PrometheusRuleControl) Upsert(ctx context.Context) error {
 	c.PrometheusRule.UID = ""
 	c.PrometheusRule.SelfLink = ""
 	c.PrometheusRule.ResourceVersion = ""
-	currentRule, err := client.Get(c.PrometheusRule.Name, metav1.GetOptions{})
+	currentRule, err := client.Get(ctx, c.PrometheusRule.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = client.Create(c.PrometheusRule)
+		_, err = client.Create(ctx, c.PrometheusRule, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
+
+	if checkCustomerManagedResource(currentRule.Annotations) {
+		c.WithField("prometheusrule", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
 	c.PrometheusRule.ResourceVersion = currentRule.ResourceVersion
-	_, err = client.Update(c.PrometheusRule)
+	_, err = client.Update(ctx, c.PrometheusRule, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *PrometheusRuleControl) Status() error {
+func (c *PrometheusRuleControl) Status(ctx context.Context) error {
 	client := c.Client.MonitoringV1().PrometheusRules(c.PrometheusRule.Namespace)
-	_, err := client.Get(c.PrometheusRule.Name, metav1.GetOptions{})
+	_, err := client.Get(ctx, c.PrometheusRule.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

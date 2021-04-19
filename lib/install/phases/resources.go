@@ -86,7 +86,8 @@ func (r *systemResources) Execute(ctx context.Context) error {
 // made available to every cluster hook.
 func (r *systemResources) createClusterInfoMap() error {
 	configMap := ops.MakeClusterInfoMap(r.Cluster)
-	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Create(configMap)
+	_, err := r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -95,9 +96,9 @@ func (r *systemResources) createClusterInfoMap() error {
 }
 
 // Rollback deletes created system Kubernetes resources.
-func (r *systemResources) Rollback(context.Context) error {
-	err := rigging.ConvertError(r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).Delete(
-		constants.ClusterInfoMap, &metav1.DeleteOptions{}))
+func (r *systemResources) Rollback(ctx context.Context) error {
+	err := rigging.ConvertError(r.Client.CoreV1().ConfigMaps(constants.KubeSystemNamespace).
+		Delete(ctx, constants.ClusterInfoMap, metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

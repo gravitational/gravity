@@ -1,62 +1,30 @@
-.PHONY: \
-	all \
-	vendor \
-	lint \
-	vet \
-	fmt \
-	fmtcheck \
-	pretest \
-	test \
-	integration \
-	cov \
-	clean
+ifeq "$(strip $(shell go env GOARCH))" "amd64"
+RACE_FLAG := -race
+endif
 
-SRCS = $(shell git ls-files '*.go' | grep -v '^external/')
-PKGS = ./. ./testing
+.PHONY: test
+test: pretest gotest
 
-all: test
+.PHONY: golangci-lint
+golangci-lint:
+	cd /tmp && GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	golangci-lint run
 
-vendor:
-	@ go get -v github.com/mjibson/party
-	party -d external -c -u
+.PHONY: staticcheck
+staticcheck:
+	cd /tmp && GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck@master
+	staticcheck ./...
 
-lint:
-	@ go get -v github.com/golang/lint/golint
-	$(foreach file,$(SRCS),golint $(file) || exit;)
+.PHONY: lint
+lint: golangci-lint staticcheck
 
-vet:
-	@-go get -v golang.org/x/tools/cmd/vet
-	$(foreach pkg,$(PKGS),go vet $(pkg);)
+.PHONY: pretest
+pretest: lint
 
-fmt:
-	gofmt -s -w $(SRCS)
+.PHONY: gotest
+gotest:
+	go test $(RACE_FLAG) -vet all ./...
 
-fmtcheck:
-	@ export output=$$(gofmt -s -d $(SRCS)); \
-		[ -n "$${output}" ] && echo "$${output}" && export status=1; \
-		exit $${status:-0}
-
-prepare_docker:
-	sudo stop docker
-	sudo rm -rf /var/lib/docker
-	sudo rm -f `which docker`
-	sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-	echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" | sudo tee /etc/apt/sources.list.d/docker.list
-	sudo apt-get update
-	sudo apt-get install docker-engine=$(DOCKER_VERSION)-0~$(shell lsb_release -cs) -y --force-yes -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
-
-pretest: lint vet fmtcheck
-
-test: pretest
-	$(foreach pkg,$(PKGS),go test $(pkg) || exit;)
-
+.PHONY: integration
 integration:
 	go test -tags docker_integration -run TestIntegration -v
-
-cov:
-	@ go get -v github.com/axw/gocov/gocov
-	@ go get golang.org/x/tools/cmd/cover
-	gocov test | gocov report
-
-clean:
-	$(foreach pkg,$(PKGS),go clean $(pkg) || exit;)

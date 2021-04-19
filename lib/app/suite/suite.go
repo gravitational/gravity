@@ -50,11 +50,11 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/repo"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/repo"
 )
 
 type AppsSuite struct {
@@ -732,7 +732,8 @@ func (r *AppsSuite) FetchChart(c *C) {
 	defer reader.Close()
 
 	// Load the chart archive and make sure it's valid.
-	chart, err := chartutil.LoadArchive(reader)
+	chart, err := loader.LoadArchive(reader)
+
 	c.Assert(err, IsNil)
 	compare.DeepCompare(c, chart, apptest.Chart(alpine))
 }

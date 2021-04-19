@@ -70,7 +70,7 @@ type PriorityClassControl struct {
 func (c *PriorityClassControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.PriorityClass.ObjectMeta))
 
-	err := c.Client.SchedulingV1().PriorityClasses().Delete(c.PriorityClass.Name, nil)
+	err := c.Client.SchedulingV1().PriorityClasses().Delete(ctx, c.PriorityClass.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -81,22 +81,28 @@ func (c *PriorityClassControl) Upsert(ctx context.Context) error {
 	c.PriorityClass.UID = ""
 	c.PriorityClass.SelfLink = ""
 	c.PriorityClass.ResourceVersion = ""
-	_, err := PriorityClasss.Get(c.PriorityClass.Name, metav1.GetOptions{})
+	existing, err := PriorityClasss.Get(ctx, c.PriorityClass.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = PriorityClasss.Create(c.PriorityClass)
+		_, err = PriorityClasss.Create(ctx, c.PriorityClass, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
-	_, err = PriorityClasss.Update(c.PriorityClass)
+
+	if checkCustomerManagedResource(existing.Annotations) {
+		c.WithField("priorityclass", formatMeta(c.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = PriorityClasss.Update(ctx, c.PriorityClass, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *PriorityClassControl) Status() error {
+func (c *PriorityClassControl) Status(ctx context.Context) error {
 	PriorityClasss := c.Client.SchedulingV1beta1().PriorityClasses()
-	_, err := PriorityClasss.Get(c.PriorityClass.Name, metav1.GetOptions{})
+	_, err := PriorityClasss.Get(ctx, c.PriorityClass.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

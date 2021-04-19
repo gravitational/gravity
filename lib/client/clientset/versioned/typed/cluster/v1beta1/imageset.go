@@ -19,6 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"time"
 
 	v1beta1 "github.com/gravitational/gravity/lib/apis/cluster/v1beta1"
@@ -71,7 +72,7 @@ func (c *imageSets) Get(name string, options v1.GetOptions) (result *v1beta1.Ima
 		Resource("imagesets").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -88,7 +89,7 @@ func (c *imageSets) List(opts v1.ListOptions) (result *v1beta1.ImageSetList, err
 		Resource("imagesets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -105,7 +106,7 @@ func (c *imageSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("imagesets").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(context.TODO())
 }
 
 // Create takes the representation of a imageSet and creates it.  Returns the server's representation of the imageSet, and an error, if there is any.
@@ -115,7 +116,7 @@ func (c *imageSets) Create(imageSet *v1beta1.ImageSet) (result *v1beta1.ImageSet
 		Namespace(c.ns).
 		Resource("imagesets").
 		Body(imageSet).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -128,7 +129,7 @@ func (c *imageSets) Update(imageSet *v1beta1.ImageSet) (result *v1beta1.ImageSet
 		Resource("imagesets").
 		Name(imageSet.Name).
 		Body(imageSet).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -144,7 +145,7 @@ func (c *imageSets) UpdateStatus(imageSet *v1beta1.ImageSet) (result *v1beta1.Im
 		Name(imageSet.Name).
 		SubResource("status").
 		Body(imageSet).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }
@@ -156,7 +157,7 @@ func (c *imageSets) Delete(name string, options *v1.DeleteOptions) error {
 		Resource("imagesets").
 		Name(name).
 		Body(options).
-		Do().
+		Do(context.TODO()).
 		Error()
 }
 
@@ -172,7 +173,7 @@ func (c *imageSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.L
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(options).
-		Do().
+		Do(context.TODO()).
 		Error()
 }
 
@@ -185,7 +186,7 @@ func (c *imageSets) Patch(name string, pt types.PatchType, data []byte, subresou
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
-		Do().
+		Do(context.TODO()).
 		Into(result)
 	return
 }

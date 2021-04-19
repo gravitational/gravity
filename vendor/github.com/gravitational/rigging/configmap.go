@@ -67,7 +67,7 @@ type ConfigMapControl struct {
 func (c *ConfigMapControl) Delete(ctx context.Context, cascade bool) error {
 	c.Infof("delete %v", formatMeta(c.ConfigMap.ObjectMeta))
 
-	err := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace).Delete(c.ConfigMap.Name, nil)
+	err := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace).Delete(ctx, c.ConfigMap.Name, metav1.DeleteOptions{})
 	return ConvertError(err)
 }
 
@@ -78,22 +78,28 @@ func (c *ConfigMapControl) Upsert(ctx context.Context) error {
 	c.ConfigMap.UID = ""
 	c.ConfigMap.SelfLink = ""
 	c.ConfigMap.ResourceVersion = ""
-	_, err := configMaps.Get(c.ConfigMap.Name, metav1.GetOptions{})
+	currentConfigMap, err := configMaps.Get(ctx, c.ConfigMap.Name, metav1.GetOptions{})
 	err = ConvertError(err)
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		_, err = configMaps.Create(c.ConfigMap)
+		_, err = configMaps.Create(ctx, c.ConfigMap, metav1.CreateOptions{})
 		return ConvertError(err)
 	}
-	_, err = configMaps.Update(c.ConfigMap)
+
+	if checkCustomerManagedResource(currentConfigMap.Annotations) {
+		c.WithField("configmap", formatMeta(c.ConfigMap.ObjectMeta)).Info("Skipping update since object is customer managed.")
+		return nil
+	}
+
+	_, err = configMaps.Update(ctx, c.ConfigMap, metav1.UpdateOptions{})
 	return ConvertError(err)
 }
 
-func (c *ConfigMapControl) Status() error {
+func (c *ConfigMapControl) Status(ctx context.Context) error {
 	configMaps := c.Client.CoreV1().ConfigMaps(c.ConfigMap.Namespace)
-	_, err := configMaps.Get(c.ConfigMap.Name, metav1.GetOptions{})
+	_, err := configMaps.Get(ctx, c.ConfigMap.Name, metav1.GetOptions{})
 	return ConvertError(err)
 }
 

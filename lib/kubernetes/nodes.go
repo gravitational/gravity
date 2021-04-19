@@ -56,7 +56,7 @@ func Drain(ctx context.Context, client *kubernetes.Clientset, nodeName string) e
 // SetUnschedulable marks the specified node as unschedulable depending on the value of the specified flag.
 // Retries the operation internally on update conflicts.
 func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName string, unschedulable bool) error {
-	node, err := client.Get(nodeName, metav1.GetOptions{})
+	node, err := client.Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -81,7 +81,7 @@ func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName
 
 // UpdateTaints adds and/or removes taints specified with add/remove correspondingly on the specified node.
 func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName string, taintsToAdd []v1.Taint, taintsToRemove []v1.Taint) error {
-	node, err := client.Get(nodeName, metav1.GetOptions{})
+	node, err := client.Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -117,11 +117,12 @@ func UpdateLabels(ctx context.Context, client corev1.NodeInterface, nodeName str
 
 // GetNode returns Kubernetes node corresponding to the provided server
 func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, error) {
-	nodes, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: utils.MakeSelector(map[string]string{
-			v1.LabelHostname: server.KubeNodeID(),
-		}).String(),
-	})
+	nodes, err := client.CoreV1().Nodes().
+		List(context.TODO(), metav1.ListOptions{
+			LabelSelector: utils.MakeSelector(map[string]string{
+				v1.LabelHostname: server.KubeNodeID(),
+			}).String(),
+		})
 	if err != nil {
 		return nil, rigging.ConvertErrorWithContext(err,
 			"failed to list Kubernetes nodes")
@@ -140,7 +141,7 @@ func GetNode(client *kubernetes.Clientset, server storage.Server) (*v1.Node, err
 
 // setUnschedulable sets unschedulable status on the node given with nodeName
 func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulable bool) error {
-	node, err := client.Get(nodeName, metav1.GetOptions{})
+	node, err := client.Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -159,30 +160,31 @@ func setUnschedulable(client corev1.NodeInterface, nodeName string, unschedulabl
 
 	patchBytes, patchErr := strategicpatch.CreateTwoWayMergePatch(oldData, newData, node)
 	if patchErr == nil {
-		_, err = client.Patch(node.Name, types.StrategicMergePatchType, patchBytes)
+		_, err = client.Patch(context.TODO(), node.Name,
+			types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 	} else {
 		log.WithError(err).Warn("Failed to patch node object.")
-		_, err = client.Update(node)
+		_, err = client.Update(context.TODO(), node, metav1.UpdateOptions{})
 	}
 	return rigging.ConvertError(err)
 }
 
 // updateTaints updates taints on the node given with nodeName from newTaints
 func updateTaints(client corev1.NodeInterface, nodeName string, newTaints []v1.Taint) error {
-	node, err := client.Get(nodeName, metav1.GetOptions{})
+	node, err := client.Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	node.Spec.Taints = newTaints
 
-	_, err = client.Update(node)
+	_, err = client.Update(context.TODO(), node, metav1.UpdateOptions{})
 	return rigging.ConvertError(err)
 }
 
 // updateLabels updates labels on the node specified with nodeName
 func updateLabels(client corev1.NodeInterface, nodeName string, labels map[string]string) error {
-	node, err := client.Get(nodeName, metav1.GetOptions{})
+	node, err := client.Get(context.TODO(), nodeName, metav1.GetOptions{})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -191,7 +193,7 @@ func updateLabels(client corev1.NodeInterface, nodeName string, labels map[strin
 		node.Labels[name] = value
 	}
 
-	_, err = client.Update(node)
+	_, err = client.Update(context.TODO(), node, metav1.UpdateOptions{})
 	return rigging.ConvertError(err)
 }
 

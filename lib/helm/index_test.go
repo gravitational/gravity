@@ -30,8 +30,8 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 
 	check "gopkg.in/check.v1"
-	"k8s.io/helm/pkg/proto/hapi/chart"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/repo"
 )
 
 func TestHelm(t *testing.T) { check.TestingT(t) }

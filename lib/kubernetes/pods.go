@@ -17,6 +17,7 @@ limitations under the License.
 package kubernetes
 
 import (
+	"context"
 	"os"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -31,10 +32,11 @@ import (
 
 // DeletePods deletes all pods matching selector using provided client
 func DeletePods(client *kubernetes.Clientset, namespace string, selector map[string]string) error {
-	return rigging.ConvertError(client.CoreV1().Pods(namespace).DeleteCollection(
-		nil, metav1.ListOptions{
-			LabelSelector: utils.MakeSelector(selector).String(),
-		}))
+	return rigging.ConvertError(client.CoreV1().Pods(namespace).
+		DeleteCollection(context.TODO(), metav1.DeleteOptions{},
+			metav1.ListOptions{
+				LabelSelector: utils.MakeSelector(selector).String(),
+			}))
 }
 
 // DeleteSelf deletes the pod this process is running as a part of.
@@ -49,6 +51,6 @@ func DeleteSelf(client *kubernetes.Clientset, log logrus.FieldLogger) error {
 		return trace.NotFound("env var %v is not set", constants.EnvPodNamespace)
 	}
 	log.Infof("Deleting pod %v/%v.", selfNamespace, selfName)
-	return rigging.ConvertError(client.CoreV1().Pods(selfNamespace).Delete(
-		selfName, nil))
+	return rigging.ConvertError(client.CoreV1().Pods(selfNamespace).
+		Delete(context.TODO(), selfName, metav1.DeleteOptions{}))
 }

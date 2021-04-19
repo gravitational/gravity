@@ -73,7 +73,8 @@ func (o *Operator) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error 
 		return trace.Wrap(err)
 	}
 
-	err = rigging.ConvertError(client.CoreV1().Secrets(defaults.MonitoringNamespace).Delete(constants.SMTPSecret, nil))
+	err = rigging.ConvertError(client.CoreV1().Secrets(defaults.MonitoringNamespace).
+		Delete(ctx, constants.SMTPSecret, metav1.DeleteOptions{}))
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("no SMTP configuration found")
@@ -86,7 +87,7 @@ func (o *Operator) DeleteSMTPConfig(ctx context.Context, key ops.SiteKey) error 
 }
 
 func getSMTPConfig(client corev1.SecretInterface) ([]byte, error) {
-	secret, err := client.Get(constants.SMTPSecret, metav1.GetOptions{})
+	secret, err := client.Get(context.TODO(), constants.SMTPSecret, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil {
 		if trace.IsNotFound(err) {
@@ -124,7 +125,7 @@ func updateSMTPConfig(client corev1.SecretInterface, config storage.SMTPConfig) 
 		Type: v1.SecretTypeOpaque,
 	}
 
-	_, err = client.Create(secret)
+	_, err = client.Create(context.TODO(), secret, metav1.CreateOptions{})
 	err = rigging.ConvertError(err)
 	if err == nil {
 		return nil
@@ -134,6 +135,6 @@ func updateSMTPConfig(client corev1.SecretInterface, config storage.SMTPConfig) 
 		return trace.Wrap(err)
 	}
 
-	_, err = client.Update(secret)
+	_, err = client.Update(context.TODO(), secret, metav1.UpdateOptions{})
 	return trace.Wrap(rigging.ConvertError(err))
 }

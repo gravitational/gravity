@@ -32,8 +32,8 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/proto/hapi/chart"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chartutil"
 )
 
 type VendorSuite struct{}
@@ -211,18 +211,21 @@ func (*VendorSuite) TestGeneratesProperPackageNames(c *C) {
 // when rendering charts to extract image references from them.
 func (*VendorSuite) TestHelmChartRender(c *C) {
 	chart := &chart.Chart{
+		Raw: []*chart.File{
+			{
+				Name: "values.yaml",
+				Data: []byte(helmValues),
+			},
+		},
 		Metadata: &chart.Metadata{
 			Name:    "test-chart",
 			Version: "0.0.1",
 		},
-		Templates: []*chart.Template{
+		Templates: []*chart.File{
 			{
 				Name: "templates/resources.yaml",
 				Data: []byte(helmTemplate),
 			},
-		},
-		Values: &chart.Config{
-			Raw: helmValues,
 		},
 	}
 

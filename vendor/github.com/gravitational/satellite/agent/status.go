@@ -1,5 +1,5 @@
 /*
-Copyright 2016 Gravitational, Inc.
+Copyright 2016-2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,30 +22,14 @@ import (
 	"fmt"
 
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-	"github.com/gravitational/satellite/lib/membership"
 )
 
-// toMemberStatus converts the provided status string into a protobuf message.
-func toMemberStatus(status string) pb.MemberStatus_Type {
-	switch MemberStatus(status) {
-	case MemberAlive:
-		return pb.MemberStatus_Alive
-	case MemberLeaving:
-		return pb.MemberStatus_Leaving
-	case MemberLeft:
-		return pb.MemberStatus_Left
-	case MemberFailed:
-		return pb.MemberStatus_Failed
-	}
-	return pb.MemberStatus_None
-}
-
 // unknownNodeStatus creates an `unknown` node status for a node specified with member.
-func unknownNodeStatus(member membership.ClusterMember) *pb.NodeStatus {
+func unknownNodeStatus(member *pb.MemberStatus) *pb.NodeStatus {
 	return &pb.NodeStatus{
-		Name:         member.Name(),
+		Name:         member.Name,
 		Status:       pb.NodeStatus_Unknown,
-		MemberStatus: statusFromMember(member),
+		MemberStatus: member,
 	}
 }
 
@@ -65,25 +49,15 @@ func emptySystemStatus() *pb.SystemStatus {
 	}
 }
 
-// statusFromMember returns new member status value for the specified cluster member.
-func statusFromMember(member membership.ClusterMember) *pb.MemberStatus {
-	return &pb.MemberStatus{
-		Name:   member.Name(),
-		Status: toMemberStatus(member.Status()),
-		Tags:   member.Tags(),
-		Addr:   fmt.Sprintf("%s:%d", member.Addr().String(), member.Port()),
-	}
-}
-
 // setSystemStatus combines the status of individual nodes into the status of the
 // cluster as a whole.
 // It additionally augments the cluster status with human-readable summary.
-func setSystemStatus(status *pb.SystemStatus, members []membership.ClusterMember) {
+func setSystemStatus(status *pb.SystemStatus, members []*pb.MemberStatus) {
 	var foundMaster bool
 
 	missing := make(memberMap)
 	for _, member := range members {
-		missing[member.Name()] = struct{}{}
+		missing[member.Name] = struct{}{}
 	}
 
 	status.Status = pb.SystemStatus_Running

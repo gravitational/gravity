@@ -143,7 +143,7 @@ func NewOpenEBSControl(config OpenEBSConfig) (*openEBSControl, error) {
 
 // GetNDMConfig returns node device manager configuration.
 func (c *openEBSControl) GetNDMConfig() (*storage.NDMConfig, error) {
-	cm, err := c.cm.Get(c.cmName, metav1.GetOptions{})
+	cm, err := c.cm.Get(context.TODO(), c.cmName, metav1.GetOptions{})
 	if err != nil {
 		return nil, rigging.ConvertError(err)
 	}
@@ -161,7 +161,7 @@ func (c *openEBSControl) UpdateNDMConfig(config *storage.NDMConfig) error {
 		return trace.Wrap(err)
 	}
 	c.Infof("Updating NDM config map: %v.", cm.Data)
-	_, err = c.cm.Update(cm)
+	_, err = c.cm.Update(context.TODO(), cm, metav1.UpdateOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}
@@ -171,7 +171,8 @@ func (c *openEBSControl) UpdateNDMConfig(config *storage.NDMConfig) error {
 // RestartNDM restarts node device manager pods.
 func (c *openEBSControl) RestartNDM() error {
 	c.Info("Restarting NDM daemon set.")
-	_, err := c.ds.Patch(c.dsName, types.StrategicMergePatchType, formatRestartPatch())
+	_, err := c.ds.Patch(context.TODO(), c.dsName, types.StrategicMergePatchType,
+		formatRestartPatch(), metav1.PatchOptions{})
 	if err != nil {
 		return rigging.ConvertError(err)
 	}

@@ -62,7 +62,7 @@ func (o *Operator) GetClusterEnvironmentVariables(key ops.SiteKey) (env storage.
 		return nil, trace.Wrap(err)
 	}
 	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+		Get(context.TODO(), constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -81,7 +81,7 @@ func (o *Operator) getClusterEnvironment() (env map[string]string, err error) {
 		return nil, trace.Wrap(err)
 	}
 	configmap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
-		Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+		Get(context.TODO(), constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -115,7 +115,7 @@ func (o *Operator) UpdateClusterEnvironmentVariables(req ops.UpdateClusterEnviro
 	}
 	configmap.Data = req.Env
 	err = kubernetes.Retry(context.TODO(), func() error {
-		_, err := configmaps.Update(configmap)
+		_, err := configmaps.Update(context.TODO(), configmap, metav1.UpdateOptions{})
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)
@@ -160,7 +160,7 @@ func (s *site) createUpdateEnvarsOperation(ctx context.Context, req ops.CreateUp
 }
 
 func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configmap *v1.ConfigMap, err error) {
-	configmap, err = client.Get(constants.ClusterEnvironmentMap, metav1.GetOptions{})
+	configmap, err = client.Get(context.TODO(), constants.ClusterEnvironmentMap, metav1.GetOptions{})
 	if err != nil {
 		if !trace.IsNotFound(rigging.ConvertError(err)) {
 			return nil, trace.Wrap(err)
@@ -171,7 +171,7 @@ func getOrCreateEnvironmentConfigMap(client corev1.ConfigMapInterface) (configma
 		return configmap, nil
 	}
 	configmap = NewEnvironmentConfigMap(nil)
-	configmap, err = client.Create(configmap)
+	configmap, err = client.Create(context.TODO(), configmap, metav1.CreateOptions{})
 	if err != nil {
 		return nil, trace.Wrap(rigging.ConvertError(err))
 	}

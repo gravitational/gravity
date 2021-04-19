@@ -167,7 +167,7 @@ func collectServices(client corev1.CoreV1Interface, serviceCIDR string) (result 
 	if err != nil {
 		return nil, trace.Wrap(err, "invalid service subnet: %v", serviceCIDR)
 	}
-	services, err := client.Services(constants.AllNamespaces).List(metav1.ListOptions{})
+	services, err := client.Services(constants.AllNamespaces).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, rigging.ConvertError(err)
 	}

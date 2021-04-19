@@ -231,7 +231,8 @@ func InstallLicenseSecret(client *kubernetes.Clientset, licenseData string) erro
 		},
 	}
 
-	_, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Create(secret)
+	_, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).
+		Create(context.TODO(), secret, metav1.CreateOptions{})
 	if err == nil {
 		return nil
 	}
@@ -239,7 +240,8 @@ func InstallLicenseSecret(client *kubernetes.Clientset, licenseData string) erro
 		return trace.Wrap(rigging.ConvertError(err))
 	}
 
-	_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).Update(secret)
+	_, err = client.CoreV1().Secrets(defaults.KubeSystemNamespace).
+		Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -260,7 +262,8 @@ func InstallLicenseConfigMap(client *kubernetes.Clientset, licenseData string) e
 		},
 	}
 
-	_, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Create(configMap)
+	_, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err == nil {
 		return nil
 	}
@@ -268,7 +271,8 @@ func InstallLicenseConfigMap(client *kubernetes.Clientset, licenseData string) e
 		return trace.Wrap(rigging.ConvertError(err))
 	}
 
-	_, err = client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Update(configMap)
+	_, err = client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Update(context.TODO(), configMap, metav1.UpdateOptions{})
 	if err != nil {
 		return trace.Wrap(rigging.ConvertError(err))
 	}
@@ -278,8 +282,8 @@ func InstallLicenseConfigMap(client *kubernetes.Clientset, licenseData string) e
 
 // GetLicenseFromSecret returns license string from Kubernetes secret
 func GetLicenseFromSecret(client *kubernetes.Clientset) (string, error) {
-	secret, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).Get(
-		constants.LicenseSecretName, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(defaults.KubeSystemNamespace).
+		Get(context.TODO(), constants.LicenseSecretName, metav1.GetOptions{})
 	if err != nil {
 		return "", trace.Wrap(rigging.ConvertError(err))
 	}
@@ -295,8 +299,8 @@ func GetLicenseFromSecret(client *kubernetes.Clientset) (string, error) {
 // GetLicenseFromConfigMap returns license data from Kubernetes config map,
 // used for migration purposes
 func GetLicenseFromConfigMap(client *kubernetes.Clientset) (string, error) {
-	configMap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Get(
-		constants.LicenseConfigMapName, metav1.GetOptions{})
+	configMap, err := client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Get(context.TODO(), constants.LicenseConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return "", trace.Wrap(rigging.ConvertError(err))
 	}
@@ -311,8 +315,8 @@ func GetLicenseFromConfigMap(client *kubernetes.Clientset) (string, error) {
 
 // DeleteLicenseSecret deletes the Kubernetes secret with cluster license
 func DeleteLicenseSecret(client *kubernetes.Clientset) error {
-	err := rigging.ConvertError(client.CoreV1().Secrets(defaults.KubeSystemNamespace).Delete(
-		constants.LicenseSecretName, nil))
+	err := rigging.ConvertError(client.CoreV1().Secrets(defaults.KubeSystemNamespace).
+		Delete(context.TODO(), constants.LicenseSecretName, metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -321,8 +325,8 @@ func DeleteLicenseSecret(client *kubernetes.Clientset) error {
 
 // DeleteLicenseConfigMap deletes the Kubernetes config map with cluster license
 func DeleteLicenseConfigMap(client *kubernetes.Clientset) error {
-	err := rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).Delete(
-		constants.LicenseConfigMapName, nil))
+	err := rigging.ConvertError(client.CoreV1().ConfigMaps(defaults.KubeSystemNamespace).
+		Delete(context.TODO(), constants.LicenseConfigMapName, metav1.DeleteOptions{}))
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}

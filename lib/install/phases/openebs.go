@@ -83,9 +83,9 @@ func (r *openebs) Execute(ctx context.Context) error {
 
 // createNamespace creates OpenEBS namespace if it doesn't exist.
 func (r *openebs) createNamespace() error {
-	_, err := r.Client.CoreV1().Namespaces().Create(&v1.Namespace{
+	_, err := r.Client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: defaults.OpenEBSNamespace},
-	})
+	}, metav1.CreateOptions{})
 	if err != nil {
 		if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 			return trace.Wrap(err).AddField("namespace", defaults.OpenEBSNamespace)
@@ -103,7 +103,8 @@ func (r *openebs) createConfigMap(config *storage.NDMConfig) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	_, err = r.Client.CoreV1().ConfigMaps(defaults.OpenEBSNamespace).Create(configMap)
+	_, err = r.Client.CoreV1().ConfigMaps(defaults.OpenEBSNamespace).
+		Create(context.TODO(), configMap, metav1.CreateOptions{})
 	if err != nil {
 		if !trace.IsAlreadyExists(rigging.ConvertError(err)) {
 			return trace.Wrap(err).AddFields(map[string]interface{}{
@@ -119,11 +120,11 @@ func (r *openebs) createConfigMap(config *storage.NDMConfig) error {
 }
 
 // Rollback deletes config map with OpenEBS configuration.
-func (r *openebs) Rollback(context.Context) error {
+func (r *openebs) Rollback(ctx context.Context) error {
 	r.Progress.NextStep("Deleting OpenEBS configuration")
 	r.Info("Deleting OpenEBS configuration.")
-	err := r.Client.CoreV1().ConfigMaps(defaults.OpenEBSNamespace).Delete(
-		constants.OpenEBSNDMConfigMap, &metav1.DeleteOptions{})
+	err := r.Client.CoreV1().ConfigMaps(defaults.OpenEBSNamespace).
+		Delete(ctx, constants.OpenEBSNDMConfigMap, metav1.DeleteOptions{})
 	err = rigging.ConvertError(err)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)

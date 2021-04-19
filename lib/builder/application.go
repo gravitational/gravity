@@ -24,7 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/app/service"
 
 	"github.com/gravitational/trace"
-	"k8s.io/helm/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/chart/loader"
 )
 
 // NewApplicationBuilder returns a builder that produces application images.
@@ -56,7 +56,7 @@ type ApplicationRequest struct {
 
 // Build builds an application image according to the provided parameters.
 func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) error {
-	chart, err := chartutil.Load(req.ChartPath)
+	chart, err := loader.Load(req.ChartPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
