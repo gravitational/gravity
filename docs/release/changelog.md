@@ -11,6 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [8.0](#80-releases) | 8.0.0-alpha.0 | No  | pre-release          | April 19, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
 | [7.1](#71-releases) | 7.1.0-alpha.6 | No  | pre-release          | April 14, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.31        | Yes | April 3, 2020        | April 15, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
