@@ -3,11 +3,11 @@ site_url: https://gravitational.com/gravity/docs
 repo_url: https://github.com/gravitational/gravity
 site_description: Gravity Documentation
 site_author: Gravitational Inc
-copyright: Gravitational Inc, 2017-20
+copyright: Gravitational Inc, 2017-21
 
 # UPDATE HERE FOR EACH VERSION
-site_dir: ../build/docs/7.x
-docs_dir: "7.x"
+site_dir: ../build/docs/8.x
+docs_dir: "8.x"
 
 theme:
     name: null
@@ -29,10 +29,10 @@ plugins:
     }
 extra_javascript: []
 extra:
-    version: 7.x
+    version: 8.x
     product: gravity
     gravity:
-        version: 7.0
+        version: 8.0
 
 nav:
     - Documentation:
