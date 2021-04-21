@@ -6,8 +6,8 @@ site_author: Gravitational Inc
 copyright: Gravitational Inc, 2017-21
 
 # UPDATE HERE FOR EACH VERSION
-site_dir: ../build/docs/8.x
-docs_dir: "8.x"
+site_dir: ../build/docs/9.x
+docs_dir: "9.x"
 
 theme:
     name: null
@@ -29,10 +29,10 @@ plugins:
     }
 extra_javascript: []
 extra:
-    version: 8.x
+    version: 9.x
     product: gravity
     gravity:
-        version: 8.0
+        version: 9.0
 
 nav:
     - Documentation:
