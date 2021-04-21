@@ -16,7 +16,7 @@ To add a new version, say 9.x:
     * `docs_dir`
     * `extra` variables
 * edit theme/scripts.html and update docVersions variable
-* edit Makefile and append new version to the `VERSION` variable
+* edit Makefile and append new version to the `VERSIONS` variable
 
 ## Deploying
 
