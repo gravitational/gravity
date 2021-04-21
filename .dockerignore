@@ -1,8 +1,10 @@
-build/.vagrant
-assets/site/build
-assets/site/fixtures/*tar
-assets/site/fixtures/*tar.gz
+build/
+_build/
+assets/
 .git
 .vagrant
-Godeps
-lib
+lib/
+tool/
+docs/
+build.assets/
+web/

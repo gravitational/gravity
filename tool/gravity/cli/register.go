@@ -360,7 +360,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppImportCmd.Name = g.AppImportCmd.Flag("name", "optional app name, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.Version = g.AppImportCmd.Flag("version", "optional app version, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.RegistryURL = g.AppImportCmd.Flag("registry-url", "optional remote docker registry URL").Default(defaults.DockerRegistry).String()
-	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").Default(constants.DockerEngineURL).String()
+	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").String()
 	g.AppImportCmd.OpsCenterURL = g.AppImportCmd.Flag("ops-url", "optional Gravity Hub URL").String()
 	g.AppImportCmd.Vendor = g.AppImportCmd.Flag("vendor", "rewrite all container images to use private docker registry (requires --registry-url)").Bool()
 	g.AppImportCmd.Force = g.AppImportCmd.Flag("force", "overwrite existing application").Bool()

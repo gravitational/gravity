@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
 )
 
@@ -182,7 +183,13 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 
 	if req.Vendor {
-		dockerClient, err := docker.NewClient(dockerURL)
+		var dockerClient *dockerapi.Client
+		var err error
+		if dockerURL != "" {
+			dockerClient, err = docker.NewClient(dockerURL)
+		} else {
+			dockerClient, err = docker.NewClientFromEnv()
+		}
 		if err != nil {
 			return trace.Wrap(err)
 		}

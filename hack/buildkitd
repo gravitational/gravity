@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -e
+
+sudo buildkitd --config buildkitd.config.toml
