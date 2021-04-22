@@ -7,12 +7,16 @@ Look at the `Makefile` to see how it works.
 
 ## Adding a New Version
 
-To add a new version, say 8.x:
+To add a new version, say 9.x:
 
-* copy 7.x.yaml to 8.x.yaml
-* edit 8.x.yaml
+* copy directory 8.x to 9.x
+* copy 8.x.yaml to 9.x.yaml
+* edit 9.x.yaml and update:
+    * `site_dir`
+    * `docs_dir`
+    * `extra` variables
 * edit theme/scripts.html and update docVersions variable
-
+* edit Makefile and append new version to the `VERSIONS` variable
 
 ## Deploying
 

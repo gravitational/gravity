@@ -1,0 +1,56 @@
+site_name: Gravitational Gravity
+site_url: https://gravitational.com/gravity/docs
+repo_url: https://github.com/gravitational/gravity
+site_description: Gravity Documentation
+site_author: Gravitational Inc
+copyright: Gravitational Inc, 2017-21
+
+# UPDATE HERE FOR EACH VERSION
+site_dir: ../build/docs/8.x
+docs_dir: "8.x"
+
+theme:
+    name: null
+    custom_dir: 'theme/'
+    include_search_page: true
+markdown_extensions:
+  - markdown_include.include:
+      base_path: '../'
+  - admonition
+  - def_list
+  - footnotes
+  - toc:
+      marker: '[TOC]'
+extra_css: []
+plugins:
+    - search:
+        separator: '[\s\-\.]'
+    - markdownextradata: {
+    }
+extra_javascript: []
+extra:
+    version: 8.x
+    product: gravity
+    gravity:
+        version: 8.0
+
+nav:
+    - Documentation:
+      - Gravity Overview: index.md
+      - Quick Start: quickstart.md
+      - Building Cluster Images: pack.md
+      - Installation: installation.md
+      - Cluster Configuration: config.md
+      - Cluster Management: cluster.md
+      - Cluster Monitoring: monitoring.md
+      - Cluster Access: access.md
+      - Application Catalog: catalog.md
+      - Persistent Storage: storage.md
+      - Gravity Hub (Enterprise): hub.md
+      - CLI Reference: cli.md
+      - System Requirements: requirements.md
+      - Releases: changelog.md
+      - FAQ: faq.md
+      - Guides: guides.md
+      - SELinux: selinux.md
+      - Ingress: ingress.md
