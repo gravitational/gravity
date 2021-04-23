@@ -195,6 +195,8 @@ name: pr docs
 trigger:
   event:
   - pull_request
+  branch:
+  - master
 
 steps:
   - name: wait for docker
@@ -632,6 +634,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: caab2cfccea5948cc372cd269e409daf721baf73000a0f50ea26e6165db53761
+hmac: 6ee463482d9943a4b9974c97cad601bf274c544f6cd55b5c2b7939c036fa510d
 
 ...
