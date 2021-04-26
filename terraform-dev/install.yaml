@@ -41,7 +41,6 @@
     when: inventory_hostname == groups['all'][0]
     become: yes
     unarchive:
-      force: yes
       src: "{{tarball_path}}"
       dest: "{{ ansible_env.HOME }}/installer"
 
@@ -49,7 +48,6 @@
     when: inventory_hostname != groups['all'][0]
     become: yes
     copy:
-      force: yes
       src: "{{gravity_bin_path}}"
       dest: "{{ ansible_env.HOME }}/gravity"
       mode: 0755
