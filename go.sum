@@ -553,8 +553,6 @@ github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 h1:244Hc0XnOrqZx
 github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6/go.mod h1:ESOxlf8BB2yG3zJ0SfZe9U6wpYu3YF3znxIICg73FYA=
 github.com/gravitational/prometheus-operator v0.40.1 h1:UBPTo1YwPf0DpfeMdxNUYppUhO3Yi6kVzKHIP4vNy+8=
 github.com/gravitational/prometheus-operator v0.40.1/go.mod h1:QOoL5cVI3b1OHgpw8s+pH+Ok4AFRp2HOUvBpqs7UWcg=
-github.com/gravitational/rigging v0.0.0-20210315200250-d036093ec3e6 h1:VSqf00uKNCBk9M1M+XbsurG2ng7AKCZIxJe8i0IE+JI=
-github.com/gravitational/rigging v0.0.0-20210315200250-d036093ec3e6/go.mod h1:5yvtnIG1UfRmWJBtZZ9zKfq5aBykqAJB7vwyL9+BmoU=
 github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d h1:CLFlJ9tlb6rIpHpABOLorKv+PUopS6H/vSjCbwcNz1Q=
 github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d/go.mod h1:5yvtnIG1UfRmWJBtZZ9zKfq5aBykqAJB7vwyL9+BmoU=
 github.com/gravitational/roundtrip v1.0.0 h1:eb+0EABfSKC8607CQ4oOyWCm9zVIfio/wW78TjQqLSc=

@@ -25,9 +25,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
-
 	"github.com/coreos/go-semver/semver"
+	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/teleport/lib/utils"
 	v1 "k8s.io/api/core/v1"
 )
@@ -732,15 +731,6 @@ const (
 
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
-
-	// KubernetesRoleLabel is the Kubernetes node label with system role
-	KubernetesRoleLabel = "gravitational.io/k8s-role"
-
-	// KubernetesAdvertiseIPLabel is the kubernetes node label of the advertise IP address
-	KubernetesAdvertiseIPLabel = "gravitational.io/advertise-ip"
-
-	// RunLevelLabel is the Kubernetes node taint label representing a run-level
-	RunLevelLabel = "gravitational.io/runlevel"
 
 	// RunLevelSystem is the Kubernetes run-level for system applications
 	RunLevelSystem = "system"

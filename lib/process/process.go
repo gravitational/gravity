@@ -19,6 +19,7 @@ package process
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,6 +31,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
+
+	jsonpatch "github.com/evanphx/json-patch"
 
 	"github.com/gravitational/gravity/lib/app"
 	apphandler "github.com/gravitational/gravity/lib/app/handler"
@@ -731,36 +736,65 @@ func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, 
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	missingLabels, err := getMissingLabels(cluster, *server, node)
+	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(missingLabels) == 0 {
-		return nil
+
+	oldData, err := json.Marshal(node)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
-	for key, val := range missingLabels {
-		node.Labels[key] = val
-	}
-	if _, err := client.CoreV1().Nodes().Update(context.TODO(), &node, metav1.UpdateOptions{}); err != nil {
-		return rigging.ConvertError(err)
+
+	requiredLabels := server.GetNodeLabels(profile.Labels)
+	needUpdate := false
+	node.Labels, needUpdate = reconcileLabels(p, node.Labels, requiredLabels)
+	if needUpdate {
+		newData, err := json.Marshal(node)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		patchData, err := jsonpatch.CreateMergePatch(oldData, newData)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		p.Infof("Patching node %v/%v: %s", node.Name, ip, string(patchData))
+		if _, err := client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.MergePatchType, patchData, metav1.PatchOptions{}); err != nil {
+			return rigging.ConvertError(err)
+		}
 	}
 	return nil
 }
 
-func getMissingLabels(cluster ops.Site, server storage.Server, node v1.Node) (map[string]string, error) {
-	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels map[string]string) (map[string]string, bool) {
+	labels := make(map[string]string)
+	// Copy from the currentLabels
+	for key, value := range currentLabels {
+		labels[key] = value
 	}
-	missingLabels := make(map[string]string)
-	requiredLabels := server.GetNodeLabels(profile.Labels)
+	needUpdate := false
+	reconcileMode, err := defaults.ParseReconcileMode(labels[defaults.KubernetesReconcileLabel])
+	if err != nil {
+		logger.WithError(err).Error("Unable to get reconcileMode")
+		needUpdate = true
+		reconcileMode = defaults.ReconcileModeEnsureExists
+		labels[defaults.KubernetesReconcileLabel] = defaults.ReconcileModeEnsureExists
+	}
+	if reconcileMode == defaults.ReconcileModeDisabled {
+		return labels, false
+	}
 	for key, val := range requiredLabels {
-		if _, ok := node.Labels[key]; !ok {
-			missingLabels[key] = val
+		currentVal, ok := labels[key]
+		if !ok {
+			labels[key] = val
+			needUpdate = true
+		}
+		if reconcileMode == defaults.ReconcileModeEnabled && currentVal != val {
+			labels[key] = val
+			needUpdate = true
 		}
 	}
-	return missingLabels, nil
+	return labels, needUpdate
 }
 
 func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {
