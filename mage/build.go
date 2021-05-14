@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/trace"
 
 	"github.com/magefile/mage/mg"
+	"github.com/magefile/mage/sh"
 )
 
 type Build mg.Namespace
@@ -191,7 +192,7 @@ func (Build) SelinuxPolicy(ctx context.Context) (err error) {
 
 	if _, err := os.Stat(cachePath); err == nil {
 		m.SetCached(true)
-		_, err := m.Exec().
+		_, err = m.Exec().
 			// TODO(dima): have selinux makefile output to a subdirectory per
 			// supported OS distribution instead of hardcoding it
 			Run(ctx, "tar", "xf", cachePath, "-C", "lib/system/selinux/internal/policy/assets/centos")
@@ -229,13 +230,31 @@ func (Build) SelinuxPolicy(ctx context.Context) (err error) {
 	outputDir := filepath.Join(tmpDir, "output")
 	mg.Deps(Mkdir(outputDir))
 
+	tarball, err := ioutil.TempFile(tmpDir, "output")
+	if err != nil {
+		return trace.ConvertSystemError(err)
+	}
+	if err := tarball.Close(); err != nil {
+		return trace.ConvertSystemError(err)
+	}
+
 	_, err = m.Exec().
-		Run(ctx, "tar", "czf", cachePath,
+		Run(ctx, "tar", "czf", tarball.Name(),
 			"-C", outputDir,
 			"gravity.pp.bz2",
 			"container.pp.bz2",
 			"gravity.statedir.fc.template",
 		)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := sh.Copy(cachePath, tarball.Name()); err != nil {
+		return trace.Wrap(err)
+	}
+	_, err = m.Exec().
+		// TODO(dima): have selinux makefile output to a subdirectory per
+		// supported OS distribution instead of hardcoding it
+		Run(ctx, "tar", "xf", cachePath, "-C", "lib/system/selinux/internal/policy/assets/centos")
 	return trace.Wrap(err)
 }
 

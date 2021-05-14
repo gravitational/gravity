@@ -1,7 +1,7 @@
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 CURRENT_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 
-BUILDDIR := $(addsuffix /_build,$(CURRENT_DIR))
+BUILDDIR ?= $(CURRENT_DIR)/_build
 
 GOLANG_VER := 1.13.8-stretch
 FIO_VER := 3.15
@@ -80,7 +80,7 @@ $(BUILDDIR):
 
 .PHONY: clean
 clean:
-	@rm -r $(BUILDDIR)
+	@rm -rf $(BUILDDIR)
 
 .PHONY: magnet-vars
 magnet-vars: | $(BUILDDIR)
