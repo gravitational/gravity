@@ -39,13 +39,13 @@ const (
 type ReconcileMode string
 
 const (
-	// ReconcileModeEnsureExists will be checked for existence only. Users can edit the labels as they want.
+	// ReconcileModeEnsureExists describes a label reconciliation mode when the labels will only be checked for existence. Users can edit the labels as they want.
 	// This is default value for ReconcileMode.
 	// Valid values: "EnsureExists"
 	ReconcileModeEnsureExists = "EnsureExists"
 
 	// ReconcileModeEnabled enables full reconciliation.
-	// If the value of the label on the node is not equal to the value from the NodeProfile, the value will be overwritten.
+	// If the value of the label on the node is not equal to the value from the NodeProfile, the value will be restored from the profile.
 	// Valid values: "Enabled", "enabled", "true", "True"
 	ReconcileModeEnabled = "Enabled"
 
@@ -57,7 +57,7 @@ const (
 // ParseReconcileMode parses the value to determine the reconciliation mode
 func ParseReconcileMode(v string) (ReconcileMode, error) {
 	if len(strings.TrimSpace(v)) == 0 {
-		return "", fmt.Errorf("unable to parse ReconcileMode value. It is empty")
+		return "", trace.BadParameter("empty ReconcileMode value")
 	}
 	switch strings.ToLower(v) {
 	case strings.ToLower(ReconcileModeEnsureExists):
@@ -67,5 +67,5 @@ func ParseReconcileMode(v string) (ReconcileMode, error) {
 	case strings.ToLower(ReconcileModeDisabled), "false":
 		return ReconcileModeDisabled, nil
 	}
-	return "", fmt.Errorf("unable to parse ReconcileMode value: %q", v)
+	return "", trace.BadParameter("unable to parse ReconcileMode value: %q", v)
 }

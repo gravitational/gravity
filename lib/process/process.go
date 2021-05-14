@@ -775,7 +775,7 @@ func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels ma
 	needUpdate := false
 	reconcileMode, err := defaults.ParseReconcileMode(labels[defaults.KubernetesReconcileLabel])
 	if err != nil {
-		logger.WithError(err).Error("Unable to get reconcileMode")
+		logger.WithError(err).Error("Unable to get reconcile mode, will reset to EnsureExists.")
 		needUpdate = true
 		reconcileMode = defaults.ReconcileModeEnsureExists
 		labels[defaults.KubernetesReconcileLabel] = defaults.ReconcileModeEnsureExists
@@ -789,7 +789,7 @@ func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels ma
 			labels[key] = val
 			needUpdate = true
 		}
-		if reconcileMode == defaults.ReconcileModeEnabled && currentVal != val {
+		if !ok || reconcileMode == defaults.ReconcileModeEnabled && currentVal != val {
 			labels[key] = val
 			needUpdate = true
 		}

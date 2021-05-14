@@ -327,7 +327,7 @@ type importerSuite struct {
 	pack    pack.PackageService
 }
 
-func Test_reconcileLabels2(t *testing.T) {
+func TestReconcilesLabels(t *testing.T) {
 	type args struct {
 		currentLabels  map[string]string
 		requiredLabels map[string]string
