@@ -723,7 +723,7 @@ func (p *Process) reconcileNodeLabels(ctx context.Context, client *kubernetes.Cl
 		return trace.Wrap(err)
 	}
 	for ip, node := range nodes {
-		if err := p.reconcileNode(client, *cluster, ip, node); err != nil {
+		if err := p.reconcileNode(ctx, client, *cluster, ip, node); err != nil {
 			p.WithError(err).Errorf("Failed to reconcile labels for node %v/%v.",
 				node.Name, ip)
 		}
@@ -731,7 +731,7 @@ func (p *Process) reconcileNodeLabels(ctx context.Context, client *kubernetes.Cl
 	return nil
 }
 
-func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
+func (p *Process) reconcileNode(ctx context.Context, client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
 	server, err := cluster.ClusterState.FindServerByIP(ip)
 	if err != nil {
 		return trace.Wrap(err)
@@ -750,25 +750,25 @@ func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, 
 	needUpdate := false
 	node.Labels, needUpdate = reconcileLabels(p, node.Labels, requiredLabels)
 	if needUpdate {
-		newData, err := json.Marshal(node)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		patchData, err := jsonpatch.CreateMergePatch(oldData, newData)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		p.Infof("Patching node %v/%v: %s", node.Name, ip, string(patchData))
-		if _, err := client.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.MergePatchType, patchData, metav1.PatchOptions{}); err != nil {
-			return rigging.ConvertError(err)
-		}
+		return nil
+	}
+	newData, err := json.Marshal(node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	patchData, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Patching node %v/%v: %s", node.Name, ip, string(patchData))
+	if _, err := client.CoreV1().Nodes().Patch(ctx, node.Name, types.MergePatchType, patchData, metav1.PatchOptions{}); err != nil {
+		return rigging.ConvertError(err)
 	}
 	return nil
 }
 
 func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels map[string]string) (map[string]string, bool) {
 	labels := make(map[string]string)
-	// Copy from the currentLabels
 	for key, value := range currentLabels {
 		labels[key] = value
 	}
@@ -785,10 +785,6 @@ func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels ma
 	}
 	for key, val := range requiredLabels {
 		currentVal, ok := labels[key]
-		if !ok {
-			labels[key] = val
-			needUpdate = true
-		}
 		if !ok || reconcileMode == defaults.ReconcileModeEnabled && currentVal != val {
 			labels[key] = val
 			needUpdate = true

@@ -26,8 +26,10 @@ import (
 	"time"
 
 	"github.com/coreos/go-semver/semver"
+
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/teleport/lib/utils"
+
 	v1 "k8s.io/api/core/v1"
 )
 

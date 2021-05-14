@@ -17,8 +17,9 @@ limitations under the License.
 package defaults
 
 import (
-	"fmt"
 	"strings"
+
+	"github.com/gravitational/trace"
 )
 
 const (

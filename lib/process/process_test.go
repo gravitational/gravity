@@ -413,7 +413,7 @@ func TestReconcilesLabels(t *testing.T) {
 			needUpdate: true,
 		},
 		{
-			name: "reconciliation mode = EnsureExists. Different value of labels",
+			name: "reconciliation mode = EnsureExists. Different value of labels and no change is expected.",
 			args: args{
 				currentLabels: map[string]string{
 					"gravitational.io/reconcile": "EnsureExists",
@@ -452,7 +452,7 @@ func TestReconcilesLabels(t *testing.T) {
 			needUpdate: true,
 		},
 		{
-			name: "reconciliation mode is incorrect. Different value of labels",
+			name: "reconciliation mode is incorrect. Different value of labels and no change is expected",
 			args: args{
 				currentLabels: map[string]string{
 					"gravitational.io/reconcile": "Incorrect",
