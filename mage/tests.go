@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/gravitational/magnet"
 	"github.com/gravitational/trace"
@@ -89,9 +90,21 @@ func (Test) Unit(ctx context.Context) (err error) {
 
 	m.Println("Running unit tests")
 
+	tasks := runtime.NumCPU()
+	if runtime.GOOS == "darwin" {
+		// TODO(dima): arbitrary upper bound which seems to avoid
+		// the race with docker-for-mac and cache mount triggering
+		// input/output errors on parallel link attempts
+		tasks = 4
+	}
 	err = m.GolangTest().
 		SetRace(true).
-		SetBuildContainer(buildBoxName()).
+		SetCacheResults(false).
+		SetBuildContainerConfig(magnet.BuildContainer{
+			Name:          buildBoxName(),
+			ContainerPath: "/host",
+		}).
+		SetParallelTasks(tasks).
 		SetEnv("GO111MODULE", "on").
 		SetMod("vendor").
 		Test(ctx,
@@ -100,5 +113,5 @@ func (Test) Unit(ctx context.Context) (err error) {
 			"./e/lib/...",
 			"./e/tool/...",
 		)
-	return
+	return trace.Wrap(err)
 }

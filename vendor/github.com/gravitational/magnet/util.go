@@ -2,6 +2,7 @@ package magnet
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/trace"
@@ -11,7 +12,7 @@ import (
 func DefaultVersion() string {
 	longTag, err := Output(context.TODO(), "git", "describe", "--tags", "--dirty")
 	if err != nil {
-		panic(trace.DebugReport(err))
+		panic(fmt.Sprint("failed to fetch git version:\n", trace.DebugReport(err)))
 	}
 
 	return longTag
@@ -21,7 +22,7 @@ func DefaultVersion() string {
 func DefaultHash() string {
 	hash, err := Output(context.TODO(), "git", "rev-parse", "--short", "HEAD")
 	if err != nil {
-		panic(trace.DebugReport(err))
+		panic(fmt.Sprint("failed to fetch git hash:\n", trace.DebugReport(err)))
 	}
 
 	return hash

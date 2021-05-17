@@ -64,9 +64,6 @@ type GolangConfigCommon struct {
 	// Use `go help modules` for more information.
 	ModMode string
 
-	// PkgDir is used to install and load packages from dir instead of the usual locations
-	//PkgDir string
-
 	// Tags is a list of build tags to consider as satisified during the build
 	Tags []string
 }
@@ -79,7 +76,7 @@ func (m *GolangConfigCommon) genFlags() []string {
 	}
 
 	if m.ParallelTasks != nil {
-		cmd = append(cmd, "-n", fmt.Sprint(m.ParallelTasks))
+		cmd = append(cmd, "-p", fmt.Sprint(*m.ParallelTasks))
 	}
 
 	if m.Rebuild {
@@ -392,8 +389,19 @@ func (m *GolangConfigBuild) buildCmd(packages ...string) []string {
 type GolangConfigTest struct {
 	GolangConfigCommon
 
+	// coverProfile optionally specifies the profile output prefix.
+	// Configuring the coverage profile prefix will run tests with
+	// coverage analysis and the coverage output will be automatically
+	// converted to HTML
+	coverProfile string
+
 	paths  containerPathMapping
 	target *MagnetTarget
+	// cacheResults controls whether the test results are cached (defaults
+	// to false - e.g. no caching)
+	cacheResults bool
+	// count optionally specifies the number of test runs
+	count int
 }
 
 func (m *GolangConfigTest) cacheDir() (path string, err error) {
@@ -443,25 +451,58 @@ func (m *GolangConfigTest) testDocker(ctx context.Context, packages ...string) e
 			Consistency: "delegated",
 		})
 
-	gocmd := m.builcCmd(packages...)
+	gocmd := m.buildCmd(packages...)
 
 	return trace.Wrap(cmd.Run(ctx, m.BuildContainer, gocmd[0], gocmd[1:]...))
 }
 
 func (m *GolangConfigTest) testLocal(ctx context.Context, packages ...string) error {
-	gocmd := m.builcCmd(packages...)
+	gocmd := m.buildCmd(packages...)
 	_, err := m.target.Exec().SetEnvs(m.Env).Run(ctx, gocmd[0], gocmd[1:]...)
 	return trace.Wrap(err)
 }
 
-func (m *GolangConfigTest) builcCmd(packages ...string) []string {
+func (m *GolangConfigTest) buildCmd(packages ...string) []string {
 	cmd := []string{"go", "test"}
 
 	cmd = append(cmd, m.GolangConfigCommon.genFlags()...)
+	if len(m.coverProfile) != 0 {
+		cmd = append(cmd, "-cover", "-coverprofile", m.coverProfilePath())
+	}
+	count := m.count
+	if !m.cacheResults && count == 0 {
+		count = 1
+	}
+	if count != 0 {
+		cmd = append(cmd, "-count", fmt.Sprint(count))
+	}
 
 	cmd = append(cmd, packages...)
 
-	return cmd
+	if len(m.coverProfile) == 0 {
+		return cmd
+	}
+
+	return []string{
+		"bash", "-exc",
+		fmt.Sprint(strings.Join(cmd, " "), " && ", strings.Join(m.coverCmd(), " ")),
+	}
+}
+
+// SetCoverProfile sets the coverage profile prefix.
+// Configuring the coverage profile will result in `prefix.out` and
+// `prefix.html` files generated in the repository's root.
+// Use `go help testflag` for more information.
+func (m *GolangConfigTest) SetCoverProfile(prefix string) *GolangConfigTest {
+	m.coverProfile = prefix
+	return m
+}
+
+// SetCount sets the number of test runs to execute.
+// The count might be set implicitly if result caching is disabled with SetCacheResults.
+func (m *GolangConfigTest) SetCount(count int) *GolangConfigTest {
+	m.count = count
+	return m
 }
 
 // AddTag adds a build tag for the golang compiler to consider during the build.
@@ -593,6 +634,26 @@ func (m *GolangConfigTest) SetBuildContainerConfig(config BuildContainer) *Golan
 	m.paths.hostPath = config.HostPath
 	m.paths.containerPath = config.ContainerPath
 	return m
+}
+
+// SetCacheResults controls whether the test uses previously cached
+// results
+func (m *GolangConfigTest) SetCacheResults(cacheResults bool) *GolangConfigTest {
+	m.cacheResults = cacheResults
+	return m
+}
+
+func (m *GolangConfigTest) coverCmd() []string {
+	return []string{"go", "tool", "cover",
+		"-html", m.coverProfilePath(), "-o", m.coverProfileHTMLPath()}
+}
+
+func (m *GolangConfigTest) coverProfilePath() string {
+	return fmt.Sprint(m.coverProfile, ".out")
+}
+
+func (m *GolangConfigTest) coverProfileHTMLPath() string {
+	return fmt.Sprint(m.coverProfile, ".html")
 }
 
 func (r *containerPathMapping) checkAndSetDefaults() (err error) {
