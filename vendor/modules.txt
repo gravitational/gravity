@@ -1070,7 +1070,7 @@ honnef.co/go/tools/staticcheck
 honnef.co/go/tools/stylecheck
 honnef.co/go/tools/unused
 honnef.co/go/tools/version
-# k8s.io/api v0.19.8 => k8s.io/api v0.19.8
+# k8s.io/api v0.19.10 => k8s.io/api v0.19.8
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1
 k8s.io/api/admissionregistration/v1
@@ -1115,7 +1115,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.19.8 => k8s.io/apiextensions-apiserver v0.19.8
+# k8s.io/apiextensions-apiserver v0.19.10 => k8s.io/apiextensions-apiserver v0.19.8
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
@@ -1123,7 +1123,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.19.8 => k8s.io/apimachinery v0.19.8
+# k8s.io/apimachinery v0.19.10 => k8s.io/apimachinery v0.19.8
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -1289,7 +1289,7 @@ k8s.io/component-base/featuregate
 k8s.io/component-base/version
 # k8s.io/klog/v2 v2.2.0
 k8s.io/klog/v2
-# k8s.io/kube-aggregator v0.19.8 => k8s.io/kube-aggregator v0.19.8
+# k8s.io/kube-aggregator v0.19.10 => k8s.io/kube-aggregator v0.19.8
 k8s.io/kube-aggregator/pkg/apis/apiregistration
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
@@ -1301,7 +1301,7 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/typed/apiregistr
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/proto/validation
-# k8s.io/kubectl v0.19.8 => k8s.io/kubectl v0.19.8
+# k8s.io/kubectl v0.19.10 => k8s.io/kubectl v0.19.8
 k8s.io/kubectl/pkg/cmd/util
 k8s.io/kubectl/pkg/drain
 k8s.io/kubectl/pkg/scheme
@@ -1311,7 +1311,7 @@ k8s.io/kubectl/pkg/util/openapi/validation
 k8s.io/kubectl/pkg/util/templates
 k8s.io/kubectl/pkg/util/term
 k8s.io/kubectl/pkg/validation
-# k8s.io/kubernetes v1.19.8
+# k8s.io/kubernetes v1.19.10
 k8s.io/kubernetes/pkg/features
 k8s.io/kubernetes/pkg/kubelet/apis
 # k8s.io/utils v0.0.0-20200729134348-d5654de09c73
