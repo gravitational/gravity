@@ -32,8 +32,9 @@ const (
 	// RunLevelLabel is the Kubernetes node taint label representing a run-level
 	RunLevelLabel = "gravitational.io/runlevel"
 
-	// KubernetesReconcileLabel is the kubernetes node label to control the reconcile process for the node
-	KubernetesReconcileLabel = "gravitational.io/reconcile"
+	// KubernetesReconcileLabel is the kubernetes node label to define the reconcile mode,
+	// which controls the reconciliation process for the node labels.
+	KubernetesReconcileLabel = "label-reconciler.gravitational.io/mode"
 )
 
 // ReconcileMode is the type for reconcile mode values
