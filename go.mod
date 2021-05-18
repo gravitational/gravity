@@ -100,13 +100,13 @@ require (
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	helm.sh/helm/v3 v3.4.2
-	k8s.io/api v0.19.10
-	k8s.io/apiextensions-apiserver v0.19.10
-	k8s.io/apimachinery v0.19.10
+	k8s.io/api v0.19.11
+	k8s.io/apiextensions-apiserver v0.19.11
+	k8s.io/apimachinery v0.19.11
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/kube-aggregator v0.19.10
-	k8s.io/kubectl v0.19.10
-	k8s.io/kubernetes v1.19.10
+	k8s.io/kube-aggregator v0.19.11
+	k8s.io/kubectl v0.19.11
+	k8s.io/kubernetes v1.19.11
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.2.0
