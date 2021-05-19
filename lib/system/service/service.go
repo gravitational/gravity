@@ -18,7 +18,6 @@ limitations under the License.
 package service
 
 import (
-	"os"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -112,16 +111,4 @@ func reinstall(services systemservice.ServiceManager, req systemservice.NewServi
 		logger.WithError(err).Warn("Failed to uninstall.")
 	}
 	return trace.Wrap(services.InstallService(req))
-}
-
-func removeLingeringUnitFile(servicePath string) error {
-	defaultPath := systemservice.DefaultUnitPath(Name(servicePath))
-	if defaultPath == servicePath {
-		return nil
-	}
-	if err := os.Remove(defaultPath); err != nil && !os.IsNotExist(err) {
-		return trace.ConvertSystemError(err)
-	}
-	log.WithField("unit-file", defaultPath).Info("Removed lingering unit file.")
-	return nil
 }

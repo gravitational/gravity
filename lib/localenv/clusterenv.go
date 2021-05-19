@@ -40,15 +40,15 @@ import (
 
 // NewClusterEnvironment returns a new instance of ClusterEnvironment
 // with all services initialized
-func (r *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
-	client, _, err := httplib.GetClusterKubeClient(r.DNS.Addr())
+func (env *LocalEnvironment) NewClusterEnvironment(opts ...ClusterEnvironmentOption) (*ClusterEnvironment, error) {
+	client, _, err := httplib.GetClusterKubeClient(env.DNS.Addr())
 	if err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to create Kubernetes client.")
 	}
 
 	ctx, cancel := context.WithTimeout(context.TODO(), defaults.AuditLogClientTimeout)
 	defer cancel()
-	auditLog, err := r.AuditLog(ctx)
+	auditLog, err := env.AuditLog(ctx)
 	if err != nil && !trace.IsNotFound(err) {
 		log.WithError(err).Warn("Failed to create audit log.")
 	}

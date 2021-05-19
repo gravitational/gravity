@@ -32,9 +32,7 @@ import (
 // NewTarballEnvironment creates new environment for the cluster image
 // unpacked at the configured location
 func NewTarballEnvironment(config TarballEnvironmentArgs) (*TarballEnvironment, error) {
-	if err := config.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
-	}
+	config.setDefaults()
 	env, err := NewLocalEnvironment(LocalEnvironmentArgs{
 		StateDir:        config.StateDir,
 		ReadonlyBackend: true,
@@ -80,11 +78,10 @@ type TarballEnvironmentArgs struct {
 	License string
 }
 
-func (r *TarballEnvironmentArgs) checkAndSetDefaults() error {
+func (r *TarballEnvironmentArgs) setDefaults() {
 	if r.StateDir == "" {
 		r.StateDir = filepath.Dir(utils.Exe.Path)
 	}
-	return nil
 }
 
 // TarballEnvironment describes application environment in the directory

@@ -24,12 +24,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// MountService creates a new mount based on the given configuration.
+// Service creates a new mount based on the given configuration.
 // The mount is created as a systemd mount unit named service.
-func MountService(config ServiceConfig, service string, services systemservice.ServiceManager) error {
+func Service(config ServiceConfig, service string, services systemservice.ServiceManager) error {
 	spec := systemservice.MountServiceSpec{
 		Where: config.Where,
-		What:  storage.DeviceName(config.What).Path(),
+		What:  config.What.Path(),
 		Type:  config.Filesystem,
 	}
 	req := systemservice.NewMountServiceRequest{

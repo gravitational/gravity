@@ -673,7 +673,7 @@ func (r Silent) Printf(format string, args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Printf(format, args...) //nolint:errcheck
+	fmt.Printf(format, args...)
 }
 
 // Print outputs specified arguments to stdout if the silent mode is not on.
@@ -681,7 +681,7 @@ func (r Silent) Print(args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Print(args...) //nolint:errcheck
+	fmt.Print(args...)
 }
 
 // Println outputs specified arguments to stdout if the silent mode is not on.
@@ -689,16 +689,16 @@ func (r Silent) Println(args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Println(args...) //nolint:errcheck
+	fmt.Println(args...)
 }
 
 // PrintStep outputs the message with timestamp to stdout
+//nolint:goprintffuncname
 func (r Silent) PrintStep(format string, args ...interface{}) {
 	if r {
 		return
 	}
 	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
-	// nolint:errcheck
 	fmt.Printf("%v\t%v\n", timestamp, fmt.Sprintf(format, args...))
 }
 
