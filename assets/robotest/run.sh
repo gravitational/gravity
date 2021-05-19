@@ -18,7 +18,7 @@ TAG=$(git rev-parse --short HEAD)
 # cloud provider that test clusters will be provisioned on
 # see https://github.com/gravitational/robotest/blob/v2.0.0/infra/gravity/config.go#L72
 DEPLOY_TO=${DEPLOY_TO:-gce}
-GCL_PROJECT_ID=${GCL_PROJECT_ID:-"kubeadm-167321"}
+GCL_PROJECT_ID=${GCL_PROJECT_ID:-"robotest-production"}
 GCE_REGION="northamerica-northeast1,us-west1,us-east1,us-east4,us-central1"
 # GCE_VM tuned down from the Robotest's 7 cpu default in 09cec0e49e9d51c3603950209cec3c26dfe0e66b
 # We should consider changing Robotest's default so that we can drop the override here. -- 2019-04 walt
@@ -71,6 +71,7 @@ EOF
 EXTRA_VOLUME_MOUNTS=${EXTRA_VOLUME_MOUNTS:-}" -v "$CUSTOM_VAR_FILE:/robotest/config/vars.json
 
 GCE_CONFIG="gce:
+  project: ${GCL_PROJECT_ID}
   credentials: /robotest/config/creds.json
   vm_type: ${GCE_VM}
   region: ${GCE_REGION}
