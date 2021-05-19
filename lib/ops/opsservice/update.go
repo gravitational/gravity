@@ -276,6 +276,12 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 			return nil, trace.Wrap(err)
 		}
 		config.config = clusterConfig
+	} else {
+		clusterConfig, err := cluster.getClusterConfiguration()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		config.config = clusterConfig
 	}
 
 	resp, err := cluster.getPlanetConfigPackage(config)
