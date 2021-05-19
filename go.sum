@@ -556,8 +556,8 @@ github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d h1:CLFlJ9tlb
 github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d/go.mod h1:5yvtnIG1UfRmWJBtZZ9zKfq5aBykqAJB7vwyL9+BmoU=
 github.com/gravitational/roundtrip v1.0.0 h1:eb+0EABfSKC8607CQ4oOyWCm9zVIfio/wW78TjQqLSc=
 github.com/gravitational/roundtrip v1.0.0/go.mod h1:qccpLd30tAJVSpx7aOEEnws4ZT3njPwdbtT8lNQxbAs=
-github.com/gravitational/satellite v0.0.9-0.20210422181916-59ceb7b1c320 h1:7/fMmR9ZUe5evnI3iA1U6TtoEHCc9SEQ8H8GKFGZ4HQ=
-github.com/gravitational/satellite v0.0.9-0.20210422181916-59ceb7b1c320/go.mod h1:cfUSfPY/1oqPCQ8HJMEfTt9zOEHgRFQAtzJYPW6L/qI=
+github.com/gravitational/satellite v0.0.9-0.20210518231730-758163e22217 h1:DAT/l8jcHKk48yEgp9VDvIPUI0cBQnpJt2k6XNigZr0=
+github.com/gravitational/satellite v0.0.9-0.20210518231730-758163e22217/go.mod h1:cfUSfPY/1oqPCQ8HJMEfTt9zOEHgRFQAtzJYPW6L/qI=
 github.com/gravitational/tail v1.0.1 h1:Yv5nh+zV0yHQ9D9kXGEOFpUoA+Ti5uXHwOGioKSIeng=
 github.com/gravitational/tail v1.0.1/go.mod h1:3aRU+xPwNCaXykBn4jhiXsSJXX7jalcZtvCYGckNbPw=
 github.com/gravitational/teleport v3.2.17+incompatible h1:yOO/5p8z3JqH/KlQhxdybF0SxSjcPpdUZPk9VWVTMVM=
