@@ -107,6 +107,7 @@ func (Test) Unit(ctx context.Context) (err error) {
 		SetParallelTasks(tasks).
 		SetEnv("GO111MODULE", "on").
 		SetMod("vendor").
+		SetCoverProfile("coverage.out").
 		Test(ctx,
 			"./lib/...",
 			"./tool/...",
@@ -114,4 +115,25 @@ func (Test) Unit(ctx context.Context) (err error) {
 			"./e/tool/...",
 		)
 	return trace.Wrap(err)
+}
+
+// Cover converts the coverage profile to HTML.
+func (Test) Cover(ctx context.Context) (err error) {
+	mg.CtxDeps(ctx, Build.BuildContainer)
+
+	m := root.Target("test:cover")
+	defer func() { m.Complete(err) }()
+
+	m.Println("Converting coverage profile to HTML")
+
+	return trace.Wrap(m.GolangCover().
+		SetBuildContainerConfig(magnet.BuildContainer{
+			Name:          buildBoxName(),
+			ContainerPath: "/host",
+		}).
+		SetEnv("GO111MODULE", "on").
+		SetMod("vendor").
+		SetProfile("coverage.out").
+		SetOutput("coverage.html").
+		Run(ctx))
 }

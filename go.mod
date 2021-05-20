@@ -146,7 +146,7 @@ replace (
 	github.com/google/uuid => github.com/google/uuid v1.1.0
 	github.com/gophercloud/gophercloud => github.com/gophercloud/gophercloud v0.0.0-20181207171349-d3bcea3cf97e
 	github.com/gorilla/mux => github.com/gorilla/mux v1.7.0
-	github.com/gravitational/magnet => github.com/a-palchikov/magnet v0.2.7-0.20210514165014-09c7c5e61834
+	github.com/gravitational/magnet => github.com/a-palchikov/magnet v0.2.7-0.20210520113349-2a5f8ce635ab
 	github.com/imdario/mergo => github.com/imdario/mergo v0.0.0-20160517064435-50d4dbd4eb0e
 	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/json-iterator/go => github.com/json-iterator/go v1.1.5

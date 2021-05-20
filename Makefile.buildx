@@ -69,7 +69,7 @@ tarball: $(BUILDER)
 
 .PHONY: test
 test: $(BUILDER)
-	$(BUILDER) test:unit
+	$(BUILDER) test:unit test:cover
 
 .PHONY: lint
 lint: $(BUILDER)
