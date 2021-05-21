@@ -256,6 +256,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 
 	env := req.Env
 	if env == nil {
+		// Keep existing environment configuration inside the container
 		env, err = o.getClusterEnvironment()
 		if err != nil {
 			return nil, trace.Wrap(err)
