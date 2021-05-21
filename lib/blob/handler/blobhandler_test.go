@@ -105,6 +105,7 @@ func (s *HandlerSuite) SetUpTest(c *C) {
 		roundtrip.HTTPClient(&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
+					//nolint:gosec // TODO: fix insecure
 					InsecureSkipVerify: true,
 				}}}),
 	)

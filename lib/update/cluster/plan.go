@@ -587,7 +587,7 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 			return trace.Wrap(err)
 		}
 
-		return archive.Abort
+		return archive.ErrAbort
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

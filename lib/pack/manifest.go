@@ -161,7 +161,7 @@ func ReadManifest(tarball *tar.Reader) (*Manifest, error) {
 			if err != nil {
 				return trace.ConvertSystemError(err)
 			}
-			return archive.Abort
+			return archive.ErrAbort
 		},
 	)
 	if err != nil {

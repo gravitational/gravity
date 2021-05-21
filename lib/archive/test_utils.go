@@ -28,7 +28,7 @@ import (
 
 	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 )
 
 // AssertArchiveHasFiles validates that filenames are in the archive r.
