@@ -254,6 +254,14 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
 
+	env := req.Env
+	if env == nil {
+		env, err = o.getClusterEnvironment()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
 	config := planetConfig{
 		master: masterConfig{
 			addr:            master.AdvertiseIP,
@@ -267,7 +275,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		dockerRuntime: node.Docker,
 		planetPackage: req.RuntimePackage,
 		configPackage: configPackage,
-		env:           req.Env,
+		env:           env,
 	}
 
 	if len(req.Config) != 0 {
