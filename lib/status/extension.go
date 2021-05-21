@@ -34,7 +34,7 @@ type Extension interface {
 // of a status extension
 type NewExtensionFunc func() Extension
 
-// SetExtension sets the status collector extension
+// SetExtensionFunc sets the status collector extension
 func SetExtensionFunc(f NewExtensionFunc) {
 	mutex.Lock()
 	defer mutex.Unlock()

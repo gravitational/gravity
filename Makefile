@@ -35,7 +35,9 @@ GOLINT_PACKAGES ?= \
 	./lib/blob/... \
 	./lib/clients/... \
 	./lib/helm/... \
-	./lib/kubernetes/...
+	./lib/kubernetes/... \
+	./lib/report/... \
+	./lib/schema/...
 
 GOPATH ?= $(shell go env GOPATH)
 

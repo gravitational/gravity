@@ -131,7 +131,7 @@ var (
 	APIVersionV2App = fmt.Sprintf("%v/%v", AppGroupName, Version)
 )
 
-// SupportedProvider is a list of currently supported providers
+// SupportedProviders is a list of currently supported providers
 var SupportedProviders = []string{
 	ProviderGeneric,
 	ProviderAWS,

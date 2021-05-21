@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/schema/v1"
+	v1 "github.com/gravitational/gravity/lib/schema/v1"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/ghodss/yaml"

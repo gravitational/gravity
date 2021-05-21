@@ -16,15 +16,13 @@ limitations under the License.
 
 package schema
 
-import (
-	. "gopkg.in/check.v1"
-)
+import . "gopkg.in/check.v1"
 
 type DiffSuite struct{}
 
 var _ = Suite(&DiffSuite{})
 
-func (_ *DiffSuite) TestDiffsPorts(c *C) {
+func (*DiffSuite) TestDiffsPorts(c *C) {
 	var testCases = []struct {
 		old, new Requirements
 		tcp      []int
@@ -78,7 +76,7 @@ func (_ *DiffSuite) TestDiffsPorts(c *C) {
 	}
 }
 
-func (_ *DiffSuite) TestDiffsVolumes(c *C) {
+func (*DiffSuite) TestDiffsVolumes(c *C) {
 	var testCases = []struct {
 		old, new []Volume
 		diff     []Volume

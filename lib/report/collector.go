@@ -40,14 +40,14 @@ func NewFileWriter(dir string) FileWriterFunc {
 
 // NewPendingFileWriter creates a new instance of the pendingWriter
 // for the specified path
-func NewPendingFileWriter(path string) *pendingWriter {
-	return &pendingWriter{path: path}
+func NewPendingFileWriter(path string) *PendingWriter {
+	return &PendingWriter{path: path}
 }
 
 // Write forwards specified data to the underlying file which
 // is created at this point if not yet existing.
 // It implements io.Writer
-func (r *pendingWriter) Write(data []byte) (n int, err error) {
+func (r *PendingWriter) Write(data []byte) (n int, err error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
@@ -64,7 +64,7 @@ func (r *pendingWriter) Write(data []byte) (n int, err error) {
 
 // Close closes the underlying file if it has been created.
 // It implements io.Closer
-func (r *pendingWriter) Close() error {
+func (r *PendingWriter) Close() error {
 	if r.file == nil {
 		return nil
 	}
@@ -73,9 +73,9 @@ func (r *pendingWriter) Close() error {
 	return err
 }
 
-// pendingWriter forwards data to the underlying file.
+// PendingWriter forwards data to the underlying file.
 // It only creates a file if there's data to forward.
-type pendingWriter struct {
+type PendingWriter struct {
 	path string
 	file io.WriteCloser
 }
