@@ -207,6 +207,7 @@ func (c *Client) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadClo
 	endpoint := c.Endpoint("repositories", loc.Repository, "packages", loc.Name, loc.Version, "file")
 
 	_, err = telehttplib.ConvertResponse(c.RoundTrip(func() (*http.Response, error) {
+		//nolint:noctx // TODO: use context
 		req, err := http.NewRequest("HEAD", endpoint, nil)
 		if err != nil {
 			return nil, err

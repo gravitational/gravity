@@ -60,6 +60,6 @@ func hexChar(c byte) byte {
 }
 
 var (
-	validChars []byte = []byte(`@:-_.\0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`)
-	hexChars   []byte = []byte("0123456789abcdef")
+	validChars = []byte(`@:-_.\0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`)
+	hexChars   = []byte("0123456789abcdef")
 )

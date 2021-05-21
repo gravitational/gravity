@@ -33,7 +33,7 @@ const (
 	ServiceStatusActivating = "activating"
 	// ServiceStatusDeactivating indicates that service is deactivating
 	ServiceStatusDeactivating = "deactivating"
-	// ServiceStatusFailed means taht service has failed
+	// ServiceStatusFailed means that service has failed
 	ServiceStatusFailed = "failed"
 	// ServiceStatusActive means that service is active
 	ServiceStatusActive = "active"

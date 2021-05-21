@@ -69,7 +69,7 @@ var (
 		Name: LicenseGeneratedEvent,
 		Code: LicenseGeneratedCode,
 	}
-	// LicenseExpires is emitted when cluster license expires.
+	// LicenseExpired is emitted when cluster license expires.
 	LicenseExpired = events.Event{
 		Name: LicenseExpiredEvent,
 		Code: LicenseExpiredCode,
@@ -84,7 +84,7 @@ var (
 		Name: UpdatesEnabledEvent,
 		Code: UpdatesEnabledCode,
 	}
-	// UpdatedDisabled is emitted when periodic updates are turned off.
+	// UpdatesDisabled is emitted when periodic updates are turned off.
 	UpdatesDisabled = events.Event{
 		Name: UpdatesDisabledEvent,
 		Code: UpdatesDisabledCode,

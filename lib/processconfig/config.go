@@ -351,7 +351,7 @@ func (p *PackageServiceConfig) GetPublicAddr() teleutils.NetAddr {
 	return p.PublicAdvertiseAddr
 }
 
-// Charts defines Helm charts repository configuration.
+// ChartsConfig defines Helm charts repository configuration.
 type ChartsConfig struct {
 	// Backend is the chart repository backend.
 	//
