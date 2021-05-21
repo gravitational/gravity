@@ -286,6 +286,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		}
 		config.config = clusterConfig
 	} else {
+		// Keep the existing cluster configuration during the update
 		clusterConfig, err := cluster.getClusterConfiguration()
 		if err != nil {
 			return nil, trace.Wrap(err)
