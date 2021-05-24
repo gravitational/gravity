@@ -1,3 +1,11 @@
+# Support Notice
+
+The gravity project is no longer under active development. The project's development has been limited to maintenance and support for our commercial customers until maintenance agreements expire.
+
+Please see our blog post for more information: https://goteleport.com/blog/gravitational-is-teleport/
+
+---
+
 <a href='https://gravitational.com/gravity/'>
     <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
 </a>
@@ -190,4 +198,4 @@ $ make clean
 
 To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
-Want to join our team? [We are always hiring!](https://jobs.lever.co/gravitational)
+Want to join our team? [We are always hiring!](https://jobs.lever.co/teleport)
