@@ -83,8 +83,8 @@ func (Build) Linux(ctx context.Context) (err error) {
 	defer func() { m.Complete(err) }()
 
 	packages := []string{
-		"github.com/gravitational/gravity/tool/gravity",
-		"github.com/gravitational/gravity/tool/tele",
+		"github.com/gravitational/gravity/e/tool/gravity",
+		"github.com/gravitational/gravity/e/tool/tele",
 	}
 
 	// TODO(dima): avoid hard-coding platform
@@ -128,8 +128,8 @@ func (Build) Darwin(ctx context.Context) (err error) {
 		SetOutputPath(outputPath).
 		AddLDFlags(buildFlags()).
 		Build(ctx,
-			"github.com/gravitational/gravity/tool/gravity",
-			"github.com/gravitational/gravity/tool/tele",
+			"github.com/gravitational/gravity/e/tool/gravity",
+			"github.com/gravitational/gravity/e/tool/tele",
 		)
 
 	return trace.Wrap(err)

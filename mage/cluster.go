@@ -48,6 +48,28 @@ func (Cluster) Gravity(ctx context.Context) (err error) {
 	return trace.Wrap(err)
 }
 
+// Hub builds the reference hub cluster image.
+func (Cluster) Hub(ctx context.Context) (err error) {
+	mg.CtxDeps(ctx, Mkdir(consistentStateDir()), Mkdir(consistentBinDir()),
+		Build.Go, Package.Telekube)
+
+	m := root.Target("cluster:hub")
+	defer func() { m.Complete(err) }()
+
+	_, err = m.Exec().SetEnv("GRAVITY_K8S_VERSION", k8sVersion).Run(context.TODO(),
+		filepath.Join(consistentBinDir(), "tele"),
+		"--debug",
+		"build",
+		"assets/opscenter/resources/app.yaml",
+		"-f",
+		"--version", buildVersion,
+		"--state-dir", consistentStateDir(),
+		"--skip-version-check",
+		"-o", filepath.Join(consistentBuildDir(), "hub.tar"),
+	)
+	return trace.Wrap(err)
+}
+
 // Wormhole builds the reference gravity cluster image based on wormhole networking.
 func (Cluster) Wormhole(ctx context.Context) (err error) {
 	mg.CtxDeps(ctx, Mkdir(consistentStateDir()), Mkdir(consistentBinDir()),
