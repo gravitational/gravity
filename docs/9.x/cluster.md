@@ -136,7 +136,7 @@ $ curl -sk https://localhost:7575 | python -m json.tool
     "nodes": [
         {
             "member_status": {
-                "addr": "192.168.121.245:7496",
+                "addr": "192.168.121.245",
                 "name": "192_168_121_245.example",
                 "status": "alive",
                 "tags": {
@@ -183,7 +183,7 @@ $ curl -sk https://localhost:7575 | python -m json.tool
     "nodes": [
         {
             "member_status": {
-                "addr": "192.168.121.245:7496",
+                "addr": "192.168.121.245",
                 "name": "192_168_121_245.example",
                 "status": "alive",
                 "tags": {
