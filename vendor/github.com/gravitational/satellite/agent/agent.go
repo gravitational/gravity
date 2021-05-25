@@ -44,16 +44,8 @@ import (
 
 // Config defines satellite configuration.
 type Config struct {
-	// Name of the agent unique within the cluster.
-	// Names are used as a unique id within a serf cluster, so
-	// it is important to avoid clashes.
-	//
-	// Name must match the name of the local serf agent so that the agent
-	// can match itself to a serf member.
+	// Name is the name assigned to this node my Kubernetes.
 	Name string
-
-	// NodeName is the name assigned by Kubernetes to this node
-	NodeName string
 
 	// RPCAddrs is a list of addresses agent binds to for RPC traffic.
 	//
@@ -76,11 +68,6 @@ type Config struct {
 
 	// DebugSocketPath specifies the location of the unix domain socket for debug endpoint
 	DebugSocketPath string
-
-	// Peers lists the nodes that are part of the initial serf cluster configuration.
-	// This is not a final cluster configuration and new nodes or node updates
-	// are still possible.
-	Peers []string
 
 	// Set of tags for the agent.
 	// Tags is a trivial means for adding extra semantic information to an agent.
@@ -171,7 +158,6 @@ type agent struct {
 	rpc RPCServer
 
 	// dialRPC is a factory function to create clients to other agents.
-	// If future, agent address discovery will happen through serf.
 	dialRPC client.DialRPC
 
 	// localStatus is the last obtained local node status.
@@ -543,12 +529,12 @@ func (r *agent) collectStatus(ctx context.Context) *pb.SystemStatus {
 
 	members, err := r.Cluster.Members()
 	if err != nil {
-		log.WithError(err).Error("Failed to query serf members.")
+		log.WithError(err).Error("Failed to query cluster members.")
 		r.setLocalStatus(r.defaultUnknownStatus())
 		return &pb.SystemStatus{
 			Status:    pb.SystemStatus_Degraded,
 			Timestamp: pb.NewTimeToProto(r.Clock.Now()),
-			Summary:   fmt.Sprintf("failed to query serf members: %v", err),
+			Summary:   fmt.Sprintf("failed to query cluster members: %v", err),
 		}
 	}
 
@@ -609,7 +595,7 @@ L:
 func (r *agent) collectLocalStatus(ctx context.Context) (status *pb.NodeStatus, err error) {
 	local, err := r.Cluster.Member(r.Name)
 	if err != nil {
-		return nil, trace.Wrap(err, "failed to query local serf member")
+		return nil, trace.Wrap(err, "failed to query local cluster member")
 	}
 
 	status = r.runChecks(ctx)
@@ -763,7 +749,7 @@ func hasRoleMaster(tags map[string]string) bool {
 }
 
 // statusResponse describes a status response from a background process that obtains
-// health status on the specified serf node.
+// health status on the specified node.
 type statusResponse struct {
 	*pb.NodeStatus
 	member *pb.MemberStatus

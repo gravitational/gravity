@@ -117,8 +117,6 @@ func systemStatus() Collectors {
 			args:             listJobArgs[1:],
 			successExitCodes: []int{1},
 		},
-		// serf status
-		Cmd("serf-members", utils.PlanetCommandArgs(defaults.SerfBin, "members")...),
 	}
 }
 
