@@ -581,7 +581,7 @@ steps:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
       - cd gravity
       - make -C e production
-      - e/build/current/tele login --hub get.gravitational.io --token $TELE_KEY
+      - e/build/current/tele login --ops get.gravitational.io --token $TELE_KEY
       - make -C e telekube opscenter publish-telekube publish-artifacts
     volumes:
       - name: dockersock
@@ -617,6 +617,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: 5bbe5c0eb531b4a2398cf5ca139700909b883c5fcf9f01f221d64b4512758571
+hmac: 2f81ad1a14cadc85f211f1c18c199e086544270741e281ea81cf9e90610f6b5d
 
 ...
