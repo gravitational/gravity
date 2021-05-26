@@ -342,7 +342,7 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode = disabled. Different labels",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "false",
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeDisabled,
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -350,7 +350,7 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "false",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeDisabled,
 			},
 			needUpdate: false,
 		},
@@ -358,9 +358,9 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode = enabled. Different labels",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "true",
-					"label1":                     "1",
-					"label2":                     "1",
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+					"label1":                          "1",
+					"label2":                          "1",
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -368,9 +368,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "true",
-				"label1":                     "value1",
-				"label2":                     "value2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+				"label1":                          "value1",
+				"label2":                          "value2",
 			},
 			needUpdate: true,
 		},
@@ -378,9 +378,9 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode = enabled. Same labels",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "true",
-					"label1":                     "value1",
-					"label2":                     "value2",
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+					"label1":                          "value1",
+					"label2":                          "value2",
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -388,9 +388,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "true",
-				"label1":                     "value1",
-				"label2":                     "value2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+				"label1":                          "value1",
+				"label2":                          "value2",
 			},
 			needUpdate: false,
 		},
@@ -398,7 +398,7 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode = EnsureExists. Different labels",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "EnsureExists",
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -406,9 +406,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "EnsureExists",
-				"label1":                     "value1",
-				"label2":                     "value2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "value1",
+				"label2":                          "value2",
 			},
 			needUpdate: true,
 		},
@@ -416,9 +416,9 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode = EnsureExists. Different value of labels and no change is expected.",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "EnsureExists",
-					"label1":                     "1",
-					"label2":                     "2",
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+					"label1":                          "1",
+					"label2":                          "2",
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -426,9 +426,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "EnsureExists",
-				"label1":                     "1",
-				"label2":                     "2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "1",
+				"label2":                          "2",
 			},
 			needUpdate: false,
 		},
@@ -445,9 +445,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "EnsureExists",
-				"label1":                     "value1",
-				"label2":                     "value2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "value1",
+				"label2":                          "value2",
 			},
 			needUpdate: true,
 		},
@@ -455,9 +455,9 @@ func TestReconcilesLabels(t *testing.T) {
 			name: "reconciliation mode is incorrect. Different value of labels and no change is expected",
 			args: args{
 				currentLabels: map[string]string{
-					"gravitational.io/reconcile": "Incorrect",
-					"label1":                     "1",
-					"label2":                     "2",
+					defaults.KubernetesReconcileLabel: "Incorrect",
+					"label1":                          "1",
+					"label2":                          "2",
 				},
 				requiredLabels: map[string]string{
 					"label1": "value1",
@@ -465,9 +465,9 @@ func TestReconcilesLabels(t *testing.T) {
 				},
 			},
 			expectedLabels: map[string]string{
-				"gravitational.io/reconcile": "EnsureExists",
-				"label1":                     "1",
-				"label2":                     "2",
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "1",
+				"label2":                          "2",
 			},
 			needUpdate: true,
 		},
