@@ -12,12 +12,6 @@ UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="ubuntu:18" # this branc
 UPGRADE_MAP[5.5.0]="ubuntu:16"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.2.x))]="redhat:7.9" # compatible LTS version
 UPGRADE_MAP[5.2.0]="centos:7.9"
-# 5.4.x upgrade testing disabled on PRs because it has been out of support for over a year
-# UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.4.x))]="debian:9" # compatible non-LTS version
-# UPGRADE_MAP[5.4.0]="debian:8"
-
-# via intermediate upgrade
-UPGRADE_MAP[5.0.36]="centos:7.9"
 
 # customer specific scenarios, these versions have traction in the field
 UPGRADE_MAP[5.5.51]="centos:7.9"

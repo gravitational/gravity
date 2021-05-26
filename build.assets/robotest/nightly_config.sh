@@ -12,11 +12,6 @@ UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.5.x))]="redhat:7 centos:7 debia
 UPGRADE_MAP[5.5.0]="ubuntu:16"
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.2.x))]="redhat:7" # compatible LTS version
 UPGRADE_MAP[5.2.0]="centos:7"
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 5.4.x))]="debian:9" # compatible non-LTS version
-UPGRADE_MAP[5.4.0]="debian:8"
-
-# via intermediate upgrade
-UPGRADE_MAP[5.0.36]="centos:7"
 
 # customer specific scenarios, these versions have traction in the field
 UPGRADE_MAP[5.5.41]="centos:7"
