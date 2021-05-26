@@ -283,12 +283,6 @@ const (
 	// SatelliteRPCAgentPort is port used by satellite agent to expose metrics
 	SatelliteMetricsPort = 7580
 
-	// SatelliteRPCAgentPort is port used by satellite agent to communicate to the serf cluster
-	SatelliteSerfRPCPort = 7373
-
-	// SerfAgentPort is port that serf agent on a node binds on
-	SerfAgentPort = 7496
-
 	// AlertmanagerServicePort is the Alertmanage service port
 	AlertmanagerServicePort = 9093
 
@@ -375,9 +369,6 @@ const (
 
 	// WaitForEtcdScript is the path to the planet wait for etcd to be available script
 	WaitForEtcdScript = "/usr/bin/scripts/wait-for-etcd.sh"
-
-	// SerfBin is the default location of the serf binary
-	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
 	JournalctlBin = "/bin/journalctl"
