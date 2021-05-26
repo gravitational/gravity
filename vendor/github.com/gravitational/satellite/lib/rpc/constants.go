@@ -19,7 +19,7 @@ package rpc
 import "crypto/tls"
 
 // Port specifies the default RPC port.
-const Port = 7575 // FIXME: use serf to discover agents
+const Port = 7575
 
 // DefaultCipherSuites specify default cipher suites to be used when creating
 // tls config.

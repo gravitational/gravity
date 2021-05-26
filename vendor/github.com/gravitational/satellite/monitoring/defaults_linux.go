@@ -24,8 +24,6 @@ func DefaultPortChecker() health.Checker {
 		PortRange{Protocol: protoTCP, From: 53, To: 53, Description: "internal cluster DNS"},
 		PortRange{Protocol: protoUDP, From: 53, To: 53, Description: "internal cluster DNS"},
 		PortRange{Protocol: protoUDP, From: 8472, To: 8472, Description: "overlay network"},
-		PortRange{Protocol: protoTCP, From: 7496, To: 7496, Description: "serf (health check agents) peer to peer"},
-		PortRange{Protocol: protoTCP, From: 7373, To: 7373, Description: "serf (health check agents) peer to peer"},
 		PortRange{Protocol: protoTCP, From: 2379, To: 2380, Description: "etcd"},
 		PortRange{Protocol: protoTCP, From: 4001, To: 4001, Description: "etcd"},
 		PortRange{Protocol: protoTCP, From: 7001, To: 7001, Description: "etcd"},

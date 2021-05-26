@@ -354,7 +354,7 @@ func (m *LocalStatusResponse) GetStatus() *NodeStatus {
 
 // LastSeenRequest requests the last seen timestamp for the specified member.
 type LastSeenRequest struct {
-	// Name specifies the member's serf name.
+	// Name specifies the member's name.
 	Name                 string   `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -524,7 +524,7 @@ func (m *SystemStatus) GetSummary() string {
 	return ""
 }
 
-// MembereStatus represents the status of a member of the serf cluster.
+// MembereStatus represents the cluster member status.
 type MemberStatus struct {
 	Name                 string            `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Addr                 string            `protobuf:"bytes,2,opt,name=addr,proto3" json:"addr,omitempty"`
@@ -918,7 +918,7 @@ func (m *TimeResponse) GetTimestamp() *Timestamp {
 
 // UpdateRequest requests a new event be added to the timeline.
 type UpdateRequest struct {
-	// Name specifies the serf name of the requesting node.
+	// Name specifies the name of the requesting node.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Event specifies the event to be added to the timeline.
 	Event                *TimelineEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`

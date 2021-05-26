@@ -117,7 +117,7 @@ func (s *ProvisionedServer) EtcdMemberName(domain string) string {
 }
 
 // AgentName returns a unique agent name for this server.
-// The name of the agent is used to refer to this server in the serf cluster.
+// The name of the agent is used to refer to this server in the cluster.
 func (s *ProvisionedServer) AgentName(domain string) string {
 	return s.FQDN(domain)
 }
