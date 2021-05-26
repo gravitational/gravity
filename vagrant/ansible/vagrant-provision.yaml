@@ -3,68 +3,55 @@
 - hosts: all
   become: yes
   tasks:
-    - name: Enable epel-release
+    - name: Enable EPEL Repository on CentOS 8
+      dnf:
+        name: epel-release
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] == '8'
+    - name: Enable EPEL Repository on CentOS 7
       yum:
         name: epel-release
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] == '7'
 
     - name: Install required packages
-      yum:
-        name: "{{item}}"
-      with_items:
-        - curl
-        - htop
-        - iotop
-        - lsof
-        - ltrace
-        - mc
-        - net-tools
-        - strace
-        - tcpdump
-        - telnet
-        - vim
-        - wget
-        - ntp
-        - traceroute
+      package:
+        name:
+          - curl
+          - htop
+          - iotop
+          - lsof
+          - ltrace
+          - mc
+          - net-tools
+          - strace
+          - tcpdump
+          - telnet
+          - vim
+          - wget
+          - chrony
+          - traceroute
 
-    - name: Install route unit
-      copy:
-        dest: /etc/systemd/system/kube-routes.service
-        content: |-
-          {%
-            set eth0_netmask = ansible_eth0.ipv4.network + "/" + ansible_eth0.ipv4.netmask
-          %}
-          [Unit]
-              Description=Set Up Default Routes
-              After=network.target
-          [Service]
-              Type=oneshot
-              ExecStart=/sbin/ip route add {{eth0_netmask | ipaddr('net')}} dev eth0 table 10
-              ExecStart=/sbin/ip route add default via {{ansible_default_ipv4.gateway}} dev eth0 table 10
-              ExecStart=/sbin/ip rule add from {{ansible_eth0.ipv4.address}}/32 table 10
-              ExecStart=/sbin/ip rule add to {{ansible_eth0.ipv4.address}}/32 table 10
-              ExecStart=/sbin/ip route delete default via {{ansible_default_ipv4.gateway}}
-              ExecStart=/sbin/ip route add default via 172.28.128.1
-          [Install]
-              WantedBy=multi-user.target
+    - name: Install required packages for RedHat family
+      package:
+        name:
+          - cloud-utils-growpart
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
 
-    - name: Enable and start
-      shell: |-
-        systemctl daemon-reload
-        systemctl enable kube-routes.service
-        systemctl start kube-routes.service
-
-    - name: Update routing information
-      setup:
+    - name: Install required packages for Debian family
+      package:
+        name:
+          - cloud-guest-utils
+      when:
+        - ansible_facts['os_family'] == 'Debian'
 
     - name: Set up default opscenter hostname
       lineinfile:
         dest: /etc/hosts
         line: "{{ansible_default_ipv4.gateway}} opscenter.localhost.localdomain"
-
-    - name: Add gravity to /etc/fstab
-      lineinfile:
-        dest: /etc/fstab
-        line: LABEL=GRAVITY   /var/lib/gravity  ext4  discard,noatime,nodiratime  0 0
 
     - name: Load bridge netfilter module
       modprobe:
@@ -86,20 +73,27 @@
         - net.bridge.bridge-nf-call-ip6tables
         - net.bridge.bridge-nf-call-iptables
 
-    - name: Partition and format gravity disk
-      shell: |-
-        # KVM disk
-        if [ -b /dev/vdb ]; then
-          drive=/dev/vdb
-        # VirtualBox disk
-        elif [ -b /dev/sdb ]; then
-          drive=/dev/sdb
-        else
-          echo "No /dev/vdb nor /dev/sda found" 2>&1
-          exit 1
-        fi
-        parted -a opt "$drive" mktable msdos
-        parted -a opt "$drive" mkpart primary ext4 0% 100%
-        mkfs.ext4 -L GRAVITY "${drive}1"
-        mkdir /var/lib/gravity
-        mount LABEL=GRAVITY
+    - name: Find root disk
+      shell: mount -l | grep ' on / type ' | head -n1
+      register: root_mount
+
+    - set_fact:
+        partition_path: "{{ root_mount.stdout.split(' ')[0] }}"
+        disk_fstype: "{{ root_mount.stdout.split(' ')[4] }}"
+    - set_fact:
+        disk_path: "{{ partition_path | regex_search('(/dev/\\w+)\\d+', '\\1') | first }}"
+        partition_number: "{{ partition_path | regex_search('/dev/\\w+(\\d+)', '\\1') | first }}"
+    - debug:
+        msg: "partition_path: {{ partition_path }} disk_path: {{ disk_path }} fs_type: {{ disk_fstype }} partition: {{ partition_number }}"
+
+    - name: Grow partition until maximum
+      shell: "growpart /dev/sda {{ partition_number }}"
+      register: growpart
+      ignore_errors: true
+
+    - name: Extend the FS
+      when: growpart.rc == 0
+      filesystem:
+        fstype: "{{ disk_fstype }}"
+        dev: "{{ partition_path }}"
+        resizefs: yes

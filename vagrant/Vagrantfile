@@ -9,16 +9,31 @@ VAGRANTFILE_API_VERSION = "2"
 # Require a recent version of vagrant otherwise some have reported errors setting host names on boxes
 Vagrant.require_version ">= 1.7.4"
 
-# Give access to all physical cpu cores
-# Rewritten to actually determine the number of hardware cores instead of assuming
-# that the host has hyperthreading enabled.
-host = RbConfig::CONFIG['host_os']
 $vm_cpus = (ENV['VAGRANT_NODE_CPU'] || 0).to_i
-if host =~ /linux/ && $vm_cpus == 0
-  $vm_cpus = `cat /proc/cpuinfo | grep 'core id' | sort -u | wc -l`.to_i
-  if $vm_cpus < 1
-      $vm_cpus = `nproc`.to_i
+# Determines how many cpus the virtual machine should be given. Uses half of
+# what's available on the host with a default of 4.
+def numvcpus
+  begin
+    os_cpu_cores / 2
+  rescue
+    4
   end
+end
+
+# Get the number of logical cpu cores.
+def os_cpu_cores
+  case RbConfig::CONFIG['host_os']
+  when /darwin/
+    Integer(`sysctl -n hw.ncpu`)
+  when /linux/
+    Integer(`cat /proc/cpuinfo | grep processor | wc -l`)
+  else
+    raise StandardError, "Unsupported platform"
+  end
+end
+
+if $vm_cpus == 0
+  $vm_cpus = numvcpus
 end
 
 # RAM to use for nodes in MB
@@ -30,22 +45,17 @@ $vm_device_size = (ENV['VAGRANT_DEVICE_SIZE'] || 20).to_i
 # Number of additional disks automatically created and attached (1 by default)
 $vm_device_number = (ENV['VAGRANT_DEVICE_NUMBER'] || 1).to_i
 
-# Box to boot
+# Try using one of the following boxes:
+# - centos/7
+# - centos/8
+# - generic/ubuntu1804
+# - generic/ubuntu2004
 $vm_box = ENV['VAGRANT_BOX'] || 'centos/7'
 
 # Number of instances to start
 $instances = (ENV['VAGRANT_INSTANCES'] || 3).to_i
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
-  # create a new volume (vdi file)
-  def attach_media(vb, controller_name, device, sizeMB, port, storage_device)
-    vdi_file = "#{vb.name}_#{device}.vdi"
-    unless File.exist?(vdi_file)
-       vb.customize ["createhd", "--filename", vdi_file, "--size", sizeMB * 1024]
-    end
-    vb.customize ["storageattach", :id, "--storagectl", controller_name, "--port", port,
-                  "--device", storage_device, "--type", "hdd", "--medium", vdi_file]
-  end
 
   def attach_libvirt_media(box, node_name, device, size)
     path = "#{node_name}_#{device}.qcow2"
@@ -55,6 +65,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # Every Vagrant development environment requires a box. You can search for
   # boxes at https://atlas.hashicorp.com/search.
   config.vm.box = $vm_box
+  # Execute command to install the plugin: "vagrant plugin install vagrant-disksize"
+  config.disksize.size = '50GB'
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs
@@ -69,8 +81,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       node.vm.hostname = node_name
       node.vm.network "private_network", ip: "172.28.128.#{i+100}", libvirt__forward_mode: "nat" # eth0
       node.vm.network "private_network", ip: "172.29.128.#{i+100}", libvirt__forward_mode: "nat" # eth1
-      node.vm.provision "shell", inline: "sed -i -e 's/NM_CONTROLLED=yes/NM_CONTROLLED=no/' /etc/sysconfig/network-scripts/ifcfg-eth1"
-      node.vm.provision "shell", inline: "nmcli connection reload; systemctl restart network.service"
+
       node.vm.provider "libvirt" do |libvirt|
         libvirt.cpus = $vm_cpus
         libvirt.memory = $vm_node_mem
@@ -84,11 +95,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         vb.name = node.vm.hostname
         vb.cpus = $vm_cpus
         vb.memory = $vm_node_mem
-        vb.customize ["storagectl", :id, "--name", "SATA Controller", "--add", "sata",
-                      "--controller", "IntelAhci", "--portcount", $vm_device_number, "--bootable", "off"]
-        (1..$vm_device_number).each do |i|
-            attach_media(vb, "SATA Controller", i.times { "sdb".next } , $vm_device_size, i - 1 , 0) # /var/lib/gravity and additional empty disks
-        end
       end
       if i == $instances
         node.vm.provision :ansible do |ansible|

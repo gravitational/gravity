@@ -1,38 +1,104 @@
 - hosts: nodes
   vars:
     root_dir: "{{playbook_dir}}/../.."
+    tarball_path: ""
+    gravity_archive_url: ""
   tasks:
-  - name: Capture gravity version
-    delegate_to: localhost
-    shell: "make --silent get-version"
-    args:
-      chdir: "{{root_dir}}"
-    register: command_output
-  - set_fact:
-      gravity_version: "{{ command_output.stdout }}"
-  - debug: msg="gravity version - {{gravity_version}}"
+    - name: Capture gravity version
+      delegate_to: localhost
+      shell: "make --silent get-version"
+      args:
+        chdir: "{{root_dir}}"
+      register: command_output
+    - set_fact:
+        gravity_version: "{{ command_output.stdout }}"
+        build_tarball_path: "{{root_dir}}/build/{{command_output.stdout}}/telekube.tar"
+    - set_fact:
+        current_tarball_path: "{{ tarball_path | default(build_tarball_path, true) }}"
+    - debug: msg="gravity version - {{gravity_version}}. tarball - {{ current_tarball_path }}"
 
-  - set_fact: gopath="{{ lookup('env','GOPATH') }}"
-  - debug: msg="gopath {{gopath}}"
+    - set_fact: gopath="{{ lookup('env','GOPATH') }}"
+    - debug: msg="gopath {{gopath}}"
 
-  - name: Creating /vagrant/installer
-    file:
-      path: /vagrant/installer
-      state: directory
+    - name: Creating /installer/gravity
+      become: yes
+      file:
+        path: /installer/gravity
+        state: directory
+        mode: 0777
 
-  - name: upload telekube tarball to the first node
-    when: inventory_hostname == groups['nodes'][0]
-    become: yes
-    unarchive:
-      force: yes
-      src: "{{root_dir}}/build/{{gravity_version}}/telekube.tar"
-      dest: "/vagrant/installer"
+    - name: Calculate gravity archive md5 checksum
+      when: inventory_hostname == groups['nodes'][0]
+      delegate_to: localhost
+      stat:
+        path: "{{ current_tarball_path }}"
+      register: gravity_tar_stat
+    - set_fact:
+        gravity_md5sum: "{{ gravity_tar_stat.stat.checksum | default('-2') }}"
+      when: inventory_hostname == groups['nodes'][0]
 
-  - name: upload gravity binary
-    when: inventory_hostname != groups['nodes'][0]
-    become: yes
-    copy:
-      force: yes
-      src: "{{root_dir}}/build/{{gravity_version}}/gravity"
-      dest: "/tmp/gravity"
-      mode: 0755
+    - name: Read the md5 checksum of the last successful gravity archive
+      when: inventory_hostname == groups['nodes'][0]
+      ignore_errors: yes
+      slurp:
+        src: /installer/gravity.md5
+      register: last_gravity_tar_stat
+    - set_fact:
+        last_gravity_md5sum: "{{ last_gravity_tar_stat['content'] | b64decode | trim | default('-1') }}"
+      when:
+        - inventory_hostname == groups['nodes'][0]
+        - last_gravity_tar_stat is succeeded
+    - set_fact:
+        last_gravity_md5sum: "-1"
+      when:
+        - last_gravity_tar_stat is not succeeded
+
+    - name: Upload telekube tarball to the first node
+      when:
+        - inventory_hostname == groups['nodes'][0]
+        - gravity_md5sum != last_gravity_md5sum
+      become: yes
+      unarchive:
+        src: "{{ current_tarball_path }}"
+        dest: "/installer/gravity"
+      register: unarchive_result
+
+    - name: "Write the md5 checksum of the gravity archive"
+      when:
+        - inventory_hostname == groups['nodes'][0]
+        - unarchive_result is succeeded
+      copy:
+        dest: "/installer/gravity.md5"
+        content: "{{ gravity_md5sum }}"
+
+    - name: Upload gravity binary
+      when:
+        - inventory_hostname != groups['nodes'][0]
+        - gravity_archive_url|length == 0
+      become: yes
+      copy:
+        force: yes
+        src: "{{root_dir}}/build/{{gravity_version}}/linux-amd64/gravity"
+        dest: "/installer/gravity/gravity"
+        mode: 0755
+
+    - name: "Download gravity binary archive from the source"
+      when:
+        - inventory_hostname != groups['nodes'][0]
+        - gravity_archive_url|length > 0
+      become: yes
+      get_url:
+        url: "{{ gravity_archive_url }}"
+        dest: "/installer/"
+      register: gravity_archive_rs
+
+    - name: Unpack gravity binary archive
+      when:
+        - inventory_hostname != groups['nodes'][0]
+        - gravity_archive_url|length > 0
+        - gravity_archive_rs is succeeded
+      become: yes
+      unarchive:
+        src: "{{ gravity_archive_rs.dest }}"
+        dest: "/installer/gravity"
+        remote_src: true
