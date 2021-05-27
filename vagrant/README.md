@@ -42,7 +42,7 @@ $ make ansible-install
 Install gravity from custom tarball
 ```shell
 $ cd vagrant
-$ ANSIBLE_FLAGS='--extra-vars "gravity_archive_url=https://get.gravitational.com/gravity-7.0.28-linux-x86_64-bin.tar.gz tarball_path=/full_path_to_tarball.tar"'
+$ ANSIBLE_FLAGS='--extra-vars "gravity_archive_url=https://get.gravitational.com/gravity-7.0.28-linux-x86_64-bin.tar.gz tarball_path=/full/path/to/tarball.tar"'
 $ ANSIBLE_FLAGS=$ANSIBLE_FLAGS make ansible-install
 ```
 

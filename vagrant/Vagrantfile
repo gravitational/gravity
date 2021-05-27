@@ -39,8 +39,8 @@ end
 # RAM to use for nodes in MB
 $vm_node_mem = (ENV['VAGRANT_NODE_RAM'] || 3000).to_i
 
-# Size of automatically attached disk devices (20Gb by default)
-$vm_device_size = (ENV['VAGRANT_DEVICE_SIZE'] || 20).to_i
+# Automatically resize disk device (50Gb by default)
+$vm_device_size = (ENV['VAGRANT_DEVICE_SIZE'] || 50).to_i
 
 # Number of additional disks automatically created and attached (1 by default)
 $vm_device_number = (ENV['VAGRANT_DEVICE_NUMBER'] || 1).to_i
@@ -66,7 +66,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # boxes at https://atlas.hashicorp.com/search.
   config.vm.box = $vm_box
   # Execute command to install the plugin: "vagrant plugin install vagrant-disksize"
-  config.disksize.size = '50GB'
+  config.disksize.size = $vm_device_size.to_s + "GB"
 
   # Disable automatic box update checking. If you disable this, then
   # boxes will only be checked for updates when the user runs

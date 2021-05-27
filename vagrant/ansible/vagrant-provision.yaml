@@ -48,11 +48,6 @@
       when:
         - ansible_facts['os_family'] == 'Debian'
 
-    - name: Set up default opscenter hostname
-      lineinfile:
-        dest: /etc/hosts
-        line: "{{ansible_default_ipv4.gateway}} opscenter.localhost.localdomain"
-
     - name: Load bridge netfilter module
       modprobe:
         name: br_netfilter
@@ -87,7 +82,7 @@
         msg: "partition_path: {{ partition_path }} disk_path: {{ disk_path }} fs_type: {{ disk_fstype }} partition: {{ partition_number }}"
 
     - name: Grow partition until maximum
-      shell: "growpart /dev/sda {{ partition_number }}"
+      shell: "growpart {{ disk_path }} {{ partition_number }}"
       register: growpart
       ignore_errors: true
 
