@@ -1454,7 +1454,7 @@ nodeProfiles:
 ```
 
 Gravity has three modes of label reconciliation, which the user can change at any time:
- - `EnsureExists` (default) - Compares the labels in the node with what is written in the profile, the value of the labels is not compared.
+ - `EnsureExists` (default) - Ensures that the labels from the node profile exist recreating the missing ones. The label values from the node profile are not enforced.
    - Users can edit the labels as they want.
    - Users cannot delete the label specified in the node profile.
  - `Enabled` or `true` - Compares the labels in the node with what is written in the profile, the values of the labels are also compared.
