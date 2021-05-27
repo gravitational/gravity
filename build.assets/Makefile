@@ -699,6 +699,8 @@ buildbox:
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BUILDBOX) .
 #
 # testbox container: container used for tests
