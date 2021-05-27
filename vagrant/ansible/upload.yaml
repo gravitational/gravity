@@ -78,7 +78,7 @@
       become: yes
       copy:
         force: yes
-        src: "{{root_dir}}/build/{{gravity_version}}/linux-amd64/gravity"
+        src: "{{root_dir}}/build/{{gravity_version}}/gravity"
         dest: "/installer/gravity/gravity"
         mode: 0755
 
