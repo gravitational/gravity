@@ -81,7 +81,7 @@
     - debug:
         msg: "partition_path: {{ partition_path }} disk_path: {{ disk_path }} fs_type: {{ disk_fstype }} partition: {{ partition_number }}"
 
-    - name: Grow partition until maximum
+    - name: Grow partition to maximum
       shell: "growpart {{ disk_path }} {{ partition_number }}"
       register: growpart
       ignore_errors: true
