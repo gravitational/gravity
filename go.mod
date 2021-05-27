@@ -27,6 +27,7 @@ require (
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/dustin/go-humanize v1.0.0
 	github.com/emicklei/go-restful v2.11.0+incompatible // indirect
+	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.7.2
 	github.com/garyburd/redigo v0.0.0-20151029235527-6ece6e0a09f2 // indirect
