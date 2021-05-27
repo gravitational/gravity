@@ -1464,7 +1464,7 @@ Gravity has three modes of label reconciliation, which the user can change at an
    - Users can edit the labels as they want.
    - Users can delete labels.
 
-Reconciliation mode is assigned to the node and controlled by the label `label-reconciler.gravitational.io/mode`.
+Reconciliation mode on a node is controlled via the label named `label-reconciler.gravitational.io/mode`.
 For example, to disable the reconciliation mode, run the command: `kubectl label node <node-name> label-reconciler.gravitational.io/mode=false`
 
 ### Dedicated control plane nodes
