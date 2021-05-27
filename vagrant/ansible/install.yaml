@@ -3,23 +3,22 @@
 - hosts: nodes
   vars:
     root_dir: "{{playbook_dir}}/../.."
+    gravity_token: Token123$
   tasks:
-  - name: Install gravity application
+  - name: Install gravity cluster
     become: yes
-    shell: |
-      umask 0066
-      cd /vagrant/installer
-      tar -xf installer.tar
-      {% if inventory_hostname == groups['nodes'][0] %}
-      ./gravity install \
-        --flavor={{flavor}} \
-        --cluster=dev.test \
-        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
-        --token=token123
-      {% else %}
-      /tmp/gravity join \
-        {{hostvars[groups['nodes'][0]]['ansible_default_ipv4']['address']}} \
-        --advertise-addr={{hostvars[inventory_hostname]['ansible_default_ipv4']['address']}} \
-        --token=token123
-      {% endif %}
-
+    shell:
+      chdir: /installer/gravity
+      cmd: |
+        {% if inventory_hostname == groups['nodes'][0] %}
+        ./gravity install \
+          --flavor={{flavor}} \
+          --cluster=dev.test \
+          --advertise-addr={{hostvars[inventory_hostname]['ansible_eth1']['ipv4']['address']}} \
+          --token='{{ gravity_token }}'
+        {% else %}
+        ./gravity join \
+        {{hostvars[groups['nodes'][0]]['ansible_eth1']['ipv4']['address']}} \
+        --advertise-addr={{hostvars[inventory_hostname]['ansible_eth1']['ipv4']['address']}} \
+        --token='{{ gravity_token }}'
+        {% endif %}
