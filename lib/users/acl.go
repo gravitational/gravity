@@ -477,8 +477,8 @@ func (i *IdentityACL) CreateUser(user teleservices.User) error {
 	return i.identity.CreateUser(user)
 }
 
-// CreateAgent creates a new "robot" agent user used by various automation tools (e.g. jenkins)
-// with correct privileges
+// CreateAgent creates a new "robot" agent user used by various automation tools
+// (e.g. release automation) with correct privileges
 func (i *IdentityACL) CreateAgent(agent storage.User) (storage.User, error) {
 	if err := i.usersAction(teleservices.VerbCreate); err != nil {
 		return nil, trace.Wrap(err)

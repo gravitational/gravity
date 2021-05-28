@@ -687,7 +687,7 @@ func (h *WebHandler) updateUser(w http.ResponseWriter, r *http.Request, p httpro
    Success response:
 
    {
-     "message": "user jenkins deleted"
+     "message": "user alice deleted"
    }
 */
 func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {

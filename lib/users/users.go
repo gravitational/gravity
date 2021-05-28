@@ -106,8 +106,8 @@ type Users interface {
 	// LoginWithInstallToken logs a user using a one-time install token
 	LoginWithInstallToken(token string) (*LoginResult, error)
 
-	// CreateAgent creates a new "robot" agent user used by various automation tools (e.g. jenkins)
-	// with correct privileges
+	// CreateAgent creates a new "robot" agent user used by various automation tools
+	// (e.g. release automation) with correct privileges
 	CreateAgent(user storage.User) (storage.User, error)
 
 	// CreateRemoteAgent creates a new site agent user that replicates the agent of a remote site.

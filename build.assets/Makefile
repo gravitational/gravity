@@ -509,7 +509,7 @@ build-planet-sub:
 	if [ ! -d "$(PLANET_SRCDIR)/planet" ]; then cd $(PLANET_SRCDIR) && git clone $(PLANET_REPO); fi
 	cd $(PLANET_SRCDIR)/planet && git fetch --all && git checkout $(PLANET_BRANCH)
 	@echo -e "\n----> Building Planet images...\n"
-	BUILDDIR=$(PLANET_BUILDDIR) make -C $(PLANET_SRCDIR)/planet production USER=jenkins
+	BUILDDIR=$(PLANET_BUILDDIR) make -C $(PLANET_SRCDIR)/planet production
 	mv -f $(PLANET_BUILDDIR)/planet.tar.gz $(PLANET_OUT)
 
 .PHONY: pull-planet

@@ -503,8 +503,8 @@ func logoutHubs(ctx context.Context, entries []users.LoginEntry, httpClient *htt
 // logoutHub logs out from the Hub specified with the login entry.
 func logoutHub(ctx context.Context, entry users.LoginEntry, httpClient *http.Client) error {
 	// User can log in with a pre-existing long-lived token using
-	// "tele login --token=xxx" (usually used by robot users such
-	// as "jenkins"), in which case the token should be kept.
+	// "tele login --token=xxx" (e.g for release automation), in
+	// which case the token should be kept.
 	//
 	// During regular interactive login, user gets a new token with
 	// TTL which should be removed at the end of the user's session.

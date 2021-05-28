@@ -1533,7 +1533,7 @@ to setup your own Ops Center see [Setting up an Ops Center](opscenter.md).
 In the following spec we define 3 resources:
 
 1. role `publisher` that allows its holder to push applications
-2. user `jenkins@example.com` that carries this role
+2. user `alice@example.com` that carries this role
 3. token that will be used for authenticating with Ops Center
 
 ```yaml
@@ -1564,7 +1564,7 @@ spec:
 kind: user
 version: v2
 metadata:
-  name: "jenkins@example.com"
+  name: "alice@example.com"
 spec:
   type: "agent"
   roles: ["publisher"]
@@ -1574,7 +1574,7 @@ version: v2
 metadata:
    name: "s3cr3t!"
 spec:
-   user: "jenkins@example.com"
+   user: "alice@example.com"
 ```
 
 Save the resources into `publisher.yaml` and create them on the cluster:
