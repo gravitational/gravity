@@ -225,8 +225,8 @@ func (u *userCollection) ToMarshal() interface{} {
 }
 
 // WriteYAML serializes collection into YAML format
-func (c *userCollection) WriteYAML(w io.Writer) error {
-	return utils.WriteYAML(c, w)
+func (u *userCollection) WriteYAML(w io.Writer) error {
+	return utils.WriteYAML(u, w)
 }
 
 type tokenCollection struct {
