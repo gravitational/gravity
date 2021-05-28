@@ -3,23 +3,18 @@
 ## Requirements
 
 * Vagrant
+* Vagrant plugins:
+  - vagrant-disksize
 * ansible
 
-IP forwarding must be enabled on host machine:
 
-```
-sudo sysctl net.ipv4.ip_forward
-> net.ipv4.ip_forward = 1
-```
+## Preparing for MacOS
 
-Enable SNAT for Internet access interface and allow forwarding packets on host machine:
-
-```
-iptables -w -t nat -A POSTROUTING -o wlan+ -j MASQUERADE
-iptables -w -t nat -A POSTROUTING -o eth+ -j MASQUERADE
-iptables -w -t filter -A INPUT -i virbr+ -j ACCEPT
-...
-```
+1. Install brew on macOS https://brew.sh/
+1. Install vagrant: `brew install --cask vagrant`
+1. Install VirtualBox: `brew install --cask virtualbox`
+1. Install ansible: `brew install ansible`
+1. Install vagrant plugins: `vagrant plugin install vagrant-disksize`
 
 ## Install Telekube on Vagrant
 
@@ -32,8 +27,7 @@ $ vagrant up
 
 This will bring 3 VMs properly configured for development
 
-Build telekube
-
+Build gravity and prepare tarball
 ```sh
 $ make production telekube
 ```
@@ -43,6 +37,13 @@ Install telekube
 ```sh
 $ cd vagrant
 $ make ansible-install
+```
+
+Install gravity from custom tarball
+```shell
+$ cd vagrant
+$ ANSIBLE_FLAGS='--extra-vars "gravity_archive_url=https://get.gravitational.com/gravity-7.0.28-linux-x86_64-bin.tar.gz tarball_path=/full/path/to/tarball.tar"'
+$ ANSIBLE_FLAGS=$ANSIBLE_FLAGS make ansible-install
 ```
 
 ## Redeploy just Gravity
