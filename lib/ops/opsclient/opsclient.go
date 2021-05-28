@@ -1846,6 +1846,7 @@ func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Respo
 	}(time.Now())
 
 	return c.RoundTrip(func() (*http.Response, error) {
+		//nolint:noctx //TODO: use context
 		req, err := http.NewRequest(http.MethodPost, endpoint, reader)
 		if err != nil {
 			return nil, trace.Wrap(err)

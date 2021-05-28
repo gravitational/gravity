@@ -251,9 +251,10 @@ func (r *ResourceControl) Get(w io.Writer, req ListRequest, format constants.For
 		return collection.WriteJSON(w)
 	case constants.EncodingYAML:
 		return collection.WriteYAML(w)
+	default:
+		return trace.BadParameter("unsupported format %q, supported are: %v",
+			format, constants.OutputFormats)
 	}
-	return trace.BadParameter("unsupported format %q, supported are: %v",
-		format, constants.OutputFormats)
 }
 
 // Remove removes the specified resource

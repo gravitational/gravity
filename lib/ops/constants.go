@@ -51,14 +51,15 @@ in_progress ->
 package ops
 
 const (
-	SiteLabelName                 = "Name"
-	SystemRepository              = "gravitational.io"
-	ProviderGeneric               = "generic"
-	TeleportProxyAddress          = "teleport_proxy_address"
-	ProgressStateCompleted        = "completed"
-	ProgressStateInProgress       = "in_progress"
-	ProgressStateFailed           = "failed"
-	InstallTerminated             = "terminated"
+	SiteLabelName           = "Name"
+	SystemRepository        = "gravitational.io"
+	ProviderGeneric         = "generic"
+	TeleportProxyAddress    = "teleport_proxy_address"
+	ProgressStateCompleted  = "completed"
+	ProgressStateInProgress = "in_progress"
+	ProgressStateFailed     = "failed"
+	InstallTerminated       = "terminated"
+	//nolint:gosec // not a hardcoded credential
 	ServiceAccountTokenSecretType = "kubernetes.io/service-account-token"
 
 	// SiteStateNotInstalled is a state where a site has just been created or uninstalled and

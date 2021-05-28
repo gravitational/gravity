@@ -378,9 +378,9 @@ func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	for _, operation := range operations {
+	for i, operation := range operations {
 		if operation.Type == OperationExpand {
-			return (*SiteOperation)(&operation), nil
+			return (*SiteOperation)(&operations[i]), nil
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")

@@ -40,7 +40,7 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:stylecheck // TODO(dima): tests will be rewritten to use testify
 )
 
 type OpsSuite struct {

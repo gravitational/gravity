@@ -99,8 +99,8 @@ type userCollection struct {
 }
 
 // Resources returns the resources collection in the generic format
-func (c *userCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c.users {
+func (u *userCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range u.users {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -390,8 +390,8 @@ func (c *tlsKeyPairCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (c smtpConfigCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c {
+func (r smtpConfigCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range r {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -492,8 +492,8 @@ func (r alertCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (c alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c {
+func (r alertCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range r {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -534,8 +534,8 @@ func (r alertTargetCollection) ToMarshal() interface{} {
 }
 
 // Resources returns the resources collection in the generic format
-func (c alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
-	for _, item := range c {
+func (r alertTargetCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+	for _, item := range r {
 		resource, err := utils.ToUnknownResource(item)
 		if err != nil {
 			return nil, trace.Wrap(err)
