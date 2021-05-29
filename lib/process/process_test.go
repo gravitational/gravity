@@ -21,6 +21,8 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"reflect"
+	"testing"
 	"time"
 
 	"github.com/gravitational/gravity/lib/blob/fs"
@@ -323,4 +325,163 @@ type importerSuite struct {
 	dir     string
 	backend storage.Backend
 	pack    pack.PackageService
+}
+
+func TestReconcilesLabels(t *testing.T) {
+	type args struct {
+		currentLabels  map[string]string
+		requiredLabels map[string]string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		expectedLabels map[string]string
+		needUpdate     bool
+	}{
+		{
+			name: "reconciliation mode = disabled. Different labels",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeDisabled,
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeDisabled,
+			},
+			needUpdate: false,
+		},
+		{
+			name: "reconciliation mode = enabled. Different labels",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+					"label1":                          "1",
+					"label2":                          "1",
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+				"label1":                          "value1",
+				"label2":                          "value2",
+			},
+			needUpdate: true,
+		},
+		{
+			name: "reconciliation mode = enabled. Same labels",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+					"label1":                          "value1",
+					"label2":                          "value2",
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnabled,
+				"label1":                          "value1",
+				"label2":                          "value2",
+			},
+			needUpdate: false,
+		},
+		{
+			name: "reconciliation mode = EnsureExists. Different labels",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "value1",
+				"label2":                          "value2",
+			},
+			needUpdate: true,
+		},
+		{
+			name: "reconciliation mode = EnsureExists. Different value of labels and no change is expected.",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+					"label1":                          "1",
+					"label2":                          "2",
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "1",
+				"label2":                          "2",
+			},
+			needUpdate: false,
+		},
+		{
+			name: "reconciliation mode is empty. Same labels",
+			args: args{
+				currentLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "value1",
+				"label2":                          "value2",
+			},
+			needUpdate: true,
+		},
+		{
+			name: "reconciliation mode is incorrect. Different value of labels and no change is expected",
+			args: args{
+				currentLabels: map[string]string{
+					defaults.KubernetesReconcileLabel: "Incorrect",
+					"label1":                          "1",
+					"label2":                          "2",
+				},
+				requiredLabels: map[string]string{
+					"label1": "value1",
+					"label2": "value2",
+				},
+			},
+			expectedLabels: map[string]string{
+				defaults.KubernetesReconcileLabel: defaults.ReconcileModeEnsureExists,
+				"label1":                          "1",
+				"label2":                          "2",
+			},
+			needUpdate: true,
+		},
+	}
+	logger := logrus.New()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels, needUpdate := reconcileLabels(logger, tt.args.currentLabels, tt.args.requiredLabels)
+			if !reflect.DeepEqual(labels, tt.expectedLabels) {
+				t.Errorf("reconcileLabels() labels = %v, want %v", labels, tt.expectedLabels)
+			}
+			if needUpdate != tt.needUpdate {
+				t.Errorf("reconcileLabels() needUpdate = %v, want %v", needUpdate, tt.needUpdate)
+			}
+		})
+	}
 }
