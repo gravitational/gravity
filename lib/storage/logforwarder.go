@@ -142,7 +142,7 @@ type LogForwarderSpecV2 struct {
 	Protocol string `json:"protocol,omitempty"`
 }
 
-// LogForwarderV2Scheme is the log forwarder JSON schema
+// LogForwarderV2Schema is the log forwarder JSON schema
 const LogForwarderV2Schema = `{
   "type": "object",
   "additionalProperties": false,

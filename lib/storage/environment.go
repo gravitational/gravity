@@ -91,7 +91,7 @@ func (r *EnvironmentV1) SetExpiry(expires time.Time) {
 	r.Metadata.SetExpiry(expires)
 }
 
-// Expires returns expiration time
+// Expiry returns expiration time
 func (r *EnvironmentV1) Expiry() time.Time {
 	return r.Metadata.Expiry()
 }

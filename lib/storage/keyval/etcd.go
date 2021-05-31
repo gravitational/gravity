@@ -203,7 +203,7 @@ func (e *engine) reconnect() error {
 		return trace.Wrap(err)
 	}
 	e.client = clt
-	e.KeysAPI = retryApi{
+	e.KeysAPI = retryAPI{
 		api:      client.NewKeysAPI(e.client),
 		interval: e.cfg.RetryInterval,
 	}
@@ -480,7 +480,6 @@ func convertErr(e error) error {
 }
 
 func isDir(n *client.Node) bool {
-	//nolint:gosimple
 	return n != nil && n.Dir == true
 }
 
@@ -490,7 +489,7 @@ func suffix(key string) string {
 }
 
 // Get retrieves a set of Nodes from etcd
-func (r retryApi) Get(ctx context.Context, key string, opts *client.GetOptions) (*client.Response, error) {
+func (r retryAPI) Get(ctx context.Context, key string, opts *client.GetOptions) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.Get(ctx, key, opts)
 	})
@@ -503,7 +502,7 @@ func (r retryApi) Get(ctx context.Context, key string, opts *client.GetOptions) 
 // Set assigns a new value to a Node identified by a given key. The caller
 // may define a set of conditions in the SetOptions. If SetOptions.Dir=true
 // then value is ignored.
-func (r retryApi) Set(ctx context.Context, key, value string, opts *client.SetOptions) (*client.Response, error) {
+func (r retryAPI) Set(ctx context.Context, key, value string, opts *client.SetOptions) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.Set(ctx, key, value, opts)
 	})
@@ -516,7 +515,7 @@ func (r retryApi) Set(ctx context.Context, key, value string, opts *client.SetOp
 // Delete removes a Node identified by the given key, optionally destroying
 // all of its children as well. The caller may define a set of required
 // conditions in an DeleteOptions object.
-func (r retryApi) Delete(ctx context.Context, key string, opts *client.DeleteOptions) (*client.Response, error) {
+func (r retryAPI) Delete(ctx context.Context, key string, opts *client.DeleteOptions) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.Delete(ctx, key, opts)
 	})
@@ -527,7 +526,7 @@ func (r retryApi) Delete(ctx context.Context, key string, opts *client.DeleteOpt
 }
 
 // Create is an alias for Set w/ PrevExist=false
-func (r retryApi) Create(ctx context.Context, key, value string) (*client.Response, error) {
+func (r retryAPI) Create(ctx context.Context, key, value string) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.Create(ctx, key, value)
 	})
@@ -538,7 +537,7 @@ func (r retryApi) Create(ctx context.Context, key, value string) (*client.Respon
 }
 
 // CreateInOrder is used to atomically create in-order keys within the given directory.
-func (r retryApi) CreateInOrder(ctx context.Context, dir, value string, opts *client.CreateInOrderOptions) (*client.Response, error) {
+func (r retryAPI) CreateInOrder(ctx context.Context, dir, value string, opts *client.CreateInOrderOptions) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.CreateInOrder(ctx, dir, value, opts)
 	})
@@ -549,7 +548,7 @@ func (r retryApi) CreateInOrder(ctx context.Context, dir, value string, opts *cl
 }
 
 // Update is an alias for Set w/ PrevExist=true
-func (r retryApi) Update(ctx context.Context, key, value string) (*client.Response, error) {
+func (r retryAPI) Update(ctx context.Context, key, value string) (*client.Response, error) {
 	resp, err := r.retry(ctx, func() (*client.Response, error) {
 		return r.api.Update(ctx, key, value)
 	})
@@ -563,11 +562,11 @@ func (r retryApi) Update(ctx context.Context, key, value string) (*client.Respon
 // by the given key. The Watcher may be configured at creation time
 // through a WatcherOptions object. The returned Watcher is designed
 // to emit events that happen to a Node, and optionally to its children.
-func (r retryApi) Watcher(key string, opts *client.WatcherOptions) client.Watcher {
+func (r retryAPI) Watcher(key string, opts *client.WatcherOptions) client.Watcher {
 	return r.api.Watcher(key, opts)
 }
 
-func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response, err error) {
+func (r retryAPI) retry(ctx context.Context, fn apiCall) (resp *client.Response, err error) {
 	interval := backoff.NewExponentialBackOff()
 	interval.MaxElapsedTime = defaults.RetrySmallerMaxInterval
 	if r.interval != 0 {
@@ -593,7 +592,7 @@ func (r retryApi) retry(ctx context.Context, fn apiCall) (resp *client.Response,
 
 type apiCall func() (*client.Response, error)
 
-type retryApi struct {
+type retryAPI struct {
 	api      client.KeysAPI
 	interval time.Duration
 }

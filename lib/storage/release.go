@@ -224,7 +224,7 @@ func (r *ReleaseV1) SetExpiry(expires time.Time) {
 	r.Metadata.SetExpiry(expires)
 }
 
-// Expires returns the resource expiration time.
+// Expiry returns the resource expiration time.
 func (r *ReleaseV1) Expiry() time.Time {
 	return r.Metadata.Expiry()
 }

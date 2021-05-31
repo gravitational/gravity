@@ -43,12 +43,12 @@ func NewBolt(cfg BoltConfig) (storage.Backend, error) {
 	}
 	var engine kvengine
 	if cfg.Multi {
-		engine, err = newMultiBolt(cfg)
+		engine = newMultiBolt(cfg)
 	} else {
 		engine, err = newBolt(cfg, &v1codec{})
-	}
-	if err != nil {
-		return nil, trace.Wrap(err)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	clock := cfg.Clock
 	if clock == nil {
@@ -414,21 +414,21 @@ func (b *blt) compareAndSwapBytes(k key, val, prevVal []byte, outVal *[]byte, tt
 				return trace.AlreadyExists("key %q already exists", key)
 			}
 			return trace.Wrap(bkt.Put([]byte(key), val))
-		} else { // we expect the previous value to exist
-			if val == nil {
-				return trace.NotFound("key %q not found", key)
-			}
-			if !bytes.Equal(currentVal, prevVal) {
-				return trace.CompareFailed("expected %q got %q",
-					string(prevVal), string(currentVal))
-			}
-			err = bkt.Put([]byte(key), val)
-			if err != nil {
-				return trace.Wrap(err)
-			}
-			*outVal = currentVal
-			return nil
 		}
+		// we expect the previous value to exist
+		if val == nil {
+			return trace.NotFound("key %q not found", key)
+		}
+		if !bytes.Equal(currentVal, prevVal) {
+			return trace.CompareFailed("expected %q got %q",
+				string(prevVal), string(currentVal))
+		}
+		err = bkt.Put([]byte(key), val)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		*outVal = currentVal
+		return nil
 	})
 }
 

@@ -110,7 +110,7 @@ func (b *backend) GetUserTokens(user string) ([]storage.UserToken, error) {
 	return out, nil
 }
 
-// UpsertU2FRegisterChallenge upserts U2F challege to given token
+// UpsertU2FRegisterChallenge upserts U2F challenge to given token
 func (b *backend) UpsertU2FRegisterChallenge(tokenID string, u2fChallenge *u2f.Challenge) error {
 	data, err := json.Marshal(u2fChallenge)
 	if err != nil {

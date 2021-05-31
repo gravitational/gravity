@@ -27,10 +27,10 @@ import (
 //
 // This is achieved by opening/closing the database file on each operation
 // because in regular mode bolt keeps an exclusive lock on the file.
-func newMultiBolt(cfg BoltConfig) (*multiBolt, error) {
+func newMultiBolt(cfg BoltConfig) *multiBolt {
 	return &multiBolt{
 		cfg: cfg,
-	}, nil
+	}
 }
 
 type multiBolt struct {
