@@ -374,7 +374,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if credentials.TLS != nil {
 		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
 	}
-	params := []appclient.ClientParam{
+	params := []appclient.Param{
 		appclient.HTTPClient(env.HTTPClient(options...)),
 		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
 	}
@@ -538,7 +538,7 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 }
 
 // NewAppsClient creates a new app service client.
-func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
+func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.Param) (client appbase.Applications, err error) {
 	if entry.Email != "" && entry.Password != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)

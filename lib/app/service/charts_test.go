@@ -35,7 +35,7 @@ import (
 type chartsSuite struct {
 	backend storage.Backend
 	pack    pack.PackageService
-	apps    *applications
+	apps    *Applications
 }
 
 var _ = check.Suite(&chartsSuite{})
@@ -99,7 +99,7 @@ func (s *chartsSuite) TestRebuildIndex(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// Now rebuild the index.
-	err = s.apps.Charts.RebuildIndex()
+	err = s.apps.config.Charts.RebuildIndex()
 	c.Assert(err, check.IsNil)
 
 	// Verify it contains both apps.

@@ -92,15 +92,13 @@ type Config struct {
 }
 
 // New creates a new instance of the application manager
-func New(conf Config) (*applications, error) {
+func New(conf Config) (*Applications, error) {
 	if err := conf.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	apps := &applications{
-		Config: conf,
-	}
-
-	return apps, nil
+	return &Applications{
+		config: conf,
+	}, nil
 }
 
 func (r *Config) checkAndSetDefaults() error {
@@ -122,29 +120,29 @@ func (r *Config) checkAndSetDefaults() error {
 }
 
 // DeleteApp deletes an application record and the underlying package
-func (r *applications) DeleteApp(req appservice.DeleteRequest) error {
+func (r *Applications) DeleteApp(req appservice.DeleteRequest) error {
 	if err := r.canDelete(req.Package); err != nil {
 		if !req.Force {
 			return trace.Wrap(err)
 		}
-		r.Warnf("Force deleting app %v: %v.", req.Package, err)
+		r.config.Warnf("Force deleting app %v: %v.", req.Package, err)
 	}
-	if r.Charts != nil {
-		if err := r.Charts.RemoveFromIndex(req.Package); err != nil {
+	if r.config.Charts != nil {
+		if err := r.config.Charts.RemoveFromIndex(req.Package); err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	if err := r.deleteResourcesPackage(req.Package); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := r.Packages.DeletePackage(req.Package); err != nil {
+	if err := r.config.Packages.DeletePackage(req.Package); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil
 }
 
 // UninstallApp uninstalls the specified application from the runtime, with all its dependencies
-func (r *applications) UninstallApp(locator loc.Locator) (*appservice.Application, error) {
+func (r *Applications) UninstallApp(locator loc.Locator) (*appservice.Application, error) {
 	app, err := r.withApp(locator, func(dir string, app *appservice.Application) error {
 		// first uninstall the app
 		err := r.uninstallApp(locator)
@@ -165,7 +163,7 @@ func (r *applications) UninstallApp(locator loc.Locator) (*appservice.Applicatio
 
 // ExportApp exports containers of the specified application and its dependencies into the specified
 // docker registry
-func (r *applications) ExportApp(req appservice.ExportAppRequest) error {
+func (r *Applications) ExportApp(req appservice.ExportAppRequest) error {
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
 		RegistryAddress: req.RegistryAddress,
 		CertName:        req.CertName,
@@ -194,8 +192,8 @@ func (r *applications) ExportApp(req appservice.ExportAppRequest) error {
 // After processing, dir is automatically removed.
 type processAppFn func(dir string, app *appservice.Application) error
 
-func (r *applications) withApp(locator loc.Locator, process processAppFn) (*appservice.Application, error) {
-	envelope, err := r.Packages.ReadPackageEnvelope(locator)
+func (r *Applications) withApp(locator loc.Locator, process processAppFn) (*appservice.Application, error) {
+	envelope, err := r.config.Packages.ReadPackageEnvelope(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -205,9 +203,9 @@ func (r *applications) withApp(locator loc.Locator, process processAppFn) (*apps
 		return nil, trace.Wrap(err)
 	}
 
-	packagePath := pack.PackagePath(r.UnpackedDir, locator)
+	packagePath := pack.PackagePath(r.config.UnpackedDir, locator)
 
-	err = pack.UnpackIfNotUnpacked(r.Packages, locator, packagePath, nil)
+	err = pack.UnpackIfNotUnpacked(r.config.Packages, locator, packagePath, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -239,14 +237,14 @@ func syncWithRegistry(ctx context.Context, registryDir string, imageService dock
 }
 
 // runAppHook executes the hook specified by the request if the app has it
-func (r *applications) runAppHook(ctx context.Context, req appservice.HookRunRequest) error {
+func (r *Applications) runAppHook(ctx context.Context, req appservice.HookRunRequest) error {
 	// before launching the hook check if the app has it at all
 	hook, err := appservice.CheckHasAppHook(r, req)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	if hook == nil {
-		r.Debugf(err.Error())
+		r.config.Debugf(err.Error())
 		return nil
 	}
 	_, out, err := appservice.RunAppHook(ctx, r, req)
@@ -256,14 +254,14 @@ func (r *applications) runAppHook(ctx context.Context, req appservice.HookRunReq
 	return nil
 }
 
-func (r *applications) exportApp(ctx context.Context, dir string, imageService docker.ImageService) error {
+func (r *Applications) exportApp(ctx context.Context, dir string, imageService docker.ImageService) error {
 	dir = filepath.Join(dir, defaults.RegistryDir)
-	return syncWithRegistry(ctx, dir, imageService, r.FieldLogger)
+	return syncWithRegistry(ctx, dir, imageService, r.config.FieldLogger)
 }
 
 // uninstallApp calls "pre-uninstall" and "uninstall" hooks for the specified app
-func (r *applications) uninstallApp(locator loc.Locator) error {
-	r.Infof("Uninstalling %v.", locator)
+func (r *Applications) uninstallApp(locator loc.Locator) error {
+	r.config.Infof("Uninstalling %v.", locator)
 	err := r.runAppHook(context.TODO(), appservice.HookRunRequest{
 		Application: locator,
 		Hook:        schema.HookUninstalling,
@@ -282,7 +280,7 @@ func (r *applications) uninstallApp(locator loc.Locator) error {
 }
 
 // StartAppHook starts app hook in async mode
-func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunRequest) (*appservice.HookRef, error) {
+func (r *Applications) StartAppHook(ctx context.Context, req appservice.HookRunRequest) (*appservice.HookRef, error) {
 	hook, err := appservice.CheckHasAppHook(r, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -303,7 +301,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 		return nil, trace.Wrap(err)
 	}
 
-	creds, err := storage.GetClusterLoginEntry(r.Backend)
+	creds, err := storage.GetClusterLoginEntry(r.config.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -338,7 +336,7 @@ func (r *applications) StartAppHook(ctx context.Context, req appservice.HookRunR
 
 // injectEnvVars updates the provided hook run request with additional
 // environment variables such as cluster information.
-func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kubernetes.Clientset) error {
+func (r *Applications) injectEnvVars(req *appservice.HookRunRequest, client *kubernetes.Clientset) error {
 	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).
 		Get(context.TODO(), constants.ClusterInfoMap, metav1.GetOptions{})
 	if err != nil {
@@ -347,7 +345,7 @@ func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kub
 	if req.Env == nil {
 		req.Env = make(map[string]string)
 	}
-	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.Devmode)
+	req.Env[constants.DevmodeEnvVar] = strconv.FormatBool(r.config.Devmode)
 	for name, value := range configMap.Data {
 		req.Env[name] = value
 	}
@@ -355,7 +353,7 @@ func (r *applications) injectEnvVars(req *appservice.HookRunRequest, client *kub
 }
 
 // WaitAppHook waits for app hook to complete or fail
-func (r *applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) error {
+func (r *Applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) error {
 	client, err := r.getKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -364,7 +362,7 @@ func (r *applications) WaitAppHook(ctx context.Context, ref appservice.HookRef) 
 }
 
 // StreamAppHookLogs streams app hook logs to output writer, this is a blocking call
-func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.HookRef, out io.Writer) error {
+func (r *Applications) StreamAppHookLogs(ctx context.Context, ref appservice.HookRef, out io.Writer) error {
 	client, err := r.getKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -373,7 +371,7 @@ func (r *applications) StreamAppHookLogs(ctx context.Context, ref appservice.Hoo
 }
 
 // DeleteAppHookJob deletes app hook job
-func (r *applications) DeleteAppHookJob(ctx context.Context, req appservice.DeleteAppHookJobRequest) error {
+func (r *Applications) DeleteAppHookJob(ctx context.Context, req appservice.DeleteAppHookJobRequest) error {
 	client, err := r.getKubeClient()
 	if err != nil {
 		return trace.Wrap(err)
@@ -382,7 +380,7 @@ func (r *applications) DeleteAppHookJob(ctx context.Context, req appservice.Dele
 }
 
 // StatusApp retrieves the status of a running application
-func (r *applications) StatusApp(locator loc.Locator) (*appservice.Status, error) {
+func (r *Applications) StatusApp(locator loc.Locator) (*appservice.Status, error) {
 	err := r.runAppHook(context.TODO(), appservice.HookRunRequest{
 		Application: locator,
 		Hook:        schema.HookStatus,
@@ -396,11 +394,11 @@ func (r *applications) StatusApp(locator loc.Locator) (*appservice.Status, error
 }
 
 // ListApps lists currently installed applications from the specified repository of the given type
-func (r *applications) ListApps(req appservice.ListAppsRequest) (apps []appservice.Application, err error) {
+func (r *Applications) ListApps(req appservice.ListAppsRequest) (apps []appservice.Application, err error) {
 	if err := req.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	batch, err := r.Packages.GetPackages(req.Repository)
+	batch, err := r.config.Packages.GetPackages(req.Repository)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -417,11 +415,11 @@ func (r *applications) ListApps(req appservice.ListAppsRequest) (apps []appservi
 		if req.Pattern != "" && !strings.Contains(item.Locator.Name, req.Pattern) {
 			continue
 		}
-		app, err := toApp(&item, r)
+		app, err := toApp(item, r)
 		if err != nil {
 			// just skip the app if we failed to resolve its manifest to prevent OpsCenter from
 			// breaking when deploying backward-incompatible manifest changes
-			r.Errorf("Failed to resolve manifest for %v: %v.",
+			r.config.Errorf("Failed to resolve manifest for %v: %v.",
 				item.Locator.String(), trace.DebugReport(err))
 			continue
 		}
@@ -435,44 +433,44 @@ func resourcesPackageFor(locator loc.Locator) loc.Locator {
 	return locator
 }
 
-func (r *applications) setResourcesPackage(locator loc.Locator, reader io.Reader) error {
-	if !r.CacheResources {
+func (r *Applications) setResourcesPackage(locator loc.Locator, reader io.Reader) error {
+	if !r.config.CacheResources {
 		return trace.BadParameter("cache is off")
 	}
-	_, err := r.Packages.UpsertPackage(resourcesPackageFor(locator), reader)
+	_, err := r.config.Packages.UpsertPackage(resourcesPackageFor(locator), reader)
 	return trace.Wrap(err)
 }
 
-func (r *applications) getResourcesPackage(locator loc.Locator) (io.ReadCloser, error) {
-	if !r.CacheResources {
+func (r *Applications) getResourcesPackage(locator loc.Locator) (io.ReadCloser, error) {
+	if !r.config.CacheResources {
 		return nil, trace.NotFound("cache is off")
 	}
-	_, reader, err := r.Packages.ReadPackage(resourcesPackageFor(locator))
+	_, reader, err := r.config.Packages.ReadPackage(resourcesPackageFor(locator))
 	if err != nil {
-		r.Debugf("Cache miss %v.", locator)
+		r.config.Debugf("Cache miss %v.", locator)
 	} else {
-		r.Debugf("Cache hit %v.", locator)
+		r.config.Debugf("Cache hit %v.", locator)
 	}
 	return reader, err
 }
 
-func (r *applications) deleteResourcesPackage(locator loc.Locator) error {
-	if !r.CacheResources {
+func (r *Applications) deleteResourcesPackage(locator loc.Locator) error {
+	if !r.config.CacheResources {
 		return nil
 	}
-	err := r.Packages.DeletePackage(resourcesPackageFor(locator))
+	err := r.config.Packages.DeletePackage(resourcesPackageFor(locator))
 	if err != nil {
 		if !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 	}
-	r.Debugf("Cache invalidated for %v.", locator)
+	r.config.Debugf("Cache invalidated for %v.", locator)
 	return nil
 }
 
 // GetAppResources retrieves an application resources specified with locator
-func (r *applications) GetAppResources(locator loc.Locator) (io.ReadCloser, error) {
-	if !r.CacheResources {
+func (r *Applications) GetAppResources(locator loc.Locator) (io.ReadCloser, error) {
+	if !r.config.CacheResources {
 		return r.getAppResources(locator)
 	}
 	resourcesPackage, err := r.getResourcesPackage(locator)
@@ -493,13 +491,13 @@ func (r *applications) GetAppResources(locator loc.Locator) (io.ReadCloser, erro
 	return r.getResourcesPackage(locator)
 }
 
-func (r *applications) getAppResources(locator loc.Locator) (io.ReadCloser, error) {
+func (r *Applications) getAppResources(locator loc.Locator) (io.ReadCloser, error) {
 	locator, err := r.processMetadata(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	_, reader, err := r.Packages.ReadPackage(locator)
+	_, reader, err := r.config.Packages.ReadPackage(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -518,7 +516,7 @@ func (r *applications) getAppResources(locator loc.Locator) (io.ReadCloser, erro
 }
 
 // GetApp retrieves an application specified with locator
-func (r *applications) GetApp(locator loc.Locator) (*appservice.Application, error) {
+func (r *Applications) GetApp(locator loc.Locator) (*appservice.Application, error) {
 	if locator.IsEqualTo(appservice.Phony.Package) {
 		return appservice.Phony, nil
 	}
@@ -528,15 +526,15 @@ func (r *applications) GetApp(locator loc.Locator) (*appservice.Application, err
 		return nil, trace.Wrap(err)
 	}
 
-	envelope, err := r.Packages.ReadPackageEnvelope(locator)
+	envelope, err := r.config.Packages.ReadPackageEnvelope(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return toApp(envelope, r)
+	return toApp(*envelope, r)
 }
 
-func (r *applications) UpsertApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
+func (r *Applications) UpsertApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
 	manifest, tempDir, cleanup, err := manifestFromUnpackedSource(reader)
 	defer cleanup()
 	if err != nil {
@@ -555,15 +553,15 @@ func (r *applications) UpsertApp(locator loc.Locator, reader io.Reader, labels m
 // CreateAppWithManifest new application from the specified package bytes (reader)
 // and an optional set of package labels using locator as destination for the
 // resulting package, with supplied manifest
-func (r *applications) CreateAppWithManifest(locator loc.Locator, manifest []byte, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
+func (r *Applications) CreateAppWithManifest(locator loc.Locator, manifest []byte, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
 	return r.createApp(locator, reader, manifest, labels, "", false)
 }
 
 // CreateApp creates a new application from the specified package bytes (reader)
 // and an optional set of package labels using locator as destination for the
 // resulting package
-func (r *applications) CreateApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
-	envelope, err := r.Packages.ReadPackageEnvelope(locator)
+func (r *Applications) CreateApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*appservice.Application, error) {
+	envelope, err := r.config.Packages.ReadPackageEnvelope(locator)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
@@ -586,13 +584,13 @@ func (r *applications) CreateApp(locator loc.Locator, reader io.Reader, labels m
 	return r.CreateAppWithManifest(locator, manifest, packageBytes, labels)
 }
 
-func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, manifestBytes []byte, labels map[string]string, email string, upsert bool) (*appservice.Application, error) {
+func (r *Applications) createApp(locator loc.Locator, packageBytes io.Reader, manifestBytes []byte, labels map[string]string, email string, upsert bool) (*appservice.Application, error) {
 	manifest, err := r.resolveManifest(manifestBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	err = r.Packages.UpsertRepository(locator.Repository, time.Time{})
+	err = r.config.Packages.UpsertRepository(locator.Repository, time.Time{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -611,16 +609,16 @@ func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, ma
 
 	var envelope *pack.PackageEnvelope
 	if upsert {
-		envelope, err = r.Packages.UpsertPackage(locator, packageBytes, options...)
+		envelope, err = r.config.Packages.UpsertPackage(locator, packageBytes, options...)
 	} else {
-		envelope, err = r.Packages.CreatePackage(locator, packageBytes, options...)
+		envelope, err = r.config.Packages.CreatePackage(locator, packageBytes, options...)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	if manifest.Kind == schema.KindApplication && r.Charts != nil {
-		err = r.Charts.AddToIndex(locator, upsert)
+	if manifest.Kind == schema.KindApplication && r.config.Charts != nil {
+		err = r.config.Charts.AddToIndex(locator, upsert)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return nil, trace.Wrap(err)
 		}
@@ -635,7 +633,7 @@ func (r *applications) createApp(locator loc.Locator, packageBytes io.Reader, ma
 
 // CreateImportOperation initiates import for an application specified with req.
 // Returns the import operation to keep track of the import progress.
-func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*storage.AppOperation, error) {
+func (r *Applications) CreateImportOperation(req *appservice.ImportRequest) (*storage.AppOperation, error) {
 	unpackedDir, cleanup, err := unpackedSource(req.Source)
 	if err != nil {
 		cleanup()
@@ -652,7 +650,7 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	r.Config.ExcludeDeps = appservice.AppsToExclude(*m)
+	r.config.ExcludeDeps = appservice.AppsToExclude(*m)
 
 	manifest, err := r.resolveManifest(manifestBytes)
 	if err != nil {
@@ -690,7 +688,7 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 			State:          appservice.ProgressStateInProgress.State(),
 		})
 		return trace.Wrap(err)
-	})(r.Backend)
+	})(r.config.Backend)
 
 	if err != nil {
 		cleanup()
@@ -716,13 +714,13 @@ func (r *applications) CreateImportOperation(req *appservice.ImportRequest) (*st
 }
 
 // GetAppManifest returns a reader to the application manifest
-func (r *applications) GetAppManifest(locator loc.Locator) (io.ReadCloser, error) {
+func (r *Applications) GetAppManifest(locator loc.Locator) (io.ReadCloser, error) {
 	locator, err := r.processMetadata(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	envelope, err := r.Packages.ReadPackageEnvelope(locator)
+	envelope, err := r.config.Packages.ReadPackageEnvelope(locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -730,8 +728,8 @@ func (r *applications) GetAppManifest(locator loc.Locator) (io.ReadCloser, error
 }
 
 // GetOperationProgress returns the last progress record for the specified operation
-func (r *applications) GetOperationProgress(op storage.AppOperation) (*appservice.ProgressEntry, error) {
-	progress, err := r.Backend.GetLastAppProgressEntry(op.ID)
+func (r *Applications) GetOperationProgress(op storage.AppOperation) (*appservice.ProgressEntry, error) {
+	progress, err := r.config.Backend.GetLastAppProgressEntry(op.ID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -739,11 +737,11 @@ func (r *applications) GetOperationProgress(op storage.AppOperation) (*appservic
 }
 
 // GetImportedApplication returns the imported application identified by the specified import operation
-func (r *applications) GetImportedApplication(op storage.AppOperation) (*appservice.Application, error) {
+func (r *Applications) GetImportedApplication(op storage.AppOperation) (*appservice.Application, error) {
 	if op.ID == "" {
 		return nil, trace.BadParameter("missing parameter OperationID")
 	}
-	operation, err := r.Backend.GetAppOperation(op.ID)
+	operation, err := r.config.Backend.GetAppOperation(op.ID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -751,11 +749,11 @@ func (r *applications) GetImportedApplication(op storage.AppOperation) (*appserv
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	pkg, err := r.Packages.ReadPackageEnvelope(*locator)
+	pkg, err := r.config.Packages.ReadPackageEnvelope(*locator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	app, err := toApp(pkg, r)
+	app, err := toApp(*pkg, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -763,8 +761,8 @@ func (r *applications) GetImportedApplication(op storage.AppOperation) (*appserv
 }
 
 // GetOperationLogs returns the reader to the logs of the specified operation
-func (r *applications) GetOperationLogs(op storage.AppOperation) (io.ReadCloser, error) {
-	ctx, err := newOperationContext(&importOperation{op: &op}, r.StateDir, r.Backend)
+func (r *Applications) GetOperationLogs(op storage.AppOperation) (io.ReadCloser, error) {
+	ctx, err := newOperationContext(&importOperation{op: &op}, r.config.StateDir, r.config.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -772,9 +770,9 @@ func (r *applications) GetOperationLogs(op storage.AppOperation) (io.ReadCloser,
 }
 
 // GetOperationCrashReport returns crash report of the specified operation
-func (r *applications) GetOperationCrashReport(op storage.AppOperation) (io.ReadCloser, error) {
+func (r *Applications) GetOperationCrashReport(op storage.AppOperation) (io.ReadCloser, error) {
 	// TODO: importOperation -> operationContext
-	ctx, err := newOperationContext(&importOperation{op: &op}, r.StateDir, r.Backend)
+	ctx, err := newOperationContext(&importOperation{op: &op}, r.config.StateDir, r.config.Backend)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -789,7 +787,7 @@ func (r *applications) GetOperationCrashReport(op storage.AppOperation) (io.Read
 		tarball := archive.NewTarAppender(writer)
 		defer tarball.Close()
 		if errClose := writer.CloseWithError(tarball.Add(item)); errClose != nil {
-			r.Warnf("Failed to close writer: %v.", errClose)
+			r.config.Warnf("Failed to close writer: %v.", errClose)
 		}
 	}()
 
@@ -797,19 +795,19 @@ func (r *applications) GetOperationCrashReport(op storage.AppOperation) (io.Read
 }
 
 // FetchChart returns Helm chart package with the specified application.
-func (r *applications) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
-	return r.Charts.FetchChart(locator)
+func (r *Applications) FetchChart(locator loc.Locator) (io.ReadCloser, error) {
+	return r.config.Charts.FetchChart(locator)
 }
 
 // FetchIndexFile returns Helm chart repository index file data.
-func (r *applications) FetchIndexFile() (io.Reader, error) {
-	return r.Charts.GetIndexFile()
+func (r *Applications) FetchIndexFile() (io.Reader, error) {
+	return r.config.Charts.GetIndexFile()
 }
 
-func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, error) {
+func (r *Applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, error) {
 	manifest, err := schema.ParseManifestYAMLNoValidate(manifestBytes)
 	if err != nil {
-		r.Warnf("Failed to parse: %s.\n", manifestBytes)
+		r.config.Warnf("Failed to parse: %s.\n", manifestBytes)
 		return nil, trace.Wrap(err, "failed to parse application manifest")
 	}
 	baseLocator := manifest.Base()
@@ -825,7 +823,7 @@ func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, 
 	}
 
 	message := "Dependency %v excluded from manifest"
-	manifest.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(manifest.Dependencies.Apps), r.Config.ExcludeDeps, message))
+	manifest.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(manifest.Dependencies.Apps), r.config.ExcludeDeps, message))
 
 	if err = schema.CheckAndSetDefaults(manifest); err != nil {
 		return nil, trace.Wrap(err)
@@ -838,7 +836,7 @@ func (r *applications) resolveManifest(manifestBytes []byte) (*schema.Manifest, 
 //  - the app exists
 //  - no other app depends on it
 //  - it is not deployed on any site
-func (r *applications) canDelete(locator loc.Locator) error {
+func (r *Applications) canDelete(locator loc.Locator) error {
 	// ensure the app exists
 	_, err := r.GetApp(locator)
 	if err != nil {
@@ -863,12 +861,12 @@ func (r *applications) canDelete(locator loc.Locator) error {
 		}
 	}
 	// ensure it is not deployed on any site
-	accounts, err := r.Backend.GetAccounts()
+	accounts, err := r.config.Backend.GetAccounts()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	for _, account := range accounts {
-		sites, err := r.Backend.GetSites(account.ID)
+		sites, err := r.config.Backend.GetSites(account.ID)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -894,7 +892,7 @@ func (r *applications) canDelete(locator loc.Locator) error {
 //    the import request. The provided request is updated with the proper values.
 //
 //  - The app's dependencies can be satisfied.
-func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *appservice.ImportRequest) error {
+func (r *Applications) checkImportRequirements(manifest *schema.Manifest, req *appservice.ImportRequest) error {
 	// check whether we need to take repository, package and version from the manifest
 	if req.Repository == "" {
 		if manifest.Metadata.Repository == "" {
@@ -923,7 +921,7 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		p, err := r.Packages.ReadPackageEnvelope(locator)
+		p, err := r.config.Packages.ReadPackageEnvelope(locator)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -938,7 +936,7 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		envelope, err := r.Packages.ReadPackageEnvelope(locator)
+		envelope, err := r.config.Packages.ReadPackageEnvelope(locator)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
@@ -950,28 +948,28 @@ func (r *applications) checkImportRequirements(manifest *schema.Manifest, req *a
 	return nil
 }
 
-func (r *applications) processMetadata(locator loc.Locator) (loc.Locator, error) {
-	locatorPtr, err := pack.ProcessMetadata(r.Packages, &locator)
+func (r *Applications) processMetadata(locator loc.Locator) (loc.Locator, error) {
+	locatorPtr, err := pack.ProcessMetadata(r.config.Packages, &locator)
 	if err != nil {
 		return locator, trace.Wrap(err)
 	}
 	return *locatorPtr, nil
 }
 
-func (r *applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
-	r.Lock()
-	defer r.Unlock()
-	if r.Client == nil {
-		r.Client, err = r.GetClient()
+func (r *Applications) getKubeClient() (_ *kubernetes.Clientset, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.config.Client == nil {
+		r.config.Client, err = r.config.GetClient()
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to create Kubernetes client")
 		}
 	}
-	return r.Client, nil
+	return r.config.Client, nil
 }
 
-type applications struct {
-	// Mutex guards Client
-	sync.Mutex
-	Config
+type Applications struct {
+	// mu guards config.Client
+	mu     sync.Mutex
+	config Config
 }

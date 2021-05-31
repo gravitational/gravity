@@ -36,7 +36,7 @@ import (
    repository because Helm client calls it to update information about
    available charts.
 */
-func (h *WebHandler) getIndexFile(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *handlerContext) error {
+func (h *WebHandler) getIndexFile(w http.ResponseWriter, _ *http.Request, _ httprouter.Params, context *handlerContext) error {
 	reader, err := context.applications.FetchIndexFile()
 	if err != nil {
 		return trace.Wrap(err)

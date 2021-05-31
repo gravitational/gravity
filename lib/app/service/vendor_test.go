@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"sort"
@@ -44,7 +45,7 @@ func (s *VendorSuite) TestRewriteManifestMetadata(c *C) {
 	rFiles := createResourceFile("testmetadata", manifestWithMetadata, c)
 	// 1st pass: rewrite package details
 	target := loc.Locator{Repository: "gravitational.io", Name: "n1", Version: "7.7.7"}
-	err := rFiles.RewriteManifest(func(m *schema.Manifest) error {
+	err := rFiles.RewriteManifest(context.TODO(), func(_ context.Context, m *schema.Manifest) error {
 		m.Metadata.Repository = target.Repository
 		m.Metadata.Name = target.Name
 		m.Metadata.ResourceVersion = target.Version
@@ -54,7 +55,7 @@ func (s *VendorSuite) TestRewriteManifestMetadata(c *C) {
 
 	var out loc.Locator
 	// 2st pass: check the result
-	err = rFiles.RewriteManifest(func(m *schema.Manifest) error {
+	err = rFiles.RewriteManifest(context.TODO(), func(_ context.Context, m *schema.Manifest) error {
 		out.Repository = m.Metadata.Repository
 		out.Name = m.Metadata.Name
 		out.Version = m.Metadata.ResourceVersion
@@ -74,11 +75,11 @@ func (s *VendorSuite) TestRewriteDeps(c *C) {
 	}
 
 	// 1st pass: rewrite all deps
-	c.Assert(rFiles.RewriteManifest(makeRewriteDepsFunc(deps)), IsNil)
+	c.Assert(rFiles.RewriteManifest(context.TODO(), makeRewriteDepsFunc(deps)), IsNil)
 
 	var locators []loc.Locator
 	// 2st pass: collect all deps and check the result
-	err := rFiles.RewriteManifest(func(m *schema.Manifest) error {
+	err := rFiles.RewriteManifest(context.TODO(), func(_ context.Context, m *schema.Manifest) error {
 		for _, dep := range m.Dependencies.Packages {
 			locators = append(locators, dep.Locator)
 		}
@@ -115,12 +116,12 @@ func (s *VendorSuite) TestRewitePackagesMetadata(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	err = rFiles.RewriteManifest(makeRewritePackagesMetadataFunc(packages))
+	err = rFiles.RewriteManifest(context.TODO(), makeRewritePackagesMetadataFunc(packages))
 	c.Assert(err, IsNil)
 
 	// collect rewritten locators and check them
 	var result []string
-	err = rFiles.RewriteManifest(func(m *schema.Manifest) error {
+	err = rFiles.RewriteManifest(context.TODO(), func(_ context.Context, m *schema.Manifest) error {
 		base := m.Base()
 		if base != nil {
 			result = append(result, base.String())
@@ -150,7 +151,7 @@ func (*VendorSuite) TestGeneratesProperPackageNames(c *C) {
 		{
 			image: "planet-gpu:1.0.0",
 			validator: func(loc loc.Locator, generated map[string]struct{}) bool {
-				return "planet-gpu" == loc.Name
+				return loc.Name == "planet-gpu"
 			},
 			comment: "package name equals image name",
 		},
@@ -174,21 +175,21 @@ func (*VendorSuite) TestGeneratesProperPackageNames(c *C) {
 		{
 			image: "repo-a/image:2.0.0",
 			validator: func(loc loc.Locator, generated map[string]struct{}) bool {
-				return "repo-a-image" == loc.Name
+				return loc.Name == "repo-a-image"
 			},
 			comment: "can handle image names with repository",
 		},
 		{
 			image: "repo-b/image:2.0.0",
 			validator: func(loc loc.Locator, generated map[string]struct{}) bool {
-				return "repo-b-image" == loc.Name
+				return loc.Name == "repo-b-image"
 			},
-			comment: "gets a unique package name with a respository",
+			comment: "gets a unique package name with a repository",
 		},
 		{
 			image: "repo.io/subrepo/image:2.0.0",
 			validator: func(loc loc.Locator, generated map[string]struct{}) bool {
-				return "repo.io-subrepo-image" == loc.Name
+				return loc.Name == "repo.io-subrepo-image"
 			},
 			comment: "can handle images with nested paths",
 		},

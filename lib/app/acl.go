@@ -249,6 +249,7 @@ func (r *ApplicationsACL) check(repoName, verb string) error {
 }
 
 // checkApp checks whether the user has the requested permissions to the specified app
+//nolint:unparam // verb is always the same
 func (r *ApplicationsACL) checkApp(locator loc.Locator, verb string) error {
 	return r.checker.CheckAccessToRule(r.appContext(locator),
 		teledefaults.Namespace, storage.KindApp, verb, false)

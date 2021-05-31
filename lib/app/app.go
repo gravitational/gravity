@@ -247,7 +247,7 @@ func (r HookRunRequest) Check() error {
 	return nil
 }
 
-// HookRefis a reference to a hook running as a kubernetes job
+// HookRef is a reference to a hook running as a kubernetes job
 type HookRef struct {
 	// Application identifies the application package to run hook for
 	Application loc.Locator `json:"application"`

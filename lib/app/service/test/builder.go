@@ -27,7 +27,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 )
 
 // CreateDummyPackage creates package with fake contents
