@@ -34,7 +34,7 @@ import (
 
 // NewJournal returns a new executor to remove obsolete systemd journal
 // directories inside the runtime container.
-func NewJournal(params libfsm.ExecutorParams, runtimePath string, silent localenv.Silent, logger log.FieldLogger) (*journalExecutor, error) {
+func NewJournal(params libfsm.ExecutorParams, runtimePath string, silent localenv.Silent, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)

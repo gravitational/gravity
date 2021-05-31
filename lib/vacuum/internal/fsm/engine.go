@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -158,7 +157,7 @@ func (r *engine) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
+	return libfsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an new changelog entry

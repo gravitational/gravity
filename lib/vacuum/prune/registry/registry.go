@@ -36,13 +36,13 @@ import (
 )
 
 // New creates a new registry cleaner
-func New(config Config) (*cleanup, error) {
+func New(config Config) (*Cleanup, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return &cleanup{
-		Config: config,
+	return &Cleanup{
+		config: config,
 	}, nil
 }
 
@@ -82,16 +82,16 @@ type Config struct {
 // Prune removes unused docker images.
 // The registry state is reset by deleting the state from the filesystem
 // and re-running the docker image export for the cluster application.
-func (r *cleanup) Prune(ctx context.Context) (err error) {
-	r.PrintStep("Stop registry service")
-	if !r.DryRun {
+func (r *Cleanup) Prune(ctx context.Context) (err error) {
+	r.config.PrintStepf("Stop registry service")
+	if !r.config.DryRun {
 		err = r.registryStop(ctx)
 		defer func() {
 			if err == nil {
 				return
 			}
 			if errStart := r.registryStart(ctx); errStart != nil {
-				r.Warn(errStart)
+				r.config.Warn(errStart)
 			}
 		}()
 		if err != nil {
@@ -105,8 +105,8 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 	}
 
 	dir := state.RegistryDir(stateDir)
-	r.PrintStep("Delete registry state directory %v", dir)
-	if !r.DryRun {
+	r.config.PrintStepf("Delete registry state directory %v", dir)
+	if !r.config.DryRun {
 		err = utils.RemoveContents(dir)
 		if err != nil {
 			return trace.Wrap(trace.ConvertSystemError(err),
@@ -114,23 +114,23 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 		}
 	}
 
-	r.PrintStep("Start registry service")
-	if !r.DryRun {
+	r.config.PrintStepf("Start registry service")
+	if !r.config.DryRun {
 		err = r.registryStart(ctx)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
-	r.PrintStep("Sync application state with registry")
-	if r.DryRun {
+	r.config.PrintStepf("Sync application state with registry")
+	if r.config.DryRun {
 		return nil
 	}
 	err = appservice.SyncApp(ctx, appservice.SyncRequest{
-		PackService:  r.Packages,
-		AppService:   r.Apps,
-		ImageService: r.ImageService,
-		Package:      *r.App,
+		PackService:  r.config.Packages,
+		AppService:   r.config.Apps,
+		ImageService: r.config.ImageService,
+		Package:      *r.config.App,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -139,7 +139,7 @@ func (r *cleanup) Prune(ctx context.Context) (err error) {
 	return nil
 }
 
-func (r *cleanup) registryStart(ctx context.Context) error {
+func (r *Cleanup) registryStart(ctx context.Context) error {
 	out, err := r.serviceStart(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to start the registry service: %s.", out)
@@ -152,7 +152,7 @@ func (r *cleanup) registryStart(ctx context.Context) error {
 	return nil
 }
 
-func (r *cleanup) registryStop(ctx context.Context) error {
+func (r *Cleanup) registryStop(ctx context.Context) error {
 	out, err := r.serviceStop(ctx)
 	if err != nil {
 		return trace.Wrap(err, "failed to stop the registry service: %s.", out)
@@ -166,7 +166,7 @@ func (r *cleanup) registryStop(ctx context.Context) error {
 	return nil
 }
 
-func (r *cleanup) waitForService(ctx context.Context, status string) error {
+func (r *Cleanup) waitForService(ctx context.Context, status string) error {
 	localCtx, cancel := defaults.WithTimeout(ctx)
 	defer cancel()
 	b := utils.NewUnlimitedExponentialBackOff()
@@ -181,21 +181,22 @@ func (r *cleanup) waitForService(ctx context.Context, status string) error {
 	return trace.Wrap(err)
 }
 
-func (r *cleanup) serviceStop(ctx context.Context) (output []byte, err error) {
-	return serviceCtl(ctx, r.FieldLogger, "stop")
+func (r *Cleanup) serviceStop(ctx context.Context) (output []byte, err error) {
+	return serviceCtl(ctx, r.config.FieldLogger, "stop")
 }
 
-func (r *cleanup) serviceStart(ctx context.Context) (output []byte, err error) {
-	return serviceCtl(ctx, r.FieldLogger, "start")
+func (r *Cleanup) serviceStart(ctx context.Context) (output []byte, err error) {
+	return serviceCtl(ctx, r.config.FieldLogger, "start")
 }
 
-func (r *cleanup) serviceStatus(ctx context.Context) (output []byte, err error) {
-	return serviceCtl(ctx, r.FieldLogger, "is-active")
+func (r *Cleanup) serviceStatus(ctx context.Context) (output []byte, err error) {
+	return serviceCtl(ctx, r.config.FieldLogger, "is-active")
 }
 
-type cleanup struct {
-	// Config specifies the configuration for the cleanup
-	Config
+// Cleanup implements garbage collection for docker registry
+type Cleanup struct {
+	// config specifies the configuration for the cleanup
+	config Config
 }
 
 func serviceCtl(ctx context.Context, log log.FieldLogger, args ...string) (output []byte, err error) {

@@ -33,8 +33,8 @@ type Pruner interface {
 	Prune(context.Context) error
 }
 
-// PrintStep formats the specified message string to stdout
-func (r Config) PrintStep(format string, args ...interface{}) {
+// PrintStepf formats the specified message string to stdout
+func (r Config) PrintStepf(format string, args ...interface{}) {
 	if r.DryRun {
 		format = "[dry-run] " + format
 	}

@@ -474,11 +474,10 @@ func newPackage(pkg string, labels ...string) packageEnvelope {
 	}
 }
 
-func newAppPackage(pkg string, typ_ storage.AppType, labels ...string) packageEnvelope {
+func newAppPackage(pkg string, typ storage.AppType) packageEnvelope {
 	return packageEnvelope{
-		Locator:       loc.MustParseLocator(pkg),
-		Type:          string(typ_),
-		RuntimeLabels: asLabels(labels...),
+		Locator: loc.MustParseLocator(pkg),
+		Type:    string(typ),
 	}
 }
 
@@ -505,9 +504,9 @@ func (r testPackages) GetPackages(repository string) (envelopes []pack.PackageEn
 }
 
 func (r testPackages) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, error) {
-	for _, envelope := range r {
+	for i, envelope := range r {
 		if envelope.Locator.IsEqualTo(loc) {
-			return (*pack.PackageEnvelope)(&envelope), nil
+			return (*pack.PackageEnvelope)(&r[i]), nil
 		}
 	}
 	return nil, trace.NotFound("no package %v found", loc)
