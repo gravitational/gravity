@@ -59,7 +59,7 @@ func ParseDockerImage(image string) (*DockerImage, error) {
 	return &DockerImage{Registry: parts[0], Repository: strings.Join(parts[1:], "/"), Tag: tag}, nil
 }
 
-// Get a repos name and returns the right reposName + tag|digest
+// ParseRepositoryTag returns the name of repository + tag|digest.
 // The tag can be confusing because of a port in a repository name.
 //     Ex: localhost.localdomain:5000/samalba/hipache:latest
 //     Digest ex: localhost:5000/foo/bar@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb

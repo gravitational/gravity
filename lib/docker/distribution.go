@@ -30,6 +30,8 @@ import (
 	registrycontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
+
+	// imported for side-effects
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
 	"github.com/docker/distribution/version"
 

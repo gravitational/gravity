@@ -35,7 +35,7 @@ import (
 
 // exportLayers exports the layers of the specified set of images into
 // the specified local directory
-func exportLayers(ctx context.Context, dir string, images []string, dockerClient docker.DockerInterface, log log.FieldLogger,
+func exportLayers(ctx context.Context, dir string, images []string, dockerClient docker.Interface, log log.FieldLogger,
 	parallel int, progress utils.Progress) error {
 	layerExporter, err := newLayerExporter(dir, dockerClient, log, progress)
 	if err != nil {
@@ -55,7 +55,7 @@ func exportLayers(ctx context.Context, dir string, images []string, dockerClient
 }
 
 // newLayerExporter creates an instance of layer exporter
-func newLayerExporter(exportDir string, client docker.DockerInterface, log log.FieldLogger, progress utils.Progress) (*layerExporter, error) {
+func newLayerExporter(exportDir string, client docker.Interface, log log.FieldLogger, progress utils.Progress) (*layerExporter, error) {
 	outputDir := filepath.Join(exportDir, defaults.RegistryDir)
 	config := docker.BasicConfiguration("127.0.0.1:0", outputDir)
 	registry, err := docker.NewRegistry(config)
@@ -78,7 +78,7 @@ func newLayerExporter(exportDir string, client docker.DockerInterface, log log.F
 // docker registry
 type layerExporter struct {
 	log.FieldLogger
-	dockerClient     docker.DockerInterface
+	dockerClient     docker.Interface
 	registry         *docker.Registry
 	progressReporter utils.Progress
 }
@@ -188,7 +188,7 @@ func parseImageNameTag(image string) (name, tag string, err error) {
 }
 
 // pullMissingRemoteImages downloads a subset of remote images missing locally
-func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.FieldLogger, req VendorRequest) error {
+func pullMissingRemoteImage(image string, puller docker.PullService, log log.FieldLogger, req VendorRequest) error {
 	log.Infof("Pulling: %s.", image)
 	present, err := puller.IsImagePresent(image)
 	if err != nil {
@@ -206,7 +206,7 @@ func pullMissingRemoteImage(image string, puller docker.DockerPuller, log log.Fi
 	return nil
 }
 
-func tagImageWithoutRegistry(image string, docker docker.DockerInterface, log log.FieldLogger) error {
+func tagImageWithoutRegistry(image string, docker docker.Interface, log log.FieldLogger) error {
 	// tag the image without a registry
 	parsed, err := loc.ParseDockerImage(image)
 	if err != nil {

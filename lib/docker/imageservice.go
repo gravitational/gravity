@@ -172,7 +172,7 @@ type imageService struct {
 	RegistryConnectionRequest
 	log.FieldLogger
 
-	remoteStore *remoteStore
+	remoteStore *RemoteStore
 }
 
 // List fetches a list of all images from the registry
@@ -331,9 +331,9 @@ func (r *imageService) connect(ctx context.Context) (err error) {
 	return nil
 }
 
-// remoteStore defines a remote distribution registry
-type remoteStore struct {
-	log.FieldLogger
+// RemoteStore defines a remote distribution registry
+type RemoteStore struct {
+	log          log.FieldLogger
 	transport    http.RoundTripper
 	registry     registryclient.Registry
 	addr         string
@@ -373,7 +373,7 @@ func newCertPool(CAFiles []string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, error) {
+func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string) {
 	const connectTimeout = 30 * time.Second
 	const keepAlivePeriod = 30 * time.Second
 	const handshakeTimeout = 30 * time.Second
@@ -398,7 +398,10 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 	// flag, ignore the certificate error (this is what Docker does too).
 	var err error
 	if req.Insecure && strings.HasPrefix(registryAddress, "https://") {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		transport.TLSClientConfig = &tls.Config{
+			//nolint:gosec	// explicit configuration
+			InsecureSkipVerify: true,
+		}
 	} else if strings.HasPrefix(registryAddress, "https://") {
 		transport.TLSClientConfig, err = req.TLSClientConfig()
 		if err != nil {
@@ -409,17 +412,13 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string, er
 		}
 	}
 
-	return transport, registryAddress, nil
+	return transport, registryAddress
 }
 
 // ConnectRegistry connects to the registry with the specified address
-func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*remoteStore, error) {
-	transport, registryAddr, err := initTransport(req)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	challengeManager, err := ping(transport, registryAddr)
+func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*RemoteStore, error) {
+	transport, registryAddr := initTransport(req)
+	challengeManager, err := ping(ctx, transport, registryAddr)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to ping Docker registry: %s", err).AddField("req", req)
 	}
@@ -448,8 +447,8 @@ func ConnectRegistry(ctx context.Context, req RegistryConnectionRequest) (*remot
 		return nil, trace.Wrap(err)
 	}
 
-	return &remoteStore{
-		FieldLogger:  log.WithField("registry-addr", registryAddr),
+	return &RemoteStore{
+		log:          log.WithField("registry-addr", registryAddr),
 		addr:         registryAddr,
 		transport:    transport,
 		registry:     registry,
@@ -476,11 +475,10 @@ func (c credentials) SetRefreshToken(u *url.URL, service, token string) {
 	c.tokens[service] = token
 }
 
-func ping(transport http.RoundTripper, registryAddr string) (registryauthchallenge.Manager, error) {
+func ping(ctx context.Context, transport http.RoundTripper, registryAddr string) (registryauthchallenge.Manager, error) {
 	const pingClientTimeout = 30 * time.Second
 	pingClient := &http.Client{
 		Transport: transport,
-		Timeout:   pingClientTimeout,
 	}
 	u, err := url.Parse(registryAddr)
 	if err != nil {
@@ -491,6 +489,9 @@ func ping(transport http.RoundTripper, registryAddr string) (registryauthchallen
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	ctx, cancel := context.WithTimeout(ctx, pingClientTimeout)
+	defer cancel()
+	req = req.WithContext(ctx)
 	resp, err := pingClient.Do(req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -544,12 +545,12 @@ func openLocal(dir string) (store *localStore, err error) {
 }
 
 // Repositories lists the remote repositories
-func (s *remoteStore) Repositories(ctx context.Context, entries []string, last string) (n int, err error) {
+func (s *RemoteStore) Repositories(ctx context.Context, entries []string, last string) (n int, err error) {
 	return s.registry.Repositories(ctx, entries, last)
 }
 
 // Repository provides access to the repository named with name
-func (s *remoteStore) Repository(ctx context.Context, name string) (distribution.Repository, error) {
+func (s *RemoteStore) Repository(ctx context.Context, name string) (distribution.Repository, error) {
 	named, err := parseNamed(name)
 	if err != nil {
 		return nil, trace.Wrap(err, "invalid named reference %q", name)
@@ -590,7 +591,7 @@ func ListRepos(ctx context.Context, namespace registryclient.Registry) (repos []
 
 // IsManifestUnknown determines if the specified error is an `unknown manifest` error
 func IsManifestUnknown(err error) bool {
-	return ("MANIFEST_UNKNOWN" == registryErrorCode(err))
+	return registryErrorCode(err) == "MANIFEST_UNKNOWN"
 }
 
 // registryErrorCode takes an error returned by registry client and tries
@@ -621,8 +622,8 @@ func compareManifests(a, b distribution.Manifest) bool {
 
 // updateRepo takes a pair of local+remote repositories and makes the remote repo identical
 // to the local one.
-func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution.Repository, manifest distribution.Manifest, tag string) error {
-	s.Debugf("Pushing %[1]v --> %[2]v/%[1]v.", local.Named(), s.addr)
+func (s *RemoteStore) updateRepo(ctx context.Context, remote, local distribution.Repository, manifest distribution.Manifest, tag string) error {
+	s.log.Debugf("Pushing %[1]v --> %[2]v/%[1]v.", local.Named(), s.addr)
 	remoteManifests, err := remote.Manifests(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -633,7 +634,7 @@ func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution
 	for _, localDesc := range manifest.References() {
 		desc, err := remoteBlobs.Stat(ctx, localDesc.Digest)
 		if err == nil && desc.Digest == localDesc.Digest {
-			s.Debugf("Skipping layer %v.", localDesc.Digest)
+			s.log.Debugf("Skipping layer %v.", localDesc.Digest)
 			continue
 		}
 		reader, err := localBlobs.Open(ctx, localDesc.Digest)
@@ -646,7 +647,7 @@ func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution
 			return trace.Wrap(err)
 		}
 		defer writer.Close()
-		s.Debugf("Writing layer %v.", localDesc.Digest)
+		s.log.Debugf("Writing layer %v.", localDesc.Digest)
 		written, err := io.Copy(writer, reader)
 		if err != nil {
 			return trace.Wrap(err)
@@ -655,9 +656,9 @@ func (s *remoteStore) updateRepo(ctx context.Context, remote, local distribution
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		s.Debugf("Written %v bytes.", written)
+		s.log.Debugf("Written %v bytes.", written)
 	}
-	s.Debugf("Updating manifest for %v.", local.Named())
+	s.log.Debugf("Updating manifest for %v.", local.Named())
 	_, err = remoteManifests.Put(ctx, manifest, distribution.WithTag(tag))
 	return trace.Wrap(err)
 }
