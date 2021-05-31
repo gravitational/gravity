@@ -34,12 +34,12 @@ import (
 )
 
 // Command executes the command given with req and streams the output of the command as a result
-func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServer) error {
+func (srv *AgentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServer) error {
 	if len(req.Args) == 0 {
 		return trace.BadParameter("at least one argument is required")
 	}
 
-	log := srv.WithFields(log.Fields{
+	log := srv.config.WithFields(log.Fields{
 		"request": "Command",
 		"args":    req.Args})
 	log.Debug("Request received.")
@@ -53,12 +53,12 @@ func (srv *agentServer) Command(req *pb.CommandArgs, stream pb.Agent_CommandServ
 }
 
 // PeerJoin accepts a new peer
-func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
-	srv.WithField("req", req.String()).Info("PeerJoin.")
-	err := srv.PeerStore.NewPeer(ctx, *req, &remotePeer{
+func (srv *AgentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (*types.Empty, error) {
+	srv.config.WithField("req", req.String()).Info("PeerJoin.")
+	err := srv.config.PeerStore.NewPeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
-		creds:            srv.Config.Client,
-		reconnectTimeout: srv.Config.ReconnectTimeout,
+		creds:            srv.config.Client,
+		reconnectTimeout: srv.config.ReconnectTimeout,
 	})
 	if err != nil {
 		return nil, err
@@ -67,12 +67,12 @@ func (srv *agentServer) PeerJoin(ctx context.Context, req *pb.PeerJoinRequest) (
 }
 
 // PeerLeave receives a "leave" request from a peer and initiates its shutdown
-func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
-	srv.WithField("req", req.String()).Info("PeerLeave.")
-	err := srv.PeerStore.RemovePeer(ctx, *req, &remotePeer{
+func (srv *AgentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest) (*types.Empty, error) {
+	srv.config.WithField("req", req.String()).Info("PeerLeave.")
+	err := srv.config.PeerStore.RemovePeer(ctx, *req, &remotePeer{
 		addr:             req.Addr,
-		creds:            srv.Config.Client,
-		reconnectTimeout: srv.Config.ReconnectTimeout,
+		creds:            srv.config.Client,
+		reconnectTimeout: srv.config.ReconnectTimeout,
 	})
 	if err != nil {
 		return nil, err
@@ -80,9 +80,9 @@ func (srv *agentServer) PeerLeave(ctx context.Context, req *pb.PeerLeaveRequest)
 	return &types.Empty{}, nil
 }
 
-// RuntimeConfig returns the agent's runtime configuration
-func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*pb.RuntimeConfig, error) {
-	stateDir := srv.StateDir
+// GetRuntimeConfig returns the agent's runtime configuration
+func (srv *AgentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*pb.RuntimeConfig, error) {
+	stateDir := srv.config.StateDir
 	if stateDir == "" {
 		var err error
 		stateDir, err = state.GetStateDir()
@@ -91,22 +91,22 @@ func (srv *agentServer) GetRuntimeConfig(ctx context.Context, _ *types.Empty) (*
 		}
 	}
 	config := &pb.RuntimeConfig{
-		Role:          srv.RuntimeConfig.Role,
-		AdvertiseAddr: srv.Config.Listener.Addr().String(),
-		SystemDevice:  srv.RuntimeConfig.SystemDevice,
-		Mounts:        srv.RuntimeConfig.Mounts,
+		Role:          srv.config.RuntimeConfig.Role,
+		AdvertiseAddr: srv.config.Listener.Addr().String(),
+		SystemDevice:  srv.config.RuntimeConfig.SystemDevice,
+		Mounts:        srv.config.RuntimeConfig.Mounts,
 		StateDir:      stateDir,
 		TempDir:       os.TempDir(),
-		KeyValues:     srv.RuntimeConfig.KeyValues,
-		CloudMetadata: srv.RuntimeConfig.CloudMetadata,
-		SELinux:       srv.RuntimeConfig.SELinux,
+		KeyValues:     srv.config.RuntimeConfig.KeyValues,
+		CloudMetadata: srv.config.RuntimeConfig.CloudMetadata,
+		SELinux:       srv.config.RuntimeConfig.SELinux,
 	}
 	return config, nil
 }
 
 // GetSystemInfo queries system information on the host the agent is running on
-func (srv *agentServer) GetSystemInfo(ctx context.Context, _ *types.Empty) (*pb.SystemInfo, error) {
-	info, err := srv.systemInfo.getSystemInfo()
+func (srv *AgentServer) GetSystemInfo(ctx context.Context, _ *types.Empty) (*pb.SystemInfo, error) {
+	info, err := srv.config.systemInfo.getSystemInfo()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -120,7 +120,7 @@ func (srv *agentServer) GetSystemInfo(ctx context.Context, _ *types.Empty) (*pb.
 }
 
 // GetCurrentTime queries the time on the remote node
-func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*types.Timestamp, error) {
+func (srv *AgentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*types.Timestamp, error) {
 	ts, err := types.TimestampProto(time.Now().UTC())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -129,23 +129,23 @@ func (srv *agentServer) GetCurrentTime(ctx context.Context, _ *types.Empty) (*ty
 }
 
 // GetVersion queries the agent version information
-func (srv *agentServer) GetVersion(ctx context.Context, _ *types.Empty) (*pb.Version, error) {
+func (srv *AgentServer) GetVersion(ctx context.Context, _ *types.Empty) (*pb.Version, error) {
 	ver := modules.Get().Version()
 	return &ver, nil
 }
 
 // Shutdown requests agent to shut down
-func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
-	srv.WithField("req", req).Info("Shutdown.")
-	if srv.StopHandler != nil {
-		err = srv.StopHandler(ctx, req.Completed)
+func (srv *AgentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (resp *types.Empty, err error) {
+	srv.config.WithField("req", req).Info("Shutdown.")
+	if srv.config.StopHandler != nil {
+		err = srv.config.StopHandler(ctx, req.Completed)
 	}
 	go func() {
 		// Create a separate context from the parent one since the parent
 		// context is canceled once the handler has returned
 		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		if err := srv.Stop(ctx); err != nil {
-			srv.Warnf("Failed to shutdown: %v.", err)
+			srv.config.Warnf("Failed to shutdown: %v.", err)
 		}
 		cancel()
 	}()
@@ -153,25 +153,26 @@ func (srv *agentServer) Shutdown(ctx context.Context, req *pb.ShutdownRequest) (
 	return &types.Empty{}, trace.Wrap(err)
 }
 
-func (srv *agentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
-	srv.Info("Aborting agent.")
-	if srv.AbortHandler != nil {
-		err = srv.AbortHandler(ctx)
+// Abort aborts this server. Invokes an abort handler if one has been specified
+func (srv *AgentServer) Abort(ctx context.Context, req *types.Empty) (resp *types.Empty, err error) {
+	srv.config.Info("Aborting agent.")
+	if srv.config.AbortHandler != nil {
+		err = srv.config.AbortHandler(ctx)
 	}
 	go func() {
 		// Create a separate context from the parent one since the parent
 		// context is canceled once the handler has returned
 		ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
 		if err := srv.Stop(ctx); err != nil {
-			srv.Warnf("Failed to stop server: %v.", err)
+			srv.config.Warnf("Failed to stop server: %v.", err)
 		}
 		cancel()
 	}()
 	return &types.Empty{}, trace.Wrap(err)
 }
 
-func (srv *agentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
-	err = srv.commandExecutor.exec(stream.Context(), stream, req, makeRemoteLogger(stream, srv.FieldLogger))
+func (srv *AgentServer) command(req pb.CommandArgs, stream pb.Agent_CommandServer, log *log.Entry) (err error) {
+	err = srv.config.commandExecutor.exec(stream.Context(), stream, req, makeRemoteLogger(stream, srv.config.FieldLogger))
 	if err != nil {
 		stream.Send(pb.ErrorToMessage(err)) //nolint:errcheck
 		log.WithError(err).Warn("Command completed with error.")

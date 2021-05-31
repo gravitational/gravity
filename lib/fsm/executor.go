@@ -44,4 +44,5 @@ type PhaseExecutor interface {
 
 // FSMSpecFunc defines a function that returns an appropriate executor for
 // the specified operation phase
+//nolint:revive // TODO: rename to SpecFunc
 type FSMSpecFunc func(ExecutorParams, Remote) (PhaseExecutor, error)

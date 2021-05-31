@@ -166,7 +166,7 @@ func (p *etcdExecutor) hasSelfAsMember(peers []etcd.Member) bool {
 	return utils.EtcdHasMember(peers, p.etcdPeerURL) != nil
 }
 
-func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, backupPath string) error {
+func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Interface, backupPath string) error {
 	var out bytes.Buffer
 	err := agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
 		defaults.StatBin, backupPath)...)
@@ -176,7 +176,7 @@ func (p *etcdExecutor) checkBackup(ctx context.Context, agent rpcclient.Client, 
 	return nil
 }
 
-func (p *etcdExecutor) stopEtcd(ctx context.Context, agent rpcclient.Client) error {
+func (p *etcdExecutor) stopEtcd(ctx context.Context, agent rpcclient.Interface) error {
 	var out bytes.Buffer
 	err := agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
 		defaults.SystemctlBin, "stop", "etcd")...)
@@ -186,7 +186,7 @@ func (p *etcdExecutor) stopEtcd(ctx context.Context, agent rpcclient.Client) err
 	return nil
 }
 
-func (p *etcdExecutor) wipeEtcd(ctx context.Context, agent rpcclient.Client) error {
+func (p *etcdExecutor) wipeEtcd(ctx context.Context, agent rpcclient.Interface) error {
 	var out bytes.Buffer
 	err := agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
 		defaults.PlanetBin, "etcd", "wipe", "--confirm")...)
@@ -196,7 +196,7 @@ func (p *etcdExecutor) wipeEtcd(ctx context.Context, agent rpcclient.Client) err
 	return nil
 }
 
-func (p *etcdExecutor) startEtcd(ctx context.Context, agent rpcclient.Client) error {
+func (p *etcdExecutor) startEtcd(ctx context.Context, agent rpcclient.Interface) error {
 	var out bytes.Buffer
 	err := agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
 		defaults.SystemctlBin, "start", "etcd")...)
@@ -206,7 +206,7 @@ func (p *etcdExecutor) startEtcd(ctx context.Context, agent rpcclient.Client) er
 	return nil
 }
 
-func (p *etcdExecutor) restoreEtcd(ctx context.Context, agent rpcclient.Client, backupPath string) error {
+func (p *etcdExecutor) restoreEtcd(ctx context.Context, agent rpcclient.Interface, backupPath string) error {
 	var out bytes.Buffer
 	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
 		return agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
@@ -273,7 +273,7 @@ func (p *etcdBackupExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *etcdBackupExecutor) backupEtcd(ctx context.Context, agent rpcclient.Client, backupPath string) error {
+func (p *etcdBackupExecutor) backupEtcd(ctx context.Context, agent rpcclient.Interface, backupPath string) error {
 	var out bytes.Buffer
 	err := agent.Command(ctx, p.FieldLogger, &out, &out, utils.PlanetEnterCommand(
 		defaults.PlanetBin, "etcd", "backup", backupPath)...)

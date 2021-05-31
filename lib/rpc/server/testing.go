@@ -26,7 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context" // TODO: remove in go1.9
 	"google.golang.org/grpc/credentials"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 )
 
 // NewTestPeer creates a new peer instance for tests
@@ -60,6 +60,7 @@ func TestClientCredentials(c *C) credentials.TransportCredentials {
 	if !cp.AppendCertsFromPEM(certFile) {
 		c.Error("failed to append certificates")
 	}
+	//nolint:gosec // TODO: set MinVersion
 	return credentials.NewTLS(&tls.Config{ServerName: "agent", RootCAs: cp})
 }
 
@@ -67,11 +68,12 @@ func TestClientCredentials(c *C) credentials.TransportCredentials {
 func TestServerCredentials(c *C) credentials.TransportCredentials {
 	cert, err := tls.X509KeyPair(certFile, keyFile)
 	c.Assert(err, IsNil)
+	//nolint:gosec // TODO: set MinVersion
 	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
 }
 
 // nolint:errcheck
-func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
+func (r TestCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
 	stream.Send(&pb.Message{Element: &pb.Message_ExecStarted{ExecStarted: &pb.ExecStarted{Seq: 1, Args: req.Args}}})
 	stream.Send(&pb.Message{Element: &pb.Message_ExecOutput{ExecOutput: &pb.ExecOutput{Data: []byte(r.output)}}})
 	stream.Send(&pb.Message{Element: &pb.Message_ExecCompleted{ExecCompleted: &pb.ExecCompleted{Seq: 1, ExitCode: 0}}})
@@ -80,11 +82,11 @@ func (r testCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, 
 
 // NewTestCommand returns a new instance of command executor
 // serving the specified output
-func NewTestCommand(output string) testCommand {
-	return testCommand{output}
+func NewTestCommand(output string) TestCommand {
+	return TestCommand{output}
 }
 
-type testCommand struct {
+type TestCommand struct {
 	output string
 }
 

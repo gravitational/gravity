@@ -31,6 +31,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	grpcbackoff "google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -68,18 +69,14 @@ func NewPeer(config PeerConfig, serverAddr string) (*PeerServer, error) {
 		ReconnectStrategy: config.ReconnectStrategy,
 	}
 	// checker watches the connection to controlling server
-	checker, err := newPeers([]Peer{serverPeer}, peersConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+	checker := newPeers([]Peer{serverPeer}, peersConfig)
 	peer := &PeerServer{
 		PeerConfig: config,
 		server:     server,
 		peer:       serverPeer,
 		peers:      checker,
 	}
-	server.closers = append(server.closers, peer)
+	server.config.closers = append(server.config.closers, peer)
 	return peer, nil
 }
 
@@ -131,7 +128,7 @@ type Client interface {
 	healthpb.HealthClient
 	io.Closer
 	// Client returns client.Client interface to this client
-	Client() client.Client
+	Client() client.Interface
 }
 
 // Peer defines a peer
@@ -207,16 +204,16 @@ func (r *PeerServer) Done() <-chan struct{} {
 type PeerServer struct {
 	// PeerConfig is the peer configuration
 	PeerConfig
-	server *agentServer
+	server *AgentServer
 	peer   *serverPeer
 	peers  *peers
 }
 
 // NewPeer is a no-op
-func (_ discardStore) NewPeer(context.Context, pb.PeerJoinRequest, Peer) error { return nil }
+func (discardStore) NewPeer(context.Context, pb.PeerJoinRequest, Peer) error { return nil }
 
 // RemovePeer is a no-op
-func (_ discardStore) RemovePeer(context.Context, pb.PeerLeaveRequest, Peer) error { return nil }
+func (discardStore) RemovePeer(context.Context, pb.PeerLeaveRequest, Peer) error { return nil }
 
 // discardStore is a no-op implementation of PeerStore
 type discardStore struct{}
@@ -335,8 +332,13 @@ type remotePeer struct {
 }
 
 func newClient(ctx context.Context, creds credentials.TransportCredentials, addr string, dialOpts ...grpc.DialOption) (*agentClient, error) {
+	bc := grpcbackoff.DefaultConfig
+	bc.MaxDelay = defaults.RPCAgentBackoffThreshold
 	opts := []grpc.DialOption{
-		grpc.WithBackoffConfig(grpc.BackoffConfig{MaxDelay: defaults.RPCAgentBackoffThreshold}),
+		// See https://github.com/grpc/grpc-go/issues/4461
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: bc,
+		}),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
 	}
@@ -361,7 +363,7 @@ func (r *agentClient) Close() error {
 }
 
 // Client returns a new client as client.Client
-func (r *agentClient) Client() client.Client {
+func (r *agentClient) Client() client.Interface {
 	return client.NewFromConn(r.ClientConn)
 }
 

@@ -53,7 +53,7 @@ type Server interface {
 }
 
 // New returns a new instance of the unstarted gRPC server
-func New(config Config) (*agentServer, error) {
+func New(config Config) (*AgentServer, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -66,9 +66,9 @@ func New(config Config) (*agentServer, error) {
 	healthServer := health.NewServer()
 	validationServer := validation.NewServer(config.FieldLogger)
 	grpcServer := grpc.NewServer(opts...)
-	srv := agentServer{
+	srv := AgentServer{
 		grpcServer: grpcServer,
-		Config:     config,
+		config:     config,
 		ctx:        ctx,
 		cancel:     cancel,
 	}
@@ -81,24 +81,24 @@ func New(config Config) (*agentServer, error) {
 }
 
 // Serve starts the server loop accepting connections
-func (srv *agentServer) Serve() error {
-	srv.WithField("addr", srv.Listener.Addr().String()).Info("Listening.")
-	return trace.Wrap(srv.serve(srv.Listener))
+func (srv *AgentServer) Serve() error {
+	srv.config.WithField("addr", srv.config.Listener.Addr().String()).Info("Listening.")
+	return trace.Wrap(srv.serve(srv.config.Listener))
 }
 
 // ServeHTTP implements http.Handler
-func (srv *agentServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (srv *AgentServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	srv.grpcServer.ServeHTTP(w, r)
 }
 
 // Stop requests the server to stop and clean up
-func (srv *agentServer) Stop(ctx context.Context) error {
+func (srv *AgentServer) Stop(ctx context.Context) error {
 	select {
 	case <-srv.ctx.Done():
 		return nil
 	default:
 	}
-	for _, c := range srv.closers {
+	for _, c := range srv.config.closers {
 		c.Close(ctx)
 	}
 	srv.grpcServer.GracefulStop()
@@ -107,22 +107,22 @@ func (srv *agentServer) Stop(ctx context.Context) error {
 }
 
 // Addr returns address the server is listening on.
-func (srv *agentServer) Addr() net.Addr {
-	return srv.Listener.Addr()
+func (srv *AgentServer) Addr() net.Addr {
+	return srv.config.Listener.Addr()
 }
 
 // Done returns a channel that's closed when agent shuts down
-func (srv *agentServer) Done() <-chan struct{} {
+func (srv *AgentServer) Done() <-chan struct{} {
 	return srv.ctx.Done()
 }
 
-func (srv *agentServer) serve(listener net.Listener) error {
+func (srv *AgentServer) serve(listener net.Listener) error {
 	err := srv.grpcServer.Serve(listener)
 	if err != nil && utils.IsClosedConnectionError(err) {
 		// Ignore
 		err = nil
 	}
-	srv.WithError(err).Info("Server stopped.")
+	srv.config.WithError(err).Info("Server stopped.")
 
 	select {
 	case <-srv.ctx.Done():
@@ -158,10 +158,9 @@ type Config struct {
 	// systemInfo queries system information
 	systemInfo
 	// commandExecutor is a system command executor.
-	// Being an interface provides necessary flexibiltiy for testing.
+	// Being an interface provides necessary flexibility for testing.
 	commandExecutor
 	// closers lists additional resources to close upon receiving a stop command
-	//nolint:structcheck
 	closers []closer
 }
 
@@ -213,8 +212,9 @@ type systemInfo interface {
 	getSystemInfo() (storage.System, error)
 }
 
-type agentServer struct {
-	Config
+// AgentServer implements a server in the agent cluster
+type AgentServer struct {
+	config     Config
 	grpcServer *grpc.Server
 	ctx        context.Context
 	cancel     context.CancelFunc

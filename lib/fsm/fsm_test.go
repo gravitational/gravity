@@ -169,7 +169,7 @@ func (s *FSMSuite) TestRollbackPlanDryRun(c *check.C) {
 
 func (s *FSMSuite) checkChangelog(c *check.C, actual, expected storage.PlanChangelog) {
 	c.Assert(len(actual), check.Equals, len(expected))
-	for i := 0; i < len(actual); i += 1 {
+	for i := 0; i < len(actual); i++ {
 		actual[i].Created = expected[i].Created // Do not compare timestamps.
 		compare.DeepCompare(c, actual[i], expected[i])
 	}

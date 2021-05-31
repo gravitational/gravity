@@ -194,6 +194,7 @@ func ClientCredentials(secretsDir string) (credentials.TransportCredentials, err
 		return nil, trace.BadParameter("failed to add CA to pool")
 	}
 
+	//nolint:gosec // TODO: set MinVersion
 	creds := credentials.NewTLS(&tls.Config{
 		ServerName:   pb.ServerName,
 		Certificates: []tls.Certificate{clientCert},
@@ -230,6 +231,7 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 		return nil, trace.BadParameter("failed to add CA to pool")
 	}
 
+	//nolint:gosec // TODO: set MinVersion
 	creds := credentials.NewTLS(&tls.Config{
 		ServerName:   pb.ServerName,
 		Certificates: []tls.Certificate{cert},
@@ -260,6 +262,7 @@ func ServerCredentials(secretsDir string) (credentials.TransportCredentials, err
 	}
 
 	// Create the TLS credentials
+	//nolint:gosec // TODO: set MinVersion
 	creds := credentials.NewTLS(&tls.Config{
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{serverCert},
@@ -298,6 +301,7 @@ func ServerCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 	}
 
 	// Create the TLS credentials
+	//nolint:gosec // TODO: set MinVersion
 	creds := credentials.NewTLS(&tls.Config{
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{cert},

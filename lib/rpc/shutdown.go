@@ -75,7 +75,7 @@ type AgentRepository interface {
 	// RemoteRunner provides an interface for executing remote commands.
 	RemoteRunner
 	// GetClient returns a client to the remote server specified with addr.
-	GetClient(ctx context.Context, addr string) (rpcclient.Client, error)
+	GetClient(ctx context.Context, addr string) (rpcclient.Interface, error)
 }
 
 // RemoteRunner provides an interface for executing remote commands.

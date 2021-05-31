@@ -73,7 +73,7 @@ func (hook *remoteHook) Fire(e *logrus.Entry) error {
 		hook.localLog.Warn(e.Message)
 	case logrus.InfoLevel:
 		hook.localLog.Info(e.Message)
-	case logrus.DebugLevel:
+	case logrus.DebugLevel, logrus.TraceLevel:
 		hook.localLog.Debug(e.Message)
 	}
 

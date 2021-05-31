@@ -114,7 +114,7 @@ type RawServerInfo struct {
 }
 
 // GetServerInfo fetches remote server information
-func GetServerInfo(ctx context.Context, client rpcclient.Client) (*ServerInfo, error) {
+func GetServerInfo(ctx context.Context, client rpcclient.Interface) (*ServerInfo, error) {
 	info, err := client.GetSystemInfo(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -35,7 +35,7 @@ type S struct{}
 
 var _ = Suite(&S{})
 
-func (_ *S) TestProxiesConnections(c *C) {
+func (*S) TestProxiesConnections(c *C) {
 	link := newLocalLink()
 	defer link.stop()
 	proxy := New(link, log.WithField("test", "TestProxiesConnections"))
@@ -68,7 +68,7 @@ func (_ *S) TestProxiesConnections(c *C) {
 	}
 }
 
-func (_ *S) TestCanStopProxyOnDemand(c *C) {
+func (*S) TestCanStopProxyOnDemand(c *C) {
 	payload := []byte("test")
 	link := newLocalLink()
 	logger := log.WithField("test", "TestCanStopProxyOnDemand")
@@ -163,7 +163,7 @@ func (r *localLink) stop() {
 }
 
 type localLink struct {
-	local, upstream inprocess.Listener
+	local, upstream inprocess.ListenerInterface
 }
 
 func newServer(bufferSize int) *server {
