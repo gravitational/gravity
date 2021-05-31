@@ -29,13 +29,10 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func (p *Process) initMux(ctx context.Context) error {
+func (p *Process) initMux(ctx context.Context) (err error) {
 	p.Info("Initializing mux.")
 
-	publicMux, agentsMux, err := p.getMux()
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	publicMux, agentsMux := p.getMux()
 
 	switch p.trafficSplitType() {
 	case notOpsCenter:
@@ -232,19 +229,19 @@ func (p *Process) initListenersAndSNI(ctx context.Context, config trafficSplitCo
 // process configuration
 //
 // The agentsMux may be nil if all traffic will be served by public router.
-func (p *Process) getMux() (publicMux *httprouter.Router, agentsMux *httprouter.Router, err error) {
+func (p *Process) getMux() (publicMux *httprouter.Router, agentsMux *httprouter.Router) {
 	// regular clusters and standalone install process do not support
 	// traffic splitting, so everything is served by the same mux
 	if p.Config().Mode != constants.ComponentOpsCenter {
 		publicMux = &httprouter.Router{}
 		p.addAllHandlers(publicMux)
-		return publicMux, nil, nil
+		return publicMux, nil
 	}
 	// traffic is not split, everything is served by the same mux
 	if p.Config().Pack.GetAddr().Addr == p.Config().Pack.GetPublicAddr().Addr {
 		publicMux = &httprouter.Router{}
 		p.addAllHandlers(publicMux)
-		return publicMux, nil, nil
+		return publicMux, nil
 	}
 	// otherwise traffix is split, there are separate muxes for public
 	// and agents APIs
@@ -252,7 +249,7 @@ func (p *Process) getMux() (publicMux *httprouter.Router, agentsMux *httprouter.
 	p.addPublicHandlers(publicMux)
 	agentsMux = &httprouter.Router{}
 	p.addAgentsHandlers(agentsMux)
-	return publicMux, agentsMux, nil
+	return publicMux, agentsMux
 }
 
 // addPublicHandlers updates the provided mux with handlers required for

@@ -81,8 +81,8 @@ type userACL struct {
 	SSHLogins []string `json:"sshLogins"`
 }
 
-// webContext is the context of SPA application
-type webContext struct {
+// WebContext is the context of SPA application
+type WebContext struct {
 	// User describes user fields
 	User User `json:"user"`
 	// UserACL describes user access control list
@@ -116,8 +116,8 @@ func IsHiddenUserType(userType string) bool {
 	return userType == userTypeToHide
 }
 
-// NewUserACL creates new user access control list
-func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet, cluster ops.Site) userACL {
+// newUserACL creates new user access control list
+func newUserACL(storageUser storage.User, userRoles teleservices.RoleSet, cluster ops.Site) userACL {
 	ctx := &teleservices.Context{
 		User:     storageUser,
 		Resource: ops.NewClusterFromSite(cluster),
@@ -154,16 +154,16 @@ func NewUserACL(storageUser storage.User, userRoles teleservices.RoleSet, cluste
 }
 
 // NewWebContext creates a context for web client
-func NewWebContext(storageUser storage.User, identity users.Identity, cluster ops.Site) (*webContext, error) {
+func NewWebContext(storageUser storage.User, identity users.Identity, cluster ops.Site) (*WebContext, error) {
 	userRoles, err := teleservices.FetchRoles(storageUser.GetRoles(), identity, storageUser.GetTraits())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	webCtx := webContext{
+	webCtx := WebContext{
 		ServerVersion: version.Get(),
 		User:          NewUserByStorageUser(storageUser),
-		UserACL:       NewUserACL(storageUser, userRoles, cluster),
+		UserACL:       newUserACL(storageUser, userRoles, cluster),
 	}
 
 	return &webCtx, nil

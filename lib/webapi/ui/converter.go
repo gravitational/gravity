@@ -33,7 +33,7 @@ type Converter interface {
 type converter struct{}
 
 // NewConverter returns a new converter instance
-func NewConverter() *converter {
+func NewConverter() Converter {
 	return &converter{}
 }
 

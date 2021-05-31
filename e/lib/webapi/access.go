@@ -53,7 +53,7 @@ func createRemoteAccessResponse(cluster storage.TrustedCluster) *remoteAccessOut
 // {
 //   "status": "on"
 // }
-func (m *Handler) getRemoteAccess(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
+func (*Handler) getRemoteAccess(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
 	cluster, err := ops.GetTrustedCluster(ossops.SiteKey{
 		AccountID:  ctx.User.GetAccountID(),
 		SiteDomain: p.ByName("domain"),
@@ -79,18 +79,18 @@ type updateRemoteAccessInput struct {
 // {
 //   "enabled": true
 // }
-func (m *Handler) updateRemoteAccess(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
+func (h *Handler) updateRemoteAccess(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
 	var input updateRemoteAccessInput
 	err := telehttplib.ReadJSON(r, &input)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	cluster, err := ops.GetTrustedCluster(m.clusterKey(p, ctx), ctx.Operator)
+	cluster, err := ops.GetTrustedCluster(h.clusterKey(p, ctx), ctx.Operator)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	cluster.SetEnabled(input.Enabled)
-	err = ctx.Operator.UpsertTrustedCluster(r.Context(), m.clusterKey(p, ctx), cluster)
+	err = ctx.Operator.UpsertTrustedCluster(r.Context(), h.clusterKey(p, ctx), cluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -98,7 +98,7 @@ func (m *Handler) updateRemoteAccess(w http.ResponseWriter, r *http.Request, p h
 }
 
 // clusterKey returns SiteKey from the request context
-func (m *Handler) clusterKey(p httprouter.Params, ctx *authContext) ossops.SiteKey {
+func (*Handler) clusterKey(p httprouter.Params, ctx *authContext) ossops.SiteKey {
 	return ossops.SiteKey{
 		AccountID:  ctx.User.GetAccountID(),
 		SiteDomain: p.ByName("domain"),

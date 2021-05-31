@@ -198,8 +198,7 @@ func (p *Process) runLicenseChecker(ctx context.Context) {
 	p.Info("Starting license checker.")
 	ticker := time.NewTicker(defaults.LicenseCheckInterval)
 	defer ticker.Stop()
-	localCtx := context.WithValue(ctx, ossconstants.UserContext,
-		constants.ServiceLicenseChecker)
+	localCtx := ossops.NewUserContext(ctx, constants.ServiceLicenseChecker)
 	for {
 		select {
 		case <-ticker.C:

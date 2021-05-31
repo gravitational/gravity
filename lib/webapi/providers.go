@@ -30,12 +30,12 @@ import (
 type Providers interface {
 	// Validate verifies certain aspects of the specified cloud provider
 	// and obtains basic metadata
-	Validate(req *ValidateInput, ctx context.Context) (*ValidateOutput, error)
+	Validate(ctx context.Context, req *ValidateInput) (*ValidateOutput, error)
 }
 
 // NewProviders creates a new instance of Providers implementation
 func NewProviders(applications app.Applications) Providers {
-	return &providers{applications}
+	return &providers{applications: applications}
 }
 
 // ValidateInput defines the input to provider validation
@@ -79,14 +79,14 @@ func (r *packageLocator) UnmarshalText(data []byte) error {
 type ValidateOutput struct {
 	// AWS defines the output of the AWS provider
 	AWS *aws.ValidateOutput `json:"aws"`
-	// TODO: more providers
 }
 
 type providers struct {
 	applications app.Applications
 }
 
-func (r *providers) Validate(input *ValidateInput, ctx context.Context) (*ValidateOutput, error) {
+// Validate validates the specified input subject to underlying provider configuration
+func (r *providers) Validate(ctx context.Context, input *ValidateInput) (*ValidateOutput, error) {
 	switch input.Provider {
 	case schema.ProviderAWS:
 		provider := aws.New(input.Variables.AccessKey, input.Variables.SecretKey,

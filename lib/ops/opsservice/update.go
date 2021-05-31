@@ -374,7 +374,7 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationUpdate,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   storage.UserFromContext(context),
+		CreatedBy:   ops.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateUpdateInProgress,
 		Provisioner: installOperation.Provisioner,

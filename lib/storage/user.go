@@ -17,13 +17,11 @@ limitations under the License.
 package storage
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os/user"
 	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -784,19 +782,4 @@ func ClusterAgent(cluster string) string {
 // ClusterAdminAgent generates the name of the admin agent user for the specified cluster
 func ClusterAdminAgent(clusterName string) string {
 	return fmt.Sprintf("adminagent@%v", clusterName)
-}
-
-// UserFromContext extracts name of the user attached to the provided context.
-//
-// Returns an empty string if no user is attached.
-func UserFromContext(ctx context.Context) string {
-	userI := ctx.Value(constants.UserContext)
-	if userI == nil {
-		return ""
-	}
-	user, ok := userI.(string)
-	if !ok {
-		return ""
-	}
-	return user
 }
