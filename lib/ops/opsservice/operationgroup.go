@@ -144,7 +144,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 			return trace.Wrap(err)
 		}
 	case ops.OperationUpdate:
-		err := g.canCreateUpgradeOperation(*cluster, operation, force)
+		err := g.canCreateUpgradeOperation(*cluster, force)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -172,7 +172,7 @@ func (g *operationGroup) canCreateOperation(operation ops.SiteOperation, force b
 	return nil
 }
 
-func (g *operationGroup) canCreateUpgradeOperation(cluster ops.Site, operation ops.SiteOperation, force bool) error {
+func (g *operationGroup) canCreateUpgradeOperation(cluster ops.Site, force bool) error {
 	// Upgrade is only allowed for active and healthy clusters.
 	if cluster.State != ops.SiteStateActive {
 		return trace.CompareFailed(

@@ -69,7 +69,7 @@ func (s *site) agentReport(ctx context.Context, opCtx *operationContext) (*ops.A
 	}
 
 	// now wait until all boxes go up and return the IPs
-	expectedCount := int(opCtx.getNumServers())
+	expectedCount := opCtx.getNumServers()
 	var message string
 	if len(infos) == expectedCount && expectedCount != 0 {
 		message = fmt.Sprintf("all servers are up: %v", infos.Hostnames())
@@ -280,7 +280,7 @@ func (r *AgentService) Wait(ctx context.Context, key ops.SiteOperationKey, numAg
 		}
 	}()
 
-	numAgents = numAgents - int(group.NumPeers())
+	numAgents = numAgents - group.NumPeers()
 	r.Debugf("Waiting for %v agents.", numAgents)
 	for numAgents > 0 {
 		select {
@@ -295,7 +295,7 @@ func (r *AgentService) Wait(ctx context.Context, key ops.SiteOperationKey, numAg
 
 // AbortAgents shuts down remote agents and cleans up state
 func (r *AgentService) AbortAgents(ctx context.Context, key ops.SiteOperationKey) error {
-	group, err := r.peerStore.removeGroup(ctx, key)
+	group, err := r.peerStore.removeGroup(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -314,7 +314,7 @@ func (r *AgentService) CompleteAgents(ctx context.Context, key ops.SiteOperation
 }
 
 func (r *AgentService) stopAgents(ctx context.Context, key ops.SiteOperationKey, req *pb.ShutdownRequest) error {
-	group, err := r.peerStore.removeGroup(ctx, key)
+	group, err := r.peerStore.removeGroup(key)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -393,11 +393,6 @@ func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest
 		return err
 	}
 
-	info, err := storage.UnmarshalSystemInfo(req.SystemInfo)
-	if err != nil {
-		return err
-	}
-
 	group, err := r.getOrCreateGroup(ops.SiteOperationKey{
 		AccountID:   user.GetAccountID(),
 		SiteDomain:  token.SiteDomain,
@@ -407,7 +402,7 @@ func (r *AgentPeerStore) RemovePeer(ctx context.Context, req pb.PeerLeaveRequest
 		return err
 	}
 
-	group.remove(ctx, peer, info.GetHostname())
+	group.remove(ctx, peer)
 	return nil
 }
 
@@ -441,7 +436,7 @@ func (r *AgentPeerStore) validatePeer(ctx context.Context, group *agentGroup, in
 		return trace.Wrap(err)
 	}
 
-	if err := r.checkLicense(ctx, int(group.NumPeers()), token.SiteDomain, info); err != nil {
+	if err := r.checkLicense(ctx, group.NumPeers(), token.SiteDomain, info); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -516,7 +511,7 @@ func (r *AgentPeerStore) getOrCreateGroup(key ops.SiteOperationKey) (*agentGroup
 // removeGroup removes the peer group specified with operation key and returns an instance to it.
 // The group is not closed which is the responsibility of the caller.
 // Returns a NotFound error if the group cannot be found
-func (r *AgentPeerStore) removeGroup(ctx context.Context, key ops.SiteOperationKey) (*agentGroup, error) {
+func (r *AgentPeerStore) removeGroup(key ops.SiteOperationKey) (*agentGroup, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if group, ok := r.groups[key]; ok {
@@ -616,7 +611,7 @@ func (r *agentGroup) add(p rpcserver.Peer, hostname string) {
 	r.hostnames[p.Addr()] = hostname
 }
 
-func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer, hostname string) {
+func (r *agentGroup) remove(ctx context.Context, p rpcserver.Peer) {
 	_ = r.AgentGroup.Remove(ctx, p)
 	r.mu.Lock()
 	defer r.mu.Unlock()

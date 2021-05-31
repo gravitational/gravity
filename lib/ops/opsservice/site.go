@@ -124,13 +124,19 @@ func (s *site) operationLogPath(key ops.SiteOperationKey) string {
 	return s.siteDir(key.OperationID, fmt.Sprintf("%v.log", key.OperationID))
 }
 
-func (s *site) openFiles(filePaths ...string) ([]io.WriteCloser, error) {
-	var files []io.WriteCloser
+func (s *site) openFiles(filePaths ...string) (files []io.WriteCloser, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err := utils.NewMultiWriteCloser(files...).Close(); err != nil {
+			log.WithError(err).Warn("Failed to close files.")
+		}
+	}()
 	for _, filePath := range filePaths {
 		file, err := os.OpenFile(
 			filePath, os.O_CREATE|os.O_RDWR|os.O_APPEND, defaults.PrivateFileMask)
 		if err != nil {
-			utils.NewMultiWriteCloser(files...).Close()
 			return nil, trace.Wrap(err)
 		}
 		files = append(files, file)
@@ -138,21 +144,26 @@ func (s *site) openFiles(filePaths ...string) ([]io.WriteCloser, error) {
 	return files, nil
 }
 
-func (s *site) newOperationRecorder(key ops.SiteOperationKey, additionalLogFiles ...string) (io.WriteCloser, error) {
-	writers, err := s.openFiles(additionalLogFiles...)
+func (s *site) newOperationRecorder(key ops.SiteOperationKey, additionalLogFiles ...string) (closer io.WriteCloser, err error) {
+	var writers []io.WriteCloser
+	defer func() {
+		if err == nil {
+			return
+		}
+		if err := utils.NewMultiWriteCloser(writers...).Close(); err != nil {
+			log.WithError(err).Warn("Failed to close files.")
+		}
+	}()
+	writers, err = s.openFiles(additionalLogFiles...)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	if err := os.MkdirAll(filepath.Dir(s.operationLogPath(key)), defaults.SharedDirMask); err != nil {
-		// to close all the file handles we have just opened
-		utils.NewMultiWriteCloser(writers...).Close()
 		return nil, trace.Wrap(err)
 	}
 	f, err := os.OpenFile(
 		s.operationLogPath(key), os.O_CREATE|os.O_RDWR|os.O_APPEND, defaults.SharedReadMask)
 	if err != nil {
-		// to close all the file handles we have just opened
-		utils.NewMultiWriteCloser(writers...).Close()
 		return nil, trace.Wrap(err)
 	}
 	writers = append(writers, f)
@@ -373,7 +384,7 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 		return trace.Wrap(err)
 	}
 	go func() {
-		if err := s.executeOperationWithContext(ctx, op, fn); err != nil {
+		if err := s.executeOperationWithContext(ctx, fn); err != nil {
 			s.WithFields(log.Fields{
 				log.ErrorKey: err,
 				"operation":  op,
@@ -383,7 +394,7 @@ func (s *site) executeOperation(key ops.SiteOperationKey, fn func(ctx *operation
 	return nil
 }
 
-func (s *site) executeOperationWithContext(ctx *operationContext, op *ops.SiteOperation, fn func(ctx *operationContext) error) error {
+func (s *site) executeOperationWithContext(ctx *operationContext, fn func(ctx *operationContext) error) error {
 	defer ctx.Close()
 
 	opErr := fn(ctx)

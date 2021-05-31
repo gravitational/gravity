@@ -62,34 +62,34 @@ type Point struct {
 	Value int `json:"value"`
 }
 
-// prometheus retrieves cluster metrics by querying in-cluster Prometheus.
+// Prometheus retrieves cluster metrics by querying in-cluster Prometheus.
 //
 // Implements Metrics interface.
-type prometheus struct {
-	// API is Prometheus API client.
-	v1.API
+type Prometheus struct {
+	// api is Prometheus API client.
+	api v1.API
 }
 
 // NewInClusterPrometheus returns in-cluster Prometheus client.
-func NewInClusterPrometheus() (*prometheus, error) {
+func NewInClusterPrometheus() (*Prometheus, error) {
 	return NewPrometheus(defaults.PrometheusServiceAddr)
 }
 
 // NewPrometheus returns a new Prometheus-backed metrics collector.
-func NewPrometheus(address string) (*prometheus, error) {
+func NewPrometheus(address string) (*Prometheus, error) {
 	client, err := api.NewClient(api.Config{
 		Address: fmt.Sprintf("http://%v", address),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &prometheus{
-		API: v1.NewAPI(client),
+	return &Prometheus{
+		api: v1.NewAPI(client),
 	}, nil
 }
 
 // GetTotalCPU returns total number of CPU cores in the cluster.
-func (p *prometheus) GetTotalCPU(ctx context.Context) (int, error) {
+func (p *Prometheus) GetTotalCPU(ctx context.Context) (int, error) {
 	value, err := p.getVectorValue(ctx, queryTotalCPU)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -98,7 +98,7 @@ func (p *prometheus) GetTotalCPU(ctx context.Context) (int, error) {
 }
 
 // GetTotalMemory returns total amount of RAM in the cluster in bytes.
-func (p *prometheus) GetTotalMemory(ctx context.Context) (int64, error) {
+func (p *Prometheus) GetTotalMemory(ctx context.Context) (int64, error) {
 	value, err := p.getVectorValue(ctx, queryTotalMemory)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -107,7 +107,7 @@ func (p *prometheus) GetTotalMemory(ctx context.Context) (int64, error) {
 }
 
 // GetCPURate returns CPU usage rate for the specified time range.
-func (p *prometheus) GetCPURate(ctx context.Context, timeRange v1.Range) (Series, error) {
+func (p *Prometheus) GetCPURate(ctx context.Context, timeRange v1.Range) (Series, error) {
 	values, err := p.getMatrixValues(ctx, queryCPURate, timeRange)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -123,7 +123,7 @@ func (p *prometheus) GetCPURate(ctx context.Context, timeRange v1.Range) (Series
 }
 
 // GetMemoryRate returns RAM usage rate for the specified time range.
-func (p *prometheus) GetMemoryRate(ctx context.Context, timeRange v1.Range) (Series, error) {
+func (p *Prometheus) GetMemoryRate(ctx context.Context, timeRange v1.Range) (Series, error) {
 	values, err := p.getMatrixValues(ctx, queryMemoryRate, timeRange)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
@@ -139,7 +139,7 @@ func (p *prometheus) GetMemoryRate(ctx context.Context, timeRange v1.Range) (Ser
 }
 
 // GetCurrentCPURate returns instantaneous CPU usage rate.
-func (p *prometheus) GetCurrentCPURate(ctx context.Context) (int, error) {
+func (p *Prometheus) GetCurrentCPURate(ctx context.Context) (int, error) {
 	value, err := p.getVectorValue(ctx, queryCPURate)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -148,7 +148,7 @@ func (p *prometheus) GetCurrentCPURate(ctx context.Context) (int, error) {
 }
 
 // GetCurrentMemoryRate returns instantaneous RAM usage rate.
-func (p *prometheus) GetCurrentMemoryRate(ctx context.Context) (int, error) {
+func (p *Prometheus) GetCurrentMemoryRate(ctx context.Context) (int, error) {
 	value, err := p.getVectorValue(ctx, queryMemoryRate)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -157,7 +157,7 @@ func (p *prometheus) GetCurrentMemoryRate(ctx context.Context) (int, error) {
 }
 
 // GetMaxCPURate returns highest CPU usage rate on the specified interval.
-func (p *prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) (int, error) {
+func (p *Prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
 	if err := queryMaxCPU.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
@@ -170,7 +170,7 @@ func (p *prometheus) GetMaxCPURate(ctx context.Context, interval time.Duration) 
 }
 
 // GetMaxMemoryRate returns highest RAM usage rate on the specified interval.
-func (p *prometheus) GetMaxMemoryRate(ctx context.Context, interval time.Duration) (int, error) {
+func (p *Prometheus) GetMaxMemoryRate(ctx context.Context, interval time.Duration) (int, error) {
 	var query bytes.Buffer
 	if err := queryMaxMemory.Execute(&query, map[string]string{"interval": fmt.Sprintf("%vm", interval.Minutes())}); err != nil {
 		return 0, trace.Wrap(err)
@@ -186,8 +186,8 @@ func (p *prometheus) GetMaxMemoryRate(ctx context.Context, interval time.Duratio
 // instant vector:
 //
 // https://prometheus.io/docs/prometheus/latest/querying/basics/#instant-vector-selectors
-func (p *prometheus) getVector(ctx context.Context, query string) (model.Vector, error) {
-	value, err := p.Query(ctx, query, time.Time{})
+func (p *Prometheus) getVector(ctx context.Context, query string) (model.Vector, error) {
+	value, err := p.api.Query(ctx, query, time.Time{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -200,7 +200,7 @@ func (p *prometheus) getVector(ctx context.Context, query string) (model.Vector,
 // getVectorValue returns the instant vector value for the provided query.
 //
 // When issuing the provided Prometheus query, it expects a 1-element vector result.
-func (p *prometheus) getVectorValue(ctx context.Context, query string) (model.SampleValue, error) {
+func (p *Prometheus) getVectorValue(ctx context.Context, query string) (model.SampleValue, error) {
 	vector, err := p.getVector(ctx, query)
 	if err != nil {
 		return 0, trace.Wrap(err)
@@ -217,8 +217,8 @@ func (p *prometheus) getVectorValue(ctx context.Context, query string) (model.Sa
 // resulting range vector:
 //
 // https://prometheus.io/docs/prometheus/latest/querying/basics/#range-vector-selectors
-func (p *prometheus) getMatrix(ctx context.Context, query string, timeRange v1.Range) (model.Matrix, error) {
-	value, err := p.QueryRange(ctx, query, timeRange)
+func (p *Prometheus) getMatrix(ctx context.Context, query string, timeRange v1.Range) (model.Matrix, error) {
+	value, err := p.api.QueryRange(ctx, query, timeRange)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -231,7 +231,7 @@ func (p *prometheus) getMatrix(ctx context.Context, query string, timeRange v1.R
 // getMatrixValues returns the range vector values for the provided query.
 //
 // When issuing the provided Prometheus query, it expects a 1-element matrix result.
-func (p *prometheus) getMatrixValues(ctx context.Context, query string, timeRange v1.Range) ([]model.SamplePair, error) {
+func (p *Prometheus) getMatrixValues(ctx context.Context, query string, timeRange v1.Range) ([]model.SamplePair, error) {
 	matrix, err := p.getMatrix(ctx, query, timeRange)
 	if err != nil {
 		return nil, trace.Wrap(err)

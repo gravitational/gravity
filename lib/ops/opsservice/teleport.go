@@ -164,6 +164,7 @@ func (s *site) getTeleportServer(labelName, labelValue string) (server *teleport
 // getTeleportServerWithTimeout queries the teleport server with the specified label in a retry loop.
 // timeout specifies the timeout used in a single query attempt, retryInterval is the frequency of retries
 // and retryAttempts specifies the total number of attempts to make
+//nolint:unparam // TODO: timeout is always defaults.TeleportServerQueryTimeout, retryInterval is always defaults.RetryInterval
 func (s *site) getTeleportServersWithTimeout(labels map[string]string, timeout, retryInterval time.Duration,
 	retryAttempts int, check func(string, []teleservices.Server) error) (teleservers, error) {
 

@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
 )
 
@@ -43,7 +42,7 @@ func PlanetCertAuthorityPackage(repository string) loc.Locator {
 // and cluster name
 func (s *site) planetSecretsNextPackage(node *ProvisionedServer, planetVersion string) loc.Locator {
 	planetVersion = fmt.Sprintf("%v+%v", planetVersion, time.Now().UTC().Unix())
-	return planetSecretsPackage(node, s.domainName, s.domainName, planetVersion)
+	return planetSecretsPackage(node, s.domainName, planetVersion)
 }
 
 // planetSecretsPackage generates a new planet secrets package name for the specified
@@ -52,7 +51,7 @@ func (s *site) planetSecretsNextPackage(node *ProvisionedServer, planetVersion s
 // The package is named as '<cluster-name>/planet-<node-addr>-secrets:<planet-version>'
 // where node-addr is a combination of the node address and cluster name
 func (s *site) planetSecretsPackage(node *ProvisionedServer, planetVersion string) loc.Locator {
-	return planetSecretsPackage(node, s.domainName, s.domainName, planetVersion)
+	return planetSecretsPackage(node, s.domainName, planetVersion)
 }
 
 // planetNextConfigPackage generates a new planet configuration package name for the specified
@@ -126,7 +125,7 @@ func teleportMasterConfigPackage(master remoteServer, repository, clusterName, t
 	}
 }
 
-func planetSecretsPackage(node *ProvisionedServer, repository, clusterName, planetVersion string) loc.Locator {
+func planetSecretsPackage(node *ProvisionedServer, repository, planetVersion string) loc.Locator {
 	return loc.Locator{
 		Repository: repository,
 		Name:       fmt.Sprintf("planet-%v-secrets", node.AdvertiseIP),
@@ -157,16 +156,6 @@ func teleportNodeConfigPackage(node remoteServer, repository, clusterName, telep
 
 func (s *site) planetCertAuthorityPackage() loc.Locator {
 	return PlanetCertAuthorityPackage(s.siteRepoName())
-}
-
-// opsCertAuthorityPackage is a shorthand to return locator for OpsCenter's certificate
-// authority package
-func (s *site) opsCertAuthorityPackage() loc.Locator {
-	return loc.Locator{
-		Repository: defaults.SystemAccountOrg,
-		Name:       constants.OpsCenterCAPackage,
-		Version:    loc.FirstVersion,
-	}
 }
 
 // siteExport package exports site state as BoltDB database dump

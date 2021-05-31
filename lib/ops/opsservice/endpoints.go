@@ -98,10 +98,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 
 		var addresses []string
 		for _, service := range serviceList.Items {
-			serviceAddresses, err := getAddresses(service, nodeList)
-			if err != nil {
-				return nil, trace.Wrap(err)
-			}
+			serviceAddresses := getAddresses(service, nodeList)
 			for _, a := range serviceAddresses {
 				// only select matching endpoints if they match the port, or the port is not specified
 				if e.Port == 0 || strings.HasSuffix(a, fmt.Sprintf(":%d", e.Port)) {
@@ -131,7 +128,7 @@ func (o *Operator) GetApplicationEndpoints(key ops.SiteKey) ([]ops.Endpoint, err
 //   - if the service has an attached load balancer, its address(-es) are returned;
 //   - otherwise, if the service is exposed on nodes' ports, their addresses are returned;
 //   - otherwise, a "cluster IP" is returned.
-func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string, err error) {
+func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string) {
 	// if there're load balancers, grab'em
 	if len(service.Status.LoadBalancer.Ingress) > 0 {
 		for _, ingress := range service.Status.LoadBalancer.Ingress {
@@ -139,7 +136,7 @@ func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string
 				addresses = append(addresses, fmt.Sprintf("%v:%v", ingress.Hostname, port.Port))
 			}
 		}
-		return addresses, nil
+		return addresses
 	}
 
 	// otherwise see if the services is exposed on nodes
@@ -168,7 +165,7 @@ func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string
 					addresses = append(addresses, fmt.Sprintf("%v:%v", ip, port))
 				}
 			}
-			return addresses, nil
+			return addresses
 		}
 
 		if len(internalIPs) > 0 {
@@ -177,7 +174,7 @@ func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string
 					addresses = append(addresses, fmt.Sprintf("%v:%v", ip, port))
 				}
 			}
-			return addresses, nil
+			return addresses
 		}
 	}
 	// fall back to cluster IP
@@ -185,5 +182,5 @@ func getAddresses(service v1.Service, nodeList *v1.NodeList) (addresses []string
 		addresses = append(addresses,
 			fmt.Sprintf("%v:%v", service.Spec.ClusterIP, port.Port))
 	}
-	return addresses, nil
+	return addresses
 }

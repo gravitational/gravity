@@ -359,9 +359,7 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 			Message:    "uninstalling the system software",
 		})
 
-		if err = s.uninstallSystem(opCtx, agentRunner); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall the system software.")
-		}
+		s.uninstallSystem(opCtx, agentRunner)
 	}
 
 	if isAWSProvisioner(opCtx.operation.Provisioner) {
@@ -451,10 +449,11 @@ func (s *site) pickShrinkMasterRunner(ctx *operationContext, removedServer stora
 		return nil, trace.Wrap(err)
 	}
 	// Pick any master server except the one that's being removed.
-	for _, master := range masters {
+	for i, master := range masters {
 		if master.IP != removedServer.AdvertiseIP {
 			return &serverRunner{
-				&master, &teleportRunner{ctx, s.domainName, s.teleport()},
+				server: &masters[i],
+				runner: &teleportRunner{ctx, s.domainName, s.teleport()},
 			}, nil
 		}
 	}
@@ -512,7 +511,7 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 	})
 }
 
-func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
+func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) {
 	commands := [][]string{
 		s.gravityCommand("system", "uninstall",
 			"--confirm",
@@ -528,8 +527,6 @@ func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) erro
 			}).Error("Failed to run.")
 		}
 	}
-
-	return nil
 }
 
 func (s *site) launchAgent(ctx context.Context, opCtx *operationContext, server storage.Server) (*serverRunner, error) {

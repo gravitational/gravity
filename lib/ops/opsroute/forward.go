@@ -512,7 +512,7 @@ func (r *Router) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 	return client.GetOperationPlan(key)
 }
 
-// Configure packages configures packages for the specified install operation
+// ConfigurePackages packages configures packages for the specified install operation
 func (r *Router) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	client, err := r.PickOperationClient(req.SiteDomain)
 	if err != nil {
@@ -521,18 +521,23 @@ func (r *Router) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	return client.ConfigurePackages(req)
 }
 
+// RotateSecrets rotates secrets package for the server specified in the request
 func (r *Router) RotateSecrets(req ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error) {
 	return r.Local.RotateSecrets(req)
 }
 
+// RotatePlanetConfig rotates planet configuration package for the server specified in the request
 func (r *Router) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
 	return r.Local.RotatePlanetConfig(req)
 }
 
+// RotateTeleportConfig generates teleport configuration for the server specified in the provided request
 func (r *Router) RotateTeleportConfig(req ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error) {
 	return r.Local.RotateTeleportConfig(req)
 }
 
+// ConfigureNode prepares the node for the upgrade, for example updates necessary directories
+// permissions and creates missing ones
 func (r *Router) ConfigureNode(req ops.ConfigureNodeRequest) error {
 	return r.Local.ConfigureNode(req)
 }
@@ -947,7 +952,7 @@ func (r *Router) DeleteUserInvite(ctx context.Context, req ops.DeleteUserInviteR
 	return client.DeleteUserInvite(ctx, req)
 }
 
-// CreateUserInvite creates a new reset token for a user.
+// CreateUserReset creates a new reset token for a user.
 func (r *Router) CreateUserReset(ctx context.Context, req ops.CreateUserResetRequest) (*storage.UserToken, error) {
 	client, err := r.PickClient(req.SiteDomain)
 	if err != nil {

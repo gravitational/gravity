@@ -59,6 +59,7 @@ func (p *ClientPool) httpClient() *http.Client {
 	if p.Devmode {
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{
+				//nolint:gosec // TODO: fix insecure
 				InsecureSkipVerify: true,
 			},
 		}

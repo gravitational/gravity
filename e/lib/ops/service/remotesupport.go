@@ -108,7 +108,7 @@ func (o *Operator) AcceptRemoteCluster(req ops.AcceptRemoteClusterRequest) (*ops
 	}
 
 	return &ops.AcceptRemoteClusterResponse{
-		User: (storage.RemoteAccessUser)(*remoteAgent),
+		User: *remoteAgent,
 	}, nil
 }
 

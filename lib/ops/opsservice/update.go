@@ -239,10 +239,11 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.Wrap(err)
 	}
 
+	servers := cluster.servers()
 	var master *storage.Server
-	for _, server := range cluster.servers() {
+	for i, server := range servers {
 		if server.IsMaster() {
-			master = &server
+			master = &servers[i]
 			break
 		}
 	}
@@ -336,7 +337,7 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 		return trace.Wrap(err)
 	}
 
-	commands, err := remoteDirectories(*operation, node, updateApp.Manifest,
+	commands, err := remoteDirectories(node, updateApp.Manifest,
 		cluster.ServiceUser.UID, cluster.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)

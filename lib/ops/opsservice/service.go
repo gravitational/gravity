@@ -915,7 +915,7 @@ func (o *Operator) GetSiteOperations(key ops.SiteKey, f ops.OperationsFilter) (o
 	return filtered, nil
 }
 
-// GetsiteOperation returns the operation information based on it's key
+// GetSiteOperation returns the operation information based on it's key
 func (o *Operator) GetSiteOperation(key ops.SiteOperationKey) (*ops.SiteOperation, error) {
 	site, err := o.openSite(ops.SiteKey{SiteDomain: key.SiteDomain, AccountID: key.AccountID})
 	if err != nil {
@@ -964,7 +964,7 @@ func (o *Operator) UpdateExpandOperationState(key ops.SiteOperationKey, req ops.
 	return trace.Wrap(site.updateOperationState(op, req))
 }
 
-// DeleteSiteOperationState removes an unstarted operation and resets site state to active
+// DeleteSiteOperation removes an unstarted operation and resets site state to active
 func (o *Operator) DeleteSiteOperation(key ops.SiteOperationKey) (err error) {
 	cluster, err := o.openSite(ops.SiteKey{AccountID: key.AccountID, SiteDomain: key.SiteDomain})
 	if err != nil {
@@ -1074,7 +1074,7 @@ func (o *Operator) CreateClusterGarbageCollectOperation(ctx context.Context, r o
 		return nil, trace.Wrap(err)
 	}
 
-	key, err := cluster.createGarbageCollectOperation(ctx, r)
+	key, err := cluster.createGarbageCollectOperation(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

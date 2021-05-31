@@ -80,7 +80,7 @@ func (c *clusterCollection) ToMarshal() interface{} {
 type appCollection []app.Application
 
 // Resources returns the resources collection in the generic format
-func (c appCollection) Resources() (resources []teleservices.UnknownResource, err error) {
+func (appCollection) Resources() (resources []teleservices.UnknownResource, err error) {
 	// app.Application is not a Resource at the moment
 	return nil, trace.NotImplemented("can't convert applications to resources")
 }
