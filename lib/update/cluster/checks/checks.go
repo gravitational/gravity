@@ -45,7 +45,7 @@ type CheckerConfig struct {
 
 // NewChecker creates a checker for validating requirements of the
 // upgrade operation.
-func NewChecker(ctx context.Context, config CheckerConfig) (checks.Checker, error) {
+func NewChecker(ctx context.Context, config CheckerConfig) (checks.Interface, error) {
 	cluster, err := config.ClusterOperator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
