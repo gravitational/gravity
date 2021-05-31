@@ -28,18 +28,19 @@ import (
 )
 
 // NewApplicationBuilder returns a builder that produces application images.
-func NewApplicationBuilder(config Config) (*applicationBuilder, error) {
+func NewApplicationBuilder(config Config) (*ApplicationBuilder, error) {
 	engine, err := newEngine(config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &applicationBuilder{
-		Engine: engine,
+	return &ApplicationBuilder{
+		engine: engine,
 	}, nil
 }
 
-type applicationBuilder struct {
-	*Engine
+// ApplicationBuilder builds an application image
+type ApplicationBuilder struct {
+	engine *Engine
 }
 
 // ApplicationRequest combines parameters for building an application image.
@@ -55,24 +56,20 @@ type ApplicationRequest struct {
 }
 
 // Build builds an application image according to the provided parameters.
-func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) error {
+func (b *ApplicationBuilder) Build(ctx context.Context, req ApplicationRequest) error {
 	chart, err := loader.Load(req.ChartPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	manifest, err := generateApplicationImageManifest(chart)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
+	manifest := generateApplicationImageManifest(chart)
 	outputPath, err := checkOutputPath(manifest, req.OutputPath, req.Overwrite)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	locator := imageLocator(manifest, req.Vendor)
-	b.NextStep("Building application image %v %v from Helm chart", locator.Name,
+	b.engine.NextStep("Building application image %v %v from Helm chart", locator.Name,
 		locator.Version)
 
 	vendorDir, err := ioutil.TempDir("", "vendor")
@@ -81,8 +78,8 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	}
 	defer os.RemoveAll(vendorDir)
 
-	b.NextStep("Discovering and embedding Docker images")
-	stream, err := b.Vendor(ctx, VendorRequest{
+	b.engine.NextStep("Discovering and embedding Docker images")
+	stream, err := b.engine.Vendor(ctx, VendorRequest{
 		SourceDir: req.ChartPath,
 		VendorDir: vendorDir,
 		Manifest:  manifest,
@@ -93,24 +90,29 @@ func (b *applicationBuilder) Build(ctx context.Context, req ApplicationRequest) 
 	}
 	defer stream.Close()
 
-	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream)
+	b.engine.NextStep("Creating application")
+	application, err := b.engine.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	b.NextStep("Packaging application image")
-	installer, err := b.GenerateInstaller(manifest, *application)
+	b.engine.NextStep("Packaging application image")
+	installer, err := b.engine.GenerateInstaller(manifest, *application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installer.Close()
 
-	b.NextStep("Saving application image to %v", outputPath)
-	err = b.WriteInstaller(installer, outputPath)
+	b.engine.NextStep("Saving application image to %v", outputPath)
+	err = b.engine.WriteInstaller(installer, outputPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
+}
+
+// Close closes the builder
+func (b *ApplicationBuilder) Close() error {
+	return b.engine.Close()
 }

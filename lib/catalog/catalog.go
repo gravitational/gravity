@@ -41,7 +41,7 @@ type Catalog interface {
 }
 
 // New returns a new application catalog instance.
-func New(config Config) (*catalog, error) {
+func New(config Config) (Catalog, error) {
 	err := config.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)

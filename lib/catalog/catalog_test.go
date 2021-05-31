@@ -36,7 +36,7 @@ func TestCatalog(t *testing.T) { check.TestingT(t) }
 
 type catalogSuite struct {
 	services opsservice.TestServices
-	catalog  *catalog
+	catalog  Catalog
 	alpine   *app.Application
 	nginx    *app.Application
 }

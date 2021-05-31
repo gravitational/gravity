@@ -72,7 +72,7 @@ import (
 type Hub interface {
 	// List returns a list of applications in the hub
 	List(withPrereleases bool) ([]App, error)
-	// Downloads downloads the specified application installer into provided file
+	// Download downloads the specified application installer into provided file
 	Download(*os.File, loc.Locator) error
 	// Get returns application installer tarball of the specified version
 	Get(loc.Locator) (io.ReadCloser, error)
@@ -96,10 +96,10 @@ type App struct {
 	Type string `json:"type"`
 }
 
-// s3Hub is the S3-backed hub implementation
-type s3Hub struct {
+// S3Hub is the S3-backed hub implementation
+type S3Hub struct {
 	// Config is the hub configuration
-	Config
+	config Config
 	// downloader is the S3 download manager
 	downloader *s3manager.Downloader
 }
@@ -146,19 +146,19 @@ func (c *Config) CheckAndSetDefaults() error {
 }
 
 // New returns a new S3-backed hub instance
-func New(config Config) (*s3Hub, error) {
+func New(config Config) (*S3Hub, error) {
 	err := config.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &s3Hub{
-		Config:     config,
+	return &S3Hub{
+		config:     config,
 		downloader: s3manager.NewDownloaderWithClient(config.S3),
 	}, nil
 }
 
 // List returns a list of applications in the hub
-func (h *s3Hub) List(withPrereleases bool) (items []App, err error) {
+func (h *S3Hub) List(withPrereleases bool) (items []App, err error) {
 	indexFile, err := h.getIndexFile()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -177,8 +177,8 @@ func (h *s3Hub) List(withPrereleases bool) (items []App, err error) {
 	return items, nil
 }
 
-// Downloads downloads the specified application installer into provided file
-func (h *s3Hub) Download(f *os.File, locator loc.Locator) (err error) {
+// Download downloads the specified application installer into provided file
+func (h *S3Hub) Download(f *os.File, locator loc.Locator) (err error) {
 	version := locator.Version
 	// in case the provided version is a special 'latest' or 'stable' label,
 	// we need to look into respective bucket to find out the actual version
@@ -191,20 +191,20 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator) (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	h.Infof("Downloading: %v.", h.appPath(locator.Name, locator.Version))
+	h.config.Infof("Downloading: %v.", h.appPath(locator.Name, locator.Version))
 	n, err := h.downloader.Download(f, &s3.GetObjectInput{
-		Bucket: aws.String(h.Bucket),
+		Bucket: aws.String(h.config.Bucket),
 		Key:    aws.String(h.appPath(locator.Name, locator.Version)),
 	})
 	if err != nil {
 		err := utils.ConvertS3Error(err)
 		if trace.IsNotFound(err) {
 			return trace.NotFound("image %v:%v not found in %v, use 'tele ls -a' to see available images",
-				locator.Name, locator.Version, h.Bucket)
+				locator.Name, locator.Version, h.config.Bucket)
 		}
 		return trace.Wrap(err)
 	}
-	h.Infof("Download complete: %v %v.", locator, humanize.Bytes(uint64(n)))
+	h.config.Infof("Download complete: %v %v.", locator, humanize.Bytes(uint64(n)))
 	if err := h.verifyChecksum(locator.Name, locator.Version, f.Name()); err != nil {
 		return trace.Wrap(err, "failed to verify %v:%v checksum", locator.Name, locator.Version)
 	}
@@ -212,7 +212,7 @@ func (h *s3Hub) Download(f *os.File, locator loc.Locator) (err error) {
 }
 
 // Get returns application installer tarball of the specified version
-func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
+func (h *S3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 	tarFile, err := ioutil.TempFile("", locator.Name)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -221,7 +221,7 @@ func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 		ReadCloser: tarFile,
 		Cleanup: func() {
 			if err := os.RemoveAll(tarFile.Name()); err != nil {
-				h.Warnf("Failed to remove %v: %v.", tarFile.Name(), err)
+				h.config.Warnf("Failed to remove %v: %v.", tarFile.Name(), err)
 			}
 		},
 	}
@@ -234,10 +234,10 @@ func (h *s3Hub) Get(locator loc.Locator) (io.ReadCloser, error) {
 }
 
 // getIndexFile returns the hub's index file.
-func (h *s3Hub) getIndexFile() (*repo.IndexFile, error) {
-	object, err := h.S3.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(h.Bucket),
-		Key:    aws.String(filepath.Join(h.Prefix, indexFileName)),
+func (h *S3Hub) getIndexFile() (*repo.IndexFile, error) {
+	object, err := h.config.S3.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(h.config.Bucket),
+		Key:    aws.String(filepath.Join(h.config.Prefix, indexFileName)),
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -256,27 +256,27 @@ func (h *s3Hub) getIndexFile() (*repo.IndexFile, error) {
 }
 
 // appsBucket returns sub-bucket where all applications are stored
-func (h *s3Hub) appsBucket() string {
-	return fmt.Sprintf("%v/app", h.Prefix)
+func (h *S3Hub) appsBucket() string {
+	return fmt.Sprintf("%v/app", h.config.Prefix)
 }
 
 // appBucket returns sub-bucket where the specified application is stored
-func (h *s3Hub) appBucket(name, version string) string {
+func (h *S3Hub) appBucket(name, version string) string {
 	return fmt.Sprintf("%v/%v/%v/linux/x86_64", h.appsBucket(), name, version)
 }
 
 // appBucketPath returns path to the specified application in the hub
-func (h *s3Hub) appPath(name, version string) string {
+func (h *S3Hub) appPath(name, version string) string {
 	return fmt.Sprintf("%v/%v", h.appBucket(name, version), makeFilename(name, version))
 }
 
 // shaPath returns path to the checksum file of the specified application in the hub
-func (h *s3Hub) shaPath(name, version string) string {
+func (h *S3Hub) shaPath(name, version string) string {
 	return h.appPath(name, version) + ".sha256"
 }
 
 // GetLatestVersion returns the latest version of the specified application in the hub
-func (h *s3Hub) GetLatestVersion(name string) (string, error) {
+func (h *S3Hub) GetLatestVersion(name string) (string, error) {
 	indexFile, err := h.getIndexFile()
 	if err != nil {
 		return "", trace.Wrap(err)
@@ -302,7 +302,7 @@ func (h *s3Hub) GetLatestVersion(name string) (string, error) {
 }
 
 // getStableVersion returns the stable version of the specified application in the hub
-func (h *s3Hub) getStableVersion(name string) (string, error) {
+func (h *S3Hub) getStableVersion(name string) (string, error) {
 	indexFile, err := h.getIndexFile()
 	if err != nil {
 		return "", trace.Wrap(err)
@@ -331,7 +331,7 @@ func (h *s3Hub) getStableVersion(name string) (string, error) {
 }
 
 // verifyChecksum verifies the checksum of the downloaded installer file
-func (h *s3Hub) verifyChecksum(name, version, path string) error {
+func (h *S3Hub) verifyChecksum(name, version, path string) error {
 	storedChecksum, err := h.getChecksum(name, version)
 	if err != nil {
 		return trace.Wrap(err)
@@ -350,14 +350,14 @@ func (h *s3Hub) verifyChecksum(name, version, path string) error {
 		return trace.BadParameter("checksum mismatch: stored %q, calculated %q",
 			storedChecksum, checksum)
 	}
-	h.Infof("Checksum for %v:%v verified: %v.", name, version, checksum)
+	h.config.Infof("Checksum for %v:%v verified: %v.", name, version, checksum)
 	return nil
 }
 
 // getChecksum fetches the sha256 checksum of the specified application from the hub
-func (h *s3Hub) getChecksum(name, version string) (string, error) {
-	object, err := h.S3.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(h.Bucket),
+func (h *S3Hub) getChecksum(name, version string) (string, error) {
+	object, err := h.config.S3.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(h.config.Bucket),
 		Key:    aws.String(h.shaPath(name, version)),
 	})
 	if err != nil {

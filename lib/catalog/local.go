@@ -25,7 +25,7 @@ import (
 )
 
 // NewLocal returns application catalog for the local cluster.
-func NewLocal() (*catalog, error) {
+func NewLocal() (Catalog, error) {
 	opsClient, err := localenv.ClusterOperator()
 	if err != nil {
 		return nil, trace.Wrap(err)

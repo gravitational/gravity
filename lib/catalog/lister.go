@@ -75,7 +75,7 @@ type listItem struct {
 }
 
 // NewListItemFromHubApp makes a list item from the hub application item.
-func NewListItemFromHubApp(app hub.App) (*listItem, error) {
+func NewListItemFromHubApp(app hub.App) (ListItem, error) {
 	semver, err := semver.NewVersion(app.Version)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -90,7 +90,7 @@ func NewListItemFromHubApp(app hub.App) (*listItem, error) {
 }
 
 // NewListItemFromApp makes a list item from the app service application.
-func NewListItemFromApp(app app.Application) (*listItem, error) {
+func NewListItemFromApp(app app.Application) (ListItem, error) {
 	semver, err := semver.NewVersion(app.Manifest.Metadata.ResourceVersion)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -174,21 +174,22 @@ func (l ListItems) Less(i, j int) bool {
 	return false
 }
 
-type hubLister struct {
+// HubLister lists applications on the hub
+type HubLister struct {
 	hub hub.Hub
 }
 
 // NewLister returns a lister with S3 hub backend.
-func NewLister() (*hubLister, error) {
+func NewLister() (*HubLister, error) {
 	hub, err := hub.New(hub.Config{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &hubLister{hub: hub}, nil
+	return &HubLister{hub: hub}, nil
 }
 
 // List returns application and cluster images from the hub.
-func (l *hubLister) List(all bool) (result ListItems, err error) {
+func (l *HubLister) List(all bool) (result ListItems, err error) {
 	items, err := l.hub.List(all)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -204,7 +205,7 @@ func (l *hubLister) List(all bool) (result ListItems, err error) {
 }
 
 // Hub returns the name of the open-source Hub.
-func (l *hubLister) Hub() string {
+func (l *HubLister) Hub() string {
 	return defaults.HubBucket
 }
 
