@@ -29,7 +29,7 @@ type S struct{}
 
 var _ = Suite(&S{})
 
-func (_ *S) TestValidatesTag(c *C) {
+func (*S) TestValidatesTag(c *C) {
 	var testCases = []struct {
 		tag     string
 		err     string

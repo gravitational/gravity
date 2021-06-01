@@ -36,13 +36,13 @@ import (
 // Validate validates the specified AWS API key has access to the specified set of
 // resources.
 // Returns the list of actions this account does not have access to.
-func Validate(accessKey, secretKey, sessionToken, regionName string, probes Probes, ctx context.Context) (actions Actions, err error) {
+func Validate(ctx context.Context, accessKey, secretKey, sessionToken, regionName string, probes Probes) (actions Actions, err error) {
 	creds := credentials.NewStaticCredentials(accessKey, secretKey, sessionToken)
-	return ValidateWithCreds(creds, regionName, probes, ctx)
+	return ValidateWithCreds(ctx, creds, regionName, probes)
 }
 
 // ValidateWithCreds is an overload of Validate accepting specified credentials object.
-func ValidateWithCreds(creds *credentials.Credentials, regionName string, probes Probes, ctx context.Context) (actions Actions, err error) {
+func ValidateWithCreds(ctx context.Context, creds *credentials.Credentials, regionName string, probes Probes) (actions Actions, err error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -57,11 +57,11 @@ func ValidateWithCreds(creds *credentials.Credentials, regionName string, probes
 		iam: iam.New(session, config),
 	}
 
-	actions, err = validateWithContext(clientCtx, probes, resourceValidatorFunc(validateResource), ctx)
+	actions, err = validateWithContext(ctx, clientCtx, probes, resourceValidatorFunc(validateResource))
 	return actions, trace.Wrap(err)
 }
 
-func validateWithContext(clientCtx *clientContext, probes Probes, validator resourceValidator, ctx context.Context) (actions Actions, err error) {
+func validateWithContext(ctx context.Context, clientCtx *clientContext, probes Probes, validator resourceValidator) (actions Actions, err error) {
 	var errors []error
 
 	if len(probes) < 1 {
@@ -130,6 +130,7 @@ func validateWithContext(clientCtx *clientContext, probes Probes, validator reso
 	return actions, trace.NewAggregate(errors...)
 }
 
+// AllProbes lists all validation probes
 var AllProbes Probes
 
 // ActionDependencies assigns an action a set of dependent action permissions.

@@ -404,21 +404,21 @@ func validateCreateRouteTable(client *clientContext) error {
 }
 
 func validateDeleteRoute(client *clientContext) error {
-	routeTableId := dummyValueWithLen("rtb-", len("6e9f0b0b"))
+	routeTableID := dummyValueWithLen("rtb-", len("6e9f0b0b"))
 	request := &ec2.DeleteRouteInput{
 		DryRun:               dryRun,
 		DestinationCidrBlock: aws.String("10.10.0.0/16"),
-		RouteTableId:         routeTableId,
+		RouteTableId:         routeTableID,
 	}
 	_, err := client.ec2.DeleteRoute(request)
 	return trace.Wrap(err)
 }
 
 func validateDeleteRouteTable(client *clientContext) error {
-	routeTableId := dummyValueWithLen("rtb-", len("6e9f0b0b"))
+	routeTableID := dummyValueWithLen("rtb-", len("6e9f0b0b"))
 	request := &ec2.DeleteRouteTableInput{
 		DryRun:       dryRun,
-		RouteTableId: routeTableId,
+		RouteTableId: routeTableID,
 	}
 	_, err := client.ec2.DeleteRouteTable(request)
 	return trace.Wrap(err)
