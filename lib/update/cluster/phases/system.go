@@ -59,7 +59,7 @@ type updatePhaseSystem struct {
 	seLinux bool
 }
 
-// NewUpdatePhaseNode returns a new node update phase executor
+// NewUpdatePhaseSystem returns a new node update phase executor
 func NewUpdatePhaseSystem(
 	p fsm.ExecutorParams,
 	remote fsm.Remote,
@@ -67,7 +67,7 @@ func NewUpdatePhaseSystem(
 	packages pack.PackageService,
 	localPackages update.LocalPackageService,
 	logger log.FieldLogger,
-) (*updatePhaseSystem, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
@@ -217,7 +217,7 @@ func NewUpdatePhaseConfig(
 	localPackages pack.PackageService,
 	remote fsm.Remote,
 	logger log.FieldLogger,
-) (*updatePhaseConfig, error) {
+) (fsm.PhaseExecutor, error) {
 	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)

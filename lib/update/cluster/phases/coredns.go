@@ -36,6 +36,7 @@ import (
 )
 
 const (
+	// CoreDNSResourceName defines the name common for coredns resources
 	CoreDNSResourceName = "gravity:coredns"
 )
 
@@ -49,7 +50,7 @@ type updatePhaseCoreDNS struct {
 // The normal upgrade sequence is to Rolling update planet, then to update our RBAC settings in the RBAC app
 // However, CoreDNS within planet needs these settings to function, so these settings specifically need to be created
 // before the rolling restart of planet
-func NewPhaseCoreDNS(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset, logger log.FieldLogger) (*updatePhaseCoreDNS, error) {
+func NewPhaseCoreDNS(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)

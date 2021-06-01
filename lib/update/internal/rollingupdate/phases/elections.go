@@ -34,7 +34,7 @@ import (
 
 // NewElections implements the phase to manage election changes in cluster
 // to support failover as the environment variables are updated
-func NewElections(params libfsm.ExecutorParams, operator LocalClusterGetter, logger logrus.FieldLogger) (*elections, error) {
+func NewElections(params libfsm.ExecutorParams, operator LocalClusterGetter, logger logrus.FieldLogger) (libfsm.PhaseExecutor, error) {
 	if params.Phase.Data == nil || params.Phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", params.Phase.ID)
 	}

@@ -67,9 +67,7 @@ func (r *System) Update(ctx context.Context, withStatus bool) error {
 		return trace.BadParameter("ChangesetID is required")
 	}
 
-	if err := r.Config.PackageUpdates.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.Config.PackageUpdates.setDefaults()
 
 	var changes []storage.PackageUpdate
 	for _, u := range r.updates() {
@@ -204,7 +202,7 @@ type Config struct {
 	SELinux bool
 }
 
-func (r *PackageUpdates) checkAndSetDefaults() error {
+func (r *PackageUpdates) setDefaults() {
 	if len(r.Runtime.Labels) == 0 {
 		r.Runtime.Labels = pack.RuntimePackageLabels
 	}
@@ -221,7 +219,6 @@ func (r *PackageUpdates) checkAndSetDefaults() error {
 			r.Teleport.ConfigPackage.Labels = pack.TeleportNodeConfigPackageLabels
 		}
 	}
-	return nil
 }
 
 func (r *PackageUpdates) updates() (result []storage.PackageUpdate) {
@@ -295,9 +292,7 @@ func (r *System) getChangesetByID(changesetID string) (*storage.PackageChangeset
 
 // Reinstall reinstalls the package specified by update
 func (r *PackageUpdater) Reinstall(ctx context.Context, update storage.PackageUpdate) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	labelUpdates, err := r.reinstallPackage(ctx, update)
 	if err != nil {
 		return trace.Wrap(err)
@@ -398,7 +393,7 @@ func (r *PackageUpdater) updatePlanetPackage(ctx context.Context, update storage
 	}
 
 	if update.ConfigPackage != nil {
-		labelUpdates = append(labelUpdates, labelsForPackageUpdate(r.Packages, *update.ConfigPackage)...)
+		labelUpdates = append(labelUpdates, labelsForPackageUpdate(*update.ConfigPackage)...)
 	}
 
 	return labelUpdates, nil
@@ -574,11 +569,10 @@ func (r *PackageUpdater) reinstallService(update storage.PackageUpdate, environ 
 	return labelUpdates, nil
 }
 
-func (r *PackageUpdater) checkAndSetDefaults() error {
+func (r *PackageUpdater) setDefaults() {
 	if r.Logger == nil {
 		r.Logger = log.New(logrus.WithField(trace.Component, "packupdate"))
 	}
-	return nil
 }
 
 func (r *PackageUpdater) environForPlanetService() map[string]string {
@@ -765,7 +759,7 @@ func copyGravityToPlanet(newPackage loc.Locator, packages pack.PackageService, t
 	return trace.Wrap(utils.CopyReaderWithPerms(targetPath, rc, defaults.SharedExecutableMask))
 }
 
-func labelsForPackageUpdate(packages pack.PackageService, update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate) {
+func labelsForPackageUpdate(update storage.PackageUpdate) (labelUpdates []pack.LabelUpdate) {
 	return append(labelUpdates,
 		pack.LabelUpdate{
 			Locator: update.From,
@@ -901,7 +895,7 @@ func unpack(packages update.LocalPackageService, loc loc.Locator, opts *archive.
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return packages.Unpack(loc, path)
+	return packages.UnpackWithOptions(loc, path, opts)
 }
 
 // tctlScript is the template of the script that invokes tctl binary with

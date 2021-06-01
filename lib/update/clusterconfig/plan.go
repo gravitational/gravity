@@ -97,10 +97,7 @@ func newOperationPlan(config planConfig) (plan *storage.OperationPlan, err error
 	var builder *builder
 	var updates []storage.UpdateServer
 	if updatesServiceCIDR {
-		builder, err = newBuilderWithServices(config)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		builder = newBuilderWithServices(config)
 		updates, err = rollingupdate.RuntimeConfigUpdatesWithSecrets(
 			config.app.Manifest, config.operator, config.operation.Key(), config.servers)
 		if err != nil {
@@ -187,10 +184,6 @@ func collectServices(client corev1.CoreV1Interface, serviceCIDR string) (result 
 		result = append(result, service)
 	}
 	return result, nil
-}
-
-func hasServiceCIDRUpdate(clusterConfig clusterconfig.Interface) bool {
-	return len(clusterConfig.GetGlobalConfig().ServiceCIDR) != 0
 }
 
 func shouldCollectService(service v1.Service) bool {

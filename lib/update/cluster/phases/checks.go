@@ -54,7 +54,7 @@ func NewUpdatePhaseChecks(
 	apps app.Applications,
 	remote rpc.AgentRepository,
 	logger log.FieldLogger,
-) (*updatePhaseChecks, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no update application package specified for phase %v", p.Phase)
 	}
