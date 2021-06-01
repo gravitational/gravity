@@ -71,7 +71,7 @@ func runAppHook(env *localenv.LocalEnvironment, req appservice.HookRunRequest) (
 }
 
 // statusApp prints application status in json format
-func statusApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL string) error {
+func statusApp(env *localenv.LocalEnvironment, appPackage loc.Locator) error {
 	registryURL, err := localAppEnviron()
 	if err != nil {
 		return trace.Wrap(err)
@@ -164,7 +164,7 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 	steps := 3
 	if req.Vendor {
-		steps += 1
+		steps++
 	}
 	progress := utils.NewProgress(context.TODO(), "app import", steps, silent)
 	defer progress.Stop()

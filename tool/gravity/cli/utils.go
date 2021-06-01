@@ -238,13 +238,19 @@ func isCancelledError(err error) bool {
 
 func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-chan rpcserver.WatchEvent) {
 	go func() {
-		for event := range watchCh {
-			if event.Error == nil {
-				continue
+		for {
+			select {
+			case event := <-watchCh:
+				if event.Error == nil {
+					continue
+				}
+				log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
+				cancel()
+				return
+			case <-ctx.Done():
+				log.Debug("Watch loop closing, context deadline exceeded.")
+				return
 			}
-			log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
-			cancel()
-			return
 		}
 	}()
 }

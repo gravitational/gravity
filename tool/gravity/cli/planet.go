@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	agentpb "github.com/gravitational/satellite/agent/proto/agentpb"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -94,11 +93,11 @@ func getPlanetStatus(env *localenv.LocalEnvironment, args []string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clientCertFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
+	clientCertFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.CertSuffix))
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	clientKeyFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+	clientKeyFile, err := localenv.InGravity(defaults.SecretsDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.KeySuffix))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -108,19 +107,6 @@ func getPlanetStatus(env *localenv.LocalEnvironment, args []string) error {
 	args = append(args, "--client-key-file", clientKeyFile)
 	return executePackageCommand(
 		env, "status", *planetPackage, planetConfigPackage, args)
-}
-
-// planetVersion returns version of the currently installed planet
-func planetVersion(env *localenv.LocalEnvironment) (*semver.Version, error) {
-	locator, err := pack.FindAnyRuntimePackage(env.Packages)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	version, err := locator.SemVer()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return version, nil
 }
 
 // getMasterNodes returns IPs of cluster machines running planet masters

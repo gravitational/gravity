@@ -607,7 +607,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			group:    constants.ClusterNodeGroup,
 		},
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
-		constants.PlanetRpcKeyPair:              {},
+		constants.PlanetRPCKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
 		constants.FrontProxyClientKeyPair:       {},
 		constants.LograngeAdaptorKeyPair:        {},
@@ -736,7 +736,7 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		constants.KubectlKeyPair:           {group: constants.ClusterNodeGroup},
 		constants.ProxyKeyPair:             {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair:           {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
-		constants.PlanetRpcKeyPair:         {},
+		constants.PlanetRPCKeyPair:         {},
 		constants.CoreDNSKeyPair:           {},
 		constants.LograngeCollectorKeyPair: {},
 	}

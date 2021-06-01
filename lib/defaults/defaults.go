@@ -80,10 +80,13 @@ const (
 	// WaitForEventInterval indicates the delay between above attempts
 	WaitForEventInterval = 5 * time.Second
 
-	// Default retry settings
-	RetryInterval           = 5 * time.Second
-	RetryAttempts           = 100
-	RetryLessAttempts       = 20
+	// RetryInterval is the interval between retry attempts
+	RetryInterval = 5 * time.Second
+	// RetryAttempts is the total number of attempts
+	RetryAttempts = 100
+	// RetryLessAttempts is the total number of attempts in alternative retry scenarios
+	RetryLessAttempts = 20
+	// RetrySmallerMaxInterval is the total time for alternative retry scenario
 	RetrySmallerMaxInterval = RetryLessAttempts * RetryInterval
 
 	// EtcdRetryInterval is the retry interval for some etcd commands
@@ -281,7 +284,7 @@ const (
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 
-	// SatelliteRPCAgentPort is port used by satellite agent to expose metrics
+	// SatelliteMetricsPort is port used by satellite agent to expose metrics
 	SatelliteMetricsPort = 7580
 
 	// AlertmanagerServicePort is the Alertmanage service port
@@ -611,7 +614,7 @@ const (
 	LograngeAggregatorServiceName = "lr-aggregator"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
-	// to be considered successfull
+	// to be considered successful
 	WriteFactor = 1
 
 	// ElectionTerm is a leader election term for multiple gravity instances
@@ -735,7 +738,7 @@ const (
 	RoleMaster = "master"
 
 	// DockerDeviceCapacity defines the baseline size for the docker devicemapper device
-	// used by default if no backend and no size has been explicitely specified
+	// used by default if no backend and no size has been explicitly specified
 	DockerDeviceCapacity = "4GB"
 
 	// DockerBridge specifies the default name of the docker bridge
@@ -1313,7 +1316,7 @@ var (
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
 
-	// NetworkIntefacePrefixes is a list of Kubernetes-specific network interface prefixes.
+	// NetworkInterfacePrefixes is a list of Kubernetes-specific network interface prefixes.
 	NetworkInterfacePrefixes = []string{
 		"docker",
 		"flannel",
@@ -1344,9 +1347,9 @@ var (
 // HookSecurityContext returns default securityContext for hook pods
 func HookSecurityContext() *v1.PodSecurityContext {
 	var (
-		runAsNonRoot bool  = false
-		runAsUser    int64 = 0
-		fsGroup      int64 = 0
+		runAsNonRoot = false
+		runAsUser    int64
+		fsGroup      int64
 	)
 
 	return &v1.PodSecurityContext{

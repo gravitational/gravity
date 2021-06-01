@@ -55,7 +55,7 @@ func installLicense(env *environment.Local, path string) error {
 }
 
 // newLicense generates a new license with the provided settings and outputs it.
-func newLicense(env *environment.Local, maxNodes int, validFor string, stopApp bool, caKey, caCert, encryptionKey, customerName, customerEmail, customerMetadata, productName, productVersion string) error {
+func newLicense(maxNodes int, validFor string, stopApp bool, caKey, caCert, encryptionKey, customerName, customerEmail, customerMetadata, productName, productVersion string) error {
 	duration, err := time.ParseDuration(validFor)
 	if err != nil {
 		return trace.Wrap(err)

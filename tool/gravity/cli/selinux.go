@@ -23,7 +23,6 @@ import (
 	"syscall"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/localenv"
 	libselinux "github.com/gravitational/gravity/lib/system/selinux"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -79,7 +78,7 @@ write to temporary directory and load SELinux policies - for example, "sysadm_r"
 See https://gravitational.com/gravity/docs/selinux/ for details.
 `
 
-func bootstrapSELinux(env *localenv.LocalEnvironment, path, stateDir string, vxlanPort int) error {
+func bootstrapSELinux(path, stateDir string) error {
 	config := libselinux.BootstrapConfig{
 		StateDir: stateDir,
 	}

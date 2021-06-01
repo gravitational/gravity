@@ -19,12 +19,11 @@ package cli
 import (
 	"github.com/gravitational/gravity/lib/catalog"
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/gravity/lib/localenv"
 
 	"github.com/gravitational/trace"
 )
 
-func list(env localenv.LocalEnvironment, all bool, format constants.Format) error {
+func list(all bool, format constants.Format) error {
 	lister, err := catalog.NewLister()
 	if err != nil {
 		return trace.Wrap(err)

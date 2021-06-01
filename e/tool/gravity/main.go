@@ -19,7 +19,7 @@ import (
 	"os"
 
 	"github.com/gravitational/gravity/e/tool/gravity/cli"
-	"github.com/gravitational/gravity/lib/install/proto"
+	installer "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 

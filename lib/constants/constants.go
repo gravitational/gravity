@@ -129,7 +129,7 @@ const (
 	// GravitySitePackage specifies the name of the garvity site application package
 	GravitySitePackage = "site"
 
-	// PlanetSecretPackage is the package with planet secrets -
+	// PlanetSecretsPackage is the package with planet secrets -
 	// keys, CA and other stuff
 	PlanetSecretsPackage = "planet-secrets"
 
@@ -271,7 +271,7 @@ const (
 	OpsCenterKeyPair = "ops"
 	// PlanetRPCKeyPair is a keypair for planet's RPC client for
 	// satellite monitoring and exchange
-	PlanetRpcKeyPair = "planet-rpc-client"
+	PlanetRPCKeyPair = "planet-rpc-client"
 	// CoreDNSKeyPair is a cert/key used for accessing coredns related configmap from the kubernetes api
 	CoreDNSKeyPair = "coredns"
 	// FrontProxyClientKeyPair is a cert/key used for accessing external APIs through aggregation layer
@@ -369,7 +369,7 @@ const (
 	// EnvAWSKeyName sets AWS Key Name
 	EnvAWSKeyName = "AWS_KEY_NAME"
 
-	// EnvAWSprofile specifies AWS profile to load
+	// EnvAWSProfile specifies AWS profile to load
 	EnvAWSProfile = "AWS_PROFILE"
 
 	// EnvAWSInstancePrivateIP is a private IP of the instance to delete
@@ -401,7 +401,7 @@ const (
 	// a particular manifest profile set by user
 	EnvTelekubeNodeProfileCountTemplate = "TELEKUBE_NODE_PROFILE_COUNT_%v"
 
-	// EnvTelekubeNodeProfileCountTemplate is a template with count of instances to be
+	// EnvTelekubeNodeProfileAddCountTemplate is a template with count of instances to be
 	// added by particular manifest profile set by user
 	EnvTelekubeNodeProfileAddCountTemplate = "TELEKUBE_NODE_PROFILE_ADD_COUNT_%v"
 
@@ -435,7 +435,7 @@ const (
 	// HumanDateFormat is a human readable date formatting
 	HumanDateFormat = "Mon Jan _2 15:04 UTC"
 
-	// HumanDateFormat is a human readable date formatting with seconds
+	// HumanDateFormatSeconds is a human readable date formatting with seconds
 	HumanDateFormatSeconds = "Mon Jan _2 15:04:05 UTC"
 
 	// HumanDateFormatMilli is a human readable date formatting with milliseconds
@@ -566,6 +566,7 @@ const (
 	ClusterFlavorEnv = "GRAVITY_CLUSTER_FLAVOR"
 
 	// SMTPSecret specifies the name of the Secret with cluster SMTP configuration
+	//nolint:gosec // not a real secret
 	SMTPSecret = "smtp-configuration-update"
 
 	// AlertTargetConfigMap specifies the name of the ConfigMap with alert target configuration

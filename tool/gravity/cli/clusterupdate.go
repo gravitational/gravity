@@ -28,14 +28,12 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/rpc"
-	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/state"
 	statusapi "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -66,7 +64,7 @@ func updateCheck(env *localenv.LocalEnvironment, updatePackage string) error {
 		return trace.Wrap(err)
 	}
 
-	_, err = checkForUpdate(env, operator, cluster.App.Package, updatePackage)
+	_, err = checkForUpdate(env, cluster.App.Package, updatePackage)
 	return trace.Wrap(err)
 }
 
@@ -347,7 +345,7 @@ func rollbackUpdatePhaseForOperation(env *localenv.LocalEnvironment, environ Loc
 		return trace.Wrap(err)
 	}
 	defer updater.Close()
-	err = updater.RollbackPhase(context.TODO(), fsm.Params{
+	err = updater.RollbackPhase(context.TODO(), libfsm.Params{
 		PhaseID: params.PhaseID,
 		Force:   params.Force,
 		DryRun:  params.DryRun,
@@ -432,11 +430,11 @@ func getClusterUpdater(localEnv, updateEnv *localenv.LocalEnvironment, operation
 }
 
 func (r *clusterInitializer) validatePreconditions(localEnv *localenv.LocalEnvironment, operator ops.Operator, cluster ops.Site) error {
-	updateApp, err := checkForUpdate(localEnv, operator, cluster.App.Package, r.updatePackage)
+	updateApp, err := checkForUpdate(localEnv, cluster.App.Package, r.updatePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if err := checkCanUpdate(cluster, operator, updateApp.Manifest); err != nil {
+	if err := checkCanUpdate(cluster); err != nil {
 		return trace.Wrap(err)
 	}
 	if err := r.checkRuntimeEnvironment(localEnv, cluster, operator); err != nil {
@@ -571,7 +569,7 @@ const (
 See https://gravitational.com/gravity/docs/cluster/#managing-operations for details on working with operation plan.`
 )
 
-func checkCanUpdate(cluster ops.Site, operator ops.Operator, manifest schema.Manifest) error {
+func checkCanUpdate(cluster ops.Site) error {
 	existingGravityPackage, err := cluster.App.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
@@ -596,7 +594,6 @@ Please update this installation to a minimum required runtime version (%q) befor
 // Returns the reference to the update application
 func checkForUpdate(
 	env *localenv.LocalEnvironment,
-	operator ops.Operator,
 	installedPackage loc.Locator,
 	updatePackage string,
 ) (updateApp *app.Application, err error) {

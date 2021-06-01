@@ -393,7 +393,7 @@ type InstallCmd struct {
 	// DNSPort overrides default DNS port for planet DNS.
 	DNSPort *int
 	// DockerStorageDriver specifies Docker storage driver to use
-	DockerStorageDriver *dockerStorageDriver
+	DockerStorageDriver *dockerStorageDriverValue
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 	// ServiceUID is system user ID
@@ -1331,7 +1331,7 @@ type UsersInviteCmd struct {
 	TTL *time.Duration
 }
 
-// UserResetCmd generates a user password reset link
+// UsersResetCmd generates a user password reset link
 type UsersResetCmd struct {
 	*kingpin.CmdClause
 	// Name is user name
