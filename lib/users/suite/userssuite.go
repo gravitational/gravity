@@ -33,7 +33,7 @@ import (
 	"github.com/gravitational/trace"
 
 	"github.com/tstranex/u2f"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 )
 
 type CredsSuite struct {
@@ -264,10 +264,10 @@ func (s *CredsSuite) CreatesGatekeeper(c *C) {
 
 func (s *CredsSuite) U2FCRUD(c *C) {
 	token := "tok1"
-	appId := "https://localhost"
+	appID := "https://localhost"
 	user1 := "user1"
 
-	challenge, err := u2f.NewChallenge(appId, []string{appId})
+	challenge, err := u2f.NewChallenge(appID, []string{appID})
 	c.Assert(err, IsNil)
 
 	err = s.Users.UpsertU2FRegisterChallenge(token, challenge)

@@ -46,7 +46,7 @@ func (ctx *Context) String() string {
 const (
 	// UserIdentifier represents user registered identifier in the rules
 	UserIdentifier = "user"
-	// ResourceIdentifier represents resource registered identifer in the rules
+	// ResourceIdentifier represents resource registered identifier in the rules
 	ResourceIdentifier = "resource"
 )
 

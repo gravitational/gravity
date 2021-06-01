@@ -26,33 +26,33 @@ import (
 )
 
 // Migrate launches migrations for users and roles
-func (u *UsersService) Migrate() error {
-	users, err := u.backend.GetAllUsers()
+func (c *UsersService) Migrate() error {
+	users, err := c.backend.GetAllUsers()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	log := logrus.WithField(trace.Component, "migrate")
 	for _, user := range users {
-		isAgent, err := u.isClusterAgent(user)
+		isAgent, err := c.isClusterAgent(user)
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
 		if isAgent {
 			log.WithField("user", user.GetName()).Info("Creating admin cluster user.")
-			err = u.insertAdminClusterAgent(user)
+			err = c.insertAdminClusterAgent(user)
 			if err != nil && !trace.IsAlreadyExists(err) {
 				return trace.Wrap(err)
 			}
 		}
 		hasTraits := len(user.GetTraits()) != 0
 		if !hasTraits {
-			err := u.updateUserWithTraits(user, log)
+			err := c.updateUserWithTraits(user, log)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
 	}
-	roles, err := u.backend.GetRoles()
+	roles, err := c.backend.GetRoles()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -64,7 +64,7 @@ func (u *UsersService) Migrate() error {
 		role, ok := raw.(*storage.RoleV2)
 		if ok {
 			log.WithField("role", role.Metadata.Name).Info("Migrating V2 role.")
-			err := u.backend.UpsertRole(role.V3(), storage.Forever)
+			err := c.backend.UpsertRole(role.V3(), storage.Forever)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -74,8 +74,8 @@ func (u *UsersService) Migrate() error {
 }
 
 // updateUserWithTraits sets traits for the provided user.
-func (u *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldLogger) error {
-	traits, err := u.getUserTraits(user)
+func (c *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldLogger) error {
+	traits, err := c.getUserTraits(user)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -84,7 +84,7 @@ func (u *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldL
 		"traits": traits,
 	}).Info("Updating existing user with traits.")
 	user.SetTraits(traits)
-	_, err = u.backend.UpsertUser(user)
+	_, err = c.backend.UpsertUser(user)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -92,9 +92,9 @@ func (u *UsersService) updateUserWithTraits(user storage.User, log logrus.FieldL
 }
 
 // insertAdminClusterAgent inserts an admin cluster agent for the specified agent
-func (u *UsersService) insertAdminClusterAgent(user storage.User) error {
+func (c *UsersService) insertAdminClusterAgent(user storage.User) error {
 	clusterName := user.GetClusterName()
-	_, err := u.CreateClusterAdminAgent(
+	_, err := c.CreateClusterAdminAgent(
 		clusterName, storage.NewUser(storage.ClusterAdminAgent(clusterName), storage.UserSpecV2{
 			AccountID: user.GetAccountID(),
 			OpsCenter: user.GetOpsCenter(),
@@ -102,8 +102,8 @@ func (u *UsersService) insertAdminClusterAgent(user storage.User) error {
 	return trace.Wrap(err)
 }
 
-func (u *UsersService) isClusterAgent(user storage.User) (bool, error) {
-	localCluster, err := u.GetLocalClusterName()
+func (c *UsersService) isClusterAgent(user storage.User) (bool, error) {
+	localCluster, err := c.GetLocalClusterName()
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return false, nil
