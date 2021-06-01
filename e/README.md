@@ -180,7 +180,6 @@ make sure you update this list to make the AMI available to the installer.
  - ami-ff4fbf9f CentOS 7 with [Enhanced Networking](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking.html) (Name: CentOS 7 (Enhanced Networking)), based on ami-73619113
  - ami-73619113 CentOS 7 (Name: CentOS Linux 7 x86_64 HVM EBS 1602 28Apr), **no marketplace binding**
  - ami-2bc92c4b Debian Jessie (Name: debian), **no marketplace binding**
- - ami-b0e805d0 Other Linux (Name: jenkins-feb-26)
  - ami-b3332dd2 CentOS (Name: secure-centos)
  - ami-4fd6262f CentOS 7 (Name: CentOS Linux 7 x86_64 HVM EBS 1602-b7ee8a69-ee97-4a49-9e68-afaee216db2e-ami-d7e1d2bd.3)
  - ami-d440a6e7 CentOS 7 (Name: CentOS Linux 7 x86_64 HVM EBS 20150928_01-b7ee8a69-ee97-4a49-9e68-afaee216db2e-ami-69327e0c.2)
@@ -1118,8 +1117,8 @@ Amazon S3 build bucket:
 $ git tag -a v0.0.215 -m "Added new logging infrastructure and bumped k8s version to 2.3.4"
 ```
 
-On jenkins, use the [Planet-deploy-artifacts] project to build and deploy new
-version of planet to S3.
+Drone CI will automatically build and release artifacts when a tag is pushed
+to the planet repo.
 
 Update the gravity Makefile to use the new planet tag:
 
@@ -1138,10 +1137,7 @@ There are two Makefile targets for publishing Telekube artifacts into get.gravit
 * `make publish-telekube`  <-- builds tele/gravity/tsh binaries for both Linux and Mac and pushes them to the "get"
 * `make publish-artifacts` <-- builds telekube and opscenter apps and pushes them to the "get" along with all dependencies
 
-You don't have to run them manually as there are Jenkins jobs configured for them:
-
-* https://jenkins.gravitational.io/job/TelekubePublishBinaries/
-* https://jenkins.gravitational.io/job/TelekubePublishArtifacts/
+These are automated via Drone CI.
 
 ### Troubleshooting
 
@@ -1158,7 +1154,6 @@ If there is a problem, simply wipe out the contents of /var/lib/gravity/opscente
 [vagrant]: <https://www.vagrantup.com/downloads.html>
 [virtualbox]: <https://www.virtualbox.org/wiki/Downloads>
 [terraform]: <https://www.terraform.io/>
-[Planet-deploy-artifacts]: <https://jenkins.gravitational.io/job/Planet-deploy-artifacts/>
 [onprem Vagrantfile]: <assets/onprem/Vagrantfile>
 [flannel]: https://github.com/coreos/flannel
 [calico]: https://www.projectcalico.org/

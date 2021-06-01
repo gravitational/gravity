@@ -455,8 +455,8 @@ func (c *UsersService) CreateUser(user teleservices.User) error {
 	return trace.Wrap(err)
 }
 
-// CreateAgent creates a new "robot" agent user used by various automation tools (e.g. jenkins)
-// with correct privileges
+// CreateAgent creates a new "robot" agent user used by various automation tools
+// (e.g. release automation) with correct privileges
 func (c *UsersService) CreateAgent(agent storage.User) (storage.User, error) {
 	agent.SetType(storage.AgentUser)
 	reader, err := users.NewReaderRole()

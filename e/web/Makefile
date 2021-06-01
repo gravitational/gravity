@@ -1,7 +1,7 @@
 LOCALDIR := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
 REPO_VER_TAG := $(shell git describe --tags --abbrev=8)
 CONTAINER_DIST_DIR=/app/dist
-# Need unique names to allow parallel jenkins builds
+# CONTAINER_NAME needs to be unique to accommodate parallel builds
 CONTAINER_NAME := gravity-web-container-$(REPO_VER_TAG)-$(shell bash -c 'echo $$RANDOM')
 IMAGE_NAME := gravity-web:1.0.0
 
