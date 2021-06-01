@@ -1440,6 +1440,33 @@ nodeProfiles:
       effect: NoExecute
 ```
 
+## Custom Labels
+
+Gravity supports provisioning the labels for the kubernetes nodes. For assignment use the `labels` property in the node profiles:
+
+```yaml
+nodeProfiles:
+  - name: node
+    description: "Gravity Node"
+    labels:
+      label1: value1
+      label2: value2
+```
+
+Gravity has three modes of label reconciliation, which the user can change at any time:
+ - `EnsureExists` (default) - Ensures that the labels from the node profile exist recreating the missing ones. The label values from the node profile are not enforced.
+   - Users can edit the labels as they want.
+   - Users cannot delete the label specified in the node profile.
+ - `Enabled` or `true` - Ensures that the labels from the node profile exist recreating the missing ones. Also ensures that the label values match those from the node profile.
+   - Users cannot change the labels specified in the node profile.
+   - Users cannot delete the label specified in the node profile.
+ - `Disabled` or `false` - Reconciliation of labels is disabled.
+   - Users can edit the labels as they want.
+   - Users can delete labels.
+
+Reconciliation mode on a node is controlled via the label named `label-reconciler.gravitational.io/mode`.
+For example, to disable the reconciliation mode, run the command: `kubectl label node <node-name> label-reconciler.gravitational.io/mode=false`
+
 ### Dedicated control plane nodes
 
 To install Kubernetes nodes running only system components, Gravity supports `node-role.kubernetes.io/master` taint:
