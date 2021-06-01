@@ -38,6 +38,7 @@ func New() *Dispatcher {
 	return d
 }
 
+// Send publishes the specified event.
 // Implements EventDispatcher
 func (r *Dispatcher) Send(event dispatcher.Event) {
 	select {

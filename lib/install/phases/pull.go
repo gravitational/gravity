@@ -42,7 +42,7 @@ import (
 
 // NewPull returns a new "pull" phase executor
 func NewPull(p fsm.ExecutorParams, operator ops.Operator, wizardPack, localPack pack.PackageService,
-	wizardApps, localApps app.Applications, remote fsm.Remote) (*pullExecutor, error) {
+	wizardApps, localApps app.Applications, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
 	}

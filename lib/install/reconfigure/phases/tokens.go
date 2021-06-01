@@ -38,7 +38,7 @@ import (
 // During the reconfigure operation, the secrets get regenerated thus
 // invalidating old service account tokens. Kubernetes will recreate
 // them automatically when they are deleted during this phase.
-func NewTokens(p fsm.ExecutorParams, operator ops.Operator) (*tokensExecutor, error) {
+func NewTokens(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),
@@ -87,9 +87,8 @@ func (p *tokensExecutor) Execute(ctx context.Context) error {
 		err := p.Client.CoreV1().Secrets(secret.Namespace).Delete(ctx, secret.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return trace.Wrap(err, "failed to remove secret %v/%v: %v", secret.Namespace, secret.Name, err)
-		} else {
-			p.Infof("Removed secret %v/%v", secret.Namespace, secret.Name)
 		}
+		p.Infof("Removed secret %v/%v", secret.Namespace, secret.Name)
 	}
 	return nil
 }

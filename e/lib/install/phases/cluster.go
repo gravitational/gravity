@@ -303,11 +303,10 @@ func (p *clusterWaitExecutor) pollProgress(ctx context.Context) {
 
 // pollLogs starts polling local Ops Center's operation logs and copying
 // them into the local install log
-func (p *clusterWaitExecutor) pollLogs(ctx context.Context) {
+func (p *clusterWaitExecutor) pollLogs(context.Context) {
 	reader, err := p.Operator.GetSiteOperationLogs(p.operation.Key())
 	if err != nil {
-		logrus.Errorf("Failed to get operation logs: %v.",
-			trace.DebugReport(err))
+		logrus.WithError(err).Error("Failed to get operation logs.")
 		return
 	}
 	userLog, err := os.OpenFile(p.UserLogFile, os.O_APPEND|os.O_WRONLY, os.ModeAppend)

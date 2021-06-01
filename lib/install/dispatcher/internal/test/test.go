@@ -22,7 +22,7 @@ import (
 	installpb "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/ops"
 
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 )
 
 // ValidateResponse validates that the dispatcher contains a response

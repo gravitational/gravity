@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 )
 
 // NewClient returns a new client using the specified socket file path
@@ -31,11 +32,16 @@ func NewClient(ctx context.Context, config ClientConfig) (AgentClient, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
+	backoff := backoff.DefaultConfig
+	backoff.MaxDelay = 1 * time.Second
 	dialOptions := []grpc.DialOption{
 		// Don't use TLS, as we communicate over domain sockets
 		grpc.WithInsecure(),
 		// Retry every second after failure
-		grpc.WithBackoffMaxDelay(1 * time.Second),
+		// See https://github.com/grpc/grpc-go/issues/4461
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: backoff,
+		}),
 		grpc.WithBlock(),
 		grpc.FailOnNonTempDialError(true),
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {

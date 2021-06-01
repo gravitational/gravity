@@ -73,10 +73,7 @@ func (r *Engine) Execute(ctx context.Context, installer install.Interface, confi
 }
 
 func (r *Engine) execute(ctx context.Context, installer install.Interface, config install.Config) error {
-	e, err := newExecutor(ctx, r, installer, config)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	e := newExecutor(ctx, r, installer, config)
 	e.printURL()
 	installer.PrintStep("Waiting for the operation to start")
 	operation, err := e.waitForOperation()
@@ -89,19 +86,17 @@ func (r *Engine) execute(ctx context.Context, installer install.Interface, confi
 	if err := installer.ExecuteOperation(operation.Key()); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := e.completeOperation(*operation); err != nil {
-		return trace.Wrap(err)
-	}
+	e.completeOperation(*operation)
 	return nil
 }
 
-func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) (*executor, error) {
+func newExecutor(ctx context.Context, r *Engine, installer install.Interface, config install.Config) *executor {
 	return &executor{
 		Config:    r.Config,
 		Interface: installer,
 		ctx:       ctx,
 		config:    config,
-	}, nil
+	}
 }
 
 func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) {
@@ -135,7 +130,7 @@ func (r *executor) waitForOperation() (operation *ops.SiteOperation, err error) 
 	return operation, nil
 }
 
-func (r *executor) completeOperation(operation ops.SiteOperation) error {
+func (r *executor) completeOperation(operation ops.SiteOperation) {
 	// With an interactive installation, the link to remote Ops Center cannot be removed
 	// immediately as it is used to tunnel final install step
 	if err := r.CompleteFinalInstallStep(operation.Key(), defaults.WizardLinkTTL); err != nil {
@@ -144,7 +139,6 @@ func (r *executor) completeOperation(operation ops.SiteOperation) error {
 	if err := r.CompleteOperation(operation); err != nil {
 		r.WithError(err).Warn("Failed to complete install.")
 	}
-	return nil
 }
 
 // printURL prints the URL that installer can be reached at via browser

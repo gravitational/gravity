@@ -70,6 +70,7 @@ func (r *Event) AsProgressResponse() *installpb.ProgressResponse {
 		return resp
 	}
 	resp.Message = r.Progress.Message
+	//nolint:exhaustive // TODO(dima): add explicit cases for StatusAborted, StatusUnknown
 	switch r.Status {
 	case StatusCompleted:
 		resp.Status = installpb.StatusCompleted

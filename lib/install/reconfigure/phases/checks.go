@@ -29,7 +29,7 @@ import (
 )
 
 // NewChecks returns executor that executes preflight checks on the node.
-func NewChecks(p fsm.ExecutorParams, operator ops.Operator) (*checksExecutor, error) {
+func NewChecks(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

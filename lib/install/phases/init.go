@@ -32,7 +32,7 @@ import (
 )
 
 // NewInit returns executor that prepares the node for the operation.
-func NewInit(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, packages pack.PackageService) (*initExecutor, error) {
+func NewInit(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, packages pack.PackageService) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         opKey(p.Plan),

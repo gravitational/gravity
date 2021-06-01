@@ -199,7 +199,7 @@ func generateCorefile(config CorednsConfig) (string, error) {
 	return coredns.String(), nil
 }
 
-// CoreDNSConfig represents the CoreDNS configuration options to apply to our template
+// CorednsConfig represents the CoreDNS configuration options to apply to our template
 type CorednsConfig struct {
 	// Zones maps a DNS zone to nameservers it will be served by as provided by a user at install time
 	Zones map[string][]string

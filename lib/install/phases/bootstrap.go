@@ -45,7 +45,7 @@ import (
 
 // NewBootstrap returns a new "bootstrap" phase executor
 func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, backend storage.Backend,
-	remote fsm.Remote) (*bootstrapExecutor, error) {
+	remote fsm.Remote) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required: %#v", p.Phase.Data)
 	}
@@ -257,7 +257,7 @@ func (p *bootstrapExecutor) configureSystemDirectories(ctx context.Context) erro
 	for _, dir := range chownList {
 		p.Infof("Setting ownership on system directory %v to %v:%v.",
 			dir, p.ServiceUser.UID, p.ServiceUser.GID)
-		out, err := exec.Command("chown", "-R", fmt.Sprintf("%v:%v",
+		out, err := exec.CommandContext(ctx, "chown", "-R", fmt.Sprintf("%v:%v",
 			p.ServiceUser.UID, p.ServiceUser.GID), dir).CombinedOutput()
 		if err != nil {
 			return trace.Wrap(err, "failed to chown %v: %s", dir, out)

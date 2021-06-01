@@ -112,7 +112,7 @@ func (r *systemResources) PreCheck(context.Context) error { return nil }
 func (r *systemResources) PostCheck(context.Context) error { return nil }
 
 // NewUserResources returns an executor that creates user-supplied Kubernetes resources
-func NewUserResources(p fsm.ExecutorParams, operator ops.Operator) (*userResourcesExecutor, error) {
+func NewUserResources(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
 	}
@@ -189,7 +189,7 @@ func (*userResourcesExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewGravityResourcesPhase returns executor that creates Gravity resources
-func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, factory resources.Resources) (*gravityExecutor, error) {
+func NewGravityResourcesPhase(p fsm.ExecutorParams, operator ops.Operator, factory resources.Resources) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Install == nil {
 		return nil, trace.BadParameter("phase data is mandatory")
 	}
