@@ -27,11 +27,8 @@ K8S_VER := 1.21.0
 K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
-# TODO(dima): target package configuration (check everything).
-# Package configuration will vary as new PRs are merged.
-GOLINT_PACKAGES ?= ./lib/... \
-	./tool/.. \
-	./e/..
+GOLINT_PACKAGES ?= \
+	./lib/httplib/... ./lib/localenv/... ./lib/system/...
 
 GOPATH ?= $(shell go env GOPATH)
 
@@ -747,9 +744,8 @@ selinux:
 
 .PHONY: golint
 golint: golangci-verify
-	#TODO(dima): enable when the linter warning PRs have been merged
-	#$(GOLINT) run -c .golangci.yml \
-	#	$(GOLINT_PACKAGES)
+	$(GOLINT) run -c .golangci.yml \
+		$(GOLINT_PACKAGES)
 
 GOLANGCI_REQUIRED_MAJOR := 1
 GOLANGCI_REQUIRED_MINOR := 39
