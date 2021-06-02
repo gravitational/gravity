@@ -41,7 +41,7 @@ func Vals(valueFiles valueFiles, values []string, stringValues []string, fileVal
 	return yaml.Marshal(base)
 }
 
-func merge(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, CertFile, KeyFile, CAFile string) (map[string]interface{}, error) {
+func merge(valueFiles valueFiles, values []string, stringValues []string, fileValues []string, _, _, _ string) (map[string]interface{}, error) {
 	base := map[string]interface{}{}
 
 	// User specified a values files via -f/--values

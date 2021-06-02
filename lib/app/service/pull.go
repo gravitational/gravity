@@ -180,7 +180,7 @@ func pullPackage(req PackagePullRequest) (*pack.PackageEnvelope, error) {
 
 	req.Infof("Pulling package %v.", req.Package)
 
-	reader := ioutil.NopCloser(utils.NopReader())
+	reader := ioutil.NopCloser(utils.NewNopReader())
 	if req.MetadataOnly {
 		env, err = req.SrcPack.ReadPackageEnvelope(req.Package)
 	} else {
@@ -303,7 +303,7 @@ func pullApp(req AppPullRequest, state *pullState) (*app.Application, error) {
 
 	// pull the application itself
 	var env *pack.PackageEnvelope
-	reader := ioutil.NopCloser(utils.NopReader())
+	reader := ioutil.NopCloser(utils.NewNopReader())
 	if req.MetadataOnly {
 		env, err = req.SrcPack.ReadPackageEnvelope(req.Package)
 	} else {

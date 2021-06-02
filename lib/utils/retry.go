@@ -87,7 +87,7 @@ func (s *ContinueRetry) Error() string {
 // fn can return an instance of Abort to abort or Continue to continue the execution.
 func Retry(period time.Duration, maxAttempts int, fn func() error) error {
 	var err error
-	for i := 1; i <= maxAttempts; i += 1 {
+	for i := 1; i <= maxAttempts; i++ {
 		err = fn()
 		if err == nil {
 			return nil

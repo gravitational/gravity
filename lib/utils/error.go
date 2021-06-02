@@ -429,7 +429,7 @@ func NewExitCodeError(exitCode int) error {
 	return exitCodeError{code: exitCode}
 }
 
-// NewExitCodeError returns a new error that wraps a specific exit code and message
+// NewExitCodeErrorWithMessage returns a new error that wraps a specific exit code and message
 func NewExitCodeErrorWithMessage(exitCode int, message string) error {
 	return exitCodeError{
 		code:    exitCode,

@@ -286,14 +286,14 @@ func ParseDDOutput(output string) (uint64, error) {
 	}
 }
 
+// User describes a system user as found in a passwd file.
 // Adopted from https://raw.githubusercontent.com/opencontainers/runc/master/libcontainer/user/{user,lookup}.go
-// User describes a system user as found in a passwd file
-// see: man 5 passwd
+// See: man 5 passwd
 type User struct {
 	Name  string
 	Pass  string
-	Uid   int
-	Gid   int
+	Uid   int //nolint:stylecheck,revive
+	Gid   int //nolint:stylecheck,revive
 	Gecos string
 	Home  string
 	Shell string
@@ -485,7 +485,7 @@ func ParseProxyAddr(proxyAddr, defaultWebPort, defaultSSHPort string) (host stri
 	return "", "", "", trace.BadParameter("unable to parse port: %v", port)
 }
 
-// PasseBoolFlag extracts boolean parameter of the specified name from the
+// ParseBoolFlag extracts boolean parameter of the specified name from the
 // provided request's query string, or returns default.
 func ParseBoolFlag(r *http.Request, name string, def bool) (bool, error) {
 	sValue := r.URL.Query().Get(name)
