@@ -27,20 +27,11 @@ K8S_VER := 1.21.0
 K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
-# TODO(dima): this is a WIP configuration which will be finalized
-# once all lint warnings have been fixed
-GOLINT_PACKAGES ?= \
-	./lib/app/... \
-	./lib/cloudprovider/... \
-	./lib/constants/... \
-	./lib/docker/... \
-	./lib/httplib/... \
-	./lib/localenv/... \
-	./lib/ops/opsservice/... \
-	./lib/system/... \
-	./lib/utils/... \
-	./lib/webapi/... \
-	./tool/gravity/...
+# TODO(dima): target package configuration (check everything).
+# Package configuration will vary as new PRs are merged.
+GOLINT_PACKAGES ?= ./lib/... \
+	./tool/.. \
+	./e/..
 
 GOPATH ?= $(shell go env GOPATH)
 

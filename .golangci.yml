@@ -24,6 +24,7 @@ linters-settings:
 linters:
   disable-all: true
   enable:
+    - revive
     - goimports
     - bodyclose
     - deadcode
