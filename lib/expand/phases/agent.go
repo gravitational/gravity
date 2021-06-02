@@ -36,7 +36,7 @@ import (
 )
 
 // NewAgentStart returns executor that starts an RPC agent on a node
-func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (*agentStartExecutor, error) {
+func NewAgentStart(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -122,7 +122,7 @@ func (*agentStartExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewAgentStop returns executor that stops an RPC agent on a node
-func NewAgentStop(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (*agentStopExecutor, error) {
+func NewAgentStop(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,

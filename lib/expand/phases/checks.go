@@ -32,7 +32,7 @@ import (
 )
 
 // NewChecks returns executor that executes preflight checks on the joining node.
-func NewChecks(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (*checksExecutor, error) {
+func NewChecks(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         opKey(p.Plan),

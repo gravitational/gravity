@@ -41,7 +41,7 @@ import (
 )
 
 // NewEtcd returns executor that adds a new etcd member to the cluster
-func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (*etcdExecutor, error) {
+func NewEtcd(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (fsm.PhaseExecutor, error) {
 	// create etcd client that's talking to members running on master nodes
 	var masters []storage.Server
 	for _, node := range p.Plan.Servers {
@@ -229,7 +229,7 @@ func (*etcdExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewEtcdBackup returns executor that backs up etcd data
-func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (*etcdBackupExecutor, error) {
+func NewEtcdBackup(p fsm.ExecutorParams, operator ops.Operator, runner rpc.AgentRepository) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
