@@ -84,9 +84,9 @@ const (
 	RetryInterval = 5 * time.Second
 	// RetryAttempts is the total number of attempts
 	RetryAttempts = 100
-	// RetryLessAttempts is the total number of attempts in alternative retry scenarios
+	// RetryLessAttempts is the total number of attempts in retry scenario with a smaller wait window
 	RetryLessAttempts = 20
-	// RetrySmallerMaxInterval is the total time for alternative retry scenario
+	// RetrySmallerMaxInterval is the total time for the retry scenario with a smaller wait window
 	RetrySmallerMaxInterval = RetryLessAttempts * RetryInterval
 
 	// EtcdRetryInterval is the retry interval for some etcd commands
