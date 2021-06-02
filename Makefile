@@ -28,6 +28,9 @@ K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
 GOLINT_PACKAGES ?= \
+	--skip-dirs=opshandler \
+	./lib/ops/... \
+	./e/lib/ops/... \
 	./lib/httplib/... \
 	./lib/localenv/... \
 	./lib/system/... \
