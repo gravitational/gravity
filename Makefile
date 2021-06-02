@@ -66,7 +66,8 @@ GOLINT_PACKAGES ?= \
 	./lib/storage/... \
 	./lib/app/... \
 	./lib/docker/... \
-	./lib/loc/...
+	./lib/loc/... \
+	./lib/users/...
 
 GOPATH ?= $(shell go env GOPATH)
 
