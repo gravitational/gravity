@@ -28,54 +28,9 @@ K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
 GOLINT_PACKAGES ?= \
-	--skip-dirs=opshandler \
-	./lib/ops/... \
-	./e/lib/ops/... \
-	./lib/httplib/... \
-	./lib/localenv/... \
-	./lib/system/... \
-	./lib/archive/... \
-	./lib/blob/... \
-	./lib/clients/... \
-	./lib/helm/... \
-	./lib/kubernetes/... \
-	./lib/report/... \
-	./lib/schema/... \
-	./e/lib/events/... \
-	./lib/processconfig/... \
-	./lib/state/... \
-	./lib/systeminfo/... \
-	./lib/testutils/... \
-	./lib/network/... \
-	./lib/pack/... \
-	./lib/utils/... \
-	./lib/checks/... \
-	./lib/webapi/... \
-	./e/lib/webapi/... \
-	./lib/process/... \
-	./e/lib/process/... \
-	./lib/vacuum/... \
-	./lib/expand/... \
-	./e/lib/builder/... \
-	./e/lib/catalog/... \
-	./lib/builder/... \
-	./lib/catalog/... \
-	./lib/hub/... \
-	./lib/fsm/... \
-	./lib/rpc/... \
-	./lib/storage/... \
-	./lib/app/... \
-	./lib/docker/... \
-	./lib/loc/... \
-	./lib/users/... \
-	./tool/... \
-	./e/tool/... \
-	./lib/constants/... \
-	./lib/defaults/... \
-	./lib/cloudprovider/... \
-	./lib/autoscale/... \
-	./e/lib/install/... \
-	./lib/install/...
+	./e/... \
+	./lib/... \
+	./tool/...
 
 GOPATH ?= $(shell go env GOPATH)
 
