@@ -45,7 +45,8 @@ GOLINT_PACKAGES ?= \
 	./lib/testutils/... \
 	./lib/network/... \
 	./lib/pack/... \
-	./lib/utils/...
+	./lib/utils/... \
+	./lib/checks/...
 
 GOPATH ?= $(shell go env GOPATH)
 
