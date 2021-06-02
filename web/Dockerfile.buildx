@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.2
+
+ARG NODE_VER
+
+FROM node:$NODE_VER
+
+RUN --mount=type=cache,sharing=locked,id=aptlib,target=/var/lib/apt \
+   --mount=type=cache,sharing=locked,id=aptcache,target=/var/cache/apt \
+    set -ex && \
+    apt-get update && apt-get install --no-install-recommends -y git
+
+# prepare to install only package.json dependencies
+RUN mkdir -p /app
+COPY package*.json /app/
+
+# copy the rest of the app files
+WORKDIR /app
+
+RUN --mount=type=cache,sharing=locked,id=npm,target=/.cache/npm \
+    set -ex && \
+    npm set audit false ;\
+    npm install
+
+COPY . /app
+
+# and build
+RUN --mount=type=cache,sharing=locked,id=npm,target=/.cache/npm \
+    set -ex && \
+    npm run build
+
+# tar up the resulting build
+RUN tar -C /app/dist -czf /web-assets.tar.gz .

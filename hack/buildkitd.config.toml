@@ -1,0 +1,8 @@
+debug = true
+
+[grpc]
+  address = [ "unix:///run/buildkitd/buildkitd.sock" ]
+  # debugAddress is address for attaching go profiles and debuggers.
+  debugAddress = "0.0.0.0:6060"
+  uid = 0
+  gid = 998
