@@ -28,7 +28,14 @@ K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
 GOLINT_PACKAGES ?= \
-	./lib/httplib/... ./lib/localenv/... ./lib/system/...
+	./lib/httplib/... \
+	./lib/localenv/... \
+	./lib/system/... \
+	./lib/archive/... \
+	./lib/blob/... \
+	./lib/clients/... \
+	./lib/helm/... \
+	./lib/kubernetes/...
 
 GOPATH ?= $(shell go env GOPATH)
 
