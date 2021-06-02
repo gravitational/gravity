@@ -60,7 +60,9 @@ GOLINT_PACKAGES ?= \
 	./e/lib/catalog/... \
 	./lib/builder/... \
 	./lib/catalog/... \
-	./lib/hub/...
+	./lib/hub/... \
+	./lib/fsm/... \
+	./lib/rpc/...
 
 GOPATH ?= $(shell go env GOPATH)
 
