@@ -1,0 +1,65 @@
+issues:
+  exclude-rules:
+    - linters: gosimple
+      text: "S1002: should omit comparison to bool constant"
+    - linters:
+        - gosec
+      text: "G204: Subprocess launched with variable"
+    - linters:
+        - gosec
+      text: "G204: Subprocess launched with function call as argument or cmd arguments"
+  exclude-use-default: true
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+linters-settings:
+  gosec:
+    excludes:
+      - G204
+  gofmt:
+    simplify: false
+  exhaustive:
+    default-signifies-exhaustive: true
+
+linters:
+  disable-all: true
+  enable:
+    - revive
+    - goimports
+    - bodyclose
+    - deadcode
+    - depguard
+    - dogsled
+    - errcheck
+    - exportloopref
+    - exhaustive
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+
+output:
+  uniq-by-line: false
+
+run:
+  skip-dirs:
+    - vendor
+    - mage
+  skip-dirs-use-default: false
+  timeout: 5m
