@@ -73,7 +73,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -156,7 +156,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -217,7 +217,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -322,7 +322,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -418,7 +418,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -513,7 +513,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -606,7 +606,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -617,6 +617,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: fc8c591f6b6163ff3aa86522a9e35539134f5f0b6c517835c4eb74caeb13f590
+hmac: 271c2b3c145b76e37f87e70c5eee222ae9b61fe6f2692b52fe1bafbd9b781944
 
 ...
