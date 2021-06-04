@@ -11,7 +11,6 @@ FROM quay.io/gravitational/mkdocs-base:1.0.3-1
 
 ARG UID
 ARG GID
-ARG WORKDIR
 ARG PORT
 
 RUN getent group  $GID || groupadd builder --gid=$GID -o; \
@@ -19,5 +18,4 @@ RUN getent group  $GID || groupadd builder --gid=$GID -o; \
 
 COPY --from=milv-builder /gopath/bin/milv /usr/bin/milv
 
-VOLUME [$WORKDIR]
 EXPOSE $PORT
