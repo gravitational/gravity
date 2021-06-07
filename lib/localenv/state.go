@@ -35,7 +35,7 @@ type LocalState struct {
 
 // Server returns the server from the state.
 //
-// The method currenly expects the state to contain only 1 server and returns
+// The method currently expects the state to contain only 1 server and returns
 // an error otherwise.
 func (s LocalState) Server() (*storage.Server, error) {
 	servers := s.Cluster.ClusterState.Servers

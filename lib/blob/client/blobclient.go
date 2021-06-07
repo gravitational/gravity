@@ -56,6 +56,7 @@ func (p *Pool) GetPeer(peer storage.Peer) (blob.Objects, error) {
 		Transport: &http.Transport{
 			DialContext: (&net.Dialer{Timeout: defaults.DialTimeout}).DialContext,
 			TLSClientConfig: &tls.Config{
+				//nolint:gosec // TODO: fix insecure
 				InsecureSkipVerify: true,
 			},
 			TLSHandshakeTimeout:   defaults.DialTimeout,           // 30s
@@ -174,6 +175,7 @@ func (c *Client) OpenBLOB(hash string) (blob.ReadSeekCloser, error) {
 	endpoint := c.Endpoint("blobs", hash)
 
 	_, err := telehttplib.ConvertResponse(c.RoundTrip(func() (*http.Response, error) {
+		//nolint:noctx	// TODO: use context
 		req, err := http.NewRequest("HEAD", endpoint, nil)
 		if err != nil {
 			return nil, err

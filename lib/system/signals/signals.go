@@ -40,7 +40,12 @@ func WaitFor(signals ...os.Signal) {
 
 // WatchTerminationSignals stops the provided stopper when it gets one of monitored signals.
 // It is a convenience wrapper over NewInterruptHandler
-func WatchTerminationSignals(ctx context.Context, cancel context.CancelFunc, printer utils.Printer, stoppers ...Stopper) *InterruptHandler {
+func WatchTerminationSignals(
+	ctx context.Context,
+	cancel context.CancelFunc,
+	printer utils.Printer,
+	stoppers ...Stopper,
+) *InterruptHandler {
 	interrupt := NewInterruptHandler(ctx, cancel)
 	interrupt.AddStopper(stoppers...)
 	go func() {
@@ -155,7 +160,7 @@ func (r *InterruptHandler) Abort() {
 	r.cancel()
 }
 
-// Add adds stoppers to the internal termination loop
+// AddStopper adds stoppers to the internal termination loop
 func (r *InterruptHandler) AddStopper(stoppers ...Stopper) {
 	select {
 	case r.termC <- stoppers:

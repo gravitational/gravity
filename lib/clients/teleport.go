@@ -165,6 +165,6 @@ func authenticateWithTeleport(operator ops.Operator) ([]ssh.AuthMethod, *tls.Con
 	return []ssh.AuthMethod{ssh.PublicKeys(signer)}, tlsConfig, nil
 }
 
-func sshHostCheckerAcceptAny(hostId string, remote net.Addr, key ssh.PublicKey) error {
+func sshHostCheckerAcceptAny(hostID string, remote net.Addr, key ssh.PublicKey) error {
 	return nil
 }

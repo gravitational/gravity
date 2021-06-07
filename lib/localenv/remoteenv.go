@@ -259,9 +259,9 @@ func (w *RemoteEnvironment) wizardEntry() (*storage.LoginEntry, error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		for _, entry := range entries {
+		for i, entry := range entries {
 			if entry.Email == defaults.WizardUser {
-				found = &entry
+				found = &entries[i]
 				break
 			}
 		}

@@ -20,7 +20,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ApplyFileContests restores the file contexts in specified list of paths
+// ApplyFileContexts restores the file contexts in specified list of paths
 func ApplyFileContexts(ctx context.Context, out io.Writer, paths ...string) error {
 	args := []string{"-Rvi"}
 	args = append(args, paths...)
@@ -106,25 +106,6 @@ func importLocalChangesFromReader(ctx context.Context, r io.Reader) error {
 	w := logger.Writer()
 	defer w.Close()
 	cmd.Stdin = r
-	cmd.Stdout = w
-	cmd.Stderr = w
-	return trace.Wrap(cmd.Run())
-}
-
-// nolint:deadcode,unused
-func removePolicy() error {
-	// Leave the container policy module in-place as we might not be
-	// the only client
-	return removePolicyByName("gravity")
-}
-
-// nolint:deadcode,unused
-func removePolicyByName(module string) error {
-	logger := liblog.New(log.WithField(trace.Component, "selinux"))
-	logger.WithField("module", module).Info("Remove policy module.")
-	cmd := exec.Command("semodule", "--remove", module)
-	w := logger.Writer()
-	defer w.Close()
 	cmd.Stdout = w
 	cmd.Stderr = w
 	return trace.Wrap(cmd.Run())

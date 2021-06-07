@@ -267,6 +267,7 @@ func newPod(name string) *v1.Pod {
 func hasTaint(taints []v1.Taint, taintsToCheck []v1.Taint) bool {
 	for _, taint := range taints {
 		for _, taintToCheck := range taintsToCheck {
+			//nolint:gosec // pointer is not persisted
 			if taint.MatchTaint(&taintToCheck) {
 				return true
 			}

@@ -78,7 +78,7 @@ func ConfigureStateDirectory(stateDir, devicePath string) (err error) {
 		Filesystem: filesystem,
 		Options:    []string{"defaults"},
 	}
-	err = mount.MountService(config, defaults.GravityMountService, services)
+	err = mount.Service(config, defaults.GravityMountService, services)
 	if err != nil {
 		return trace.Wrap(err, "failed to mount %q on %q", stateDir, devicePath)
 	}

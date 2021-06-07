@@ -74,7 +74,7 @@ type clusterRepository struct {
 }
 
 // NewRepository returns a new cluster chart repository.
-func NewRepository(config Config) (*clusterRepository, error) {
+func NewRepository(config Config) (Repository, error) {
 	return &clusterRepository{
 		Config:      config,
 		FieldLogger: logrus.WithField(trace.Component, "helm.repo"),

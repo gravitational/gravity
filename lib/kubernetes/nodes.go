@@ -200,10 +200,10 @@ func updateLabels(client corev1.NodeInterface, nodeName string, labels map[strin
 // deleteTaints deletes the given taints from the node's list of taints
 func deleteTaints(taintsToDelete []v1.Taint, newTaints *[]v1.Taint) (deleted bool, err error) {
 	var errors []error
-	for _, taintToDelete := range taintsToDelete {
+	for i, taintToDelete := range taintsToDelete {
 		deleted = false
 		if len(taintToDelete.Effect) > 0 {
-			*newTaints, deleted = deleteTaint(*newTaints, &taintToDelete)
+			*newTaints, deleted = deleteTaint(*newTaints, &taintsToDelete[i])
 		} else {
 			*newTaints, deleted = deleteTaintsByKey(*newTaints, taintToDelete.Key)
 		}
@@ -250,6 +250,7 @@ func addTaints(oldTaints []v1.Taint, newTaints *[]v1.Taint) bool {
 	for _, oldTaint := range oldTaints {
 		existsInNew := false
 		for _, taint := range *newTaints {
+			//nolint:gosec // pointer is not persisted
 			if taint.MatchTaint(&oldTaint) {
 				existsInNew = true
 				break
