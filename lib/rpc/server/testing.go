@@ -60,16 +60,21 @@ func TestClientCredentials(c *C) credentials.TransportCredentials {
 	if !cp.AppendCertsFromPEM(certFile) {
 		c.Error("failed to append certificates")
 	}
-	//nolint:gosec // TODO: set MinVersion
-	return credentials.NewTLS(&tls.Config{ServerName: "agent", RootCAs: cp})
+	return credentials.NewTLS(&tls.Config{
+		ServerName: "agent",
+		RootCAs:    cp,
+		MinVersion: tls.VersionTLS12,
+	})
 }
 
 // TestServerCredentials returns server credentials for tests
 func TestServerCredentials(c *C) credentials.TransportCredentials {
 	cert, err := tls.X509KeyPair(certFile, keyFile)
 	c.Assert(err, IsNil)
-	//nolint:gosec // TODO: set MinVersion
-	return credentials.NewTLS(&tls.Config{Certificates: []tls.Certificate{cert}})
+	return credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+	})
 }
 
 // nolint:errcheck

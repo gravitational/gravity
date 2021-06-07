@@ -28,7 +28,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 
 	"github.com/gravitational/gravity/lib/constants"
-	"github.com/gravitational/teleport/lib/utils"
+	teleutils "github.com/gravitational/teleport/lib/utils"
 
 	v1 "k8s.io/api/core/v1"
 )
@@ -1436,7 +1436,7 @@ func AlternateBinPath(paths ...string) (path string) {
 func TLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion:               tls.VersionTLS12,
-		CipherSuites:             utils.DefaultCipherSuites(),
+		CipherSuites:             teleutils.DefaultCipherSuites(),
 		PreferServerCipherSuites: true,
 	}
 }
