@@ -31,7 +31,7 @@ import (
 )
 
 // drainPods removes pods according to the specified configuration
-func (d *drainer) drainPods(ctx context.Context) error {
+func (d *drainer) drainPods(context.Context) error {
 	logger := log.New(logrus.WithField(trace.Component, "k8s"))
 	w := logger.Writer()
 	defer w.Close()

@@ -39,8 +39,8 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 )
 
-// debug is the debug logger for the helm actions.
-func debug(format string, v ...interface{}) {
+// debugf is the debug logger for the helm actions.
+func debugf(format string, v ...interface{}) {
 	format = fmt.Sprintf("[debug] %s\n", format)
 	logrus.Debugf(format, v...)
 }
@@ -50,7 +50,7 @@ func helmInit(settings *cli.EnvSettings, namespace string) (*action.Configuratio
 	actionConfig := new(action.Configuration)
 	helmDriver := os.Getenv("HELM_DRIVER")
 
-	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, helmDriver, debug); err != nil {
+	if err := actionConfig.Init(settings.RESTClientGetter(), namespace, helmDriver, debugf); err != nil {
 		return nil, trace.Wrap(err, "failed to initialize helm action configuration")
 	}
 
