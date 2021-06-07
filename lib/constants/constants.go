@@ -777,7 +777,7 @@ var (
 		DockerStorageDriverOverlay2,
 	}
 
-	// KubernetesServiceDomainName specifies the domain names of the kubernetes API service
+	// KubernetesServiceDomainNames specifies the domain names of the kubernetes API service
 	KubernetesServiceDomainNames = []string{
 		"kubernetes",
 		"kubernetes.default",

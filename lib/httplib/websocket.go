@@ -55,7 +55,7 @@ func WebsocketClientForURL(URL string, headers http.Header) (*websocket.Conn, er
 	for key, value := range headers {
 		conf.Header[key] = value
 	}
-	// TODO(klizhentas) remove insecure
+	//nolint:gosec // TODO(klizhentas) remove insecure
 	conf.TlsConfig = &tls.Config{InsecureSkipVerify: true}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -83,7 +83,7 @@ func SetupWebsocketClient(ctx context.Context, c *roundtrip.Client, endpoint str
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	// TODO(klizhentas) fix insecure config
+	//nolint:gosec // TODO(klizhentas) fix insecure config
 	tlsConfig := &tls.Config{InsecureSkipVerify: true}
 	wscfg.TlsConfig = tlsConfig
 	c.SetAuthHeader(wscfg.Header)

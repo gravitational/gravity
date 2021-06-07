@@ -281,7 +281,7 @@ func (p *contextParser) parse() (*Label, error) {
 func (p *contextParser) ident(tok string) {
 	typ := p.next()
 	if p.t.Text() != tok || typ != scanner.Ident {
-		p.error("expected identifier %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
+		p.errorf("expected identifier %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
 		return
 	}
 }
@@ -289,7 +289,7 @@ func (p *contextParser) ident(tok string) {
 func (p *contextParser) skip(tok string) {
 	p.next()
 	if p.t.Text() != tok {
-		p.error("expected %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
+		p.errorf("expected %q but got %q in %v at %v", tok, p.t.Text(), p.s, p.t.Position())
 		return
 	}
 }
@@ -298,7 +298,7 @@ func (p *contextParser) label() {
 	p.next()
 	pieces := strings.SplitN(p.t.Text(), ":", 3)
 	if len(pieces) != 3 {
-		p.error("invalid security context: expected '<user>:<role>:<type>' but got %q", p.t.Text())
+		p.errorf("invalid security context: expected '<user>:<role>:<type>' but got %q", p.t.Text())
 		return
 	}
 	p.state = &Label{
@@ -324,7 +324,7 @@ func (p *contextParser) next() rune {
 	return ch
 }
 
-func (p *contextParser) error(format string, args ...interface{}) {
+func (p *contextParser) errorf(format string, args ...interface{}) {
 	if p.err == nil {
 		p.err = trace.BadParameter(format, args...)
 	}

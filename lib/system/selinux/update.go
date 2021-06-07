@@ -36,9 +36,7 @@ import (
 // Update updates the SELinux configuration described by this object
 // on the node
 func (r UpdateConfig) Update(ctx context.Context) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	var buf bytes.Buffer
 	w := r.Logger.Writer()
 	defer w.Close()
@@ -50,9 +48,7 @@ func (r UpdateConfig) Update(ctx context.Context) error {
 
 // Undo undoes the local changes described by this configuration
 func (r UpdateConfig) Undo(ctx context.Context) error {
-	if err := r.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	r.setDefaults()
 	var buf bytes.Buffer
 	w := r.Logger.Writer()
 	defer w.Close()
@@ -75,14 +71,13 @@ type UpdateConfig struct {
 	vxlanPortGetter
 }
 
-func (r *UpdateConfig) checkAndSetDefaults() error {
+func (r *UpdateConfig) setDefaults() {
 	if r.Logger == nil {
 		r.Logger = liblog.New(log.WithField(trace.Component, "selinux"))
 	}
 	if r.vxlanPortGetter == nil {
 		r.vxlanPortGetter = getLocalPortChangeForVxlan
 	}
-	return nil
 }
 
 func (r UpdateConfig) write(ctx context.Context, w io.Writer) error {
