@@ -44,7 +44,6 @@ $(DOCBOX_ID_FILE): Dockerfile
 	docker build \
 		--build-arg UID=$$(id -u) \
 		--build-arg GID=$$(id -g) \
-		--build-arg WORKDIR=$(WORKDIR) \
 		--build-arg PORT=$(PORT) \
 		--tag $(DOCBOX) .
 	# prefer --iidfile to touch, but jenkin's docker is too old. See ops issue #141
