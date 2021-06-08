@@ -19,8 +19,11 @@ limitations under the License.
 package main
 
 import (
-	// mage:import
+	//mage:import
 	"github.com/gravitational/gravity/mage"
+
+	//mage:import
+	_ "github.com/gravitational/magnet/common"
 )
 
 // Default specifies the default build target

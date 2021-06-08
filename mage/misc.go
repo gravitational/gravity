@@ -42,15 +42,6 @@ func Clean() (err error) {
 	return trace.Wrap(os.RemoveAll(root.buildDir))
 }
 
-// Env outputs the list of imported environment variables
-func Env() (err error) {
-	for k, v := range root.Config.ImportEnv {
-		fmt.Println(k, ":", v)
-	}
-
-	return
-}
-
 // IsUpToDate returns true iff all of the (source, sources...) are older or the same
 // age as dst.
 func IsUpToDate(dst string, source string, sources ...string) (uptodate bool) {

@@ -95,10 +95,6 @@ github.com/Shopify/logrus-bugsnag v0.0.0-20171204204709-577dee27f20d/go.mod h1:H
 github.com/Shopify/sarama v1.19.0/go.mod h1:FVkBWblsNy7DGZRfXLU0O9RCGt5g3g3yEuWXgklEdEo=
 github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMxUHB2q5Ap20/P/eIdh4G0pI=
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
-github.com/a-palchikov/mage v1.9.1-0.20210510142914-0614fcadda0b h1:4zD3qgA1LWkxwXN2p8U6set5w5ZIAWWlDy78CTb2FIg=
-github.com/a-palchikov/mage v1.9.1-0.20210510142914-0614fcadda0b/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
-github.com/a-palchikov/magnet v0.2.7-0.20210520113349-2a5f8ce635ab h1:8ZTjoU8XFETBN/LHo3ELgdRPLeMzKdoiQ+VrqoseR1I=
-github.com/a-palchikov/magnet v0.2.7-0.20210520113349-2a5f8ce635ab/go.mod h1:I168G8xokpoH32modDL8a0Ht2MWQyU+DCfcc6q+bVIQ=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
@@ -551,6 +547,8 @@ github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0 h1:gxT3g2wRixRJ2
 github.com/gravitational/log v0.0.0-20200127200505-fdffa14162b0/go.mod h1:zJJqcfDBGf9G5qdBzs0Ai3FDwIvmvzl16nlClqcJyy4=
 github.com/gravitational/logrus v1.4.3 h1:gdyMN/zLd4R/kATybKzG1I6gjrbCqNJOl1XiixdT5e4=
 github.com/gravitational/logrus v1.4.3/go.mod h1:+F7Ogzej0PZc/94MaYx/nvG9jOFMD2osvC3s+Squfpo=
+github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e h1:yDDoKxGE9kpId7555BP1IgjikZFLX2h/6yA3MomGMDw=
+github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e/go.mod h1:1hC1lZ075A/syd4/xlrq5eVAGzleRcnDG9xegcxZ7Ts=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696 h1:GI3Wyc/dLHL8snw18nLrSWTyKqMHF+pB8APFw0bQe3I=
 github.com/gravitational/moby v1.4.2-0.20191008111026-2adf434ca696/go.mod h1:bDzK0jA4s+TisyeqAiirQQULXKzSLYhmAd3NHeVgaHs=
 github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 h1:244Hc0XnOrqZxR0Fbwt9nwlvM5HnqKWJE+r5EdG6v4A=
@@ -707,6 +705,8 @@ github.com/klauspost/cpuid v0.0.0-20170728055534-ae7887de9fa5/go.mod h1:Pj4uuM52
 github.com/klauspost/cpuid v1.2.0/go.mod h1:Pj4uuM528wm8OyEC2QMXAi2YiTZ96dNQPGgoMS4s3ek=
 github.com/klauspost/crc32 v0.0.0-20161016154125-cb6bfca970f6/go.mod h1:+ZoRqAPRLkC4NPOvfYeR5KNOrY6TD+/sAC3HXPZgDYg=
 github.com/klauspost/pgzip v1.0.2-0.20170402124221-0bf5dcad4ada/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
+github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac h1:MOsgxjsdw6rKsxuCKmS8RIVLLPwDctvC1leKhYPl9cE=
+github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac/go.mod h1:z5UZb/iS3GoOSn0JgWuiw7dxlurVYTu+/jHXqQg881A=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/konsorten/go-windows-terminal-sequences v1.0.3 h1:CE8S1cTafDpPvMhIxNJKvHsGVBgn1xWYf1NbHQhywc8=

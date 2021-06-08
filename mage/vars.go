@@ -17,35 +17,40 @@ limitations under the License.
 package mage
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/gravitational/magnet"
 	"github.com/gravitational/trace"
 
 	"github.com/coreos/go-semver/semver"
-	log "github.com/sirupsen/logrus"
 )
 
-var env = importEnvFromMakefile()
-
 var root = mustRoot(magnet.Config{
-	Version:       env.getBuildVersion(),
+	Version:       buildVersion,
 	PrintConfig:   true,
-	LogDir:        fmt.Sprintf("%s/logs", env.getBuildDir()),
-	CacheDir:      fmt.Sprintf("%s/cache", env.getBuildDir()),
-	ImportEnv:     env,
-	PlainProgress: env.isPlainProgress(),
-}, env.getBuildDir())
+	LogDir:        fmt.Sprintf("%s/logs", buildDir),
+	CacheDir:      fmt.Sprintf("%s/cache", buildDir),
+	PlainProgress: isPlainProgress(),
+}, buildDir)
 
 var (
+	env = magnet.NewEnviron(importEnvFromMakefile)
 
 	// Go version
-	golangVersion = root.E(magnet.EnvVar{
+	golangVersion = env.E(magnet.EnvVar{
 		Key:   "GOLANG_VER",
 		Short: "The version of Go from container: quay.io/gravitational/debian-venti:go${GOLANG_VER}",
+	})
+
+	// Build directory
+	buildDir = env.E(magnet.EnvVar{
+		Key:     "BUILDDIR",
+		Default: "_build",
+		Short:   "Directory to store all build artefacts",
 	})
 
 	// golangciVersion is the version of golangci-lint to use for linting
@@ -53,7 +58,7 @@ var (
 	golangciVersion = "v1.39.0"
 
 	// FIO vars
-	fioVersion = root.E(magnet.EnvVar{
+	fioVersion = env.E(magnet.EnvVar{
 		Key:   "FIO_VER",
 		Short: "The version of fio to include for volume IO testing",
 	})
@@ -61,23 +66,23 @@ var (
 	fioPkgTag = fmt.Sprintf("%v.0", fioVersion)
 
 	// Teleport
-	teleportTag = root.E(magnet.EnvVar{
+	teleportTag = env.E(magnet.EnvVar{
 		Key:   "TELEPORT_TAG",
 		Short: "The teleport tag to build and include with gravity",
 	})
 	teleportRepoTag = fmt.Sprintf("v%s", teleportTag) // Adapts teleportTag to the teleport tagging scheme
 
 	// Grpc
-	grpcProtocVersion = root.E(magnet.EnvVar{
+	grpcProtocVersion = env.E(magnet.EnvVar{
 		Key:   "GRPC_PROTOC_VER",
 		Short: "The protoc version to use",
 	})
 	grpcProtocPlatform = "linux-x86_64"
-	grpcGoGoTag        = root.E(magnet.EnvVar{
+	grpcGoGoTag        = env.E(magnet.EnvVar{
 		Key:   "GOGO_PROTO_TAG",
 		Short: "The grpc gogo version to use",
 	})
-	grpcGatewayTag = root.E(magnet.EnvVar{
+	grpcGatewayTag = env.E(magnet.EnvVar{
 		Key:   "GRPC_GATEWAY_TAG",
 		Short: "The grpc gateway version to use",
 	})
@@ -85,7 +90,7 @@ var (
 	// internal repos
 
 	// BuildVersion
-	buildVersion = root.E(magnet.EnvVar{
+	buildVersion = env.E(magnet.EnvVar{
 		Key:     "BUILD_VERSION",
 		Default: magnet.DefaultVersion(),
 		Short:   "The version to assign when building artifacts",
@@ -94,7 +99,7 @@ var (
 	// Planet
 
 	// k8sVersion is the version of kubernetes we're shipping
-	k8sVersion = root.E(magnet.EnvVar{
+	k8sVersion = env.E(magnet.EnvVar{
 		Key:   "K8S_VER",
 		Short: "The k8s version to use (and locate the planet tag)",
 	})
@@ -105,88 +110,88 @@ var (
 	//planetTag = fmt.Sprintf("7.1.4-%v", k8sVersionToPlanetFormat(k8sVersion))
 	planetTag = ""
 
-	planetBranch = root.E(magnet.EnvVar{
+	planetBranch = env.E(magnet.EnvVar{
 		Key:     "PLANET_BRANCH",
 		Default: planetTag,
 		Short:   "Alternate branch to build planet",
 	})
-	planetVersion = root.E(magnet.EnvVar{
+	planetVersion = env.E(magnet.EnvVar{
 		Key:     "PLANET_TAG",
 		Default: planetTag,
 		Short:   "Planet application tag/branch to build",
 	})
 
 	// Gravity Internal Applications
-	appIngressVersion = root.E(magnet.EnvVar{
+	appIngressVersion = env.E(magnet.EnvVar{
 		Key:   "INGRESS_APP_VERSION",
 		Short: "Ingress application - version to assign to internal application",
 	})
-	appIngressBranch = root.E(magnet.EnvVar{
+	appIngressBranch = env.E(magnet.EnvVar{
 		Key:     "INGRESS_APP_BRANCH",
 		Default: appIngressVersion,
 		Short:   "Ingress application - tag/branch to build the application from on upstream repo",
 	})
-	appIngressRepo = root.E(magnet.EnvVar{
+	appIngressRepo = env.E(magnet.EnvVar{
 		Key:     "INGRESS_APP_REPO",
 		Default: "https://github.com/gravitational/ingress-app",
 		Short:   "Ingress application - public repository to pull the application sources from for build",
 	})
 
-	appStorageVersion = root.E(magnet.EnvVar{
+	appStorageVersion = env.E(magnet.EnvVar{
 		Key:   "STORAGE_APP_VERSION",
 		Short: "Storage application - version to assign to internal application",
 	})
-	appStorageBranch = root.E(magnet.EnvVar{
+	appStorageBranch = env.E(magnet.EnvVar{
 		Key:     "STORAGE_APP_BRANCH",
 		Default: appStorageVersion,
 		Short:   "Storage application - tag/branch to build the application from on upstream repo",
 	})
-	appStorageRepo = root.E(magnet.EnvVar{
+	appStorageRepo = env.E(magnet.EnvVar{
 		Key:     "STORAGE_APP_REPO",
 		Default: "https://github.com/gravitational/storage-app",
 		Short:   "Storage application - public repository to pull the application sources from for build",
 	})
 
-	appLoggingVersion = root.E(magnet.EnvVar{
+	appLoggingVersion = env.E(magnet.EnvVar{
 		Key:   "LOGGING_APP_VERSION",
 		Short: "Logging application - version to assign to internal application",
 	})
-	appLoggingBranch = root.E(magnet.EnvVar{
+	appLoggingBranch = env.E(magnet.EnvVar{
 		Key:     "LOGGING_APP_BRANCH",
 		Default: appLoggingVersion,
 		Short:   "Logging application - tag/branch to build the application from on upstream repo",
 	})
-	appLoggingRepo = root.E(magnet.EnvVar{
+	appLoggingRepo = env.E(magnet.EnvVar{
 		Key:     "LOGGING_APP_REPO",
 		Default: "https://github.com/gravitational/logging-app",
 		Short:   "Storage application - public repository to pull the application sources from for build",
 	})
 
-	appMonitoringVersion = root.E(magnet.EnvVar{
+	appMonitoringVersion = env.E(magnet.EnvVar{
 		Key:   "MONITORING_APP_VERSION",
 		Short: "Monitoring application - version to assign to internal application",
 	})
-	appMonitoringBranch = root.E(magnet.EnvVar{
+	appMonitoringBranch = env.E(magnet.EnvVar{
 		Key:     "MONITORING_APP_BRANCH",
 		Default: appMonitoringVersion,
 		Short:   "Monitoring application - tag/branch to build the application from on upstream repo",
 	})
-	appMonitoringRepo = root.E(magnet.EnvVar{
+	appMonitoringRepo = env.E(magnet.EnvVar{
 		Key:     "MONITORING_APP_REPO",
 		Default: "https://github.com/gravitational/monitoring-app",
 		Short:   "Monitoring application - public repository to pull the application sources from for build",
 	})
 
-	appBandwagonVersion = root.E(magnet.EnvVar{
+	appBandwagonVersion = env.E(magnet.EnvVar{
 		Key:   "BANDWAGON_APP_TAG",
 		Short: "Bandwagon application - version to assign to internal application",
 	})
-	appBandwagonBranch = root.E(magnet.EnvVar{
+	appBandwagonBranch = env.E(magnet.EnvVar{
 		Key:     "BANDWAGON_APP_BRANCH",
 		Default: appBandwagonVersion,
 		Short:   "Bandwagon application - tag/branch to build the application from on upstream repo",
 	})
-	appBandwagonRepo = root.E(magnet.EnvVar{
+	appBandwagonRepo = env.E(magnet.EnvVar{
 		Key:     "BANDWAGON_APP_REPO",
 		Default: "https://github.com/gravitational/bandwagon",
 		Short:   "Bandwagon application - public repository to pull the application sources from for build",
@@ -194,74 +199,74 @@ var (
 
 	// applications within the gravity master repository
 
-	appDNSVersion = root.E(magnet.EnvVar{
+	appDNSVersion = env.E(magnet.EnvVar{
 		Key:   "DNS_APP_VERSION",
 		Short: "DNS application - version to assign to internal application",
 	})
-	appRBACVersion = root.E(magnet.EnvVar{
+	appRBACVersion = env.E(magnet.EnvVar{
 		Key:     "RBAC_APP_TAG",
 		Default: buildVersion,
 		Short:   "Logging application tag/branch to build",
 	})
-	appTillerVersion = root.E(magnet.EnvVar{
+	appTillerVersion = env.E(magnet.EnvVar{
 		Key:   "TILLER_APP_TAG",
 		Short: "Logging application tag/branch to build",
 	})
 
 	// Dependency Versions
-	tillerVersion = root.E(magnet.EnvVar{
+	tillerVersion = env.E(magnet.EnvVar{
 		Key:   "TILLER_VERSION",
 		Short: "Tiller version to include",
 	})
-	selinuxVersion = root.E(magnet.EnvVar{
+	selinuxVersion = env.E(magnet.EnvVar{
 		Key:   "SELINUX_VERSION",
 		Short: "",
 	})
-	selinuxBranch = root.E(magnet.EnvVar{
+	selinuxBranch = env.E(magnet.EnvVar{
 		Key:     "SELINUX_BRANCH",
 		Default: "distro/centos_rhel/7",
 		Short:   "",
 	})
-	selinuxRepo = root.E(magnet.EnvVar{
+	selinuxRepo = env.E(magnet.EnvVar{
 		Key:     "SELINUX_REPO",
 		Default: "git@github.com:gravitational/selinux.git",
 		Short:   "",
 	})
 
 	// which container to include for builds using wormhole networking
-	wormholeImage = root.E(magnet.EnvVar{
+	wormholeImage = env.E(magnet.EnvVar{
 		Key:   "WORMHOLE_IMG",
 		Short: "ImagePath to wormhole docker container",
 	})
 
 	// Image Vulnerability Scanning on Publishing
-	scanCopyToRegistry = root.E(magnet.EnvVar{
+	scanCopyToRegistry = env.E(magnet.EnvVar{
 		Key:     "TELE_COPY_TO_REGISTRY",
 		Default: "quay.io/gravitational",
 		Short:   "Registry <host>/<account>to upload container to for scanning",
 	})
-	scanCopyToRepository = root.E(magnet.EnvVar{
+	scanCopyToRepository = env.E(magnet.EnvVar{
 		Key:     "TELE_COPY_TO_REPOSITORY",
 		Default: "gravitational/gravity-scan",
 		Short:   "The repository on the registry server to use <account>/<subrepo>",
 	})
-	scanCopyToPrefix = root.E(magnet.EnvVar{
+	scanCopyToPrefix = env.E(magnet.EnvVar{
 		Key:     "TELE_COPY_TO_PREFIX",
 		Default: buildVersion,
 		Short:   "The prefix to add to each image name when uploading to the registry",
 	})
-	scanCopyToUser = root.E(magnet.EnvVar{
+	scanCopyToUser = env.E(magnet.EnvVar{
 		Key:   "TELE_COPY_TO_USER",
 		Short: "User to use with the registry",
 	})
-	scanCopyToPassword = root.E(magnet.EnvVar{
+	scanCopyToPassword = env.E(magnet.EnvVar{
 		Key:    "TELE_COPY_TO_PASS",
 		Short:  "Password for the registry",
 		Secret: true,
 	})
 
 	// Publishing
-	distributionOpsCenter = root.E(magnet.EnvVar{
+	distributionOpsCenter = env.E(magnet.EnvVar{
 		Key:     "DISTRIBUTION_OPSCENTER",
 		Default: "https://get.gravitational.io",
 		Short:   "Address of OpsCenter used to publish gravity enterprise artifacts to",
@@ -287,39 +292,23 @@ func buildFlags() []string {
 	}
 }
 
-func importEnvFromMakefile() (env environ) {
-	env = make(environ)
+func importEnvFromMakefile() (env map[string]string) {
 	cmd := exec.Command("make", "-f", "Makefile.buildx", "magnet-vars")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		log.WithError(err).Warn("Failed to import environ from makefile.")
-		return nil
+		panic(fmt.Sprint("failed to import environ from makefile:", err))
 	}
-	for _, line := range strings.Split(string(out), "\n") {
-		cols := strings.SplitN(line, "=", 2)
-		if len(cols) != 2 || !strings.HasPrefix(cols[0], "MAGNET_") {
-			log.Debug("Skip line that does not look like magnet envar.")
-			continue
-		}
-		key, value := strings.TrimPrefix(cols[0], "MAGNET_"), cols[1]
-		env[key] = value
+	env, err = magnet.ImportEnvFromReader(bytes.NewReader(out))
+	if err != nil {
+		panic(fmt.Sprint("failed to import environ from makefile:", err))
 	}
 	return env
 }
 
-func (r environ) getBuildDir() string {
-	return r["BUILDDIR"]
+func isPlainProgress() *bool {
+	enabled := os.Getenv("CI") != ""
+	return &enabled
 }
-
-func (r environ) getBuildVersion() string {
-	return r["BUILD_VERSION"]
-}
-
-func (r environ) isPlainProgress() bool {
-	return r["CI"] != ""
-}
-
-type environ map[string]string
 
 func mustRoot(config magnet.Config, buildDir string) *rootTarget {
 	root, err := magnet.Root(config)

@@ -6,7 +6,7 @@ replace (
 	github.com/containerd/containerd => github.com/containerd/containerd v1.3.1-0.20200512144102-f13ba8f2f2fd
 	github.com/docker/docker => github.com/docker/docker v17.12.0-ce-rc1.0.20200310163718-4634ce647cf2+incompatible
 	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
-	github.com/magefile/mage => github.com/a-palchikov/mage v1.9.1-0.20210510142914-0614fcadda0b
+	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac
 )
 
 require (

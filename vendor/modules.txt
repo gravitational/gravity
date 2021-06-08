@@ -454,7 +454,7 @@ github.com/gravitational/kingpin
 github.com/gravitational/license
 github.com/gravitational/license/authority
 github.com/gravitational/license/constants
-# github.com/gravitational/magnet v0.2.6 => github.com/a-palchikov/magnet v0.2.7-0.20210520113349-2a5f8ce635ab
+# github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e
 github.com/gravitational/magnet
 github.com/gravitational/magnet/common
 github.com/gravitational/magnet/pkg/cp
@@ -602,7 +602,7 @@ github.com/lib/pq/oid
 github.com/lib/pq/scram
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 github.com/liggitt/tabwriter
-# github.com/magefile/mage v1.9.0 => github.com/a-palchikov/mage v1.9.1-0.20210510142914-0614fcadda0b
+# github.com/magefile/mage v1.9.0 => github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac
 github.com/magefile/mage/internal
 github.com/magefile/mage/mage
 github.com/magefile/mage/mg

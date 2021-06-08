@@ -47,7 +47,7 @@ require (
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
-	github.com/gravitational/magnet v0.2.6
+	github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d
 	github.com/gravitational/roundtrip v1.0.0
@@ -146,14 +146,13 @@ replace (
 	github.com/google/uuid => github.com/google/uuid v1.1.0
 	github.com/gophercloud/gophercloud => github.com/gophercloud/gophercloud v0.0.0-20181207171349-d3bcea3cf97e
 	github.com/gorilla/mux => github.com/gorilla/mux v1.7.0
-	github.com/gravitational/magnet => github.com/a-palchikov/magnet v0.2.7-0.20210520113349-2a5f8ce635ab
 	github.com/imdario/mergo => github.com/imdario/mergo v0.0.0-20160517064435-50d4dbd4eb0e
 	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/json-iterator/go => github.com/json-iterator/go v1.1.5
 	github.com/julienschmidt/httprouter => github.com/julienschmidt/httprouter v1.1.0
 	github.com/kr/pty => github.com/kr/pty v1.0.0
 	github.com/kylelemons/godebug => github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb
-	github.com/magefile/mage => github.com/a-palchikov/mage v1.9.1-0.20210510142914-0614fcadda0b
+	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac
 	github.com/mattn/go-isatty => github.com/mattn/go-isatty v0.0.3
 	github.com/mattn/go-runewidth => github.com/mattn/go-runewidth v0.0.2-0.20161012013512-737072b4e32b
 	github.com/miekg/dns => github.com/miekg/dns v1.0.4
