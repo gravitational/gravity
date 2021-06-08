@@ -31,8 +31,9 @@ const RedHat = "rhel"
 
 // OSInfo obtains identification information for the host operating system
 func OSInfo() (info *OS, err error) {
+	//nolint:staticcheck,nolintlint
 	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
+	if err != nil { //nolint:staticcheck,nolintlint
 		return nil, trace.Wrap(err)
 	}
 	return &OS{

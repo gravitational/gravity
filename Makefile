@@ -37,7 +37,14 @@ GOLINT_PACKAGES ?= \
 	./lib/helm/... \
 	./lib/kubernetes/... \
 	./lib/report/... \
-	./lib/schema/...
+	./lib/schema/... \
+	./e/lib/events/... \
+	./lib/processconfig/... \
+	./lib/state/... \
+	./lib/systeminfo/... \
+	./lib/testutils/... \
+	./lib/network/... \
+	./lib/pack/...
 
 GOPATH ?= $(shell go env GOPATH)
 

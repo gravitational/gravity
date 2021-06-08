@@ -94,7 +94,7 @@ func (p *PackageServer) PackageDownloadURL(loc loc.Locator) string {
 		"packages", loc.Name, loc.Version, "file"}, "/")
 }
 
-// Get repositories returns a list of repositories
+// GetRepositories repositories returns a list of repositories
 func (p *PackageServer) GetRepositories() ([]string, error) {
 	out := []string{}
 
@@ -248,7 +248,7 @@ func (p *PackageServer) processMetadata(locator loc.Locator) (loc.Locator, error
 	return *locatorPtr, nil
 }
 
-// Read package opens and returns package contents
+// ReadPackage package opens and returns package contents
 func (p *PackageServer) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadCloser, error) {
 	var err error
 	loc, err = p.processMetadata(loc)
@@ -357,7 +357,7 @@ func (p *PackageServer) DeleteRepository(repository string) error {
 	return trace.Wrap(p.backend.DeleteRepository(repository))
 }
 
-// Readpack.PackageEnvelope returns package envelope without reading the BLOB
+// ReadPackageEnvelope returns package envelope without reading the BLOB
 func (p *PackageServer) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, error) {
 	var err error
 	loc, err = p.processMetadata(loc)

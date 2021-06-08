@@ -123,7 +123,7 @@ func (r *Server) CheckPorts(ctx context.Context, req *pb.CheckPortsRequest) (*pb
 
 // Validate validatest this node against the requirements
 // from a manifest.
-func (_ *Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *pb.ValidateResponse, err error) {
+func (*Server) Validate(ctx context.Context, req *pb.ValidateRequest) (resp *pb.ValidateResponse, err error) {
 	var manifest schema.Manifest
 	if err := json.Unmarshal(req.Manifest, &manifest); err != nil {
 		return nil, trace.Wrap(err)
