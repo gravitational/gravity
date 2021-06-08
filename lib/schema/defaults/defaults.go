@@ -50,6 +50,7 @@ func (r reflector) reflectFromType(t reflect.Type, v reflect.Value, schema *json
 	if schema.Ref != nil {
 		schema = schema.Ref
 	}
+	//nolint:exhaustive
 	switch t.Kind() {
 	case reflect.Struct:
 		return r.reflectStruct(t, v, schema)
@@ -186,8 +187,9 @@ func isPrimitive(t reflect.Type) bool {
 		reflect.Float32, reflect.Float64,
 		reflect.Bool, reflect.String:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 func isEmptyValue(v interface{}) bool {

@@ -193,7 +193,7 @@ func parsePortRanges(proto string, ranges []string) (res []monitoring.PortRange,
 		}
 
 		res = append(res, monitoring.PortRange{
-			Protocol: proto, From: uint64(port), To: uint64(port)})
+			Protocol: proto, From: port, To: port})
 	}
 	return res, nil
 }
@@ -216,11 +216,11 @@ func parsePortRange(proto, p string) (*monitoring.PortRange, error) {
 
 	return &monitoring.PortRange{
 		Protocol: proto,
-		From:     uint64(from),
-		To:       uint64(to),
+		From:     from,
+		To:       to,
 	}, nil
 }
 
-func moduleName(name string, names ...string) monitoring.ModuleRequest {
-	return monitoring.ModuleRequest{Name: name, Names: names}
+func moduleName(name string) monitoring.ModuleRequest {
+	return monitoring.ModuleRequest{Name: name}
 }

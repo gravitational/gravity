@@ -177,6 +177,7 @@ func valueFromFile(path, basePath string) (data []byte, mimeType string, err err
 // valueFromHTTP returns the content downloaded from the provided URL
 // and its MIME type
 func valueFromHTTP(url string) (data []byte, mimeType string, err error) {
+	//nolint:gosec,noctx // context will be added in a separate PR
 	response, err := http.Get(url)
 	if err != nil {
 		return nil, "", trace.Wrap(err)

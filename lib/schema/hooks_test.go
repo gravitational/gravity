@@ -21,7 +21,7 @@ import (
 
 	. "gopkg.in/check.v1"
 	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 type HooksSuite struct{}

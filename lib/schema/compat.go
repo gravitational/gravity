@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// This package implements compatibilty layer to bridge previous provider/provisioner
+// This package implements compatibility layer to bridge previous provider/provisioner
 // mismatch and as such is discouraged for future use.
 package schema
 
