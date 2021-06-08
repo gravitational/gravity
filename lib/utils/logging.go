@@ -30,7 +30,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-// InitLogging initalizes logging to log both to syslog and to a file
+// InitLogging initializes logging to log both to syslog and to a file
 func InitLogging(level log.Level, logFile string) {
 	log.StandardLogger().Hooks.Add(&Hook{
 		path: logFile,
@@ -63,6 +63,7 @@ func InitGRPCLoggerWithDefaults() {
 	InitGRPCLogger("info", 10)
 }
 
+// InitGRPCLogger initializes the logger with specified severity and verbosity.
 // Severity level is one of `info`, `warning` or `error` and defaults to error if unspecified.
 // Verbosity is a non-negative integer.
 func InitGRPCLogger(severityLevel string, verbosity int) {

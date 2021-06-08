@@ -24,7 +24,7 @@ import (
 	"crypto/sha512"
 )
 
-// SHA512 half is a first half of SHA512 hash of the byte string
+// SHA512Half is a first half of SHA512 hash of the byte string
 func SHA512Half(v []byte) (string, error) {
 	h := sha512.New()
 	_, err := io.Copy(h, bytes.NewBuffer(v))

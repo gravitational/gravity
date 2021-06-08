@@ -23,7 +23,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// Check is a simplistic email checker
+// CheckEmail is a simplistic email checker
 func CheckEmail(email string) error {
 	if email == "" {
 		return trace.BadParameter("provide a valid email address")

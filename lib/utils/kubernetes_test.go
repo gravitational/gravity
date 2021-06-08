@@ -18,7 +18,7 @@ package utils
 
 import . "gopkg.in/check.v1"
 
-func (_ *UtilsSuite) TestFlattensVersion(c *C) {
+func (*UtilsSuite) TestFlattensVersion(c *C) {
 	var testCases = []struct {
 		input   string
 		output  string

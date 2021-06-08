@@ -73,7 +73,7 @@ func Run(name string, args ...string) ([]byte, error) {
 }
 
 // RunCommand runs a kubectl command specified with args
-func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
+func RunCommand(cmd *Cmd, options ...OptionSetter) ([]byte, error) {
 	log.Debugf("executing %v", cmd)
 	for _, option := range options {
 		option(cmd)
@@ -109,7 +109,7 @@ func GetPods(ctx context.Context, namespace string, runner utils.CommandRunner) 
 		return nil, trace.Wrap(err, "failed to query pods: %s", stderr.String())
 	}
 
-	trimmed := strings.TrimSpace(string(stdout.String()))
+	trimmed := strings.TrimSpace(stdout.String())
 	if strings.HasPrefix(trimmed, noResourcesPrefix) {
 		return nil, nil
 	}
@@ -138,7 +138,7 @@ func GetPodContainers(ctx context.Context, namespace, pod string, runner utils.C
 	return containers, nil
 }
 
-// GetNodeAddresses returns internal IP addresses of all nodes in the cluster
+// GetNodesAddr returns internal IP addresses of all nodes in the cluster
 func GetNodesAddr(ctx context.Context) ([]string, error) {
 	args := utils.PlanetCommand(Command("get", "nodes",
 		"--output",
@@ -157,7 +157,7 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 }
 
 // WithPrivilegedConfig returns a command option to specify a privileged kubeconfig
-func WithPrivilegedConfig() optionSetter {
+func WithPrivilegedConfig() OptionSetter {
 	return func(cmd *Cmd) {
 		cmd.args = append(cmd.args, "--kubeconfig", constants.PrivilegedKubeconfig)
 	}
@@ -185,7 +185,8 @@ type Cmd struct {
 	args    []string
 }
 
-type optionSetter func(*Cmd)
+// OptionSetter is a functional option for configuring commands
+type OptionSetter func(*Cmd)
 
 const (
 	noResourcesPrefix = "No resources found"

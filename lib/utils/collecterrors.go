@@ -31,7 +31,7 @@ func CollectErrors(ctx context.Context, errChan chan error) error {
 // Collect collects errors and values from channel provided, honouring timeout
 // it will expect exactly cap(errChan) messages
 // value channel could be nil. If not nil, then cap(errCh) == cap(valueCh)
-// it will also cancel context on first error occured if cancel func is not nil
+// it will also cancel context on first error occurred if cancel func is not nil
 func Collect(ctx context.Context, cancel func(), errChan chan error, valuesChan chan interface{}) ([]interface{}, error) {
 	errors := []error{}
 	values := []interface{}{}

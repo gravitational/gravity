@@ -43,12 +43,15 @@ type Printer interface {
 	PrintStep(format string, args ...interface{})
 }
 
+// DiscardPrinter is a Printer that discards all input
 var DiscardPrinter = nopPrinter{}
 
-func (nopPrinter) Write(p []byte) (int, error)                  { return 0, nil }
-func (nopPrinter) Printf(format string, args ...interface{})    {}
-func (nopPrinter) Print(args ...interface{})                    {}
-func (nopPrinter) Println(args ...interface{})                  {}
+func (nopPrinter) Write(p []byte) (int, error)               { return 0, nil }
+func (nopPrinter) Printf(format string, args ...interface{}) {}
+func (nopPrinter) Print(args ...interface{})                 {}
+func (nopPrinter) Println(args ...interface{})               {}
+
+//nolint:goprintffuncname
 func (nopPrinter) PrintStep(format string, args ...interface{}) {}
 
 type nopPrinter struct {
@@ -172,7 +175,7 @@ type ProgressConfig struct {
 	// Steps specifies the total number of steps.
 	// No steps will be displayed if unspecified
 	Steps int
-	// Timeout specifies the alotted time.
+	// Timeout specifies the allotted time.
 	// Defaults to progressMaxTimeout if unspecified
 	Timeout time.Duration
 	// Output specifies the output sink.
@@ -264,7 +267,7 @@ func (p *progressPrinter) PrintWarn(err error, message string, args ...interface
 	}
 }
 
-func (p *progressPrinter) printPeriodic(current int, message string, ctx context.Context) {
+func (p *progressPrinter) printPeriodic(ctx context.Context, current int, message string) {
 	start := time.Now()
 	p.printStep(p.w, current, p.steps, message)
 
@@ -336,7 +339,7 @@ func (p *progressPrinter) NextStep(message string, args ...interface{}) {
 		p.currentEntry.cancel()
 	}
 	p.currentEntry = entry
-	p.printPeriodic(entry.current, entry.message, entry.context)
+	p.printPeriodic(entry.context, entry.current, entry.message)
 }
 
 // Stop stops printing all updates

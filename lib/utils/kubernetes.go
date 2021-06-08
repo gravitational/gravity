@@ -39,7 +39,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-// LoadKubeconfig tries to read a kubeconfig file and if it can't, returns an error.
+// LoadKubeConfig tries to read a kubeconfig file and if it can't, returns an error.
 // One exception, missing files result in empty configs, not an error.
 func LoadKubeConfig() (*clientcmdapi.Config, error) {
 	filename, err := EnsureLocalPath(
