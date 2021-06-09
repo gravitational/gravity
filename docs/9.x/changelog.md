@@ -11,10 +11,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-alpha.0 | No  | pre-release          | April 21, 2021       | Set upon release        | 1.21.0               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-alpha.0 | No  | pre-release          | April 19, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
-| [7.1](#71-releases) | 7.1.0-alpha.6 | No  | pre-release          | April 14, 2021       | Set upon release        | 1.19.8               | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.31        | Yes | April 3, 2020        | April 15, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.0  | No  | pre-release          | June 9, 2021         | Set upon release        | 1.21.0               | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.0  | No  | pre-release          | June 9, 2021         | Set upon release        | 1.19.11               | 3.2.17-gravity   |
+| [7.0](#70-releases) | 7.0.32        | Yes | April 3, 2020        | June 9, 2021         | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -38,6 +37,7 @@ extend updates past End of Support through customer agreements if required.
 
 | Version             | Latest Patch | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------ | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
+| [7.1](#71-releases) | 7.1.0-alpha.6 | No | pre-release          | June 9, 2021            | 1.19.8               | 3.2.17-gravity   |
 | [6.3](#63-releases) | 6.3.18       | No  | December 18, 2019    | April 3, 2020 (7.0)     | 1.17.6               | 3.2.13           |
 | [6.2](#62-releases) | 6.2.5        | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
 | [6.0](#60-releases) | 6.0.10       | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
@@ -56,6 +56,20 @@ extend updates past End of Support through customer agreements if required.
 
 9.0 is currently pre-release.
 
+### 9.0.0-beta.0 (June 9, 2021)
+
+### Improvements
+* Add ability to disable label reconciliation ([#2486](https://github.com/gravitational/gravity/pull/2486)).
+
+#### Bugfixes
+
+* Fix a security issue with runc container escapes (CVE-2021-30465) ([#2534](https://github.com/gravitational/gravity/pull/2534), [planet#848](https://github.com/gravitational/planet/pull/848)).
+* Fix an issue where the latest cluster configuration wasn't used when updating runtime environment ([#2489](https://github.com/gravitational/gravity/pull/2489)).
+
+!!! warning
+    This release fixes a vulnerability in runc that could allow a user with pod creation to escalate privilege restrictions. Please see
+    [Runc Security Advisory](https://github.com/opencontainers/runc/security/advisories/GHSA-c3xm-pvg7-gh7r) for more information.
+
 ### 9.0.0-alpha.0 (April 21, 2021)
 
 #### Improvements
@@ -64,6 +78,20 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.0 (June 9, 2021)
+
+### Improvements
+* Add ability to disable label reconciliation ([#2507](https://github.com/gravitational/gravity/pull/2507)).
+* Update Kubernetes to 1.19.11 ([#2487](https://github.com/gravitational/gravity/pull/2487), [planet#840](https://github.com/gravitational/planet/pull/840)).
+
+#### Bugfixes
+
+* Fix a security issue with runc container escapes (CVE-2021-30465) ([#2535](https://github.com/gravitational/gravity/pull/2535), [planet#849](https://github.com/gravitational/planet/pull/849)).
+
+!!! warning
+    This release fixes a vulnerability in runc that could allow a user with pod creation to escalate privilege restrictions. Please see
+    [Runc Security Advisory](https://github.com/opencontainers/runc/security/advisories/GHSA-c3xm-pvg7-gh7r) for more information.
 
 ### 8.0.0-alpha.0 (April 19, 2021)
 
@@ -132,6 +160,19 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.32 (June 9, 2021)
+
+### Improvements
+* Add ability to disable label reconciliation ([#2509](https://github.com/gravitational/gravity/pull/2509)).
+
+#### Bugfixes
+
+* Fix a security issue with runc container escapes (CVE-2021-30465) ([#2537](https://github.com/gravitational/gravity/pull/2537), [planet#850](https://github.com/gravitational/planet/pull/850)).
+
+!!! warning
+    This release fixes a vulnerability in runc that could allow a user with pod creation to escalate privilege restrictions. Please see
+    [Runc Security Advisory](https://github.com/opencontainers/runc/security/advisories/GHSA-c3xm-pvg7-gh7r) for more information.
 
 ### 7.0.31 LTS (April 15, 2021)
 
