@@ -165,7 +165,6 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 ### Improvements
 * Add ability to disable label reconciliation ([#2509](https://github.com/gravitational/gravity/pull/2509)).
-* Update Kubernetes to 1.19.11 ([#2487](https://github.com/gravitational/gravity/pull/2487), [planet#840](https://github.com/gravitational/planet/pull/840)).
 
 #### Bugfixes
 
