@@ -47,9 +47,9 @@ type RawAgentReport struct {
 
 // Transport returns transport-friendly representation
 // of agent report
-func (r *AgentReport) Transport() (*RawAgentReport, error) {
-	resp := RawAgentReport{Message: r.Message}
-	for _, server := range r.Servers {
+func (s *AgentReport) Transport() (*RawAgentReport, error) {
+	resp := RawAgentReport{Message: s.Message}
+	for _, server := range s.Servers {
 		info, err := server.Transport()
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -121,7 +121,7 @@ func (s *AgentReport) MatchFlavor(flavor schema.Flavor) (needed map[string]int, 
 	}
 	for _, server := range s.Servers {
 		if _, ok := needed[server.Role]; ok {
-			needed[server.Role] -= 1
+			needed[server.Role]--
 			if needed[server.Role] == 0 {
 				delete(needed, server.Role)
 			}

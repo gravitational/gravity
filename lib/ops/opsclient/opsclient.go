@@ -247,6 +247,7 @@ func (c *Client) GetExpandToken(key ops.SiteKey) (*storage.ProvisioningToken, er
 	return &token, nil
 }
 
+// GetTrustedClusterToken returns the token for the specified trusted cluster
 // TODO(r0mant) Move to enterprise.
 func (c *Client) GetTrustedClusterToken(key ops.SiteKey) (storage.Token, error) {
 	out, err := c.Get(context.TODO(), c.Endpoint(
@@ -937,7 +938,7 @@ func (c *Client) GetOperationPlan(key ops.SiteOperationKey) (*storage.OperationP
 	return &plan, nil
 }
 
-// Configure packages configures packages for the specified install operation
+// ConfigurePackages packages configures packages for the specified install operation
 func (c *Client) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	_, err := c.PostJSON(c.Endpoint(
 		"accounts",
@@ -992,7 +993,7 @@ func (c *Client) GetLogForwarders(key ops.SiteKey) ([]storage.LogForwarder, erro
 	return forwarders, nil
 }
 
-// UpdateForwarders replaces the list of active log forwarders
+// UpdateLogForwarders replaces the list of active log forwarders
 // TODO(r0mant,alexeyk) this is a legacy method used only by UI, alexeyk to remove it when
 // refactoring resources and use upsert/delete instead
 func (c *Client) UpdateLogForwarders(key ops.SiteKey, forwarders []storage.LogForwarderV1) error {
@@ -1846,6 +1847,7 @@ func (c *Client) PostStream(endpoint string, reader io.Reader) (*roundtrip.Respo
 	}(time.Now())
 
 	return c.RoundTrip(func() (*http.Response, error) {
+		//nolint:noctx //TODO: use context
 		req, err := http.NewRequest(http.MethodPost, endpoint, reader)
 		if err != nil {
 			return nil, trace.Wrap(err)

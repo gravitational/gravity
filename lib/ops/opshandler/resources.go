@@ -18,7 +18,6 @@ package opshandler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gravitational/gravity/lib/constants"
@@ -369,6 +368,6 @@ func rawMessage(w http.ResponseWriter, data []byte, err error) error {
 	return err
 }
 
-func message(msg string, args ...interface{}) map[string]interface{} {
-	return map[string]interface{}{"message": fmt.Sprintf(msg, args...)}
+func message(msg string) map[string]interface{} {
+	return map[string]interface{}{"message": msg}
 }

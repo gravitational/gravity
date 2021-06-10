@@ -549,7 +549,7 @@ type DeactivateSiteRequest struct {
 	StopApp bool `json:"stop_app"`
 }
 
-// AcivateSiteRequest is a request to activate a site
+// ActivateSiteRequest is a request to activate a site
 type ActivateSiteRequest struct {
 	// AccountID is the ID of the account the site belongs to
 	AccountID string `json:"account_id"`
@@ -761,15 +761,15 @@ type Operations interface {
 	// about servers participating in the operations
 	GetSiteInstallOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
-	// SiteInstallOperationStart begins actuall install using
+	// SiteInstallOperationStart begins actual install using
 	// the Operation plan configured as a previous step
 	//
 	// 3. This method is called as a third step to begin install
 	SiteInstallOperationStart(SiteOperationKey) error
 
 	// CreateSiteUninstallOperation initiates uninstall operation
-	// for this site that will delete all machines and state inlcuding
-	// it kicks off uninstall of the site immediatelly
+	// for this site that will delete all machines and state including
+	// it kicks off uninstall of the site immediately
 	CreateSiteUninstallOperation(context.Context, CreateSiteUninstallOperationRequest) (*SiteOperationKey, error)
 
 	// CreateClusterGarbageCollectOperation creates a new garbage collection operation
@@ -815,7 +815,7 @@ type Operations interface {
 	// about servers participating in the operations
 	GetSiteExpandOperationAgentReport(context.Context, SiteOperationKey) (*AgentReport, error)
 
-	// SiteExpandOperationStart begins actuall expand using
+	// SiteExpandOperationStart begins actual expand using
 	// the Operation plan configured as a previous step
 	//
 	// 3. This method is called as a third step to begin expansion
@@ -877,31 +877,31 @@ type OperationsFilter struct {
 }
 
 // URLValues converts the filter to a set of URL values that can be passed via the API
-func (f OperationsFilter) URLValues() (res url.Values) {
+func (filter OperationsFilter) URLValues() (res url.Values) {
 	res = url.Values{}
 
-	if f.Last {
+	if filter.Last {
 		res.Add("last", "")
 	}
 
-	if f.First {
+	if filter.First {
 		res.Add("first", "")
 	}
 
-	if f.Complete {
+	if filter.Complete {
 		res.Add("complete", "")
 	}
 
-	if f.Finished {
+	if filter.Finished {
 		res.Add("finished", "")
 	}
 
-	if f.Active {
+	if filter.Active {
 		res.Add("active", "")
 	}
 
-	if len(f.Types) > 0 {
-		for _, t := range f.Types {
+	if len(filter.Types) > 0 {
+		for _, t := range filter.Types {
 			res.Add("type", t)
 		}
 	}
@@ -1197,7 +1197,7 @@ func (r ConfigurePackagesRequest) ClusterKey() SiteKey {
 	}
 }
 
-// ConfigurePackagesConfigRequest is a request to create configuration packages
+// ConfigurePackagesRequest is a request to create configuration packages
 type ConfigurePackagesRequest struct {
 	// OperationKey identifies the operation
 	SiteOperationKey `json:"operation_key"`
@@ -1492,7 +1492,7 @@ type CreateSiteShrinkOperationRequest struct {
 	// Force allows to remove offline nodes
 	Force bool `json:"force"`
 	// NodeRemoved indicates whether the node has already been removed from the cluster
-	// Used in cases where we recieve an event where the node is being terminated, but may
+	// Used in cases where we receive an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
 	NodeRemoved bool `json:"node_removed"`
 }

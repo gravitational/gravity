@@ -46,7 +46,7 @@ func (o *Operator) GetLogForwarders(key ops.SiteKey) ([]storage.LogForwarder, er
 	return forwarders, nil
 }
 
-// UpdateForwarders replaces the list of active log forwarders
+// UpdateLogForwarders replaces the list of active log forwarders
 // TODO(r0mant,alexeyk) this is a legacy method used only by UI, alexeyk to remove it when
 // refactoring resources and use upsert/delete instead
 func (o *Operator) UpdateLogForwarders(key ops.SiteKey, forwarders []storage.LogForwarderV1) error {
@@ -145,7 +145,7 @@ func (o *Operator) DeleteLogForwarder(ctx context.Context, key ops.SiteKey, name
 	return nil
 }
 
-// LogForwarderControl defines methods for managing log forwarders in Kubernetes,
+// LogForwardersControl defines methods for managing log forwarders in Kubernetes,
 // mostly so implementation can be substituted in tests w/o Kubernetes
 type LogForwardersControl interface {
 	// Get returns a list of log forwarders from config map

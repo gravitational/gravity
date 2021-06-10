@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -80,7 +79,7 @@ func (s *site) contextArgs() (args []string) {
 	return args
 }
 
-func remoteDirectories(operation ops.SiteOperation, server *ProvisionedServer, manifest schema.Manifest, uid, gid string) (commands []Command, err error) {
+func remoteDirectories(server *ProvisionedServer, manifest schema.Manifest, uid, gid string) (commands []Command, err error) {
 	// list of directories to create
 	directories := []string{
 		server.InGravity("local", "packages", "blobs"),

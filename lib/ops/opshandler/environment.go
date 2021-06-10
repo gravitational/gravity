@@ -28,14 +28,14 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-/* createUpdateEnvarsOperation initiates the operatation of updating cluster runtime environment variables
+/* createUpdateEnvarsOperation initiates the operation of updating cluster runtime environment variables
 
    POST /portal/v1/accounts/:account_id/sites/:site_domain/operations/envars
 
    {
       "account_id": "account id",
       "site_id": "site_id",
-      "env": "<new enviornment>"
+      "env": "<new environment>"
    }
 
 

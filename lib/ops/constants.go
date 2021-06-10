@@ -51,14 +51,20 @@ in_progress ->
 package ops
 
 const (
-	SiteLabelName                 = "Name"
-	SystemRepository              = "gravitational.io"
-	ProviderGeneric               = "generic"
-	TeleportProxyAddress          = "teleport_proxy_address"
-	ProgressStateCompleted        = "completed"
-	ProgressStateInProgress       = "in_progress"
-	ProgressStateFailed           = "failed"
-	InstallTerminated             = "terminated"
+	// SiteLabelName defines the name of the cluster name label
+	SiteLabelName = "Name"
+	// SystemRepository is the system package repository
+	SystemRepository = "gravitational.io"
+	// ProviderGeneric is the generic cluster infrastructure provider
+	ProviderGeneric = "generic"
+	// ProgressStateCompleted signifies the operation completed progress value
+	ProgressStateCompleted = "completed"
+	// ProgressStateInProgress signifies the operation in-progress progress value
+	ProgressStateInProgress = "in_progress"
+	// ProgressStateFailed signifies the operation failed progress value
+	ProgressStateFailed = "failed"
+	// ServiceAccountTokenSecretType defines the secret type for service account tokens
+	//nolint:gosec // not a hardcoded credential
 	ServiceAccountTokenSecretType = "kubernetes.io/service-account-token"
 
 	// SiteStateNotInstalled is a state where a site has just been created or uninstalled and
@@ -92,12 +98,16 @@ const (
 	// SiteStateOffline means that OpsCenter cannot connect to remote site
 	SiteStateOffline = "offline"
 
-	// operation "install" and its states
-	OperationInstall                  = "operation_install"
-	OperationStateInstallInitiated    = "install_initiated"
-	OperationStateInstallPrechecks    = "install_prechecks"
+	// OperationInstall identifies the install operation
+	OperationInstall = "operation_install"
+	// OperationStateInstallInitiated signifies the install operation initiated state
+	OperationStateInstallInitiated = "install_initiated"
+	// OperationStateInstallPrechecks signifies the install operation prechecks state
+	OperationStateInstallPrechecks = "install_prechecks"
+	// OperationStateInstallProvisioning signifies the install operation provisioning state
 	OperationStateInstallProvisioning = "install_provisioning"
-	OperationStateInstallDeploying    = "install_deploying"
+	// OperationStateInstallDeploying signifies the install operation deploying state
+	OperationStateInstallDeploying = "install_deploying"
 
 	// OperationReconfigure is the name of the operation that reconfigures
 	// the cluster advertise IP.
@@ -110,42 +120,56 @@ const (
 	// be executed by the installer process
 	OperationStateReady = "ready"
 
-	// operation "expand" and its states
-	OperationExpand                  = "operation_expand"
-	OperationStateExpandInitiated    = "expand_initiated"
-	OperationStateExpandPrechecks    = "expand_prechecks"
+	// OperationExpand identifies the expand operation
+	OperationExpand = "operation_expand"
+	// OperationStateExpandInitiated defines the expand operation initiated state
+	OperationStateExpandInitiated = "expand_initiated"
+	// OperationStateExpandPrechecks defines the expand operation prechecks state
+	OperationStateExpandPrechecks = "expand_prechecks"
+	// OperationStateExpandProvisioning defines the expand operation provisioning state
 	OperationStateExpandProvisioning = "expand_provisioning"
-	OperationStateExpandDeploying    = "expand_deploying"
+	// OperationStateExpandDeploying defines the expand operation deploying state
+	OperationStateExpandDeploying = "expand_deploying"
 
-	// operation "update" and its states
-	OperationUpdate                = "operation_update"
+	// OperationUpdate identifies the update operation
+	OperationUpdate = "operation_update"
+	// OperationStateUpdateInProgress defines the update operation in-progress state
 	OperationStateUpdateInProgress = "update_in_progress"
 
-	// operation "shrink" and its states
-	OperationShrink                = "operation_shrink"
+	// OperationShrink identifies the shrink operation
+	OperationShrink = "operation_shrink"
+	// OperationStateShrinkInProgress defines the shrink operation in-progress state
 	OperationStateShrinkInProgress = "shrink_in_progress"
 
-	// operation "uninstall" and its states
-	OperationUninstall                = "operation_uninstall"
+	// OperationUninstall identifies the uninstall operation
+	OperationUninstall = "operation_uninstall"
+	// OperationStateUninstallInProgress defines the uninstall operation in-progress state
 	OperationStateUninstallInProgress = "uninstall_in_progress"
 
-	// garbage collection operation
-	OperationGarbageCollect           = "operation_gc"
+	// OperationGarbageCollect identifies the gc operation
+	OperationGarbageCollect = "operation_gc"
+	// OperationGarbageCollectInProgress defines the gc operation in-progress state
 	OperationGarbageCollectInProgress = "gc_in_progress"
 
-	// runtime environment variables update operation
-	OperationUpdateRuntimeEnviron           = "operation_update_environ"
+	// OperationUpdateRuntimeEnviron identifies the runtime environment update operation
+	OperationUpdateRuntimeEnviron = "operation_update_environ"
+	// OperationUpdateRuntimeEnvironInProgress defines the runtime environment update operation in-progress state
 	OperationUpdateRuntimeEnvironInProgress = "update_environ_in_progress"
 
-	// configuration update operation
-	OperationUpdateConfig           = "operation_update_config"
+	// OperationUpdateConfig identifies the cluster configuration update operation
+	OperationUpdateConfig = "operation_update_config"
+	// OperationUpdateConfigInProgress defines the cluster configuration update operation in-progress state
 	OperationUpdateConfigInProgress = "update_config_in_progress"
 
-	// common operation states
+	// Common operation states
+
+	// OperationStateCompleted signifies a completed operation
 	OperationStateCompleted = "completed"
-	OperationStateFailed    = "failed"
+	// OperationStateFailed signifies a failed operation
+	OperationStateFailed = "failed"
 
 	// Teleport node labels
+
 	// AdvertiseIP defines a label with advertise IP address
 	AdvertiseIP = "advertise-ip"
 	// ServerFQDN defines a label with FQDN

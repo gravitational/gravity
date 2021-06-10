@@ -127,8 +127,8 @@ func (c *OpenEBSConfig) CheckAndSetDefaults() error {
 	return nil
 }
 
-// NewOpenEBSContol returns a new OpenEBS controller for the provided client.
-func NewOpenEBSControl(config OpenEBSConfig) (*openEBSControl, error) {
+// NewOpenEBSControl returns a new OpenEBS controller for the provided client.
+func NewOpenEBSControl(config OpenEBSConfig) (OpenEBSControl, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}

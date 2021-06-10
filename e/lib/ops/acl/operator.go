@@ -77,7 +77,7 @@ func (o *OperatorACL) UpdateClusterEndpoints(ctx context.Context, key oss.SiteKe
 	return o.operator.UpdateClusterEndpoints(ctx, key, endpoints)
 }
 
-// CheckForUpdates checks with remote OpsCenter if there is a newer version
+// CheckForUpdate checks with remote OpsCenter if there is a newer version
 // of the installed application
 func (o *OperatorACL) CheckForUpdate(key oss.SiteKey) (*loc.Locator, error) {
 	if err := o.ClusterAction(key.SiteDomain, storage.KindCluster, teleservices.VerbRead); err != nil {
@@ -86,7 +86,7 @@ func (o *OperatorACL) CheckForUpdate(key oss.SiteKey) (*loc.Locator, error) {
 	return o.operator.CheckForUpdate(key)
 }
 
-// DownloadUpdates downloads the provided application version from remote
+// DownloadUpdate downloads the provided application version from remote
 // Ops Center
 func (o *OperatorACL) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateRequest) error {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {

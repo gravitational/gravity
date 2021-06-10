@@ -313,19 +313,19 @@ func (s *OperationGroupSuite) TestClusterStateModifications(c *check.C) {
 func (s *OperationGroupSuite) TestCanCreateUpgradeOperation(c *check.C) {
 	// Can't create upgrade operation if cluster isn't active.
 	s.setClusterState(c, ops.SiteStateUpdating)
-	_, err := s.createUpgradeOperation(c, s.clock.Now(), false)
+	_, err := s.createUpgradeOperation(s.clock.Now(), false)
 	c.Assert(err, check.NotNil,
 		check.Commentf("Shouldn't be able to create upgrade operation for non-active cluster"))
 
 	// First upgrade operation should create fine.
 	s.setClusterState(c, ops.SiteStateActive)
-	key, err := s.createUpgradeOperation(c, s.clock.Now().Add(time.Second), false)
+	key, err := s.createUpgradeOperation(s.clock.Now().Add(time.Second), false)
 	c.Assert(err, check.IsNil,
 		check.Commentf("Should be able to create first upgrade operation"))
 
 	// Reset the cluster state but the first operation is still in progress.
 	s.setClusterState(c, ops.SiteStateActive)
-	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(2*time.Second), false)
+	_, err = s.createUpgradeOperation(s.clock.Now().Add(2*time.Second), false)
 	c.Assert(err, check.NotNil,
 		check.Commentf("Shouldn't be able to create upgrade operation if another one in progress"))
 
@@ -341,7 +341,7 @@ func (s *OperationGroupSuite) TestCanCreateUpgradeOperation(c *check.C) {
 		Created:     s.clock.Now(),
 	})
 	c.Assert(err, check.IsNil)
-	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(3*time.Second), false)
+	_, err = s.createUpgradeOperation(s.clock.Now().Add(3*time.Second), false)
 	c.Assert(err, check.NotNil,
 		check.Commentf("Shouldn't be able to create upgrade operation if last failed upgrade plan isn't rolled back"))
 
@@ -356,13 +356,13 @@ func (s *OperationGroupSuite) TestCanCreateUpgradeOperation(c *check.C) {
 		Created:     s.clock.Now().Add(time.Second),
 	})
 	c.Assert(err, check.IsNil)
-	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(4*time.Second), false)
+	_, err = s.createUpgradeOperation(s.clock.Now().Add(4*time.Second), false)
 	c.Assert(err, check.IsNil,
 		check.Commentf("Should be able to create upgrade operation if last upgrade plan is fully rolled back"))
 
 	// Force flag should allow to create operation.
 	s.setClusterState(c, ops.SiteStateActive)
-	_, err = s.createUpgradeOperation(c, s.clock.Now().Add(5*time.Second), true)
+	_, err = s.createUpgradeOperation(s.clock.Now().Add(5*time.Second), true)
 	c.Assert(err, check.IsNil,
 		check.Commentf("Should be able to create upgrade operation in force mode"))
 }
@@ -383,7 +383,7 @@ func (s *OperationGroupSuite) setOperationState(c *check.C, key ops.SiteOperatio
 	c.Assert(err, check.IsNil)
 }
 
-func (s *OperationGroupSuite) createUpgradeOperation(c *check.C, created time.Time, force bool) (*ops.SiteOperationKey, error) {
+func (s *OperationGroupSuite) createUpgradeOperation(created time.Time, force bool) (*ops.SiteOperationKey, error) {
 	group := s.operator.getOperationGroup(s.cluster.Key())
 	key, err := group.createSiteOperationWithOptions(ops.SiteOperation{
 		AccountID:  s.cluster.AccountID,

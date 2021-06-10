@@ -334,9 +334,8 @@ func (s *site) runIntegrationHook(ctx *operationContext, job *batchv1.Job, reque
 			if !trace.IsConnectionProblem(err) {
 				ctx.Infof("Failed to wait for hook completion: %v.", err)
 				return utils.Abort(err)
-			} else {
-				return utils.Continue("got a connection problem, will continue waiting")
 			}
+			return utils.Continue("got a connection problem, will continue waiting")
 		}
 		return nil
 	})

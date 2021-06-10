@@ -18,7 +18,6 @@ package opsservice
 
 import (
 	"bytes"
-	"fmt"
 	"html/template"
 	"net/url"
 	"strings"
@@ -36,7 +35,7 @@ var (
 	// joinTemplate is a template for instructions to run on nodes during
 	// wizard installation or expand
 	joinTemplate = template.Must(
-		template.New("instructions").Parse(fmt.Sprintf(`
+		template.New("instructions").Parse(`
 #!/bin/bash
 set -e
 
@@ -56,7 +55,7 @@ ${BIN} {{if .devmode}}--insecure{{end}} --debug join {{.ops_url}} \
     --role={{.profile}} \
     --cloud-provider={{.cloud_provider}} {{if .selinux}}--selinux{{else}}--no-selinux{{end}} \
     --operation-id={{.operation_id}} {{if .background}}1>/dev/null 2>&1 &{{end}}
-`)))
+`))
 
 	downloadInstructionsTemplate = template.Must(
 		template.New("instructions").Parse(`

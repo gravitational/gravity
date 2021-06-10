@@ -114,7 +114,7 @@ func (c *Client) UpdateClusterEndpoints(ctx context.Context, key ossops.SiteKey,
 	return nil
 }
 
-// CheckForUpdates checks with remote OpsCenter if there is a newer version
+// CheckForUpdate checks with remote OpsCenter if there is a newer version
 // of the installed application
 func (c *Client) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 	out, err := c.Get(context.TODO(), c.Endpoint("accounts", key.AccountID, "sites", key.SiteDomain, "updates"), url.Values{})
@@ -129,7 +129,7 @@ func (c *Client) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 	return &update, nil
 }
 
-// DownloadUpdates downloads the provided application version from remote
+// DownloadUpdate downloads the provided application version from remote
 // Ops Center
 func (c *Client) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateRequest) error {
 	_, err := c.PostJSON(c.Endpoint("accounts", req.AccountID, "sites", req.SiteDomain, "updates"), req)

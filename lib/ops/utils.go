@@ -136,7 +136,7 @@ func GetLastOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, pr
 	return op, progress, nil
 }
 
-// GetLastCompletedOperations returns the cluster's last completed operation
+// GetLastFinishedOperation returns the cluster's last completed operation
 func GetLastFinishedOperation(siteKey SiteKey, operator Operator) (op *SiteOperation, progress *ProgressEntry, err error) {
 	operations, err := operator.GetSiteOperations(siteKey, OperationsFilter{
 		Last:     true,
@@ -379,9 +379,9 @@ func GetExpandOperation(backend storage.Backend) (*SiteOperation, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	for _, operation := range operations {
+	for i, operation := range operations {
 		if operation.Type == OperationExpand {
-			return (*SiteOperation)(&operation), nil
+			return (*SiteOperation)(&operations[i]), nil
 		}
 	}
 	return nil, trace.NotFound("expand operation not found")

@@ -451,7 +451,7 @@ func (s *site) updateOperationState(op *ops.SiteOperation, req ops.OperationUpda
 
 	servers := req.Servers
 	if op.Provisioner == schema.ProvisionerOnPrem {
-		servers, err = s.configureOnPremServers(ctx, req.Servers, infos)
+		servers, err = s.configureOnPremServers(req.Servers, infos)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -486,7 +486,7 @@ func (s *site) validateInstall(op *ops.SiteOperation, req *ops.OperationUpdateRe
 func (s *site) checkOnPremServers(req ops.OperationUpdateRequest) error {
 	roleToCount := make(map[string]int)
 	for _, server := range req.Servers {
-		roleToCount[server.Role] += 1
+		roleToCount[server.Role]++
 	}
 
 	// verify that we have exactly the amount of servers of a certain role as dictated by flavor
@@ -656,7 +656,7 @@ func (s *site) checkLicenseOnPrem(license licenseapi.License, op *ops.SiteOperat
 // directory unless it has already been created.
 // Returns the list of servers to set as structured operation state.
 // Modifies remoteServers with details obtained from corresponding agents in-place.
-func (s *site) configureOnPremServers(ctx *operationContext, servers []storage.Server, infos checks.ServerInfos) (updated []storage.Server, err error) {
+func (s *site) configureOnPremServers(servers []storage.Server, infos checks.ServerInfos) (updated []storage.Server, err error) {
 	updated = make([]storage.Server, 0, len(servers))
 	for i, server := range servers {
 		info, err := infos.FindByIP(server.AdvertiseIP)
@@ -745,9 +745,8 @@ func (s *site) waitForNodes(ctx *operationContext, installer ops.Operator) error
 			if len(report.Servers) == ctx.getNumServers() {
 				ctx.Infof("All agents joined, can continue: %v.", report)
 				return nil
-			} else {
-				ctx.Infof("Not all agents joined yet: %v.", report)
 			}
+			ctx.Infof("Not all agents joined yet: %v.", report)
 		case <-localCtx.Done():
 			return trace.LimitExceeded("timeout waiting for nodes")
 		}

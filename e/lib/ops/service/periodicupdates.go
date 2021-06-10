@@ -38,7 +38,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// CheckForUpdates checks with remote Ops Center if there is a newer version
+// CheckForUpdate checks with remote Ops Center if there is a newer version
 // of the installed application
 func (o *Operator) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 	site, err := o.backend().GetSite(key.SiteDomain)
@@ -79,7 +79,7 @@ func (o *Operator) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 		"no update for %v installed on %v found", site.App, site.Domain)
 }
 
-// DownloadUpdates downloads the provided application version from remote Ops Center
+// DownloadUpdate downloads the provided application version from remote Ops Center
 func (o *Operator) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateRequest) error {
 	site, err := o.backend().GetSite(req.SiteDomain)
 	if err != nil {
