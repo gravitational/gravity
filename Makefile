@@ -52,7 +52,12 @@ GOLINT_PACKAGES ?= \
 	./lib/process/... \
 	./e/lib/process/... \
 	./lib/vacuum/... \
-	./lib/expand/...
+	./lib/expand/... \
+	./e/lib/builder/... \
+	./e/lib/catalog/... \
+	./lib/builder/... \
+	./lib/catalog/... \
+	./lib/hub/...
 
 GOPATH ?= $(shell go env GOPATH)
 

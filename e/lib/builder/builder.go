@@ -72,7 +72,7 @@ func (c *Config) CheckAndSetDefaults() (err error) {
 }
 
 // NewGenerator creates a new generator instance based on the provided configuration
-func NewGenerator(config Config) (*generator, error) {
+func NewGenerator(config Config) (builder.Generator, error) {
 	err := config.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -101,10 +101,7 @@ func (g *generator) Generate(builder *builder.Engine, manifest *schema.Manifest,
 	}
 	// if there are any extensions, configure them for the installer too
 	if manifest.Extensions != nil {
-		err := g.configureExtensions(manifest, &installerReq)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+		g.configureExtensions(manifest, &installerReq)
 	}
 	return builder.Apps.GetAppInstaller(installerReq)
 }
@@ -141,12 +138,11 @@ func (g *generator) createSystemAccount(builder *builder.Engine) (*storage.Accou
 	})
 }
 
-func (g *generator) configureExtensions(manifest *schema.Manifest, req *app.InstallerRequest) error {
+func (g *generator) configureExtensions(manifest *schema.Manifest, req *app.InstallerRequest) {
 	if manifest.Extensions.Encryption != nil {
 		req.EncryptionKey = manifest.Extensions.Encryption.EncryptionKey
 		req.CACert = manifest.Extensions.Encryption.CACert
 	}
-	return nil
 }
 
 // NewSyncer returns a new syncer instance for the provided builder

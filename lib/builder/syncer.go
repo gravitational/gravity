@@ -114,16 +114,16 @@ func (s *s3Syncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersio
 	}, *manifest)
 }
 
-// packSyncer synchronizes local package cache with pack/apps services
-type packSyncer struct {
+// PackSyncer synchronizes local package cache with pack/apps services
+type PackSyncer struct {
 	pack pack.PackageService
 	apps app.Applications
 	repo string
 }
 
 // NewPackSyncer creates a new syncer from provided pack and apps services
-func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string) *packSyncer {
-	return &packSyncer{
+func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string) *PackSyncer {
+	return &PackSyncer{
 		pack: pack,
 		apps: apps,
 		repo: repo,
@@ -131,7 +131,7 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 }
 
 // Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+func (s *PackSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
 	cacheApps, err := engine.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
