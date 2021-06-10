@@ -58,33 +58,33 @@ type ValidateConfig struct {
 }
 
 // NewRemote creates a remote node validator from the provided agents repository.
-func NewRemote(agents rpc.AgentRepository) *remote {
-	return &remote{
-		AgentRepository: agents,
-		FieldLogger: logrus.WithField(trace.Component,
+func NewRemote(agents rpc.AgentRepository) *Remoter {
+	return &Remoter{
+		agents: agents,
+		log: logrus.WithField(trace.Component,
 			"checks:remote"),
 	}
 }
 
-// remote allows to execute remote commands and validate remote nodes.
+// Remoter allows to execute remote commands and validate remote nodes.
 //
 // Implements Remote.
-type remote struct {
-	// AgentRepository provides access to running RPC agents.
-	rpc.AgentRepository
-	// FieldLogger is used for logging.
-	logrus.FieldLogger
+type Remoter struct {
+	// agents provides access to running RPC agents.
+	agents rpc.AgentRepository
+	// log is used for logging.
+	log logrus.FieldLogger
 }
 
 // Exec executes the command remotely on the specified node.
 //
 // The command's output is written to the provided writer.
-func (r *remote) Exec(ctx context.Context, addr string, command []string, stdout, stderr io.Writer) error {
-	clt, err := r.GetClient(ctx, addr)
+func (r *Remoter) Exec(ctx context.Context, addr string, command []string, stdout, stderr io.Writer) error {
+	clt, err := r.agents.GetClient(ctx, addr)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = clt.Command(ctx, r.FieldLogger, stdout, stderr, command...)
+	err = clt.Command(ctx, r.log, stdout, stderr, command...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -92,8 +92,8 @@ func (r *remote) Exec(ctx context.Context, addr string, command []string, stdout
 }
 
 // CheckPorts executes network test to test port availability.
-func (r *remote) CheckPorts(ctx context.Context, req PingPongGame) (PingPongGameResults, error) {
-	resp, err := pingPong(ctx, r, req, ports)
+func (r *Remoter) CheckPorts(ctx context.Context, req PingPongGame) (PingPongGameResults, error) {
+	resp, err := pingPong(ctx, r.agents, req, ports)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -101,8 +101,8 @@ func (r *remote) CheckPorts(ctx context.Context, req PingPongGame) (PingPongGame
 }
 
 // CheckBandwidth executes network bandwidth test.
-func (r *remote) CheckBandwidth(ctx context.Context, req PingPongGame) (PingPongGameResults, error) {
-	resp, err := pingPong(ctx, r, req, bandwidth)
+func (r *Remoter) CheckBandwidth(ctx context.Context, req PingPongGame) (PingPongGameResults, error) {
+	resp, err := pingPong(ctx, r.agents, req, bandwidth)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -110,8 +110,8 @@ func (r *remote) CheckBandwidth(ctx context.Context, req PingPongGame) (PingPong
 }
 
 // CheckDisks executes disk performance test.
-func (r *remote) CheckDisks(ctx context.Context, addr string, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error) {
-	clt, err := r.GetClient(ctx, addr)
+func (r *Remoter) CheckDisks(ctx context.Context, addr string, req *proto.CheckDisksRequest) (*proto.CheckDisksResponse, error) {
+	clt, err := r.agents.GetClient(ctx, addr)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -125,8 +125,8 @@ func (r *remote) CheckDisks(ctx context.Context, addr string, req *proto.CheckDi
 // Validate performs local checks on the specified node.
 //
 // Returns a list of failed test results.
-func (r *remote) Validate(ctx context.Context, addr string, config ValidateConfig) ([]*agentpb.Probe, error) {
-	clt, err := r.GetClient(ctx, addr)
+func (r *Remoter) Validate(ctx context.Context, addr string, config ValidateConfig) ([]*agentpb.Probe, error) {
+	clt, err := r.agents.GetClient(ctx, addr)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

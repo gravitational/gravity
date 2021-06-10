@@ -49,16 +49,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log = logrus.WithField(trace.Component, "checks")
-
 // New creates a new checker for the specified list of servers using given
 // set of server information payloads and the specified interface for
 // running remote commands.
-func New(config Config) (*checker, error) {
+func New(config Config) (*Checker, error) {
 	if err := config.check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &checker{Config: config}, nil
+	return &Checker{
+		config: config,
+		log:    logrus.WithField(trace.Component, "checks"),
+	}, nil
 }
 
 // Validate verifies the specified manifest against the host environment.
@@ -171,7 +172,7 @@ func (r *LocalChecksResult) GetFailed() []*agentpb.Probe {
 // ValidateLocal runs checks on the local node and returns their outcome
 func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksResult, error) {
 	if ifTestsDisabled() {
-		log.Infof("Skipping local checks due to %v set.", constants.PreflightChecksOffEnvVar)
+		logrus.Infof("Skipping local checks due to %v set.", constants.PreflightChecksOffEnvVar)
 		return &LocalChecksResult{}, nil
 	}
 
@@ -285,8 +286,8 @@ func DockerConfigFromSchemaValue(dockerSchema schema.Docker) (config storage.Doc
 	}
 }
 
-// Checker defines a preflight checker interface.
-type Checker interface {
+// Interface defines a preflight checker interface.
+type Interface interface {
 	// Run runs a full set of checks on the nodes configured in the checker.
 	Run(ctx context.Context) error
 	// CheckNode executes single-node checks (such as CPU/RAM requirements,
@@ -299,9 +300,11 @@ type Checker interface {
 	Check(ctx context.Context) []*agentpb.Probe
 }
 
-type checker struct {
-	// Config is the checker configuration.
-	Config
+// Checker is the runner for tests
+type Checker struct {
+	// config is the checker configuration.
+	config Config
+	log    logrus.FieldLogger
 }
 
 // Config represents the checker configuration.
@@ -356,7 +359,7 @@ type Server struct {
 }
 
 // Run runs a full set of checks on the servers specified in r.servers
-func (r *checker) Run(ctx context.Context) error {
+func (r *Checker) Run(ctx context.Context) error {
 	failed := r.Check(ctx)
 	if len(failed) != 0 {
 		return trace.BadParameter("The following checks failed:\n%v",
@@ -366,15 +369,15 @@ func (r *checker) Run(ctx context.Context) error {
 }
 
 // Check executes checks on r.servers and returns a list of failed probes.
-func (r *checker) Check(ctx context.Context) (failed []*agentpb.Probe) {
+func (r *Checker) Check(ctx context.Context) (failed []*agentpb.Probe) {
 	if ifTestsDisabled() {
-		log.Infof("Skipping checks due to %q set.",
+		r.log.Infof("Skipping checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	serverC := make(chan Server, len(r.Servers))
-	for _, server := range r.Servers {
+	serverC := make(chan Server, len(r.config.Servers))
+	for _, server := range r.config.Servers {
 		serverC <- server
 	}
 
@@ -408,52 +411,52 @@ func (r *checker) Check(ctx context.Context) (failed []*agentpb.Probe) {
 	wg.Wait()
 
 	// run checks that take all servers into account
-	failed = append(failed, r.CheckNodes(ctx, r.Servers)...)
+	failed = append(failed, r.CheckNodes(ctx, r.config.Servers)...)
 
 	return failed
 }
 
 // CheckNode executes checks for the provided individual server.
-func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agentpb.Probe) {
+func (r *Checker) CheckNode(ctx context.Context, server Server) (failed []*agentpb.Probe) {
 	if ifTestsDisabled() {
-		log.Infof("Skipping single-node checks due to %q set.",
+		r.log.Infof("Skipping single-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	requirements := r.Requirements[server.Server.Role]
+	requirements := r.config.Requirements[server.Server.Role]
 	validateCtx, cancel := context.WithTimeout(ctx, defaults.AgentValidationTimeout)
 	defer cancel()
 
-	failed, err := r.Remote.Validate(validateCtx, server.AdvertiseIP, ValidateConfig{
-		Manifest: r.Manifest,
+	failed, err := r.config.Remote.Validate(validateCtx, server.AdvertiseIP, ValidateConfig{
+		Manifest: r.config.Manifest,
 		Profile:  server.Server.Role,
 		Docker:   requirements.Docker,
 	})
 	if err != nil {
-		log.WithError(err).Warn("Failed to validate remote node.")
+		r.log.WithError(err).Warn("Failed to validate remote node.")
 		failed = append(failed, newFailedProbe(
 			fmt.Sprintf("Failed to validate node %v", server), err.Error()))
 	}
 
-	err = checkServerProfile(server, requirements)
+	err = r.checkServerProfile(server, requirements)
 	if err != nil {
-		log.WithError(err).Warn("Failed to validate profile requirements.")
+		r.log.WithError(err).Warn("Failed to validate profile requirements.")
 		failed = append(failed, newFailedProbe(
 			"Failed to validate profile requirements", err.Error()))
 	}
 
 	err = r.checkTempDir(ctx, server)
 	if err != nil {
-		log.WithError(err).Warn("Failed to validate temporary directory.")
+		r.log.WithError(err).Warn("Failed to validate temporary directory.")
 		failed = append(failed, newFailedProbe(
 			"Failed to validate temporary directory", err.Error()))
 	}
 
-	if server.IsMaster() && r.TestEtcdDisk {
+	if server.IsMaster() && r.config.TestEtcdDisk {
 		probes, err := r.checkEtcdDisk(ctx, server)
 		if err != nil {
-			log.WithError(err).Warn("Failed to validate etcd disk requirements.")
+			r.log.WithError(err).Warn("Failed to validate etcd disk requirements.")
 		}
 		// The checker will only return probes if etcd disk test succeeded and
 		// some iops/latency requirements are not met.
@@ -462,7 +465,7 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 
 	err = r.checkDisks(ctx, server)
 	if err != nil {
-		log.WithError(err).Warn("Failed to validate disk requirements.")
+		r.log.WithError(err).Warn("Failed to validate disk requirements.")
 		failed = append(failed, newFailedProbe(
 			"Failed to validate disk requirements", err.Error()))
 	}
@@ -471,33 +474,33 @@ func (r *checker) CheckNode(ctx context.Context, server Server) (failed []*agent
 }
 
 // CheckNodes executes checks that take all provided servers into account.
-func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*agentpb.Probe) {
+func (r *Checker) CheckNodes(ctx context.Context, servers []Server) (failed []*agentpb.Probe) {
 	if ifTestsDisabled() {
-		log.Infof("Skipping multi-node checks due to %q set.",
+		r.log.Infof("Skipping multi-node checks due to %q set.",
 			constants.PreflightChecksOffEnvVar)
 		return nil
 	}
 
-	err := checkTime(time.Now().UTC(), servers)
+	err := r.checkTime(time.Now().UTC(), servers)
 	if err != nil {
-		log.WithError(err).Warn("Failed to validate time drift requirements.")
+		r.log.WithError(err).Warn("Failed to validate time drift requirements.")
 		failed = append(failed, newFailedProbe(
 			"Failed to validate time drift requirement", err.Error()))
 	}
 
-	if r.TestPorts {
+	if r.config.TestPorts {
 		err = r.checkPorts(ctx, servers)
 		if err != nil {
-			log.WithError(err).Warn("Failed to validate port requirements.")
+			r.log.WithError(err).Warn("Failed to validate port requirements.")
 			failed = append(failed, newFailedProbe(
 				"Failed to validate port requirements", err.Error()))
 		}
 	}
 
-	if r.TestBandwidth {
+	if r.config.TestBandwidth {
 		err = r.checkBandwidth(ctx, servers)
 		if err != nil {
-			log.WithError(err).Warn("Failed to validate bandwidth requirements.")
+			r.log.WithError(err).Warn("Failed to validate bandwidth requirements.")
 			failed = append(failed, newFailedProbe(
 				"Failed to validate network bandwidth requirements", err.Error()))
 		}
@@ -507,8 +510,8 @@ func (r *checker) CheckNodes(ctx context.Context, servers []Server) (failed []*a
 }
 
 // checkDisks verifies that disk performance satisfies the profile requirements.
-func (r *checker) checkDisks(ctx context.Context, server Server) error {
-	requirements := r.Requirements[server.Server.Role]
+func (r *Checker) checkDisks(ctx context.Context, server Server) error {
+	requirements := r.config.Requirements[server.Server.Role]
 	targets, err := r.collectTargets(ctx, server, requirements)
 	if err != nil {
 		return trace.Wrap(err)
@@ -534,7 +537,7 @@ func (r *checker) checkDisks(ctx context.Context, server Server) error {
 				target.rate.String())
 		}
 
-		log.Infof("Server %q passed disk I/O check on %v: %v/s.",
+		r.log.Infof("Server %q passed disk I/O check on %v: %v/s.",
 			server.ServerInfo.GetHostname(), target, humanize.Bytes(maxBps))
 	}
 
@@ -542,25 +545,25 @@ func (r *checker) checkDisks(ctx context.Context, server Server) error {
 }
 
 // checkServerDisk runs a simple disk performance test and returns the write speed in bytes per second
-func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, target string) (uint64, error) {
+func (r *Checker) checkServerDisk(ctx context.Context, server storage.Server, target string) (uint64, error) {
 	var out bytes.Buffer
 
 	// remove the testfile after the test
 	defer func() {
 		// testfile was created only on real filesystem
 		if !strings.HasPrefix(target, "/dev") {
-			err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, nil, &out)
+			err := r.config.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", target}, nil, &out)
 			if err != nil {
-				log.WithField("output", out.String()).Warn("Failed to remove test file.")
+				r.log.WithField("output", out.String()).Warn("Failed to remove test file.")
 			}
 		}
 	}()
 
-	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{
+	err := r.config.Remote.Exec(ctx, server.AdvertiseIP, []string{
 		"dd", "if=/dev/zero", fmt.Sprintf("of=%v", target),
 		"bs=100K", "count=1024", "conv=fdatasync"}, &out, &out)
 	if err != nil {
-		log.WithFields(logrus.Fields{
+		r.log.WithFields(logrus.Fields{
 			"server-ip": server.AdvertiseIP,
 			"target":    target,
 			"output":    out.String(),
@@ -577,13 +580,13 @@ func (r *checker) checkServerDisk(ctx context.Context, server storage.Server, ta
 }
 
 // checkTempDir makes sure agents can create temporary files on servers
-func (r *checker) checkTempDir(ctx context.Context, server Server) error {
+func (r *Checker) checkTempDir(ctx context.Context, server Server) error {
 	filename := filepath.Join(server.TempDir, fmt.Sprintf("tmpcheck.%v", uuid.New()))
 	var out bytes.Buffer
 
-	err := r.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, nil, &out)
+	err := r.config.Remote.Exec(ctx, server.AdvertiseIP, []string{"touch", filename}, nil, &out)
 	if err != nil {
-		log.WithFields(logrus.Fields{
+		r.log.WithFields(logrus.Fields{
 			"filename":  filename,
 			"server-ip": server.AdvertiseIP,
 			"hostname":  server.ServerInfo.GetHostname(),
@@ -592,40 +595,36 @@ func (r *checker) checkTempDir(ctx context.Context, server Server) error {
 			filepath.Join(server.TempDir, filename), server.ServerInfo.GetHostname(), out.String())
 	}
 
-	err = r.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, nil, &out)
+	err = r.config.Remote.Exec(ctx, server.AdvertiseIP, []string{"rm", filename}, nil, &out)
 	if err != nil {
-		log.WithFields(logrus.Fields{
+		r.log.WithFields(logrus.Fields{
 			"path":      filename,
 			"server-ip": server.AdvertiseIP,
 			"output":    out.String(),
 		}).Warn("Failed to delete.")
 	}
 
-	log.Infof("Server %q passed temp directory check: %v.",
+	r.log.Infof("Server %q passed temp directory check: %v.",
 		server.ServerInfo.GetHostname(), server.TempDir)
 	return nil
 }
 
 // checkPorts makes sure ports specified in profile are unoccupied and reachable
-func (r *checker) checkPorts(ctx context.Context, servers []Server) error {
-	req, err := constructPingPongRequest(servers, r.Requirements)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	log.Infof("Ping pong request: %v.", req)
+func (r *Checker) checkPorts(ctx context.Context, servers []Server) error {
+	req := constructPingPongRequest(servers, r.config.Requirements)
+	r.log.Infof("Ping pong request: %v.", req)
 
 	if len(req) == 0 {
-		log.Info("Empty ping pong request.")
+		r.log.Info("Empty ping pong request.")
 		return nil
 	}
 
-	resp, err := r.Remote.CheckPorts(ctx, req)
+	resp, err := r.config.Remote.CheckPorts(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	log.Infof("Ping pong response: %v.", resp)
+	r.log.Infof("Ping pong response: %v.", resp)
 
 	if len(resp.Failures()) != 0 {
 		return trace.BadParameter(strings.Join(resp.Failures(), ", "))
@@ -636,24 +635,20 @@ func (r *checker) checkPorts(ctx context.Context, servers []Server) error {
 
 // checkBandwidth measures network bandwidth between servers and makes sure it satisfies
 // the profile
-func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
+func (r *Checker) checkBandwidth(ctx context.Context, servers []Server) error {
 	if len(servers) < 2 {
 		return nil
 	}
 
-	req, err := constructBandwidthRequest(servers)
+	req := constructBandwidthRequest(servers)
+	r.log.Infof("Bandwidth test request: %v.", req)
+
+	resp, err := r.config.Remote.CheckBandwidth(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	log.Infof("Bandwidth test request: %v.", req)
-
-	resp, err := r.Remote.CheckBandwidth(ctx, req)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	log.Infof("Bandwidth test response: %v.", resp)
+	r.log.Infof("Bandwidth test response: %v.", resp)
 
 	if len(resp.Failures()) != 0 {
 		return trace.BadParameter("%v", strings.Join(resp.Failures(), ", "))
@@ -666,7 +661,7 @@ func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
 			return trace.Wrap(err)
 		}
 
-		requirements := r.Requirements[server.Server.Role]
+		requirements := r.config.Requirements[server.Server.Role]
 		transferRate := requirements.Network.MinTransferRate
 		if result.BandwidthResult < transferRate.BytesPerSecond() {
 			return trace.BadParameter(
@@ -676,7 +671,7 @@ func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
 				transferRate.String())
 		}
 
-		log.Infof("Server %q network bandwidth: %v/s.",
+		r.log.Infof("Server %q network bandwidth: %v/s.",
 			server.ServerInfo.GetHostname(), humanize.Bytes(result.BandwidthResult))
 	}
 
@@ -685,7 +680,7 @@ func (r *checker) checkBandwidth(ctx context.Context, servers []Server) error {
 
 // collectTargets returns a list of targets (devices or existing filesystems)
 // for the disk performance test
-func (r *checker) collectTargets(ctx context.Context, server Server, requirements Requirements) ([]diskCheckTarget, error) {
+func (r *Checker) collectTargets(ctx context.Context, server Server, requirements Requirements) ([]diskCheckTarget, error) {
 	var targets []diskCheckTarget
 
 	// Explicit system state directory disk performance target
@@ -694,7 +689,7 @@ func (r *checker) collectTargets(ctx context.Context, server Server, requirement
 		rate: defaultTransferRate,
 	})
 
-	remote := &serverRemote{server, r.Remote}
+	remote := &serverRemote{server, r.config.Remote}
 	// check if there's a system device specified
 	if path := getDevicePath(server.SystemState.Device.Name,
 		storage.DeviceName(server.SystemDevice)); path != "" {
@@ -762,16 +757,16 @@ func (r diskCheckTarget) String() string {
 
 // checkServerProfile checks information for a single server collected by agent
 // against its profile
-func checkServerProfile(server Server, requirements Requirements) error {
+func (r *Checker) checkServerProfile(server Server, requirements Requirements) error {
 	if requirements.CPU != nil {
-		err := checkCPU(server.ServerInfo, *requirements.CPU)
+		err := r.checkCPU(server.ServerInfo, *requirements.CPU)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 
 	if requirements.RAM != nil {
-		err := checkRAM(server.ServerInfo, *requirements.RAM)
+		err := r.checkRAM(server.ServerInfo, *requirements.RAM)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -781,7 +776,7 @@ func checkServerProfile(server Server, requirements Requirements) error {
 }
 
 // checkCPU makes sure server's CPU count satisfies the profile
-func checkCPU(info ServerInfo, cpu schema.CPU) error {
+func (r *Checker) checkCPU(info ServerInfo, cpu schema.CPU) error {
 	if info.GetNumCPU() < uint(cpu.Min) {
 		return trace.BadParameter("server %q has %v CPUs which is less than required minimum of %v",
 			info.GetHostname(), info.GetNumCPU(), cpu.Min)
@@ -792,12 +787,12 @@ func checkCPU(info ServerInfo, cpu schema.CPU) error {
 			info.GetHostname(), info.GetNumCPU(), cpu.Max)
 	}
 
-	log.Infof("Server %q passed CPU check: %v.", info.GetHostname(), info.GetNumCPU())
+	r.log.Infof("Server %q passed CPU check: %v.", info.GetHostname(), info.GetNumCPU())
 	return nil
 }
 
 // checkRAM makes sure server's RAM amount satisfies the profile
-func checkRAM(info ServerInfo, ram schema.RAM) error {
+func (r *Checker) checkRAM(info ServerInfo, ram schema.RAM) error {
 	if info.GetMemory().Total < ram.Min.Bytes() {
 		return trace.BadParameter("server %q has %v RAM which is less than required minimum of %v",
 			info.GetHostname(), humanize.Bytes(info.GetMemory().Total), ram.Min.String())
@@ -808,13 +803,13 @@ func checkRAM(info ServerInfo, ram schema.RAM) error {
 			info.GetHostname(), humanize.Bytes(info.GetMemory().Total), ram.Max.String())
 	}
 
-	log.Infof("Server %q passed RAM check: %v.", info.GetHostname(),
+	r.log.Infof("Server %q passed RAM check: %v.", info.GetHostname(),
 		humanize.Bytes(info.GetMemory().Total))
 	return nil
 }
 
 // checkTime checks if time it out of sync between servers
-func checkTime(currentTime time.Time, servers []Server) error {
+func (r *Checker) checkTime(currentTime time.Time, servers []Server) error {
 	// server can not be out of sync with itself
 	if len(servers) < 2 {
 		return nil
@@ -839,7 +834,7 @@ func checkTime(currentTime time.Time, servers []Server) error {
 		}
 	}
 
-	log.Infof("Servers %v passed time drift check.", servers)
+	r.log.Infof("Servers %v passed time drift check.", servers)
 	return nil
 }
 
@@ -916,7 +911,7 @@ func portRange(rs []schema.PortRange) (result []monitoring.PortRange) {
 }
 
 // constructPingPongRequest constructs a regular ping-pong game request
-func constructPingPongRequest(servers []Server, requirements map[string]Requirements) (PingPongGame, error) {
+func constructPingPongRequest(servers []Server, requirements map[string]Requirements) PingPongGame {
 	game := make(PingPongGame, len(servers))
 	var listenServers []validationpb.Addr
 	for _, server := range servers {
@@ -954,11 +949,11 @@ func constructPingPongRequest(servers []Server, requirements map[string]Requirem
 		game[ip] = req
 	}
 
-	return game, nil
+	return game
 }
 
 // constructBandwidthRequest constructs a ping-pong game request for a bandwidth test
-func constructBandwidthRequest(servers []Server) (PingPongGame, error) {
+func constructBandwidthRequest(servers []Server) PingPongGame {
 	// use up to defaults.BandwidthTestMaxServers servers for the test
 	servers = servers[:utils.Min(len(servers), defaults.BandwidthTestMaxServers)]
 
@@ -983,7 +978,7 @@ func constructBandwidthRequest(servers []Server) (PingPongGame, error) {
 		}
 	}
 
-	return game, nil
+	return game
 }
 
 func findServer(servers []Server, addr string) (*Server, error) {

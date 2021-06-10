@@ -46,7 +46,7 @@ const (
 	ModeBandwidth = "bandwidth"
 )
 
-// Checks makes sure the request is correct
+// Check makes sure the request is correct
 func (r PingPongRequest) Check() error {
 	if !utils.StringInSlice([]string{ModePingPong, ModeBandwidth}, r.Mode) {
 		return trace.BadParameter("unsupported mode %q", r.Mode)
@@ -89,8 +89,8 @@ func (r PingPongRequest) PortsProto() *pb.CheckPortsRequest {
 func (r PingPongRequest) BandwidthProto() *pb.CheckBandwidthRequest {
 	listen := r.Listen[0]
 	var pings []*pb.Addr
-	for _, ping := range r.Ping {
-		pings = append(pings, &ping)
+	for i := range r.Ping {
+		pings = append(pings, &r.Ping[i])
 	}
 	return &pb.CheckBandwidthRequest{
 		Listen:   &listen,
@@ -127,7 +127,7 @@ func ResultFromBandwidthProto(resp *pb.CheckBandwidthResponse, err error) *PingP
 
 // PingPongResult is a result of a ping-pong game
 type PingPongResult struct {
-	// Code means that the whole operation has succeded
+	// Code means that the whole operation has succeeded
 	// 0 does not mean that all results are success, it just
 	// means that experiment went uninterrupted, and there
 	// still can be some failures in results
@@ -147,12 +147,12 @@ func (r PingPongResult) FailureCount() int {
 	var count int
 	for _, l := range r.ListenResults {
 		if l.Code != 0 {
-			count += 1
+			count++
 		}
 	}
 	for _, p := range r.PingResults {
 		if p.Code != 0 {
-			count += 1
+			count++
 		}
 	}
 	return count

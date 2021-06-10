@@ -73,7 +73,7 @@ type checksExecutor struct {
 
 // Execute executes preflight checks on the joining node.
 func (p *checksExecutor) Execute(ctx context.Context) (err error) {
-	var checker checks.Checker
+	var checker checks.Interface
 	if p.Phase.Data.Server.IsMaster() {
 		checker, err = p.getMasterChecker(ctx)
 	} else {
@@ -109,7 +109,7 @@ func (p *checksExecutor) Execute(ctx context.Context) (err error) {
 // In addition to the local node checks, it also makes sure that there's no
 // time drift between this and other master which is important since it's
 // going to run a full etcd member.
-func (p *checksExecutor) getMasterChecker(ctx context.Context) (checks.Checker, error) {
+func (p *checksExecutor) getMasterChecker(ctx context.Context) (checks.Interface, error) {
 	master, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Master)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -130,7 +130,7 @@ func (p *checksExecutor) getMasterChecker(ctx context.Context) (checks.Checker, 
 }
 
 // getNodeChecker returns a checker that performs checks when adding a regular node.
-func (p *checksExecutor) getNodeChecker(ctx context.Context) (checks.Checker, error) {
+func (p *checksExecutor) getNodeChecker(ctx context.Context) (checks.Interface, error) {
 	node, err := checks.GetServer(ctx, p.Runner, *p.Phase.Data.Server)
 	if err != nil {
 		return nil, trace.Wrap(err)
