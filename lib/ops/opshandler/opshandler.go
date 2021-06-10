@@ -2396,10 +2396,9 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 	}
 
 	// Enrich the request context with additional auth info.
-	ctx := r.Context()
-	ctx = context.WithValue(ctx, constants.UserContext, authResult.User.GetName())
+	ctx := ops.NewUserContext(r.Context(), authResult.User.GetName())
 	if authResult.Session != nil {
-		ctx = context.WithValue(ctx, constants.WebSessionContext, authResult.Session.GetWebSession())
+		ctx = ops.NewSessionContext(ctx, authResult.Session.GetWebSession())
 	}
 
 	// create a permission aware wrapper packages service
@@ -2412,7 +2411,7 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 		return nil, trace.BadParameter("internal server error")
 	}
 	// enrich context with operator bound to current user
-	ctx = context.WithValue(ctx, constants.OperatorContext, wrappedOperator)
+	ctx = ops.NewOperatorContext(ctx, wrappedOperator)
 	handlerContext := &HandlerContext{
 		Operator: wrappedOperator,
 		User:     authResult.User,

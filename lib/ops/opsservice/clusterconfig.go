@@ -138,7 +138,7 @@ func (s *site) createUpdateConfigOperation(ctx context.Context, req ops.CreateUp
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationUpdateConfig,
 		Created:    s.clock().UtcNow(),
-		CreatedBy:  storage.UserFromContext(ctx),
+		CreatedBy:  ops.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateConfigInProgress,
 		UpdateConfig: &storage.UpdateConfigOperationState{

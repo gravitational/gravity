@@ -63,7 +63,7 @@ func (s *site) createShrinkOperation(context context.Context, req ops.CreateSite
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   storage.UserFromContext(context),
+		CreatedBy:   ops.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,

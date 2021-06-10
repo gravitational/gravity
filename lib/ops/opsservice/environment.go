@@ -144,7 +144,7 @@ func (s *site) createUpdateEnvarsOperation(ctx context.Context, req ops.CreateUp
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationUpdateRuntimeEnviron,
 		Created:    s.clock().UtcNow(),
-		CreatedBy:  storage.UserFromContext(ctx),
+		CreatedBy:  ops.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationUpdateRuntimeEnvironInProgress,
 		UpdateEnviron: &storage.UpdateEnvarsOperationState{

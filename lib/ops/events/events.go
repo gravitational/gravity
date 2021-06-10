@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/trace"
@@ -60,8 +59,8 @@ func emit(ctx context.Context, operator ops.Operator, event events.Event, fields
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if fields.GetString(FieldUser) == "" && storage.UserFromContext(ctx) != "" {
-		fields[FieldUser] = storage.UserFromContext(ctx)
+	if fields.GetString(FieldUser) == "" && ops.UserFromContext(ctx) != "" {
+		fields[FieldUser] = ops.UserFromContext(ctx)
 	}
 	return operator.EmitAuditEvent(ctx, ops.AuditEventRequest{
 		SiteKey: cluster.Key(),

@@ -556,14 +556,12 @@ func (p *Process) startAutoscale(ctx context.Context) error {
 
 	// receive and process events from SQS notification service
 	p.RegisterClusterService(func(ctx context.Context) {
-		localCtx := context.WithValue(ctx, constants.UserContext,
-			constants.ServiceAutoscaler)
+		localCtx := ops.NewUserContext(ctx, constants.ServiceAutoscaler)
 		autoscaler.ProcessEvents(localCtx, queueURL, p.operator)
 	})
 	// publish discovery information about this cluster
 	p.RegisterClusterService(func(ctx context.Context) {
-		localCtx := context.WithValue(ctx, constants.UserContext,
-			constants.ServiceAutoscaler)
+		localCtx := ops.NewUserContext(ctx, constants.ServiceAutoscaler)
 		autoscaler.PublishDiscovery(localCtx, p.operator)
 	})
 	return nil
@@ -820,8 +818,7 @@ func (p *Process) runSiteStatusChecker(ctx context.Context) {
 	p.Info("Starting cluster status checker.")
 	ticker := time.NewTicker(defaults.SiteStatusCheckInterval)
 	defer ticker.Stop()
-	localCtx := context.WithValue(ctx, constants.UserContext,
-		constants.ServiceStatusChecker)
+	localCtx := ops.NewUserContext(ctx, constants.ServiceStatusChecker)
 	for {
 		select {
 		case <-ticker.C:
@@ -1928,6 +1925,7 @@ func (p *Process) newTLSConfig(certPEM, keyPEM []byte) (*tls.Config, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	//nolint:gosec // TODO: set MinVersion
 	config := &tls.Config{}
 
 	config.GetCertificate = func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -2010,8 +2008,7 @@ func (p *Process) initClusterCertificate(ctx context.Context, client *kubernetes
 		return trace.Wrap(err)
 	}
 
-	localCtx := context.WithValue(ctx, constants.UserContext,
-		constants.ServiceSystem)
+	localCtx := ops.NewUserContext(ctx, constants.ServiceSystem)
 
 	_, err = p.operator.UpdateClusterCertificate(localCtx, ops.UpdateCertificateRequest{
 		AccountID:   site.AccountID,
@@ -2277,7 +2274,7 @@ func (p *Process) ensureClusterState() error {
 		state = append(state, server)
 	}
 	site.ClusterState.Servers = append(site.ClusterState.Servers, state...)
-	_, err = p.backend.UpdateSite(*(*storage.Site)(site))
+	_, err = p.backend.UpdateSite(*site)
 	if err != nil {
 		return trace.Wrap(err)
 	}

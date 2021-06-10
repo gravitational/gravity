@@ -46,7 +46,7 @@ func (o *Operator) CreateClusterReconfigureOperation(ctx context.Context, req op
 		SiteDomain:    req.SiteDomain,
 		Type:          ops.OperationReconfigure,
 		Created:       cluster.clock().UtcNow(),
-		CreatedBy:     storage.UserFromContext(ctx),
+		CreatedBy:     ops.UserFromContext(ctx),
 		Updated:       cluster.clock().UtcNow(),
 		State:         ops.OperationReconfigureInProgress,
 		Servers:       req.Servers,

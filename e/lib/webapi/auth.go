@@ -103,7 +103,7 @@ func ConsoleLogin(opsCenterURL, connectorID string, ttl time.Duration, insecure 
 		}
 
 		var re *users.LoginEntry
-		err = json.Unmarshal([]byte(out), &re)
+		err = json.Unmarshal(out, &re)
 		if err != nil {
 			return nil, trace.BadParameter("failed to decode response in %v, err: %v", r.URL.String(), err)
 		}
@@ -232,6 +232,7 @@ func newInsecureClient() *http.Client {
 func newClientWithPool(pool *x509.CertPool) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
+			//nolint:gosec // TODO: set MinVersion
 			TLSClientConfig: &tls.Config{RootCAs: pool},
 		},
 	}

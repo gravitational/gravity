@@ -128,6 +128,7 @@ func New(accessKey, secretKey, sessionToken string) *provider {
 
 // Validate runs permission validation against the given set of actions (resources)
 // and obtains basic cloud provider metadata.
+//nolint::revive // ctx will be moved to front in a separate PR
 func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx context.Context) (*ValidateOutput, error) {
 	// FIXME: assuming a default region for the permissions check as the region
 	// is not specified in input.

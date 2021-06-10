@@ -55,7 +55,7 @@ func (o *Operator) CreateUserInvite(ctx context.Context, req ops.CreateUserInvit
 	}
 	invite, err := o.users().CreateInviteToken(publicURL, storage.UserInvite{
 		Name:      req.Name,
-		CreatedBy: storage.UserFromContext(ctx),
+		CreatedBy: ops.UserFromContext(ctx),
 		Roles:     req.Roles,
 		ExpiresIn: req.TTL,
 	})

@@ -107,7 +107,7 @@ func (s *site) createInstallExpandOperation(context context.Context, req createI
 		SiteDomain:  s.key.SiteDomain,
 		Type:        operationType,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   storage.UserFromContext(context),
+		CreatedBy:   ops.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       operationInitialState,
 		Provisioner: provisioner,

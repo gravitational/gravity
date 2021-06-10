@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
@@ -39,7 +38,7 @@ func (s *site) createGarbageCollectOperation(ctx context.Context, req ops.Create
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationGarbageCollect,
 		Created:    s.clock().UtcNow(),
-		CreatedBy:  storage.UserFromContext(ctx),
+		CreatedBy:  ops.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationGarbageCollectInProgress,
 	}

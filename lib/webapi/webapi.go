@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
-	appsapi "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/clients"
 	"github.com/gravitational/gravity/lib/cloudprovider/aws"
 	awsservice "github.com/gravitational/gravity/lib/cloudprovider/aws/service"
@@ -81,7 +80,7 @@ type Config struct {
 	// Operator is the interface to operations service
 	Operator ops.Operator
 	// Applications is the interface to application management service
-	Applications appsapi.Applications
+	Applications app.Applications
 	// Packages is the interface to package management service
 	Packages pack.PackageService
 	// Providers defines cloud provider-specific functionality
@@ -592,7 +591,7 @@ type AuthContext struct {
 	// Operator is the interface to operations service
 	Operator *ops.OperatorACL
 	// Applications is the interface to application management service
-	Applications appsapi.Applications
+	Applications app.Applications
 	// Packages is the interface to package management service
 	Packages pack.PackageService
 	// Identity is identity service
@@ -625,7 +624,7 @@ func (m *Handler) GetHandlerContext(w http.ResponseWriter, r *http.Request) (*Au
 	}
 	return &AuthContext{
 		// Enrich request context with authenticated user information.
-		Context:        context.WithValue(r.Context(), constants.UserContext, user.GetName()),
+		Context:        ops.NewUserContext(r.Context(), user.GetName()),
 		User:           user,
 		Operator:       ops.OperatorWithACL(m.cfg.Operator, m.cfg.Identity, user, checker),
 		Applications:   app.ApplicationsWithACL(m.cfg.Applications, m.cfg.Identity, user, checker),
@@ -771,7 +770,7 @@ func (m *Handler) validateProvider(w http.ResponseWriter, r *http.Request, p htt
 		return nil, trace.Wrap(err)
 	}
 
-	result, err := m.cfg.Providers.Validate(&req, context.TODO())
+	result, err := m.cfg.Providers.Validate(context.TODO(), &req)
 	if err != nil {
 		if _, ok := trace.Unwrap(err).(awsservice.VerificationError); ok {
 			w.WriteHeader(http.StatusForbidden)
@@ -1311,14 +1310,14 @@ func (m *Handler) getApps(w http.ResponseWriter, r *http.Request, p httprouter.P
 		}
 	}
 
-	apps, err := appService.ListApps(appsapi.ListAppsRequest{
+	apps, err := appService.ListApps(app.ListAppsRequest{
 		Repository: site.App.Package.Repository,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	var out []appsapi.Application
+	var out []app.Application
 	for _, app := range apps {
 		// Filter out application images as UI does not support them yet.
 		if app.Manifest.Kind == schema.KindApplication {
@@ -1353,9 +1352,9 @@ func (m *Handler) uploadApp(w http.ResponseWriter, r *http.Request, p httprouter
 		return nil, trace.BadParameter("expected a single file but got %v", len(files))
 	}
 
-	progressC := make(chan *appsapi.ProgressEntry)
+	progressC := make(chan *app.ProgressEntry)
 	errorC := make(chan error, 1)
-	req := &appsapi.ImportRequest{
+	req := &app.ImportRequest{
 		Source:    files[0],
 		Email:     context.User.GetName(),
 		ProgressC: progressC,
@@ -1884,7 +1883,7 @@ type sliderItem struct {
 }
 
 // getSliderOptions returns a list of app flavors that satisfy the provided license.
-func getSliderOptions(site *ops.Site, app *appsapi.Application, license *licenseapi.Payload) sliderOptions {
+func getSliderOptions(site *ops.Site, app *app.Application, license *licenseapi.Payload) sliderOptions {
 	// if the app does not have flavors, return an empty list right away
 	if len(app.Manifest.Installer.Flavors.Items) == 0 {
 		return sliderOptions{}
@@ -1951,7 +1950,7 @@ FlavorsLoop:
 			}
 		}
 
-		// the flavor satisfies all the criterias, add it to the resulting list
+		// the flavor satisfies all the criteria, add it to the resulting list
 		options.Items = append(
 			options.Items, flavorToSliderOption(flavor, allowedInstanceTypes))
 	}

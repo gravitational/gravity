@@ -41,7 +41,7 @@ type updateLicenseInput struct {
 // {
 //   "message": "ok"
 // }
-func (m *Handler) updateLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
+func (*Handler) updateLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, ctx *authContext) (interface{}, error) {
 	var input updateLicenseInput
 	if err := telehttplib.ReadJSON(r, &input); err != nil {
 		return nil, trace.Wrap(err)
@@ -73,7 +73,7 @@ type newLicenseOutput struct {
 // Input: newLicenseInput
 //
 // Output: newLicenseOutput
-func (m *Handler) newLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *authContext) (interface{}, error) {
+func (*Handler) newLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *authContext) (interface{}, error) {
 	var input newLicenseInput
 	if err := telehttplib.ReadJSON(r, &input); err != nil {
 		return nil, trace.Wrap(err)
@@ -104,13 +104,13 @@ type validateLicenseInput struct {
 // Input: validateLicenseInput
 //
 // Output: { "message": "OK" }
-func (m *Handler) validateLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *authContext) (interface{}, error) {
+func (h *Handler) validateLicense(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *authContext) (interface{}, error) {
 	var input validateLicenseInput
 	if err := telehttplib.ReadJSON(r, &input); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	err := ossops.VerifyLicense(m.GetConfig().Packages, input.License)
+	err := ossops.VerifyLicense(h.GetConfig().Packages, input.License)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

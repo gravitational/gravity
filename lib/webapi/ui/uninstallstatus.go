@@ -23,7 +23,7 @@ import (
 )
 
 // UninstallStatus describes the status of uninstall operation
-type uninstallStatus struct {
+type UninstallStatus struct {
 	// ClusterName is cluster name
 	ClusterName string `json:"siteDomain"`
 	// State is a state of uninstall operation
@@ -38,8 +38,8 @@ type uninstallStatus struct {
 
 // GetUninstallStatus returns a status of uninstall operation. Since 'not-found' cluster indicates that
 // a cluster has been successfully deleted, it's to be treated as such.
-func GetUninstallStatus(accountID string, clusterName string, operator ops.Operator) (*uninstallStatus, error) {
-	uninstallStatus := &uninstallStatus{
+func GetUninstallStatus(accountID string, clusterName string, operator ops.Operator) (*UninstallStatus, error) {
+	uninstallStatus := &UninstallStatus{
 		ClusterName: clusterName,
 		State:       ops.OperationStateCompleted,
 	}

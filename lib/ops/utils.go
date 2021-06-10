@@ -29,6 +29,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	licenseapi "github.com/gravitational/license"
+	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 )
 
@@ -414,3 +415,62 @@ func MatchByType(opType string) OperationMatcher {
 
 // OperationMatcher is a function type that matches the given operation
 type OperationMatcher func(SiteOperation) bool
+
+// UserFromContext extracts name of the user attached to the provided context.
+//
+// Returns an empty string if no user is attached.
+func UserFromContext(ctx context.Context) string {
+	user, ok := ctx.Value(userContext).(string)
+	if !ok {
+		return ""
+	}
+	return user
+}
+
+// NewUserContext returns a new context with the specified user name
+func NewUserContext(ctx context.Context, user string) context.Context {
+	return context.WithValue(ctx, userContext, user)
+}
+
+// OperatorFromContext extracts the operator from the specified context if present.
+func OperatorFromContext(ctx context.Context) Operator {
+	operator, ok := ctx.Value(operatorContext).(Operator)
+	if !ok {
+		return nil
+	}
+	return operator
+}
+
+// NewOperatorContext returns a new context with the specified user name
+func NewOperatorContext(ctx context.Context, operator Operator) context.Context {
+	return context.WithValue(ctx, operatorContext, operator)
+}
+
+// SessionFromContext extracts the web session from the specified context if present.
+func SessionFromContext(ctx context.Context) teleservices.WebSession {
+	session, ok := ctx.Value(webSessionContext).(teleservices.WebSession)
+	if !ok {
+		return nil
+	}
+	return session
+}
+
+// NewSessionContext returns a new context with the specified web session
+func NewSessionContext(ctx context.Context, session teleservices.WebSession) context.Context {
+	return context.WithValue(ctx, webSessionContext, session)
+}
+
+const (
+	// userContext is a context field that contains authenticated user name
+	userContext contextKey = iota
+
+	// webSessionContext is for web sessions stored in the current context
+	webSessionContext
+
+	// operatorContext is for operator associated with User ACL context
+	operatorContext
+)
+
+// contextKey defines the type for context keys that carry additional ops details.
+// Unexported to prevent collisions with context keys from other packages
+type contextKey int
