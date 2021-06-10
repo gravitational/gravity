@@ -31,11 +31,12 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 )
 
-// Client is high level RPC agent interface
-type Client interface {
+// Interface is high level RPC agent interface
+type Interface interface {
 	// Command executes the command specified with args remotely
 	Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error
 	// GravityCommand executes the gravity command specified with args remotely
@@ -76,9 +77,14 @@ type Config struct {
 // New establishes connection to remote gRPC server
 // note that if connection is unavailable, it will try to establish it
 // until context provided expires
-func New(ctx context.Context, config Config) (*client, error) {
+func New(ctx context.Context, config Config) (*Client, error) {
+	bc := backoff.DefaultConfig
+	bc.MaxDelay = defaults.RPCAgentBackoffThreshold
 	opts := []grpc.DialOption{
-		grpc.WithBackoffMaxDelay(defaults.RPCAgentBackoffThreshold),
+		// See https://github.com/grpc/grpc-go/issues/4461
+		grpc.WithConnectParams(grpc.ConnectParams{
+			Backoff: bc,
+		}),
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(config.Credentials),
 	}
@@ -89,7 +95,7 @@ func New(ctx context.Context, config Config) (*client, error) {
 			"failed to establish connection to server at %v", config.ServerAddr)
 	}
 
-	return &client{
+	return &Client{
 		agent:      pb.NewAgentClient(conn),
 		discovery:  pb.NewDiscoveryClient(conn),
 		validation: validationpb.NewValidationClient(conn),
@@ -98,8 +104,8 @@ func New(ctx context.Context, config Config) (*client, error) {
 }
 
 // NewFromConn creates a new client based on existing connection conn
-func NewFromConn(conn *grpc.ClientConn) *client {
-	return &client{
+func NewFromConn(conn *grpc.ClientConn) *Client {
+	return &Client{
 		agent:      pb.NewAgentClient(conn),
 		discovery:  pb.NewDiscoveryClient(conn),
 		validation: validationpb.NewValidationClient(conn),
@@ -108,11 +114,12 @@ func NewFromConn(conn *grpc.ClientConn) *client {
 }
 
 // Close closes the underlying connection
-func (c *client) Close() error {
+func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-type client struct {
+// Client is the RPC client
+type Client struct {
 	agent      pb.AgentClient
 	discovery  pb.DiscoveryClient
 	validation validationpb.ValidationClient

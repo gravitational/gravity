@@ -33,7 +33,7 @@ import (
 )
 
 // Command executes the command specified with args on remote node
-func (c *client) Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
+func (c *Client) Command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	err := c.command(ctx, log, stdout, stderr, &pb.CommandArgs{
 		Args: args,
 	})
@@ -42,7 +42,7 @@ func (c *client) Command(ctx context.Context, log logrus.FieldLogger, stdout, st
 
 // GravityCommand executes the gravity command specified with args on remote node.
 // The command uses the same gravity binary that runs the agent.
-func (c *client) GravityCommand(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
+func (c *Client) GravityCommand(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args ...string) error {
 	err := c.command(ctx, log, stdout, stderr, &pb.CommandArgs{
 		SelfCommand: true,
 		Args:        args,
@@ -52,7 +52,7 @@ func (c *client) GravityCommand(ctx context.Context, log logrus.FieldLogger, std
 
 // Validate validates the node against the specified manifest and profile.
 // Returns the list of failed probes
-func (c *client) Validate(ctx context.Context, req *validationpb.ValidateRequest) ([]*agentpb.Probe, error) {
+func (c *Client) Validate(ctx context.Context, req *validationpb.ValidateRequest) ([]*agentpb.Probe, error) {
 	resp, err := c.validation.Validate(ctx, req)
 	if resp != nil {
 		return resp.Failed, trace.Wrap(err)
@@ -61,7 +61,7 @@ func (c *client) Validate(ctx context.Context, req *validationpb.ValidateRequest
 }
 
 // Shutdown requests remote agent to quit
-func (c *client) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
+func (c *Client) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 	_, err := c.agent.Shutdown(ctx, req)
 	if err != nil {
 		return trace.Wrap(err)
@@ -71,7 +71,7 @@ func (c *client) Shutdown(ctx context.Context, req *pb.ShutdownRequest) error {
 }
 
 // Abort requests remote agent to abort operation
-func (c *client) Abort(ctx context.Context) error {
+func (c *Client) Abort(ctx context.Context) error {
 	_, err := c.agent.Abort(ctx, &types.Empty{})
 	if err != nil {
 		return trace.Wrap(err)
@@ -80,7 +80,7 @@ func (c *client) Abort(ctx context.Context) error {
 	return trace.Wrap(c.Close())
 }
 
-func (c *client) command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args *pb.CommandArgs) error {
+func (c *Client) command(ctx context.Context, log logrus.FieldLogger, stdout, stderr io.Writer, args *pb.CommandArgs) error {
 	if len(args.Args) < 1 {
 		return trace.BadParameter("at least one argument is required")
 	}
@@ -120,13 +120,13 @@ func processStream(stream pb.IncomingMessageStream, log logrus.FieldLogger, stdo
 		case *pb.Message_ExecOutput:
 			err = trace.Wrap(streamCtx.processExecOutput(elem.ExecOutput, stdout, stderr))
 		case *pb.Message_ExecStarted:
-			err = trace.Wrap(streamCtx.processExecStarted(elem.ExecStarted))
+			streamCtx.processExecStarted(elem.ExecStarted)
 		case *pb.Message_ExecCompleted:
-			err = trace.Wrap(streamCtx.processExecCompleted(elem.ExecCompleted))
+			streamCtx.processExecCompleted(elem.ExecCompleted)
 		case *pb.Message_LogEntry:
-			err = trace.Wrap(streamCtx.processLogEntry(elem.LogEntry))
+			streamCtx.processLogEntry(elem.LogEntry)
 		case *pb.Message_Error:
-			err = trace.Wrap(streamCtx.processError(elem.Error))
+			streamCtx.processError(elem.Error)
 		default:
 			err = trace.BadParameter("unexpected message %+v", msg.Element)
 		}
@@ -162,23 +162,21 @@ func (s *streamContext) processExecOutput(msg *pb.ExecOutput, stdout, stderr io.
 	return nil
 }
 
-func (s *streamContext) processExecStarted(msg *pb.ExecStarted) error {
+func (s *streamContext) processExecStarted(msg *pb.ExecStarted) {
 	s.commands[msg.Seq] = msg.Args
 	s.log.WithFields(logrus.Fields{trace.Component: "rpc",
 		"seq": msg.Seq,
 	}).Debugf("Run %q.", msg.Args)
-	return nil
 }
 
-func (s *streamContext) processExecCompleted(msg *pb.ExecCompleted) error {
+func (s *streamContext) processExecCompleted(msg *pb.ExecCompleted) {
 	s.log.WithFields(logrus.Fields{trace.Component: "rpc",
 		"seq":  msg.Seq,
 		"exit": msg.ExitCode,
 	}).Debug("Completed.")
-	return nil
 }
 
-func (s *streamContext) processLogEntry(msg *pb.LogEntry) error {
+func (s *streamContext) processLogEntry(msg *pb.LogEntry) {
 	fields := logrus.Fields{}
 	for k, v := range msg.Fields {
 		fields[k] = v
@@ -201,11 +199,8 @@ func (s *streamContext) processLogEntry(msg *pb.LogEntry) error {
 	default:
 		entry.Error(msg.Message)
 	}
-
-	return nil
 }
 
-func (s *streamContext) processError(msg *pb.Error) error {
+func (s *streamContext) processError(msg *pb.Error) {
 	s.log.Error(msg.Message)
-	return nil
 }

@@ -25,23 +25,23 @@ import (
 )
 
 // Listen creates an in-process listener
-func Listen() *listener {
-	l := &listener{
+func Listen() *Listener {
+	l := &Listener{
 		doneCh: make(chan struct{}),
 		connCh: make(chan net.Conn, 1),
 	}
 	return l
 }
 
-// Listener is the inprocess listener
-type Listener interface {
+// ListenerInterface is the inprocess listener
+type ListenerInterface interface {
 	net.Listener
 	// Dial creates a new inprocess connection
 	Dial() (net.Conn, error)
 }
 
 // Dial creates a connection to this listener
-func (r *listener) Dial() (net.Conn, error) {
+func (r *Listener) Dial() (net.Conn, error) {
 	c1, c2 := netPipe()
 	select {
 	case <-r.doneCh:
@@ -54,7 +54,7 @@ func (r *listener) Dial() (net.Conn, error) {
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (r *listener) Accept() (net.Conn, error) {
+func (r *Listener) Accept() (net.Conn, error) {
 	select {
 	case c := <-r.connCh:
 		return c, nil
@@ -65,20 +65,21 @@ func (r *listener) Accept() (net.Conn, error) {
 
 // Close closes the listener.
 // Any blocked Accept operations will be unblocked and return errors.
-func (r *listener) Close() error {
-	r.Once.Do(func() {
+func (r *Listener) Close() error {
+	r.once.Do(func() {
 		close(r.doneCh)
 	})
 	return nil
 }
 
 // Addr returns the listener's network address.
-func (r *listener) Addr() net.Addr {
+func (r *Listener) Addr() net.Addr {
 	return addr{}
 }
 
-type listener struct {
-	sync.Once
+// Listener is the inprocess network listener
+type Listener struct {
+	once   sync.Once
 	doneCh chan struct{}
 	connCh chan net.Conn
 }

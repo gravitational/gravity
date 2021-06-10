@@ -39,7 +39,7 @@ func osExec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.Command
 }
 
 // exec executes the command specified with args streaming stdout/stderr to stream
-func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, log log.FieldLogger) error {
+func (c *osCommand) exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, _ log.FieldLogger) error {
 	seq := atomic.AddInt32(&c.seq, 1)
 	cmd := exec.CommandContext(ctx, req.Args[0], req.Args[1:]...)
 	cmd.Stdout = &streamWriter{stream, pb.ExecOutput_STDOUT, seq}
@@ -143,6 +143,6 @@ type execFunc func(ctx context.Context, stream pb.OutgoingMessageStream, req pb.
 type commandExecutor interface {
 	// exec executes a local command specified with args and streams
 	// output into the specified stream.
-	// Returns an error if the command execution was insuccessful
+	// Returns an error if the command execution was unsuccessful
 	exec(ctx context.Context, stream pb.OutgoingMessageStream, req pb.CommandArgs, logger log.FieldLogger) error
 }

@@ -172,7 +172,7 @@ func pingPong(ctx context.Context, remote rpc.AgentRepository, game PingPongGame
 	return results, nil
 }
 
-func ports(ctx context.Context, addr string, clt client.Client, req PingPongRequest, resultsCh chan<- pingpongResult) {
+func ports(ctx context.Context, addr string, clt client.Interface, req PingPongRequest, resultsCh chan<- pingpongResult) {
 	resp, err := clt.CheckPorts(ctx, req.PortsProto())
 	if err != nil {
 		resultsCh <- pingpongResult{addr: addr, err: err}
@@ -181,7 +181,7 @@ func ports(ctx context.Context, addr string, clt client.Client, req PingPongRequ
 	resultsCh <- pingpongResult{addr: addr, resp: ResultFromPortsProto(resp, nil)}
 }
 
-func bandwidth(ctx context.Context, addr string, clt client.Client, req PingPongRequest, resultsCh chan<- pingpongResult) {
+func bandwidth(ctx context.Context, addr string, clt client.Interface, req PingPongRequest, resultsCh chan<- pingpongResult) {
 	resp, err := clt.CheckBandwidth(ctx, req.BandwidthProto())
 	if err != nil {
 		resultsCh <- pingpongResult{addr: addr, err: err}
@@ -190,7 +190,7 @@ func bandwidth(ctx context.Context, addr string, clt client.Client, req PingPong
 	resultsCh <- pingpongResult{addr: addr, resp: ResultFromBandwidthProto(resp, nil)}
 }
 
-type pingpongHandler func(ctx context.Context, addr string, clt client.Client,
+type pingpongHandler func(ctx context.Context, addr string, clt client.Interface,
 	req PingPongRequest, resultsCh chan<- pingpongResult)
 
 type pingpongResult struct {

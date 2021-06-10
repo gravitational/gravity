@@ -32,10 +32,8 @@ import (
 )
 
 // newPeers returns a new instance of peers.
-func newPeers(from []Peer, config peersConfig) (*peers, error) {
-	if err := config.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
-	}
+func newPeers(from []Peer, config peersConfig) *peers {
+	config.setDefaults()
 
 	ps := make(map[string]*peer)
 	for _, p := range from {
@@ -53,7 +51,7 @@ func newPeers(from []Peer, config peersConfig) (*peers, error) {
 		watchCh:           config.watchCh,
 		updateCh:          make(chan peerUpdate, len(from)),
 	}
-	return r, nil
+	return r
 }
 
 // String returns a textual representation of this set of peers
@@ -344,7 +342,7 @@ type peers struct {
 	peers map[string]*peer
 }
 
-func (r *peersConfig) checkAndSetDefaults() error {
+func (r *peersConfig) setDefaults() {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithFields(log.Fields{
 			trace.Component: "peers",
@@ -370,8 +368,6 @@ func (r *peersConfig) checkAndSetDefaults() error {
 	if r.checkTimeout == 0 {
 		r.checkTimeout = defaults.AgentHealthCheckTimeout
 	}
-
-	return nil
 }
 
 type peersConfig struct {

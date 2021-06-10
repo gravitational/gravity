@@ -29,7 +29,7 @@ import (
 )
 
 // GetSystemInfo queries remote system information
-func (c *client) GetSystemInfo(ctx context.Context) (storage.System, error) {
+func (c *Client) GetSystemInfo(ctx context.Context) (storage.System, error) {
 	resp, err := c.discovery.GetSystemInfo(ctx, &types.Empty{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -44,7 +44,7 @@ func (c *client) GetSystemInfo(ctx context.Context) (storage.System, error) {
 }
 
 // GetRuntimeConfig returns agent's runtime configuration
-func (c *client) GetRuntimeConfig(ctx context.Context) (*pb.RuntimeConfig, error) {
+func (c *Client) GetRuntimeConfig(ctx context.Context) (*pb.RuntimeConfig, error) {
 	config, err := c.discovery.GetRuntimeConfig(ctx, &types.Empty{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -54,7 +54,7 @@ func (c *client) GetRuntimeConfig(ctx context.Context) (*pb.RuntimeConfig, error
 }
 
 // GetCurrentTime returns agent's current time as UTC timestamp
-func (c *client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
+func (c *Client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 	proto, err := c.discovery.GetCurrentTime(ctx, &types.Empty{})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -69,7 +69,7 @@ func (c *client) GetCurrentTime(ctx context.Context) (*time.Time, error) {
 }
 
 // GetVersion returns agent's version information
-func (c *client) GetVersion(ctx context.Context) (*pb.Version, error) {
+func (c *Client) GetVersion(ctx context.Context) (*pb.Version, error) {
 	version, err := c.discovery.GetVersion(ctx, &types.Empty{})
 	if err != nil {
 		return nil, trail.FromGRPC(err)

@@ -41,7 +41,7 @@ func (r *S) TestPeerReconnects(c *C) {
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        upstream,
-		commandExecutor: testCommand{"server output"},
+		commandExecutor: TestCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
 	go func() {

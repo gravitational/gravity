@@ -77,12 +77,12 @@ type Remote interface {
 
 // NewAgentRunner creates a new RemoteRunner that uses a cluster of agents
 // to run remote commands
-func NewAgentRunner(creds credentials.TransportCredentials) *agentRunner {
+func NewAgentRunner(creds credentials.TransportCredentials) rpc.AgentRepository {
 	return &agentRunner{
-		FieldLogger: logrus.WithField(trace.Component, "fsm:remote"),
+		log: logrus.WithField(trace.Component, "fsm:remote"),
 		agentCache: &agentCache{
 			creds:   creds,
-			clients: make(map[string]rpcclient.Client),
+			clients: make(map[string]rpcclient.Interface),
 		},
 	}
 }
@@ -90,7 +90,7 @@ func NewAgentRunner(creds credentials.TransportCredentials) *agentRunner {
 // Run executes a command on the remote server
 // Implements rpc.RemoteRunner
 func (r *agentRunner) Run(ctx context.Context, server storage.Server, args ...string) error {
-	logger := r.WithFields(logrus.Fields{
+	logger := r.log.WithFields(logrus.Fields{
 		"gravity": args,
 		"server":  serverName(server),
 	})
@@ -134,7 +134,7 @@ func (r *agentRunner) CanExecute(ctx context.Context, server storage.Server) err
 }
 
 type agentRunner struct {
-	logrus.FieldLogger
+	log logrus.FieldLogger
 	// agentCache provides access to RPC agents
 	*agentCache
 }
@@ -170,9 +170,13 @@ func serverName(server storage.Server) string {
 type ExecutionCheck int
 
 const (
+	// CanRunLocally states that the task can run locally
 	CanRunLocally = ExecutionCheck(iota)
+	// CanRunRemotely states that the task can run remotely
 	CanRunRemotely
+	// ShouldRunRemotely states that the task should run remotely
 	ShouldRunRemotely
+	// ExecutionCheckUndefined signifies the unknown task execution mode
 	ExecutionCheckUndefined
 )
 
@@ -185,7 +189,7 @@ func (r *agentCache) Close() error {
 }
 
 // GetClient returns a new agent client
-func (r *agentCache) GetClient(ctx context.Context, addr string) (clt rpcclient.Client, err error) {
+func (r *agentCache) GetClient(ctx context.Context, addr string) (clt rpcclient.Interface, err error) {
 	addr = rpc.AgentAddr(addr)
 	r.Lock()
 	clt = r.clients[addr]
@@ -209,7 +213,7 @@ func (r *agentCache) GetClient(ctx context.Context, addr string) (clt rpcclient.
 type agentCache struct {
 	creds credentials.TransportCredentials
 	sync.Mutex
-	clients map[string]rpcclient.Client
+	clients map[string]rpcclient.Interface
 }
 
 // RunCommand executes the provided command locally and returns its output

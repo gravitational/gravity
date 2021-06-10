@@ -69,13 +69,12 @@ func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error
 
 // changePhaseStateWithTimestamp records the provided phase state change in the
 // test engine with the specified timestamp.
-func (t *testEngine) changePhaseStateWithTimestamp(ctx context.Context, ch StateChange, created time.Time) error {
+func (t *testEngine) changePhaseStateWithTimestamp(ch StateChange, created time.Time) {
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
 		Created:  created,
 	})
-	return nil
 }
 
 // GetPlan returns the test plan with the changelog applied.

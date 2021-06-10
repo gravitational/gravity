@@ -24,7 +24,7 @@ import (
 )
 
 // CheckPorts executes a network port test
-func (c *client) CheckPorts(ctx context.Context, req *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error) {
+func (c *Client) CheckPorts(ctx context.Context, req *validationpb.CheckPortsRequest) (*validationpb.CheckPortsResponse, error) {
 	resp, err := c.validation.CheckPorts(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -33,7 +33,7 @@ func (c *client) CheckPorts(ctx context.Context, req *validationpb.CheckPortsReq
 }
 
 // CheckBandwidth executes a network bandwidth test
-func (c *client) CheckBandwidth(ctx context.Context, req *validationpb.CheckBandwidthRequest) (*validationpb.CheckBandwidthResponse, error) {
+func (c *Client) CheckBandwidth(ctx context.Context, req *validationpb.CheckBandwidthRequest) (*validationpb.CheckBandwidthResponse, error) {
 	resp, err := c.validation.CheckBandwidth(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -42,7 +42,7 @@ func (c *client) CheckBandwidth(ctx context.Context, req *validationpb.CheckBand
 }
 
 // CheckDisks executes disk performance test.
-func (c *client) CheckDisks(ctx context.Context, req *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
+func (c *Client) CheckDisks(ctx context.Context, req *validationpb.CheckDisksRequest) (*validationpb.CheckDisksResponse, error) {
 	resp, err := c.validation.CheckDisks(ctx, req)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -30,7 +30,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func (_ *S) TestAgentGroupConnectError(c *C) {
+func (*S) TestAgentGroupConnectError(c *C) {
 	creds := TestClientCredentials(c)
 	watchCh := make(chan WatchEvent, 1)
 	checkTimeout := 100 * time.Millisecond
@@ -61,7 +61,7 @@ func (r *S) TestAgentGroupExecutesCommandsRemotety(c *C) {
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        l,
-		commandExecutor: testCommand{"server output"},
+		commandExecutor: TestCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
 	go func() {
@@ -121,7 +121,7 @@ func (r *S) TestAgentGroupReconnects(c *C) {
 		Credentials:     creds,
 		PeerStore:       store,
 		Listener:        listener,
-		commandExecutor: testCommand{"server output"},
+		commandExecutor: TestCommand{"server output"},
 	})
 	c.Assert(err, IsNil)
 	go func() {

@@ -49,11 +49,7 @@ func NewAgentGroup(config AgentGroupConfig, from []Peer) (*AgentGroup, error) {
 		watchCh:           watchCh,
 		checkTimeout:      config.HealthCheckTimeout,
 	}
-	peers, err := newPeers(from, peersConfig)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
+	peers := newPeers(from, peersConfig)
 	ctx, cancel := context.WithCancel(context.TODO())
 	group := &AgentGroup{
 		AgentGroupConfig: config,
@@ -110,7 +106,7 @@ type AgentGroup struct {
 }
 
 // With returns a client for the peer specified with addr
-func (r *AgentGroup) With(addr string) client.Client {
+func (r *AgentGroup) With(addr string) client.Interface {
 	if clt, exists := r.peers.getClient(addr); exists && clt != nil {
 		return clt.Client()
 	}
@@ -121,7 +117,7 @@ func (r *AgentGroup) With(addr string) client.Client {
 // This is a blocking method that waits for a new client if
 // there's a reconnect operation in progress.
 // The specified context can be used to cancel the wait.
-func (r *AgentGroup) WithContext(ctx context.Context, addr string) client.Client {
+func (r *AgentGroup) WithContext(ctx context.Context, addr string) client.Interface {
 	if clt, exists := r.peers.getClient(addr); exists && clt != nil {
 		return clt.Client()
 	}

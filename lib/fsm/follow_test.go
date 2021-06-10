@@ -44,12 +44,12 @@ func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
 
 	// Emit a couple of plan changes prior to starting the watch.
 	tsInit := s.clock.Now()
-	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+	engine.changePhaseStateWithTimestamp(StateChange{
 		Phase: "/init",
 		State: storage.OperationPhaseStateCompleted,
 	}, tsInit)
 	tsBootstrap := s.clock.Now().Add(time.Minute)
-	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+	engine.changePhaseStateWithTimestamp(StateChange{
 		Phase: "/bootstrap/node-1",
 		State: storage.OperationPhaseStateCompleted,
 	}, tsBootstrap)
@@ -61,7 +61,7 @@ func (s *FSMSuite) TestFollowOperationPlan(c *check.C) {
 
 	// Change a phase state after the watch has been established as well.
 	tsUpgrade := s.clock.Now().Add(2 * time.Minute)
-	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+	engine.changePhaseStateWithTimestamp(StateChange{
 		Phase: "/upgrade",
 		State: storage.OperationPhaseStateCompleted,
 	}, tsUpgrade)
@@ -125,7 +125,7 @@ func (s *FSMSuite) TestFollowOperationPlanFailure(c *check.C) {
 	})
 
 	tsUpgrade := s.clock.Now()
-	engine.changePhaseStateWithTimestamp(ctx, StateChange{
+	engine.changePhaseStateWithTimestamp(StateChange{
 		Phase: "/upgrade",
 		State: storage.OperationPhaseStateCompleted,
 	}, tsUpgrade)
@@ -134,7 +134,7 @@ func (s *FSMSuite) TestFollowOperationPlanFailure(c *check.C) {
 	counter := 0
 	eventsCh := FollowOperationPlan(ctx, func() (*storage.OperationPlan, error) {
 		if counter < 2 {
-			counter += 1
+			counter++
 			return nil, trace.BadParameter("plan reload test failure")
 		}
 		return engine.GetPlan()
