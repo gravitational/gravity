@@ -59,6 +59,8 @@ var (
 	// For instance, if the version is 5.2.10, the current version can upgrade
 	// directly from 5.2.10, 5.2.11 and so on.
 	DirectUpgradeVersions = Versions{
+		// Gravity version 7.1.x adopted Kubernetes 1.19.x, but development
+		// has stopped on 7.1.x and is being continued on 8.0.x.
 		semver.New("7.1.0"),
 		semver.New("8.0.0"),
 	}
