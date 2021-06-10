@@ -19,10 +19,13 @@ package service
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 
-	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/docker/distribution"
+	"github.com/docker/distribution/manifest/schema2"
+	"github.com/docker/distribution/reference"
+	regclient "github.com/docker/distribution/registry/client"
+
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/run"
@@ -35,59 +38,154 @@ import (
 
 // exportLayers exports the layers of the specified set of images into
 // the specified local directory
-func exportLayers(ctx context.Context, dir string, images []string, dockerClient docker.Interface, log log.FieldLogger,
-	parallel int, progress utils.Progress) error {
-	layerExporter, err := newLayerExporter(dir, dockerClient, log, progress)
+func exportLayers(
+	ctx context.Context,
+	registryDir string,
+	images []string,
+	dockerClient docker.Interface,
+	log log.FieldLogger,
+	parallel int,
+	forcePull bool,
+	progress utils.Progress) error {
+
+	config := docker.BasicConfiguration("127.0.0.1:0", registryDir)
+	registry, err := docker.NewRegistry(config)
 	if err != nil {
-		return trace.Wrap(err, "failed to create layer export")
+		return trace.Wrap(err)
+	}
+	if err = registry.Start(); err != nil {
+		return trace.Wrap(err)
 	}
 	defer func() {
-		if errStop := layerExporter.stop(); errStop != nil {
-			log.Warnf("Failed to stop exporter: %v.", errStop)
+		if errStop := registry.Close(); errStop != nil {
+			log.Warnf("Failed to stop registry: %v.", errStop)
 		}
 	}()
-
-	if err = layerExporter.push(ctx, images, parallel); err != nil {
-		return trace.Wrap(err, "failed to push images to local registry")
+	helper := newDockerHelper(log, dockerClient, progress)
+	regInfo := registryInfo{
+		address:  registry.Addr(),
+		protocol: "http",
+	}
+	err = helper.PullAndExportImages(ctx, images, regInfo, forcePull, parallel)
+	if err != nil {
+		return trace.Wrap(err, "failed to export image layers")
 	}
 
 	return nil
 }
 
-// newLayerExporter creates an instance of layer exporter
-func newLayerExporter(exportDir string, client docker.Interface, log log.FieldLogger, progress utils.Progress) (*layerExporter, error) {
-	outputDir := filepath.Join(exportDir, defaults.RegistryDir)
-	config := docker.BasicConfiguration("127.0.0.1:0", outputDir)
-	registry, err := docker.NewRegistry(config)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	if err = registry.Start(); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &layerExporter{
-		FieldLogger:      log,
-		dockerClient:     client,
-		registry:         registry,
-		progressReporter: progress,
-	}, nil
+// registryInfo contains information about connecting to a registry.
+type registryInfo struct {
+	// address stores the address of the registry as host:port
+	address string
+	// protocol stores the protocol (https or http)
+	protocol string
 }
 
-// layerExporter implements the logic of exporting layers of specified docker
-// images to the given output directory using an instance of a temporary
-// docker registry
-type layerExporter struct {
-	log.FieldLogger
+func (i *registryInfo) getURL() string {
+	return fmt.Sprintf("%s://%s", i.protocol, i.address)
+}
+
+func newDockerHelper(log log.FieldLogger, dockerClient docker.Interface, progressReporter utils.Progress) *dockerHelper {
+	return &dockerHelper{
+		log:              log,
+		dockerPuller:     docker.NewPuller(dockerClient),
+		dockerClient:     dockerClient,
+		progressReporter: progressReporter,
+	}
+}
+
+// dockerHelper contains the logic for pulling and exporting image layers
+type dockerHelper struct {
+	log              log.FieldLogger
+	dockerPuller     *docker.Puller
 	dockerClient     docker.Interface
-	registry         *docker.Registry
 	progressReporter utils.Progress
 }
 
-// push pushes the list of specified images into the temporary local registry
-func (r *layerExporter) push(ctx context.Context, images []string, parallel int) error {
+// PushImage pushes the specified image into the registry
+func (h *dockerHelper) PushImage(image, registryAddr string) error {
+	parsedImage, err := loc.ParseDockerImage(image)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	dstDockerImage := loc.DockerImage{
+		Registry:   registryAddr,
+		Repository: parsedImage.Repository,
+		Tag:        parsedImage.Tag,
+	}
+	if err = h.tagCmd(image, dstDockerImage); err != nil {
+		return trace.Wrap(err)
+	}
+	if err = h.pushCmd(dstDockerImage); err != nil {
+		h.log.Warnf("Failed to push %v: %v.", image, err)
+		return trace.Wrap(err)
+	}
+	h.progressReporter.PrintSubStep("Vendored image %v", image)
+	if err = h.removeTagCmd(dstDockerImage); err != nil {
+		h.log.Warnf("Failed to remove %v.", image)
+	}
+	return nil
+}
+
+func (h *dockerHelper) tagCmd(image string, tag loc.DockerImage) error {
+	opts := dockerapi.TagImageOptions{
+		Repo:  fmt.Sprintf("%v/%v", tag.Registry, tag.Repository),
+		Tag:   tag.Tag,
+		Force: true,
+	}
+	h.log.Infof("Tagging %v with opts=%v.", image, opts)
+	return h.dockerClient.TagImage(image, opts)
+}
+
+func (h *dockerHelper) pushCmd(image loc.DockerImage) error {
+	opts := dockerapi.PushImageOptions{
+		Name: fmt.Sprintf("%v/%v", image.Registry, image.Repository),
+		Tag:  image.Tag,
+	}
+	h.log.Infof("Pushing %v.", opts)
+	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
+	// auth headers are set.
+	// https://github.com/moby/moby/issues/10983
+	return h.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
+		Password: "not-a-real-password",
+	})
+}
+
+// ImageExists checks if the image exists in the registry
+func (h *dockerHelper) ImageExists(ctx context.Context, registryURL, repository, tag string) (bool, error) {
+	refName, err := reference.WithName(repository)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+
+	rep, err := regclient.NewRepository(refName, registryURL, nil)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+
+	manifestService, err := rep.Manifests(ctx)
+	if err != nil {
+		return false, trace.Wrap(err)
+	}
+	_, err = manifestService.Get(ctx, "", distribution.WithTag(tag))
+	if err != nil {
+		if strings.Contains(err.Error(), "manifest unknown") {
+			return false, nil
+		}
+		return false, trace.Wrap(err)
+	}
+	return true, nil
+}
+
+// PullAndExportImages pulls and pushes the list of specified images into the registry
+func (h *dockerHelper) PullAndExportImages(ctx context.Context, images []string, reg registryInfo, forcePull bool, parallel int) error {
 	group, ctx := run.WithContext(ctx, run.WithParallel(parallel))
-	for _, image := range images {
-		group.Go(ctx, r.pushImage(image))
+	for i := range images {
+		image := images[i]
+		group.Go(ctx, func() error {
+			return h.pullAndExportImageIfNeeded(ctx, image, reg, forcePull)
+		})
 	}
 	if err := group.Wait(); err != nil {
 		return trace.Wrap(err)
@@ -95,63 +193,93 @@ func (r *layerExporter) push(ctx context.Context, images []string, parallel int)
 	return nil
 }
 
-// stop stops the instance of the local registry
-func (r *layerExporter) stop() error {
-	return r.registry.Close()
+func (h *dockerHelper) pullAndExportImageIfNeeded(ctx context.Context, image string, reg registryInfo, forcePull bool) error {
+	if forcePull {
+		return h.pullAndPush(image, reg, true)
+	}
+	parsedImage, err := loc.ParseDockerImage(image)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	exists, err := h.ImageExists(ctx, reg.getURL(), parsedImage.Repository, parsedImage.Tag)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if exists {
+		h.log.Infof("Skip pushing image %q. The image is already in the registry.", image)
+		return nil
+	}
+	present, err := h.dockerPuller.IsImagePresent(image)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(h.pullAndPush(image, reg, !present))
 }
 
-func (r *layerExporter) pushImage(image string) func() error {
-	return func() error {
-		parsed, err := loc.ParseDockerImage(image)
+func (h *dockerHelper) pullAndPush(image string, reg registryInfo, needPull bool) error {
+	if needPull {
+		err := h.dockerPuller.Pull(image)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		if err = r.tagCmd(image, parsed.Repository, parsed.Tag); err != nil {
-			return trace.Wrap(err)
-		}
-		if err = r.pushCmd(parsed.Repository, parsed.Tag); err != nil {
-			r.Warnf("Failed to push %v: %v.", image, err)
-			return trace.Wrap(err)
-		}
-		r.progressReporter.PrintSubStep("Vendored image %v", image)
-		if err = r.removeTagCmd(parsed.Repository, parsed.Tag); err != nil {
-			r.Warnf("Failed to remove %v.", image)
-		}
-		return nil
 	}
+	return trace.Wrap(h.PushImage(image, reg.address))
 }
 
-func (r *layerExporter) tagCmd(image, repository, tag string) error {
-	opts := dockerapi.TagImageOptions{
-		Repo:  fmt.Sprintf("%v/%v", r.registry.Addr(), repository),
-		Tag:   tag,
-		Force: true,
+// ImageTags returns the list of tags for specified image from the registry
+func (h *dockerHelper) ImageTags(ctx context.Context, registryURL, repository string) ([]string, error) {
+	refName, err := reference.WithName(repository)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	r.Infof("Tagging %v with opts=%v.", image, opts)
-	return r.dockerClient.TagImage(image, opts)
+
+	rep, err := regclient.NewRepository(refName, registryURL, nil)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return rep.Tags(ctx).All(ctx)
 }
 
-func (r *layerExporter) pushCmd(name, tag string) error {
-	opts := dockerapi.PushImageOptions{
-		Name: fmt.Sprintf("%v/%v", r.registry.Addr(), name),
-		Tag:  tag,
+func (h *dockerHelper) getImageID(ctx context.Context, registryURL, repository, tag string) (string, error) {
+	refName, err := reference.WithName(repository)
+	if err != nil {
+		return "", trace.Wrap(err)
 	}
-	r.Infof("Pushing %v.", opts)
-	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
-	// auth headers are set.
-	// https://github.com/moby/moby/issues/10983
-	return r.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
-		Password: "not-a-real-password",
-	})
+
+	rep, err := regclient.NewRepository(refName, registryURL, nil)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	manifestService, err := rep.Manifests(ctx)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	manifest, err := manifestService.Get(ctx, "", distribution.WithTag(tag))
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	_, manifestBytes, err := manifest.Payload()
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	refs := manifest.References()
+	fmt.Println(refs)
+	parsedManifest, ok := manifest.(*schema2.DeserializedManifest)
+	if !ok {
+		return "", trace.Errorf("unable to get DeserializedManifest from %s", string(manifestBytes))
+	}
+	if parsedManifest.Config.Digest == "" {
+		return "", trace.BadParameter(".Config.Digest is empty %v", string(manifestBytes))
+	}
+	return string(parsedManifest.Config.Digest), nil
 }
 
-func (r *layerExporter) removeTagCmd(name, tag string) error {
-	if tag == "" {
-		tag = "latest"
-	}
-	localImage := fmt.Sprintf("%v/%v:%v", r.registry.Addr(), name, tag)
-	r.Infof("Removing %v.", localImage)
-	return r.dockerClient.RemoveImage(localImage)
+func (h *dockerHelper) removeTagCmd(tag loc.DockerImage) error {
+	localImage := tag.String()
+	h.log.Infof("Removing %v.", localImage)
+	return h.dockerClient.RemoveImage(localImage)
 }
 
 // parseImageNameTag parses the specified image reference into name/tag tuple.
