@@ -32,10 +32,8 @@ import (
 )
 
 // New creates a new journal log directory vacuum cleaner
-func New(config Config) (*cleanup, error) {
-	if err := config.checkAndSetDefaults(); err != nil {
-		return nil, trace.Wrap(err)
-	}
+func New(config Config) (*Cleanup, error) {
+	config.setDefaults()
 
 	f, err := os.Open(config.MachineIDFile)
 	if err != nil {
@@ -54,13 +52,13 @@ func New(config Config) (*cleanup, error) {
 			config.MachineIDFile)
 	}
 
-	return &cleanup{
-		Config:    config,
+	return &Cleanup{
+		config:    config,
 		machineID: machineID,
 	}, nil
 }
 
-func (r *Config) checkAndSetDefaults() error {
+func (r *Config) setDefaults() {
 	if r.MachineIDFile == "" {
 		r.MachineIDFile = defaults.SystemdMachineIDFile
 	}
@@ -70,7 +68,6 @@ func (r *Config) checkAndSetDefaults() error {
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "gc:journal")
 	}
-	return nil
 }
 
 // Config defines the configuration for the cleaner of obsolete journal
@@ -91,8 +88,8 @@ type Config struct {
 // It determines whether the directory is eligible for removal by matching
 // against the configured active machine ID and removing directories that
 // do not match.
-func (r *cleanup) Prune(context.Context) (err error) {
-	dir, err := os.Open(r.LogDir)
+func (r *Cleanup) Prune(context.Context) (err error) {
+	dir, err := os.Open(r.config.LogDir)
 	if err != nil {
 		return trace.ConvertSystemError(err)
 	}
@@ -104,16 +101,16 @@ func (r *cleanup) Prune(context.Context) (err error) {
 	}
 
 	for _, entry := range entries {
-		log := r.WithField("directory", entry.Name())
+		log := r.config.WithField("directory", entry.Name())
 
 		if !entry.IsDir() || entry.Name() == r.machineID {
 			log.Info("Skipped.")
 			continue
 		}
-		path := filepath.Join(r.LogDir, entry.Name())
+		path := filepath.Join(r.config.LogDir, entry.Name())
 		log.Info("Remove stale directory.")
-		r.printStep("Remove stale directory %v.", path)
-		if r.DryRun {
+		r.printStepf("Remove stale directory %v.", path)
+		if r.config.DryRun {
 			continue
 		}
 		if err := os.RemoveAll(path); err != nil {
@@ -125,15 +122,16 @@ func (r *cleanup) Prune(context.Context) (err error) {
 	return nil
 }
 
-func (r *cleanup) printStep(format string, args ...interface{}) {
-	if r.DryRun {
+func (r *Cleanup) printStepf(format string, args ...interface{}) {
+	if r.config.DryRun {
 		format = "[dry-run] " + format
 	}
-	r.PrintStep(format, args...)
+	r.config.PrintStepf(format, args...)
 }
 
-type cleanup struct {
-	Config
+// Cleanup implements garbage collection for systemd journals
+type Cleanup struct {
+	config    Config
 	machineID string
 }
 

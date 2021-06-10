@@ -50,7 +50,9 @@ GOLINT_PACKAGES ?= \
 	./lib/webapi/... \
 	./e/lib/webapi/... \
 	./lib/process/... \
-	./e/lib/process/...
+	./e/lib/process/... \
+	./lib/vacuum/... \
+	./lib/expand/...
 
 GOPATH ?= $(shell go env GOPATH)
 

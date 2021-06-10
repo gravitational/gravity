@@ -42,7 +42,7 @@ func NewRegistry(
 	clusterPackages pack.PackageService,
 	silent localenv.Silent,
 	logger log.FieldLogger,
-) (*registryExecutor, error) {
+) (libfsm.PhaseExecutor, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)

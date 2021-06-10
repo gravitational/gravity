@@ -547,8 +547,8 @@ func (p *Peer) executeSinglePhase(ctx context.Context, opCtx operationContext, p
 	return machine.ExecutePhase(ctx, params)
 }
 
-// printStep publishes a progress entry described with (format, args) tuple to the client
-func (p *Peer) printStep(format string, args ...interface{}) {
+// printStepf publishes a progress entry described with (format, args) tuple to the client
+func (p *Peer) printStepf(format string, args ...interface{}) {
 	event := dispatcher.Event{Progress: &ops.ProgressEntry{Message: fmt.Sprintf(format, args...)}}
 	p.dispatcher.Send(event)
 }
@@ -824,14 +824,14 @@ func (p *Peer) shutdownAgent(ctx context.Context) error {
 }
 
 func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error) {
-	p.printStep("Connecting to cluster")
+	p.printStepf("Connecting to cluster")
 	for _, addr := range p.Peers {
 		p.WithField("peer", addr).Debug("Dialing peer.")
 		if !p.SkipWizard {
 			ctx, err = p.dialWizard(addr)
 			if err == nil {
 				p.WithField("addr", ctx.Peer).Debug("Connected to wizard.")
-				p.printStep("Connected to installer at %v", addr)
+				p.printStepf("Connected to installer at %v", addr)
 				return ctx, nil
 			}
 			if !utils.IsConnectionResetError(err) {
@@ -843,14 +843,14 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 			// already exists error is returned when there's an ongoing install
 			// operation, do not attempt to dial the cluster until it completes
 			if trace.IsAlreadyExists(err) {
-				p.printStep("Waiting for the install operation to finish")
+				p.printStepf("Waiting for the install operation to finish")
 				return nil, trace.Wrap(err)
 			}
 		}
 		ctx, err = p.dialCluster(addr, operationID)
 		if err == nil {
 			p.WithField("addr", ctx.Peer).Debug("Connected to cluster.")
-			p.printStep("Connected to existing cluster at %v", addr)
+			p.printStepf("Connected to existing cluster at %v", addr)
 			return ctx, nil
 		}
 		p.WithError(err).Warn("Failed connecting to cluster.")
@@ -860,9 +860,9 @@ func (p *Peer) tryConnect(operationID string) (ctx *operationContext, err error)
 		if trace.IsCompareFailed(err) {
 			p.Warnf("Waiting for precondition to create expand operation: %v.", err)
 			if utils.IsClusterDegradedError(err) {
-				p.printStep("Cluster is degraded, waiting for it to become healthy")
+				p.printStepf("Cluster is degraded, waiting for it to become healthy")
 			} else {
-				p.printStep("Waiting for another operation to complete at %v", addr)
+				p.printStepf("Waiting for another operation to complete at %v", addr)
 			}
 		}
 	}
