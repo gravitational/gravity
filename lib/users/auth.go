@@ -72,7 +72,7 @@ type authenticator struct {
 }
 
 // NewAuthenticator returns a new authenticator instance.
-func NewAuthenticator(config AuthenticatorConfig) (*authenticator, error) {
+func NewAuthenticator(config AuthenticatorConfig) (Authenticator, error) {
 	if err := config.Check(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -83,7 +83,7 @@ func NewAuthenticator(config AuthenticatorConfig) (*authenticator, error) {
 }
 
 // NewAuthenticatorFromIdentity creates a new authenticator from the provided identity.
-func NewAuthenticatorFromIdentity(identity Identity) *authenticator {
+func NewAuthenticatorFromIdentity(identity Identity) Authenticator {
 	return &authenticator{
 		AuthenticatorConfig: AuthenticatorConfig{
 			Identity: identity,
