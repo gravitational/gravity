@@ -29,6 +29,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/trace"
 )
 
@@ -183,7 +184,8 @@ func valueFromHTTP(ctx context.Context, url string) (data []byte, mimeType strin
 		return nil, "", trace.Wrap(err)
 	}
 	req = req.WithContext(ctx)
-	response, err := (&http.Client{}).Do(req)
+	client := httplib.NewClient()
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, "", trace.Wrap(err)
 	}

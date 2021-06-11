@@ -28,7 +28,7 @@ type DistributionSuite struct{}
 
 var _ = Suite(&DistributionSuite{})
 
-func (_ *DistributionSuite) TestCorrectlyReportsFailureToServe(c *C) {
+func (*DistributionSuite) TestCorrectlyReportsFailureToServe(c *C) {
 	dir := c.MkDir()
 	config := BasicConfiguration("-invalid-addr-:0", dir)
 	registry, err := NewRegistry(config)

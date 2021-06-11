@@ -28,20 +28,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// NewDockerPuller returns an instance of DockerPuller using the specified client
+// NewPuller returns an instance of Puller using the specified client
 // and credentials
-func NewDockerPuller(client DockerInterface) *dockerPuller {
-	return &dockerPuller{client: client}
+func NewPuller(client Interface) *Puller {
+	return &Puller{client: client}
 }
 
-// dockerPuller implements a DockerPuller
-type dockerPuller struct {
-	client DockerInterface
+// Puller is a docker puller implementation.
+// Implements the PullerService
+type Puller struct {
+	client Interface
 }
 
 // Pull pulls an image using "docker pull" command that lets us take advantage of its cached
 // credentials for multiple docker registries
-func (r *dockerPuller) Pull(image string) error {
+func (r *Puller) Pull(image string) error {
 	cmd := exec.Command("docker", "pull", image)
 	var out bytes.Buffer
 	err := utils.ExecL(cmd, &out, log.WithField(trace.Component, constants.ComponentSystem))
@@ -52,7 +53,7 @@ func (r *dockerPuller) Pull(image string) error {
 }
 
 // IsImagePresent determines if the specified image is available in docker
-func (r *dockerPuller) IsImagePresent(image string) (bool, error) {
+func (r *Puller) IsImagePresent(image string) (bool, error) {
 	_, err := r.client.InspectImage(image)
 	if err == nil {
 		return true, nil

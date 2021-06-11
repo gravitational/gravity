@@ -72,7 +72,7 @@ func TranslateRuntimeImage(req TranslateImageRequest) error {
 			Image:      req.Image,
 		},
 	}
-	container, err := req.CreateContainer(createOpts)
+	container, err := req.Client.CreateContainer(createOpts)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -87,7 +87,7 @@ func TranslateRuntimeImage(req TranslateImageRequest) error {
 
 	defer func() {
 		log.Info("Removing container.")
-		if errRemove := req.RemoveContainer(dockerapi.RemoveContainerOptions{
+		if errRemove := req.Client.RemoveContainer(dockerapi.RemoveContainerOptions{
 			ID:    container.ID,
 			Force: true,
 		}); errRemove != nil {
@@ -100,7 +100,7 @@ func TranslateRuntimeImage(req TranslateImageRequest) error {
 		ID:           container.ID,
 		OutputStream: f,
 	}
-	if err = req.ExportContainer(opts); err != nil {
+	if err = req.Client.ExportContainer(opts); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -156,10 +156,10 @@ type TranslateImageRequest struct {
 	// The image must have been already pulled and available
 	// locally
 	Image string
+	// Client is the docker client
+	Client Interface
 	// Package specifies the resulting telekube package
 	Package loc.Locator
-	// Client is the docker client
-	DockerInterface
 	// PackageService is the package service to create package in
 	pack.PackageService
 }

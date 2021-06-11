@@ -408,7 +408,7 @@ func (env *LocalEnvironment) AppServiceCluster() (appbase.Applications, error) {
 
 func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.Applications, err error) {
 	var imageService docker.ImageService
-	var dockerClient docker.DockerInterface
+	var dockerClient docker.Interface
 	if config.RegistryURL != "" {
 		imageService, err = docker.NewImageService(docker.RegistryConnectionRequest{
 			RegistryAddress: config.RegistryURL,

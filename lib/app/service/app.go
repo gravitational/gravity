@@ -61,7 +61,7 @@ type Config struct {
 	// The client is used to manage container images obtained from the application
 	// manifest.  It is used to check image presence, pull images from a remote
 	// registry and start temporary registry container.
-	DockerClient docker.DockerInterface
+	DockerClient docker.Interface
 	// ImageService defines the interface to the private docker registry running inside
 	// the cluster.
 	// It is used to sync local container images during installation

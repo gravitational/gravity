@@ -58,7 +58,7 @@ import (
 )
 
 type AppsSuite struct {
-	NewService func(*C, docker.DockerInterface, docker.ImageService) app.Applications
+	NewService func(*C, docker.Interface, docker.ImageService) app.Applications
 	Packages   pack.PackageService
 	ca         authority.TLSKeyPair
 }
