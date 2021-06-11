@@ -36,7 +36,7 @@ func TestResourceCodec(t *testing.T) { TestingT(t) }
 
 var _ = Suite(&ResourceCodecSuite{})
 
-func (_ *ResourceCodecSuite) TestDecodesAndEncodes(c *C) {
+func (*ResourceCodecSuite) TestDecodesAndEncodes(c *C) {
 	var testCases = []struct {
 		resource string
 		types    []string
@@ -81,7 +81,7 @@ func (*ResourceCodecSuite) TestDecodeUnrecognizedResource(c *C) {
 	})
 }
 
-func (_ *ResourceCodecSuite) TestEncodesInProperFormat(c *C) {
+func (*ResourceCodecSuite) TestEncodesInProperFormat(c *C) {
 	var testCases = []struct {
 		resource string
 		isJSON   bool

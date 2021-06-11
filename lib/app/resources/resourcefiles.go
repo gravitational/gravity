@@ -17,6 +17,7 @@ limitations under the License.
 package resources
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -68,10 +69,10 @@ func (resources Resources) Images() ([]string, error) {
 	return extractedImages.Images, nil
 }
 
-// resourceFiles is a collection of resource files
+// ResourceFiles is a collection of resource files
 type ResourceFiles []ResourceFile
 
-// resourceFile represents a file with resources to process
+// ResourceFile represents a file with resources to process
 type ResourceFile struct {
 	Resource
 	path string
@@ -158,17 +159,17 @@ func (r ResourceFiles) Images() ([]string, error) {
 }
 
 // ManifestRewriteFunc defines an interface for functions that can update parts of an application manifest
-type ManifestRewriteFunc func(m *schema.Manifest) error
+type ManifestRewriteFunc func(context.Context, *schema.Manifest) error
 
 // RewriteManifest rewrites parts of the application manifest resources by application
 // of the specified set of rewrite functions
-func (r *ResourceFiles) RewriteManifest(rewrites ...ManifestRewriteFunc) error {
+func (r *ResourceFiles) RewriteManifest(ctx context.Context, rewrites ...ManifestRewriteFunc) error {
 	for _, file := range *r {
 		for _, object := range file.Objects {
 			switch manifest := object.(type) {
 			case *schema.Manifest:
 				for _, rewrite := range rewrites {
-					if err := rewrite(manifest); err != nil {
+					if err := rewrite(ctx, manifest); err != nil {
 						return trace.Wrap(err)
 					}
 				}
@@ -180,12 +181,13 @@ func (r *ResourceFiles) RewriteManifest(rewrites ...ManifestRewriteFunc) error {
 
 // skipRewrite skips rewrite of the provisioning hooks,
 // these ones will be pulled from the internet
-func skipRewrite(hook *schema.Hook, job *batchv1.Job) bool {
+func skipRewrite(hook *schema.Hook) bool {
 	switch hook.Type {
 	case schema.HookClusterProvision, schema.HookClusterDeprovision, schema.HookNodesProvision, schema.HookNodesDeprovision:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
 // RewriteImages rewrites container image references in all resource files part
@@ -213,7 +215,7 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 		if job == nil {
 			return nil
 		}
-		if skipRewrite(hook, job) {
+		if skipRewrite(hook) {
 			return nil
 		}
 		rewrite(&job.Spec.Template.Spec)
@@ -343,7 +345,7 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 					if job == nil {
 						continue
 					}
-					if skipRewrite(hook, job) {
+					if skipRewrite(hook) {
 						continue
 					}
 					containers = append(containers, job.Spec.Template.Spec.Containers...)

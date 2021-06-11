@@ -126,21 +126,21 @@ func renderItemFromTarball(tarball *archive.TarAppender) archive.TarGlobHandler 
 }
 
 // toApp translates an application representation from storage format
-func toApp(pkg *pack.PackageEnvelope, apps *applications) (*app.Application, error) {
+func toApp(pkg pack.PackageEnvelope, apps *Applications) (*app.Application, error) {
 	manifest, err := apps.resolveManifest(pkg.Manifest)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return &app.Application{
 		Package:         pkg.Locator,
-		PackageEnvelope: *pkg,
+		PackageEnvelope: pkg,
 		Manifest:        *manifest,
 	}, nil
 }
 
 // newApp returns an instance of Application using the specified manifest and package locator.
 // The manifest is resolved (in case of inhertance) and validated.
-func newApp(pkg *pack.PackageEnvelope, manifestBytes []byte, locator loc.Locator, apps *applications) (*app.Application, error) {
+func newApp(pkg *pack.PackageEnvelope, manifestBytes []byte, locator loc.Locator, apps *Applications) (*app.Application, error) {
 	manifest, err := apps.resolveManifest(manifestBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)

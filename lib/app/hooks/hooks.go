@@ -148,9 +148,8 @@ func (r *Runner) DeleteJob(ctx context.Context, req DeleteJobRequest) error {
 	err := r.client.BatchV1().Jobs(req.Namespace).Delete(ctx, req.Name, opts)
 	if err = rigging.ConvertError(err); err != nil {
 		return err
-	} else {
-		r.Debugf("Deleted job %q in namespace %q.", req.Name, req.Namespace)
 	}
+	r.Debugf("Deleted job %q in namespace %q.", req.Name, req.Namespace)
 	return nil
 }
 

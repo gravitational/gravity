@@ -35,7 +35,7 @@ func (s *ConfigureSuite) TestConfigureMetadata(c *check.C) {
 	job := &batchv1.Job{}
 
 	nodeSelector := map[string]string{"role": "master"}
-	deadline := time.Duration(10 * time.Second)
+	deadline := 10 * time.Second
 	err := configureMetadata(job, Params{
 		NodeSelector: nodeSelector,
 		JobDeadline:  deadline,

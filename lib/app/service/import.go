@@ -30,9 +30,9 @@ import (
 )
 
 // importApp imports an application from the specified directory
-func (r *applications) importApp(op storage.AppOperation, request *app.ImportRequest, unpackedDir string) (err error) {
+func (r *Applications) importApp(op storage.AppOperation, request *app.ImportRequest, unpackedDir string) (err error) {
 	var ctx *operationContext
-	ctx, err = newOperationContext(&importOperation{op: &op, progressc: request.ProgressC}, r.StateDir, r.Backend)
+	ctx, err = newOperationContext(&importOperation{op: &op, progressc: request.ProgressC}, r.config.StateDir, r.config.Backend)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -46,7 +46,7 @@ func (r *applications) importApp(op storage.AppOperation, request *app.ImportReq
 	return trace.Wrap(ctx.update(app.ProgressStateCompleted))
 }
 
-func (r *applications) importAppWithContext(ctx *operationContext, request *app.ImportRequest, unpackedDir string) error {
+func (r *Applications) importAppWithContext(ctx *operationContext, request *app.ImportRequest, unpackedDir string) error {
 	manifestBytes, err := manifestFromDir(unpackedDir)
 	if err != nil {
 		return trace.Wrap(err)

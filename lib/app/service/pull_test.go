@@ -157,7 +157,7 @@ dependencies:
 	c.Assert(trace.IsAlreadyExists(err), Equals, true)
 }
 
-func setupServices(c *C) (storage.Backend, pack.PackageService, *applications) {
+func setupServices(c *C) (storage.Backend, pack.PackageService, *Applications) {
 	dir := c.MkDir()
 
 	backend, err := keyval.NewBolt(keyval.BoltConfig{
