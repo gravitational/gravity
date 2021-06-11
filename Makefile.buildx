@@ -37,6 +37,9 @@ WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 SELINUX_VERSION := 6.0.0
 SELINUX_REPO := git@github.com:a-palchikov/selinux.git
 SELINUX_BRANCH := dmitri/buildx
+#TODO(dima): update once the https://github.com/gravitational/selinux/pull/16 has been merged
+#SELINUX_REPO := git@github.com:gravitational/selinux.git
+#SELINUX_BRANCH := distro/centos_rhel/7
 
 # Set to non-empty value to trigger streaming builder progress
 CI ?=

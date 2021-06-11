@@ -382,9 +382,9 @@ func (m *DockerConfigRun) SetRemove(remove bool) *DockerConfigRun {
 	return m
 }
 
-// AddVolume attaches a filesystem mount to the container.
-func (m *DockerConfigRun) AddVolume(volume DockerBindMount) *DockerConfigRun {
-	m.Volumes = append(m.Volumes, volume)
+// AddVolume attaches a set of filesystem mounts to the container.
+func (m *DockerConfigRun) AddVolume(volumes ...DockerBindMount) *DockerConfigRun {
+	m.Volumes = append(m.Volumes, volumes...)
 	return m
 }
 

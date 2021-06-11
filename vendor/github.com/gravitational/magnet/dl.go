@@ -1,6 +1,7 @@
 package magnet
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -22,31 +23,32 @@ type downloadMetadata struct {
 	SHA2Sum string
 }
 
-// Download begins a download of a url but doesn't block.
+// DownloadFuture begins a download of a url but doesn't block.
 // Returns a future that when called will block until it can return the path to the file on disk or an error.
-func (m *MagnetTarget) DownloadFuture(url string) func() (url string, path string, err error) {
-	errC := make(chan error, 1)
-
-	var path string
+func (m *MagnetTarget) DownloadFuture(ctx context.Context, url string) DownloadFutureFunc {
+	type result struct {
+		path string
+		err  error
+	}
+	resultC := make(chan result, 1)
 
 	go func() {
-		p, err := m.Download(url)
-		path = p
-		errC <- err
+		p, err := m.Download(ctx, url)
+		resultC <- result{path: p, err: err}
 	}()
 
-	return func() (string, string, error) {
-		err := <-errC
-		if err != nil {
-			return url, "", trace.Wrap(err)
+	return func() (url, path string, err error) {
+		result := <-resultC
+		if result.err != nil {
+			return url, "", trace.Wrap(result.err)
 		}
-		return url, path, nil
+		return url, result.path, nil
 	}
 }
 
 // Download will download a file from a remote URL. It's optimized for working with a local cache, and will send
 // request headers to the upstream server and only download the file if cached or missing from the local cache.
-func (m *MagnetTarget) Download(url string) (path string, err error) {
+func (m *MagnetTarget) Download(ctx context.Context, url string) (path string, err error) {
 	progress := dlProgressWriter{
 		m:   m,
 		url: url,
@@ -66,7 +68,7 @@ func (m *MagnetTarget) Download(url string) (path string, err error) {
 		metadata = downloadMetadata{}
 	}
 
-	resp, err := httpGetRequest(url, metadata.ETag)
+	resp, err := httpGetRequest(ctx, url, metadata.ETag)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
@@ -129,6 +131,9 @@ func (m *MagnetTarget) Download(url string) (path string, err error) {
 	return path, nil
 }
 
+// DownloadFutureFunc defines the function type returned from the DownloadFuture API
+type DownloadFutureFunc func() (url, path string, err error)
+
 type dlProgressWriter struct {
 	m       *MagnetTarget
 	url     string
@@ -190,13 +195,14 @@ func (d *dlProgressWriter) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func httpGetRequest(url, etag string) (*http.Response, error) {
+func httpGetRequest(ctx context.Context, url, etag string) (*http.Response, error) {
 	client := &http.Client{}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	req = req.WithContext(ctx)
 
 	if etag != "" {
 		req.Header.Add("If-None-Match", etag)

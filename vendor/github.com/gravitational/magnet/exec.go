@@ -89,7 +89,7 @@ func (e *ExecConfig) Run(ctx context.Context, cmd string, args ...string) (bool,
 	return ran, trace.Wrap(err)
 }
 
-// Outout runs the provided command, returning the output
+// Output runs the provided command, returning the output
 // Note: output / trace won't be present in magnet logs
 func Output(ctx context.Context, cmd string, args ...string) (string, error) {
 	buf := &bytes.Buffer{}

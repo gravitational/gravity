@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -29,20 +31,35 @@ type Config struct {
 
 	// ModulePath specifies the path of the Go module being built
 	ModulePath string
-	// Version specifies the module version
+	// Version specifies the module version.
+	// If unspecified, will be synthesized based on a git tag.
 	Version string
 
 	// PrintConfig configures whether magnet will output its configuration
 	PrintConfig bool
+
 	// PlainProgress specifies whether the logger uses fancy progress reporting.
 	// Set to true to see streaming output (e.g. on CI)
-	PlainProgress bool
-	// ImportEnv optionally specifies the external configuration as a set of
-	// environment variables
-	ImportEnv map[string]string
+	PlainProgress *bool
 }
 
 func (c *Config) checkAndSetDefaults() error {
+	if c.CacheDir == "" {
+		c.CacheDir = defaultCacheDir()
+		if c.CacheDir == "" {
+			return trace.BadParameter("expected CacheDir to be set")
+		}
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if !filepath.IsAbs(c.CacheDir) {
+		c.CacheDir = filepath.Join(wd, c.CacheDir)
+	}
+
 	if c.Version == "" {
 		c.Version = DefaultVersion()
 	}
@@ -55,19 +72,11 @@ func (c *Config) checkAndSetDefaults() error {
 		return nil
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
 	c.ModulePath, err = getModulePath(wd)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	if !filepath.IsAbs(c.CacheDir) {
-		c.CacheDir = filepath.Join(wd, c.CacheDir)
-	}
 	return nil
 }
 
@@ -90,8 +99,6 @@ type Magnet struct {
 	statusLogger *SolveStatusLogger
 	root         MagnetTarget
 
-	env map[string]EnvVar
-
 	wg  sync.WaitGroup
 	ctx context.Context
 	// cancel cancels the logger process
@@ -100,6 +107,7 @@ type Magnet struct {
 }
 
 // MagnetTarget describes a child logging target
+//nolint:revive // TODO(dima): rename to Target
 type MagnetTarget struct {
 	root   *Magnet
 	vertex *progressui.Vertex
@@ -108,6 +116,10 @@ type MagnetTarget struct {
 
 // Root creates a root vertex for executing and capturing status of each build target.
 func Root(c Config) (*Magnet, error) {
+	if root != nil {
+		panic("already initialized")
+	}
+
 	if err := c.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -119,7 +131,7 @@ func Root(c Config) (*Magnet, error) {
 
 	now := time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
-	root := &Magnet{
+	root = &Magnet{
 		Config: c,
 		root: MagnetTarget{
 			vertex: &progressui.Vertex{
@@ -130,13 +142,15 @@ func Root(c Config) (*Magnet, error) {
 		},
 		status:       statusLogger.source,
 		statusLogger: statusLogger,
-		env:          make(map[string]EnvVar),
 		ctx:          ctx,
 		cancel:       cancel,
 	}
 	root.root.root = root
 	return root, nil
 }
+
+// root specifies the Magnet instance singleton
+var root *Magnet
 
 func newSecretsRedactor(env map[string]EnvVar) secretsRedactor {
 	var secrets []EnvVar
@@ -213,7 +227,7 @@ func (c Config) AbsCacheDir() (path string) {
 // initOutput starts the internal progress logging process
 func (m *Magnet) initOutput() {
 	m.initOutputOnce.Do(func() {
-		redactor := newSecretsRedactor(m.env)
+		redactor := newSecretsRedactor(env.env)
 		m.statusLogger.start(redactor)
 
 		if m.PrintConfig {
@@ -222,7 +236,7 @@ func (m *Magnet) initOutput() {
 
 		var c console.Console
 
-		if !m.PlainProgress {
+		if !m.plainProgress() {
 			if cn, err := console.ConsoleFromFile(os.Stderr); err == nil {
 				c = cn
 			}
@@ -230,7 +244,7 @@ func (m *Magnet) initOutput() {
 
 		m.wg.Add(1)
 		go func() {
-			progressui.DisplaySolveStatus(
+			_ = progressui.DisplaySolveStatus(
 				m.ctx,
 				m.root.vertex.Name,
 				c,
@@ -240,6 +254,20 @@ func (m *Magnet) initOutput() {
 			m.wg.Done()
 		}()
 	})
+}
+
+func defaultCacheDir() string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	return cacheDir
+}
+
+func (c Config) plainProgress() bool {
+	if c.PlainProgress != nil {
+		return *c.PlainProgress
+	}
+	return debianFrontend == "noninteractive"
 }
 
 func (c Config) cacheDir() string {
@@ -295,11 +323,9 @@ func getModulePath(root string) (path string, err error) {
 	if err == nil {
 		return modfile.ModulePath(buf), nil
 	}
-	var modulePath string
 	for _, srcDir := range build.Default.SrcDirs() {
-		modulePath, err = filepath.Rel(srcDir, root)
-		if err == nil {
-			return modulePath, nil
+		if strings.HasPrefix(root, srcDir) {
+			return strings.TrimPrefix(root, srcDir), nil
 		}
 	}
 	return "", trace.Wrap(err, "invalid working directory %s in GOPATH mode", root)
