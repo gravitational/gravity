@@ -97,14 +97,14 @@ func (t *TokenV2) SetExpiry(expires time.Time) {
 	t.Metadata.SetExpiry(expires)
 }
 
-// Expires returns token expiration time
-func (r *TokenV2) Expiry() time.Time {
-	return r.Metadata.Expiry()
+// Expiry returns token expiration time
+func (t *TokenV2) Expiry() time.Time {
+	return t.Metadata.Expiry()
 }
 
 // SetTTL sets Expires header using realtime clock
-func (r *TokenV2) SetTTL(clock clockwork.Clock, ttl time.Duration) {
-	r.Metadata.SetTTL(clock, ttl)
+func (t *TokenV2) SetTTL(clock clockwork.Clock, ttl time.Duration) {
+	t.Metadata.SetTTL(clock, ttl)
 }
 
 // SetUser sets token user
@@ -117,7 +117,7 @@ func (t *TokenV2) GetUser() string {
 	return t.Spec.User
 }
 
-// Check checks validity of all parameters and sets defaults
+// CheckAndSetDefaults checks validity of all parameters and sets defaults
 func (t *TokenV2) CheckAndSetDefaults() error {
 	if t.Metadata.Name == "" {
 		return trace.BadParameter("missing parameter Name")
@@ -195,7 +195,8 @@ type TokenSpecV2 struct {
 	User string `json:"user"`
 }
 
-// TokenV2Schema is JSON schema for server
+// TokenSpecV2Schema is JSON schema for server
+//nolint:gosec // not a credential
 const TokenSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,

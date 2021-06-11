@@ -48,7 +48,7 @@ func (b *backend) UpsertNamespace(n teleservices.Namespace) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.upsertValBytes(b.key(namespacesP, n.Metadata.Name), []byte(data), forever)
+	err = b.upsertValBytes(b.key(namespacesP, n.Metadata.Name), data, forever)
 	if err != nil {
 		return trace.Wrap(err)
 	}

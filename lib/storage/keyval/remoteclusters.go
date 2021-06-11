@@ -30,7 +30,7 @@ func (b *backend) CreateRemoteCluster(rc services.RemoteCluster) error {
 		return trace.Wrap(err)
 	}
 	ttl := b.ttl(rc.Expiry())
-	err = b.createValBytes(b.key(remoteClustersP, rc.GetName()), []byte(data), ttl)
+	err = b.createValBytes(b.key(remoteClustersP, rc.GetName()), data, ttl)
 	if err != nil {
 		return trace.Wrap(err)
 	}

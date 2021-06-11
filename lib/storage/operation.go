@@ -171,7 +171,7 @@ func (o *OperationV2) SetExpiry(expires time.Time) {
 	o.Metadata.SetExpiry(expires)
 }
 
-// Expires returns the resource expiration time.
+// Expiry returns the resource expiration time.
 func (o *OperationV2) Expiry() time.Time {
 	return o.Metadata.Expiry()
 }
@@ -186,7 +186,7 @@ func (o *OperationV2) GetType() string {
 	return o.Spec.Type
 }
 
-// GetCreates returns the operation created timestamp.
+// GetCreated returns the operation created timestamp.
 func (o *OperationV2) GetCreated() time.Time {
 	return o.Spec.Created
 }

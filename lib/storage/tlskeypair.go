@@ -32,7 +32,7 @@ import (
 	"github.com/jonboulle/clockwork"
 )
 
-// TSLKeyPair describes a TLS key pair resource that can be checked for validity and queried.
+// TLSKeyPair describes a TLS key pair resource that can be checked for validity and queried.
 type TLSKeyPair interface {
 	// Resource provides common resource methods
 	teleservices.Resource
@@ -92,7 +92,7 @@ func (t *TLSKeyPairV2) SetExpiry(expires time.Time) {
 	t.Metadata.SetExpiry(expires)
 }
 
-// Expires returns TLS keypair expiration time
+// Expiry returns TLS keypair expiration time
 func (t *TLSKeyPairV2) Expiry() time.Time {
 	return t.Metadata.Expiry()
 }
@@ -188,7 +188,7 @@ type TLSKeyPairSpecV2 struct {
 	PrivateKey string `json:"private_key"`
 }
 
-// TLSKeyPairV2Schema is JSON schema for TLS keypair
+// TLSKeyPairSpecV2Schema is JSON schema for TLS keypair
 const TLSKeyPairSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,

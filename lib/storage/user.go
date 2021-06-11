@@ -38,10 +38,11 @@ const (
 	AgentUser = "agent"
 	// AdminUser defines a user type with maximum permissions
 	AdminUser = "admin"
-	// Regular user is standard interactive user
+	// RegularUser user is standard interactive user
 	RegularUser = "regular"
 )
 
+// SupportedUserTypes lists all supported user types
 var SupportedUserTypes = []string{AgentUser, AdminUser, RegularUser}
 
 // Users collection provides operations on users - both humans and bots
@@ -210,7 +211,7 @@ func (u *UserV2) SetExpiry(expires time.Time) {
 	u.Metadata.SetExpiry(expires)
 }
 
-// Expires retuns object expiry setting
+// Expiry returns object expiry setting
 func (u *UserV2) Expiry() time.Time {
 	return u.Metadata.Expiry()
 }
@@ -396,7 +397,7 @@ func (u *UserV2) GetOpsCenter() string {
 	return u.Spec.OpsCenter
 }
 
-// GetObject returns raw object data, used for migrations
+// GetRawObject returns raw object data, used for migrations
 func (u *UserV2) GetRawObject() interface{} {
 	return u.rawObject
 }

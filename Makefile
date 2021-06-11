@@ -62,7 +62,8 @@ GOLINT_PACKAGES ?= \
 	./lib/catalog/... \
 	./lib/hub/... \
 	./lib/fsm/... \
-	./lib/rpc/...
+	./lib/rpc/... \
+	./lib/storage/...
 
 GOPATH ?= $(shell go env GOPATH)
 

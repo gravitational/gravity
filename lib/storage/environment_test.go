@@ -182,7 +182,7 @@ spec:
 		bytes, err := MarshalEnvironment(env)
 		c.Assert(err, IsNil, comment)
 
-		env2, err := UnmarshalEnvironmentVariables([]byte(bytes))
+		env2, err := UnmarshalEnvironmentVariables(bytes)
 		c.Assert(err, IsNil, comment)
 		c.Assert(env2, compare.DeepEquals, env, comment)
 	}

@@ -95,7 +95,7 @@ func (e *EndpointsV2) SetExpiry(expires time.Time) {
 	e.Metadata.SetExpiry(expires)
 }
 
-// Expires returns the resource expiration time
+// Expiry returns the resource expiration time
 func (e *EndpointsV2) Expiry() time.Time {
 	return e.Metadata.Expiry()
 }

@@ -645,7 +645,7 @@ func (s *ClusterState) ClusterNodeSpec() []ClusterNodeSpecV2 {
 				InstanceType: server.InstanceType,
 			}
 		} else {
-			spec.Count += 1
+			spec.Count++
 			mapping[key] = spec
 		}
 	}
@@ -813,7 +813,7 @@ func (a *AppProgressEntry) Check() error {
 	return nil
 }
 
-// AppProgressEntries collection stores progress entries for the appication operations
+// AppProgressEntries collection stores progress entries for the application operations
 type AppProgressEntries interface {
 	// CreateAppProgressEntry adds a progress entry for the specified application
 	CreateAppProgressEntry(p AppProgressEntry) (*AppProgressEntry, error)
@@ -1019,7 +1019,7 @@ func (p *Permission) Check() error {
 	return nil
 }
 
-// RepositoriyAccessRules collection manages repository access rules -
+// Permissions collection manages repository access rules -
 // read, create, delete
 type Permissions interface {
 	CreatePermission(p Permission) (*Permission, error)
@@ -1028,10 +1028,10 @@ type Permissions interface {
 	DeletePermissionsForUser(email string) error
 }
 
-func (r Permission) String() string {
+func (p Permission) String() string {
 	return fmt.Sprintf(
 		"permission(email=%v, action=%v, collection=%v:%v)",
-		r.UserEmail, r.Action, r.Collection, r.CollectionID)
+		p.UserEmail, p.Action, p.Collection, p.CollectionID)
 }
 
 // LoginEntry represents local agent login with remote portal,
@@ -1147,7 +1147,7 @@ func (u PackageChangeset) String() string {
 	return fmt.Sprintf("changeset(id=%v, created=%v, changes=%v)", u.ID, u.Created, strings.Join(changes, ", "))
 }
 
-// ReversedChangeset returns changeset with all changes inversed
+// ReversedChanges returns changeset with all changes inversed
 func (u *PackageChangeset) ReversedChanges() []PackageUpdate {
 	changes := make([]PackageUpdate, len(u.Changes))
 	for i, c := range u.Changes {
@@ -1384,7 +1384,7 @@ type Objects interface {
 const (
 	// NodeTypeNode is a type of teleport node - SSH Node
 	NodeTypeNode = "node"
-	// NodeTypeNode is a type of teleport node - SSH Proxy server
+	// NodeTypeProxy is a type of teleport node - SSH Proxy server
 	NodeTypeProxy = "proxy"
 	// NodeTypeAuth is a type of teleport node - SSH Auth server
 	NodeTypeAuth = "auth"
@@ -1940,10 +1940,10 @@ type DockerConfig struct {
 }
 
 // Check makes sure the docker config is correct
-func (d DockerConfig) Check() error {
-	if d.StorageDriver != "" && !utils.StringInSlice(constants.DockerSupportedDrivers, d.StorageDriver) {
+func (r DockerConfig) Check() error {
+	if r.StorageDriver != "" && !utils.StringInSlice(constants.DockerSupportedDrivers, r.StorageDriver) {
 		return trace.BadParameter("unrecognized docker storage driver %q, supported are: %v",
-			d.StorageDriver, constants.DockerSupportedDrivers)
+			r.StorageDriver, constants.DockerSupportedDrivers)
 	}
 	return nil
 }
@@ -1984,7 +1984,7 @@ type AWSVariables struct {
 	KeyPair string `json:"key_pair"`
 }
 
-// SetDefaults fills in some unset fiels with their default values if they have them
+// SetDefaults fills in some unset fields with their default values if they have them
 func (v *AWSVariables) SetDefaults() {
 	if v.Region == "" {
 		v.Region = defaults.AWSRegion
@@ -2126,7 +2126,7 @@ type ShrinkOperationState struct {
 	// Force controls whether the operation ignores intermediate errors
 	Force bool `json:"force"`
 	// NodeRemoved indicates whether the node has already been removed from the cluster
-	// Used in cases where we recieve an event where the node is being terminated, but may
+	// Used in cases where we receive an event where the node is being terminated, but may
 	// not have disconnected from the cluster yet.
 	NodeRemoved bool `json:"node_removed"`
 }
@@ -2195,14 +2195,21 @@ func (s *ServerUpdate) String() string {
 }
 
 const (
-	ServerUpdateStart              = ""
-	ServerUpdateSuccess            = "update_success"
-	ServerUpdateInProgress         = "update_in_progress"
+	// ServerUpdateStart is the value of the operation state at start
+	ServerUpdateStart = ""
+	// ServerUpdateSuccess signifies successfully completed operation
+	ServerUpdateSuccess = "update_success"
+	// ServerUpdateInProgress signifies an ongoing operation
+	ServerUpdateInProgress = "update_in_progress"
+	// ServerUpdateRollbackInProgress signifies the ongoing rollback operation
 	ServerUpdateRollbackInProgress = "rollback_in_progress"
-	ServerUpdateRollbackSuccess    = "rollback_success"
-	ServerUpdateFailed             = "failed"
+	// ServerUpdateRollbackSuccess signifies a successfully rolled back operation
+	ServerUpdateRollbackSuccess = "rollback_success"
+	// ServerUpdateFailed signifies an update operation failure state
+	ServerUpdateFailed = "failed"
 )
 
+// UninstallOperationState defines the state of the uninstall operation
 type UninstallOperationState struct {
 	// Force enforces uninstall even if application uninstall failed
 	Force bool `json:"force"`

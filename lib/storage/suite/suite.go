@@ -40,7 +40,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" //nolint:revive,stylecheck // TODO: tests will be rewritten to use testify
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/repo"
 )
@@ -1108,7 +1108,7 @@ func (s *StorageSuite) RetrievesApplications(c *C) {
 
 	app, err := s.Backend.GetApplication("example.io", "example-app", "0.0.2")
 	c.Assert(err, IsNil)
-	c.Assert((storage.Package)(*app), DeepEquals, apps[1])
+	c.Assert(*app, DeepEquals, apps[1])
 }
 
 func (s *StorageSuite) OpsCenterLinksCRUD(c *C) {

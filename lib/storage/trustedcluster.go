@@ -143,7 +143,7 @@ func (c *TrustedClusterV2) SetName(name string) {
 	c.Metadata.Name = name
 }
 
-// Expires returns the trusted cluster expiration time
+// Expiry returns the trusted cluster expiration time
 func (c *TrustedClusterV2) Expiry() time.Time {
 	return c.Metadata.Expiry()
 }

@@ -65,7 +65,7 @@ func (b *backend) CreateRole(role teleservices.Role, ttl time.Duration) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.createValBytes(b.key(rolesP, role.GetName()), []byte(data), ttl)
+	err = b.createValBytes(b.key(rolesP, role.GetName()), data, ttl)
 	if err != nil {
 		if trace.IsAlreadyExists(err) {
 			return trace.AlreadyExists("role %v already exists", role.GetName())
@@ -81,7 +81,7 @@ func (b *backend) UpsertRole(role teleservices.Role, ttl time.Duration) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.upsertValBytes(b.key(rolesP, role.GetName()), []byte(data), ttl)
+	err = b.upsertValBytes(b.key(rolesP, role.GetName()), data, ttl)
 	if err != nil {
 		return trace.Wrap(err)
 	}

@@ -42,16 +42,16 @@ type Expr interface {
 	String() string
 }
 
-// IdentiferExpr is identifer expression
+// IdentifierExpr is identifier expression
 type IdentifierExpr string
 
-// String serializes identifer expression into format parsed by rules engine
+// String serializes identifier expression into format parsed by rules engine
 func (i IdentifierExpr) String() string {
 	return string(i)
 }
 
 var (
-	// ResourceNameExpr is identifer that specifies resource name
+	// ResourceNameExpr is identifier that specifies resource name
 	ResourceNameExpr = IdentifierExpr("resource.metadata.name")
 )
 
@@ -98,7 +98,7 @@ type ContainsExpr struct {
 	Right Expr
 }
 
-// String rturns function call expression used in rules
+// String returns function call expression used in rules
 func (i ContainsExpr) String() string {
 	return fmt.Sprintf("contains(%v, %v)", i.Left, i.Right)
 }

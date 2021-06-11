@@ -113,7 +113,7 @@ type PersistentStorageV1 struct {
 	Spec PersistentStorageSpecV1 `json:"spec"`
 }
 
-// PersustentStorageSpecV1 is persistent storage resource spec.
+// PersistentStorageSpecV1 is persistent storage resource spec.
 type PersistentStorageSpecV1 struct {
 	// OpenEBS contains OpenEBS configuration.
 	OpenEBS OpenEBS `json:"openebs"`
@@ -163,7 +163,7 @@ func (ps *PersistentStorageV1) SetExpiry(expires time.Time) {
 	ps.Metadata.SetExpiry(expires)
 }
 
-// Expires returns the resource expiration time.
+// Expiry returns the resource expiration time.
 func (ps *PersistentStorageV1) Expiry() time.Time {
 	return ps.Metadata.Expiry()
 }
@@ -299,7 +299,7 @@ var PersistentStorageSpecV1Schema = `{
 
 // NDMConfig represents the OpenEBS Node Device Manager configuration.
 type NDMConfig struct {
-	// ProbeConfigs containts probes NDM performs when discovering devices.
+	// ProbeConfigs contains probes NDM performs when discovering devices.
 	ProbeConfigs []*NDMProbe `yaml:"probeconfigs"`
 	// FilterConfigs contains filters NDM considers when discovering devices.
 	FilterConfigs []*NDMFilter `yaml:"filterconfigs"`
