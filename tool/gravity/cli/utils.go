@@ -240,11 +240,13 @@ func watchReconnects(ctx context.Context, cancel context.CancelFunc, watchCh <-c
 	go func() {
 		for {
 			select {
-			case event := <-watchCh:
-				if event.Error == nil {
-					continue
+			case event, ok := <-watchCh:
+				if ok {
+					if event.Error == nil {
+						continue
+					}
+					log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
 				}
-				log.Warnf("Failed to reconnect to %v: %v.", event.Peer, event.Error)
 				cancel()
 				return
 			case <-ctx.Done():
