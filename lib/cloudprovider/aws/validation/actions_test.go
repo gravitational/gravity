@@ -64,11 +64,11 @@ func (r *PermissionsSuite) TestEncodesAsPolicyFile(c *C) {
 		{IAM, "DeleteRole"},
 		{IAM, "PassRole"},
 	}
-	encodedJson, err := actions.AsPolicy("2012-10-17")
+	encodedJSON, err := actions.AsPolicy("2012-10-17")
 	c.Assert(err, IsNil)
 
 	var obtainedPolicy policy
-	c.Assert(json.Unmarshal([]byte(encodedJson), &obtainedPolicy), IsNil)
+	c.Assert(json.Unmarshal([]byte(encodedJSON), &obtainedPolicy), IsNil)
 	sort.Sort(byContext(obtainedPolicy.Statement))
 
 	c.Assert(expectedPolicy, DeepEquals, obtainedPolicy)

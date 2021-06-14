@@ -109,7 +109,7 @@ func (r *providers) Validate(ctx context.Context, input *ValidateInput) (*Valida
 				}
 			}
 		}
-		output, err := provider.Validate(probes, app.Manifest.Providers.AWS.IAMPolicy.Version, ctx)
+		output, err := provider.Validate(ctx, probes, app.Manifest.Providers.AWS.IAMPolicy.Version)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}

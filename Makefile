@@ -71,7 +71,9 @@ GOLINT_PACKAGES ?= \
 	./tool/... \
 	./e/tool/... \
 	./lib/constants/... \
-	./lib/defaults/...
+	./lib/defaults/... \
+	./lib/cloudprovider/... \
+	./lib/autoscale/...
 
 GOPATH ?= $(shell go env GOPATH)
 

@@ -25,7 +25,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -33,7 +32,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sqs"
 
 	"github.com/gravitational/trace"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -177,7 +176,11 @@ func (a *Autoscaler) removeInstance(ctx context.Context, operator Operator, even
 	// start sending heartbeats to tell AWS to keep the node alive
 	heartbeatCancel := a.startHeartbeatLoop(ctx, event)
 	defer heartbeatCancel()
-	defer a.completeASGLifecycle(event)
+	defer func() {
+		if err := a.completeASGLifecycle(event); err != nil {
+			log.WithError(err).Errorf("Failed to complete lifecycle event %q.", event.Type)
+		}
+	}()
 
 	b := utils.NewExponentialBackOff(time.Hour)
 	err := utils.RetryWithInterval(ctx, b, func() error {
@@ -309,7 +312,7 @@ func (a *Autoscaler) completeASGLifecycle(event HookEvent) error {
 		LifecycleActionResult: aws.String("CONTINUE"),
 	})
 
-	a.WithError(err).WithFields(log.Fields{
+	a.WithError(err).WithFields(logrus.Fields{
 		"instance": event.InstanceID,
 		"asg_name": event.AutoScalingGroupName,
 	}).Info("notified AWS of completed uninstall")
@@ -327,7 +330,7 @@ func (a *Autoscaler) startHeartbeatLoop(ctx context.Context, event HookEvent) co
 		for {
 			select {
 			case <-ctx.Done():
-				a.WithFields(log.Fields{
+				a.WithFields(logrus.Fields{
 					"instance":   event.InstanceID,
 					"asg_name":   event.AutoScalingGroupName,
 					"ctx_result": ctx.Err(),
@@ -343,7 +346,7 @@ func (a *Autoscaler) startHeartbeatLoop(ctx context.Context, event HookEvent) co
 					LifecycleHookName:    aws.String(event.LifecycleHookName),
 				})
 
-				a.WithError(err).WithFields(log.Fields{
+				a.WithError(err).WithFields(logrus.Fields{
 					"instance": event.InstanceID,
 					"asg_name": event.AutoScalingGroupName,
 				}).Info("sent heartbeat for lifecycle event")
@@ -355,7 +358,7 @@ func (a *Autoscaler) startHeartbeatLoop(ctx context.Context, event HookEvent) co
 }
 
 func (a *Autoscaler) forceShrink(ctx context.Context, operator Operator, event HookEvent) error {
-	a.WithFields(log.Fields{
+	a.WithFields(logrus.Fields{
 		"instance": event.InstanceID,
 		"asg_name": event.AutoScalingGroupName,
 	}).Info("running shrink with force set")

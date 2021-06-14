@@ -41,7 +41,7 @@ import (
 const (
 	// InstanceLaunching is AWS instance launching lifecycle autoscaling event
 	InstanceLaunching = "autoscaling:EC2_INSTANCE_LAUNCHING"
-	// InstanceTermination is AWS instance terminating lifecycle autoscaling event
+	// InstanceTerminating is AWS instance terminating lifecycle autoscaling event
 	InstanceTerminating = "autoscaling:EC2_INSTANCE_TERMINATING"
 )
 
@@ -138,7 +138,7 @@ func (a *Autoscaler) DeleteEvent(ctx context.Context, event HookEvent) error {
 	return trace.Wrap(err)
 }
 
-// TurnOffSourceDestination check turns off source destination check on the instance
+// TurnOffSourceDestinationCheck check turns off source destination check on the instance
 // that is necessary for K8s to function properly
 func (a *Autoscaler) TurnOffSourceDestinationCheck(ctx context.Context, instanceID string) error {
 	a.Debugf("TurnOffSourceDestinationCheck(%v)", instanceID)

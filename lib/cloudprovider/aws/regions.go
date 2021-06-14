@@ -59,6 +59,8 @@ func SupportsInstanceType(region, instanceType string) bool {
 		if strings.HasPrefix(instanceType, "c3.") || strings.HasPrefix(instanceType, "m3.") {
 			return false
 		}
+	default:
+		// No handling
 	}
 	return true
 }
@@ -76,21 +78,38 @@ func SupportedInstanceTypes(region string, instanceTypes []string) []string {
 }
 
 const (
-	NVirginia   RegionName = "us-east-1"
-	Ohio        RegionName = "us-east-2"
+	// NVirginia is the US east (North Virginia) region
+	NVirginia RegionName = "us-east-1"
+	// Ohio is the US east (Ohio) region
+	Ohio RegionName = "us-east-2"
+	// NCalifornia is the US west (North California) region
 	NCalifornia RegionName = "us-west-1"
-	Oregon      RegionName = "us-west-2"
-	Ireland     RegionName = "eu-west-1"
-	London      RegionName = "eu-west-2"
-	Paris       RegionName = "eu-west-3"
-	Canada      RegionName = "ca-central-1"
-	Beijing     RegionName = "cn-north-1"
-	Frankfurt   RegionName = "eu-central-1"
-	Tokyo       RegionName = "ap-northeast-1"
-	Seoul       RegionName = "ap-northeast-2"
-	OsakaLocal  RegionName = "ap-northeast-3"
-	Singapore   RegionName = "ap-southeast-1"
-	Sydney      RegionName = "ap-southeast-2"
-	Mumbai      RegionName = "ap-south-1"
-	SPaulo      RegionName = "sa-east-1"
+	// Oregon is the US west (Oregon) region
+	Oregon RegionName = "us-west-2"
+	// Ireland is the Europe (Ireland) region
+	Ireland RegionName = "eu-west-1"
+	// London is the Europe (London) region
+	London RegionName = "eu-west-2"
+	// Paris is the Europe (Paris) region
+	Paris RegionName = "eu-west-3"
+	// Canada is the Canada Central region
+	Canada RegionName = "ca-central-1"
+	// Beijing is the Beijing region
+	Beijing RegionName = "cn-north-1"
+	// Frankfurt is the Europe (Frankfurt) region
+	Frankfurt RegionName = "eu-central-1"
+	// Tokyo is the Asia Pacific (Tokyo) region
+	Tokyo RegionName = "ap-northeast-1"
+	// Seoul is the Asia Pacific (Seoul) region
+	Seoul RegionName = "ap-northeast-2"
+	// OsakaLocal is the Asia Pacific (Osaka) region
+	OsakaLocal RegionName = "ap-northeast-3"
+	// Singapore is the Asia Pacific (Singapore) region
+	Singapore RegionName = "ap-southeast-1"
+	// Sydney is the Asia Pacific (Sydney) region
+	Sydney RegionName = "ap-southeast-2"
+	// Mumbai is the Asia Pacific (Mumbai) region
+	Mumbai RegionName = "ap-south-1"
+	// SPaulo is the South America (São Paulo) region
+	SPaulo RegionName = "sa-east-1"
 )
