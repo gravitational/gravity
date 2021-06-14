@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"github.com/docker/distribution"
-	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
 	regclient "github.com/docker/distribution/registry/client"
 
@@ -243,41 +242,6 @@ func (h *dockerHelper) ImageTags(ctx context.Context, registryURL, repository st
 	}
 
 	return list, nil
-}
-
-func (h *dockerHelper) getImageID(ctx context.Context, registryURL, repository, tag string) (string, error) {
-	refName, err := reference.WithName(repository)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	rep, err := regclient.NewRepository(refName, registryURL, nil)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	manifestService, err := rep.Manifests(ctx)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	manifest, err := manifestService.Get(ctx, "", distribution.WithTag(tag))
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	_, manifestBytes, err := manifest.Payload()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	refs := manifest.References()
-	fmt.Println(refs)
-	parsedManifest, ok := manifest.(*schema2.DeserializedManifest)
-	if !ok {
-		return "", trace.Errorf("unable to get DeserializedManifest from %s", string(manifestBytes))
-	}
-	if parsedManifest.Config.Digest == "" {
-		return "", trace.BadParameter(".Config.Digest is empty %v", string(manifestBytes))
-	}
-	return string(parsedManifest.Config.Digest), nil
 }
 
 func (h *dockerHelper) removeTagCmd(tag loc.DockerImage) error {
