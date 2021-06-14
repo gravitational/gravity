@@ -59,9 +59,9 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaults.StatusCollectionTimeout)
 	defer cancel()
-	status, err := statusOnce(ctx, operator, printOptions.operationID, env)
+	status, err := statusOnce(ctx, operator, printOptions.operationID)
 	if err == nil {
-		return printStatus(operator, clusterStatus{*status, nil}, printOptions)
+		return printStatus(clusterStatus{Status: *status}, printOptions)
 	}
 	log.WithError(err).Warn("Failed to fetch status.")
 	if printOptions.operationID != "" {
@@ -99,7 +99,7 @@ func status(env *localenv.LocalEnvironment, printOptions printOptions) error {
 	}
 
 	clusterStatus := clusterStatus{*status, failed}
-	return trace.Wrap(printStatus(operator, clusterStatus, printOptions))
+	return trace.Wrap(printStatus(clusterStatus, printOptions))
 }
 
 func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
@@ -108,7 +108,7 @@ func tailStatus(env *localenv.LocalEnvironment, operationID string) error {
 		return trace.Wrap(err)
 	}
 
-	status, err := statusOnce(context.TODO(), operator, operationID, env)
+	status, err := statusOnce(context.TODO(), operator, operationID)
 	if err != nil {
 		log.Warnf("Failed to determine cluster status: %v.", trace.DebugReport(err))
 		if status == nil || status.Cluster == nil {
@@ -147,19 +147,19 @@ func statusPeriodic(env *localenv.LocalEnvironment, printOptions printOptions, s
 	ticker := time.NewTicker(time.Duration(seconds) * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		status, err := statusOnce(context.TODO(), operator, printOptions.operationID, env)
+		status, err := statusOnce(context.TODO(), operator, printOptions.operationID)
 		if err != nil {
 			log.WithError(err).Warn("Failed to query cluster status.")
 			continue
 		}
 		//nolint:errcheck
-		printStatus(operator, clusterStatus{*status, nil}, printOptions)
+		printStatus(clusterStatus{Status: *status}, printOptions)
 	}
 	return nil
 }
 
 // statusOnce collects cluster status information
-func statusOnce(ctx context.Context, operator ops.Operator, operationID string, env *localenv.LocalEnvironment) (*statusapi.Status, error) {
+func statusOnce(ctx context.Context, operator ops.Operator, operationID string) (*statusapi.Status, error) {
 	cluster, err := operator.GetLocalSite(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -174,7 +174,7 @@ func statusOnce(ctx context.Context, operator ops.Operator, operationID string, 
 }
 
 // printStatus calls an appropriate "print" method based on the printing options
-func printStatus(operator ops.Operator, status clusterStatus, printOptions printOptions) error {
+func printStatus(status clusterStatus, printOptions printOptions) error {
 	switch {
 	case printOptions.operationID != "" && printOptions.quiet:
 		if status.Cluster == nil {
@@ -270,7 +270,7 @@ func printStatusText(out io.Writer, cluster clusterStatus) error {
 			if cluster.Reason != "" {
 				fmt.Fprintf(w, "Cluster status:\t%v (%v)\n",
 					color.RedString(cluster.State),
-					color.RedString(string(cluster.Reason.Description())))
+					color.RedString(cluster.Reason.Description()))
 			} else {
 				fmt.Fprintf(w, "Cluster status:\t%v\n", color.RedString(cluster.State))
 			}

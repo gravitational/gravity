@@ -52,7 +52,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func rpcAgentInstall(env *localenv.LocalEnvironment, args []string) error {
+func rpcAgentInstall(args []string) error {
 	path, err := installAgentBinary()
 	if err != nil {
 		return trace.Wrap(err)
@@ -156,7 +156,7 @@ func newAgent() (rpcserver.Server, error) {
 
 type agentFunc func(ctx context.Context, localEnv, upgradeEnv *localenv.LocalEnvironment, args []string) error
 
-var agentFunctions map[string]agentFunc = map[string]agentFunc{
+var agentFunctions = map[string]agentFunc{
 	constants.RPCAgentUpgradeFunction:  executeAutomaticUpgrade,
 	constants.RPCAgentSyncPlanFunction: executeSyncOperationPlan,
 }
@@ -511,15 +511,6 @@ func executeSyncOperationPlan(ctx context.Context, localEnv, updateEnv *localenv
 	return trace.Wrap(update.SyncOperationPlan(clusterEnv.Backend, updateEnv.Backend, *plan, *operation))
 }
 
-func getGravityPackage() loc.Locator {
-	ver := version.Get()
-	return loc.Locator{
-		Repository: defaults.SystemAccountOrg,
-		Name:       constants.GravityPackage,
-		Version:    strings.Split(ver.Version, "+")[0],
-	}
-}
-
 func installAgentBinary() (path string, err error) {
 	var targetPath string
 	for _, targetPath = range state.GravityAgentBinPaths {
@@ -542,8 +533,6 @@ type deployAgentsRequest struct {
 	cluster      ops.Site
 	proxy        *teleclient.ProxyClient
 	leader       *storage.Server
-	// servers specifies the list of servers to deploy agents on
-	servers      storage.Servers
 	leaderParams string
 	nodeParams   string
 	// version specifies the version of the gravity agent to deploy

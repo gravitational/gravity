@@ -100,7 +100,7 @@ func appSyncEnv(env *localenv.LocalEnvironment, imageEnv *localenv.ImageEnvironm
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		registries, err := getRegistries(context.TODO(), env, cluster.ClusterState.Servers)
+		registries, err := getRegistries(context.TODO(), cluster.ClusterState.Servers)
 		if err != nil {
 			return trace.Wrap(err)
 		}

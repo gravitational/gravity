@@ -68,8 +68,8 @@ func (p PhaseParams) toFSM() fsm.Params {
 	}
 }
 
-func (r PhaseParams) isResume() bool {
-	return r.PhaseID == fsm.RootPhase
+func (p PhaseParams) isResume() bool {
+	return p.PhaseID == fsm.RootPhase
 }
 
 // SetPhaseParams contains parameters for setting phase state.
@@ -298,7 +298,7 @@ func getLastOperation(localEnv *localenv.LocalEnvironment, environ LocalEnvironm
 	b := newBackendOperations()
 
 	if operationID != "" {
-		op := b.GetOperationById(localEnv, environ, operationID)
+		op := b.GetOperationByID(localEnv, environ, operationID)
 		if op == nil {
 			return nil, newOperationNotFound("no operation with ID %v found", operationID)
 		}
@@ -447,14 +447,14 @@ func (r *backendOperations) getOperationByIDFromCluster(localEnv *localenv.Local
 	}, nil
 }
 
-func (r *backendOperations) GetOperationById(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationId string) *clusterOperation {
+func (r *backendOperations) GetOperationByID(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, operationID string) *clusterOperation {
 	r.importLocal(environ)
 
-	if op, ok := r.operations[operationId]; ok {
+	if op, ok := r.operations[operationID]; ok {
 		return &op
 	}
 
-	clusterOp, err := r.getOperationByIDFromCluster(localEnv, operationId)
+	clusterOp, err := r.getOperationByIDFromCluster(localEnv, operationID)
 	if err != nil {
 		log.WithError(err).Warn("Failed to request operation from cluster.")
 	}
@@ -481,29 +481,6 @@ func (r *backendOperations) importLocal(environ LocalEnvironmentFactory) {
 			log.WithError(err).Warn("Failed to list install operation.")
 		}
 	}
-}
-
-func (r *backendOperations) init(clusterBackend storage.Backend) error {
-	clusterOperations, err := storage.GetOperations(clusterBackend)
-	if err != nil {
-		return trace.Wrap(err, "failed to query cluster operations")
-	}
-	if len(clusterOperations) == 0 {
-		return nil
-	}
-	// Initialize the operation state from the list of existing cluster operations.
-	for _, op := range clusterOperations {
-		clusterOperation := clusterOperation{
-			SiteOperation: (ops.SiteOperation)(op),
-		}
-		if _, err := clusterBackend.GetOperationPlan(op.SiteDomain, op.ID); err == nil {
-			clusterOperation.hasPlan = true
-		}
-		r.operations[op.ID] = clusterOperation
-	}
-	latestOperation := r.operations[clusterOperations[0].ID]
-	r.clusterOperation = &latestOperation
-	return nil
 }
 
 func (r *backendOperations) listUpdateOperation(environ LocalEnvironmentFactory) error {
@@ -565,7 +542,7 @@ func (r *backendOperations) updateOperationInCache(getter operationGetter, logge
 		return
 	}
 	clusterOperation := clusterOperation{
-		SiteOperation: (ops.SiteOperation)(*op),
+		SiteOperation: *op,
 	}
 	if _, err := getter.getOperationPlan(op.Key()); err == nil {
 		clusterOperation.hasPlan = true

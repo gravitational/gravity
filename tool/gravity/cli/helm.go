@@ -200,7 +200,7 @@ func releaseInstall(env *localenv.LocalEnvironment, conf releaseInstallConfig) e
 	return nil
 }
 
-func releaseList(env *localenv.LocalEnvironment, conf releaseListConfig) error {
+func releaseList(conf releaseListConfig) error {
 	releases, err := helm.List(helm.ListParameters{
 		Namespace: conf.Namespace,
 		Filter:    conf.Filter,
@@ -328,7 +328,7 @@ func releaseUninstall(env *localenv.LocalEnvironment, conf releaseUninstallConfi
 	return nil
 }
 
-func releaseHistory(env *localenv.LocalEnvironment, conf releaseHistoryConfig) error {
+func releaseHistory(conf releaseHistoryConfig) error {
 	releases, err := helm.Revisions(helm.RevisionsParameters{
 		Namespace: conf.Namespace,
 		Release:   conf.Release,
@@ -369,7 +369,7 @@ func getRelease(params helm.ListParameters) (storage.Release, error) {
 	return nil, trace.NotFound("release %v not found", params.Filter)
 }
 
-func appSearch(env *localenv.LocalEnvironment, pattern string, remoteOnly, all bool) error {
+func appSearch(pattern string, remoteOnly, all bool) error {
 	result, err := catalog.Search(catalog.SearchRequest{
 		Pattern: pattern,
 		Local:   !remoteOnly || all,

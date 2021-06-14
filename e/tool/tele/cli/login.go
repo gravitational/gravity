@@ -121,11 +121,6 @@ func status(config loginConfig) error {
 	return nil
 }
 
-// clusterFromContext returns cluster name from the provided context
-func clusterFromContext(context, opsHost string) string {
-	return strings.TrimSuffix(context, "."+opsHost)
-}
-
 func login(config loginConfig) error {
 	keys, err := credentials.GetLocalKeyStore(config.stateDir)
 	if err != nil {
@@ -178,7 +173,7 @@ func login(config loginConfig) error {
 	}
 
 	if config.siteDomain != "" {
-		if err := initClusterSecrets(config, opsCenterURL, *loginEntry, config.siteDomain, clt, info); err != nil {
+		if err := initClusterSecrets(opsCenterURL, *loginEntry, config.siteDomain, clt); err != nil {
 			return trace.Wrap(err)
 		}
 	} else {
@@ -274,9 +269,7 @@ func logout(ctx context.Context, config loginConfig) error {
 	if err := cleanKubeconfig(entries); err != nil {
 		return trace.Wrap(err)
 	}
-	if err := logoutHubs(ctx, entries, httplib.GetClient(config.insecure)); err != nil {
-		return trace.Wrap(err)
-	}
+	logoutHubs(ctx, entries, httplib.GetClient(config.insecure))
 	if err := logoutHelm(entries); err != nil {
 		return trace.Wrap(err)
 	}
@@ -312,7 +305,7 @@ func logout(ctx context.Context, config loginConfig) error {
 	return nil
 }
 
-func initClusterSecrets(config loginConfig, opsCenterURL string, entry users.LoginEntry, selectSiteDomain string, clt ops.Operator, userInfo *ops.UserInfo) error {
+func initClusterSecrets(opsCenterURL string, entry users.LoginEntry, selectSiteDomain string, clt ops.Operator) error {
 	log.Debugf("initSecrets(user=%q, accountID=%v)", entry.Email, entry.AccountID)
 
 	_, err := clt.GetSiteByDomain(selectSiteDomain)
@@ -485,7 +478,7 @@ func loginHelm(opsCenterURL string, login users.LoginEntry) error {
 
 // logoutHubs logs out from all Hubs specified by the provided login entries
 // by removing tokens that were generated during tele login.
-func logoutHubs(ctx context.Context, entries []users.LoginEntry, httpClient *http.Client) error {
+func logoutHubs(ctx context.Context, entries []users.LoginEntry, httpClient *http.Client) {
 	for _, entry := range entries {
 		// Try to log out on the best-effort basis to ensure that
 		// stale login entries do not fail the whole logout.
@@ -497,7 +490,6 @@ func logoutHubs(ctx context.Context, entries []users.LoginEntry, httpClient *htt
 			}
 		}
 	}
-	return nil
 }
 
 // logoutHub logs out from the Hub specified with the login entry.

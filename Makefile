@@ -67,9 +67,15 @@ GOLINT_PACKAGES ?= \
 	./lib/app/... \
 	./lib/docker/... \
 	./lib/loc/... \
-	./lib/users/...
+	./lib/users/... \
+	./tool/... \
+	./e/tool/... \
+	./lib/constants/... \
+	./lib/defaults/...
 
 GOPATH ?= $(shell go env GOPATH)
+
+TODO_PKGS ?= lib/ mage/ tool/ e/
 
 ETCD_VER := v2.3.7
 
@@ -805,5 +811,8 @@ endif
 		echo "This step requires $(GOLINT) version 1.39.0 or newer"; \
 		exit 1; \
 	fi;
+
+todo:	## List selected TODO items
+	@find $(TODO_PKGS) -type f -name '*.go' -exec grep -EHn --color=auto 'TODO\:\W+.+|TODO\(\w+\).+' {} \;
 
 include build.assets/etcd.mk

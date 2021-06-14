@@ -118,8 +118,9 @@ func streamRuntimeJournal(env *localenv.LocalEnvironment, since time.Duration, e
 	}
 
 	rootDir := filepath.Join(runtimePath, "rootfs")
+	//nolint:staticcheck,nolintlint
 	err = system.DropCapabilitiesForJournalExport()
-	if err != nil {
+	if err != nil { //nolint:staticcheck,nolintlint
 		return trace.Wrap(err)
 	}
 

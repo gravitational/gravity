@@ -208,8 +208,8 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	}
 
 	caFile := state.Secret(stateDir, defaults.RootCertFilename)
-	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
-	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.KeySuffix))
 
 	// Load the CA of the server
 	ca, err := ioutil.ReadFile(caFile)
@@ -437,8 +437,8 @@ func GetGRPCPlanetClient(ctx context.Context) (client.Client, error) {
 	}
 
 	caFile := state.Secret(stateDir, defaults.RootCertFilename)
-	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
-	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.KeySuffix))
 
 	config := client.Config{
 		Address:  addr,

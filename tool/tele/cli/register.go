@@ -62,7 +62,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.HelmCmd.CmdClause = app.Command("helm", "Operations with Helm charts.").Alias("app")
 
 	tele.HelmBuildCmd.CmdClause = tele.HelmCmd.Command("build", "Build application image.")
-	tele.HelmBuildCmd.Path = tele.HelmBuildCmd.Arg("path", fmt.Sprintf("Path to a Helm chart to build an application image from.")).String()
+	tele.HelmBuildCmd.Path = tele.HelmBuildCmd.Arg("path", "Path to a Helm chart to build an application image from.").String()
 	tele.HelmBuildCmd.OutFile = tele.HelmBuildCmd.Flag("output", "Application image file name. Defaults to <name>-<version>.tar.").Short('o').String()
 	tele.HelmBuildCmd.Overwrite = tele.HelmBuildCmd.Flag("overwrite", "Overwrite the existing image file.").Short('f').Bool()
 	tele.HelmBuildCmd.VendorPatterns = tele.HelmBuildCmd.Flag("glob", "File pattern to search for container image references.").Default(defaults.VendorPattern).Hidden().Strings()

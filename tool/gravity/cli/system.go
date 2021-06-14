@@ -51,7 +51,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func systemClusterInfo(env *localenv.LocalEnvironment) error {
+func systemClusterInfo() error {
 	dir, err := ioutil.TempDir("", "cluster-info")
 	if err != nil {
 		return trace.ConvertSystemError(err)
@@ -103,7 +103,7 @@ func systemPullUpdates(env *localenv.LocalEnvironment, opsCenterURL string, runt
 	for _, req := range reqs {
 		log := log.WithField("package", req.installedPackage)
 		log.Info("Checking for update.")
-		update, err := findPackageUpdate(env.Packages, remotePackages, req)
+		update, err := findPackageUpdate(remotePackages, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				log.Info("No update found.")
@@ -151,7 +151,7 @@ func systemUpdate(env *localenv.LocalEnvironment, changesetID string, serviceNam
 	for _, req := range reqs {
 		log := log.WithField("package", req)
 		log.Info("Checking for update.")
-		update, err := findPackageUpdate(env.Packages, env.Packages, req)
+		update, err := findPackageUpdate(env.Packages, req)
 		if err != nil {
 			if trace.IsNotFound(err) {
 				log.Info("No update found.")
@@ -290,32 +290,6 @@ func systemBlockingReinstall(env *localenv.LocalEnvironment, update storage.Pack
 		ClusterRole: clusterRole,
 	}
 	return updater.Reinstall(context.TODO(), update)
-}
-
-// reinstallOneshotService stops and reinstalls the service specified by
-// serviceName as a oneshot service.
-func reinstallOneshotService(env *localenv.LocalEnvironment, serviceName string, cmd []string) error {
-	services, err := systemservice.New()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	err = services.StopService(serviceName)
-	if err != nil {
-		log.Warnf("Error stopping service %v: %v.", serviceName, err)
-	}
-
-	err = services.InstallService(systemservice.NewServiceRequest{
-		Name:    serviceName,
-		NoBlock: true,
-		ServiceSpec: systemservice.ServiceSpec{
-			User:            constants.RootUIDString,
-			Type:            service.OneshotService,
-			StartCommand:    strings.Join(cmd, " "),
-			RemainAfterExit: true,
-		},
-	})
-	return trace.Wrap(err)
 }
 
 func applyUpdates(env *localenv.LocalEnvironment, updates []storage.PackageUpdate) error {
@@ -556,7 +530,7 @@ func systemServiceUninstall(env *localenv.LocalEnvironment, pkg loc.Locator, ser
 }
 
 // systemServiceList lists all packages
-func systemServiceList(env *localenv.LocalEnvironment) error {
+func systemServiceList() error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -573,7 +547,7 @@ func systemServiceList(env *localenv.LocalEnvironment) error {
 }
 
 // systemServiceStart starts the package service specified with packagePattern
-func systemServiceStart(env *localenv.LocalEnvironment, packagePattern string) error {
+func systemServiceStart(packagePattern string) error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -589,7 +563,7 @@ func systemServiceStart(env *localenv.LocalEnvironment, packagePattern string) e
 }
 
 // systemServiceStop stops the running package service specified with packagePattern
-func systemServiceStop(env *localenv.LocalEnvironment, packagePattern string) error {
+func systemServiceStop(packagePattern string) error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -605,7 +579,7 @@ func systemServiceStop(env *localenv.LocalEnvironment, packagePattern string) er
 }
 
 // systemServiceJournal queries the system journal of the package service specified with packagePattern
-func systemServiceJournal(env *localenv.LocalEnvironment, packagePattern string, args []string) error {
+func systemServiceJournal(packagePattern string, args []string) error {
 	services, err := systemservice.New()
 	if err != nil {
 		return trace.Wrap(err)
@@ -721,7 +695,7 @@ func packageServicePattern(pattern string) string {
 }
 
 // findPackageUpdate searches for remote update for the local package specified with req
-func findPackageUpdate(localPackages, remotePackages pack.PackageService, req packageRequest) (*storage.PackageUpdate, error) {
+func findPackageUpdate(remotePackages pack.PackageService, req packageRequest) (*storage.PackageUpdate, error) {
 	if req.configPackage == nil {
 		update, err := findPackageUpdateHelper(remotePackages, req)
 		return update, trace.Wrap(err)

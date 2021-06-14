@@ -122,13 +122,13 @@ func Run(tele Application) error {
 
 	switch cmd {
 	case tele.PullCmd.FullCommand():
-		return pull(*env,
+		return pull(
 			*tele.PullCmd.App,
 			*tele.PullCmd.OutFile,
 			*tele.PullCmd.Force,
 			*tele.PullCmd.Quiet)
 	case tele.ListCmd.FullCommand():
-		return list(*env,
+		return list(
 			*tele.ListCmd.All,
 			*tele.ListCmd.Format)
 	}

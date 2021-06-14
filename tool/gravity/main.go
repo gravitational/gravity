@@ -20,7 +20,7 @@ import (
 	stdlog "log"
 	"os"
 
-	"github.com/gravitational/gravity/lib/install/proto"
+	installer "github.com/gravitational/gravity/lib/install/proto"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/common"
 	"github.com/gravitational/gravity/tool/gravity/cli"

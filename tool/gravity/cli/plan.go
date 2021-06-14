@@ -164,11 +164,11 @@ func getInstallOperationPlanFunc(opKey ops.SiteOperationKey) fsm.GetPlanFunc {
 			return plan, nil
 		}
 		plan, err = getPlanFromWizardBackend(opKey)
-		if err != nil {
-			return nil, trace.Wrap(err, "failed to get plan for the install operation.\n"+
-				"Make sure you are running 'gravity plan' from the installer node.")
+		if err == nil {
+			return plan, nil
 		}
-		return nil, trace.NotFound("could not retrieve plan from wizard process")
+		return nil, trace.Wrap(err, "failed to get plan for the install operation.\n"+
+			"Make sure you are running 'gravity plan' from the installer node.")
 	}
 }
 

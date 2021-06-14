@@ -42,13 +42,20 @@ import (
 
 func statusSite() error {
 	client := &http.Client{
-		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
+				//nolint:gosec // TODO: fix insecure
 				InsecureSkipVerify: true,
 			}}}
 	targetURL := defaults.GravityServiceURL + "/healthz"
-	re, err := client.Get(targetURL)
+	req, err := http.NewRequest(http.MethodGet, targetURL, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req = req.WithContext(ctx)
+	re, err := client.Do(req)
 	if err != nil {
 		return trace.Wrap(err, "failed connecting to %v", targetURL)
 	}
@@ -224,7 +231,7 @@ func printLocalClusterInfo(env *localenv.LocalEnvironment, outFormat constants.F
 	return nil
 }
 
-func completeInstallerStep(env *localenv.LocalEnvironment, supportAction string) error {
+func completeInstallerStep(env *localenv.LocalEnvironment) error {
 	operator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err)

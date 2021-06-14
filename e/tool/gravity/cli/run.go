@@ -169,7 +169,7 @@ func execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return installLicense(localEnv,
 			*g.LicenseInstallCmd.Path)
 	case g.LicenseNewCmd.FullCommand():
-		return newLicense(localEnv,
+		return newLicense(
 			*g.LicenseNewCmd.MaxNodes,
 			*g.LicenseNewCmd.ValidFor,
 			*g.LicenseNewCmd.StopApp,
