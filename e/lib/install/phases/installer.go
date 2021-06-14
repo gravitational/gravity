@@ -33,7 +33,7 @@ import (
 )
 
 // NewInstaller returns a new "installer" phase
-func NewInstaller(p fsm.ExecutorParams, operator ops.Operator, wizardPack pack.PackageService, wizardApps app.Applications) (*installerExecutor, error) {
+func NewInstaller(p fsm.ExecutorParams, operator ops.Operator, wizardPack pack.PackageService, wizardApps app.Applications) (fsm.PhaseExecutor, error) {
 	// TODO pass insecure flag
 	httpClient := httplib.GetClient(true)
 	opsPack, err := webpack.NewBearerClient(p.Phase.Data.Agent.OpsCenterURL,

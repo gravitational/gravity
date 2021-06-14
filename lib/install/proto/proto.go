@@ -40,6 +40,7 @@ func (r *ProgressResponse) IsCompleted() bool {
 
 // String formats this status as text
 func (r ProgressResponse_Status) String() string {
+	//nolint:exhaustive // TODO(dima): add explicit cases for StatusAborted, StatusUnknown
 	switch r {
 	case StatusCompleted:
 		return "completed"

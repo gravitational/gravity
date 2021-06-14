@@ -37,7 +37,7 @@ import (
 // reconfiguration to ensure that no old pods are lingering (Kubernetes may
 // get confused after the old node is gone and keep pods in terminating state
 // for a long time) and that they mount proper service tokens.
-func NewPods(p fsm.ExecutorParams, operator ops.Operator) (*podsExecutor, error) {
+func NewPods(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

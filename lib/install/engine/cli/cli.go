@@ -28,7 +28,6 @@ import (
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
-	libinstall "github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/install/dispatcher"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/schema"
@@ -204,7 +203,7 @@ func (r *executor) waitForAgents(operation ops.SiteOperation) error {
 			return trace.Wrap(err)
 		}
 		r.WithField("report", report).Info("Installation can proceed.")
-		err = libinstall.UpdateOperationState(r.Operator, operation, *report)
+		err = install.UpdateOperationState(r.Operator, operation, *report)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)

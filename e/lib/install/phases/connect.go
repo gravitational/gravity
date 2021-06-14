@@ -30,7 +30,7 @@ import (
 
 // NewConnect returns executor for the "connect" phase that connects
 // installed cluster to an Ops Center
-func NewConnect(p fsm.ExecutorParams, operator ossops.Operator) (*connectExecutor, error) {
+func NewConnect(p fsm.ExecutorParams, operator ossops.Operator) (fsm.PhaseExecutor, error) {
 	// the cluster should already be up at this point
 	clusterOperator, err := environment.ClusterOperator()
 	if err != nil {

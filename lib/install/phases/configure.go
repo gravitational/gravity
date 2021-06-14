@@ -28,7 +28,7 @@ import (
 )
 
 // NewConfigure returns a new "configure" phase executor
-func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (*configureExecutor, error) {
+func NewConfigure(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,

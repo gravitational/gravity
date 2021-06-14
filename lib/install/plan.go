@@ -64,7 +64,9 @@ func (r *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddBootstrapPhase(plan)
 
 	// pull configured packages on each node
-	builder.AddPullPhase(plan)
+	if err := builder.AddPullPhase(plan); err != nil {
+		return nil, trace.Wrap(err)
+	}
 
 	// install system software on master nodes
 	if err := builder.AddMastersPhase(plan); err != nil {

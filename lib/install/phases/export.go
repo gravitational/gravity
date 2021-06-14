@@ -40,7 +40,7 @@ import (
 // This phase exports Docker images of the application and its dependencies
 // to the locally running Docker registry.
 func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService, apps app.Applications,
-	remote fsm.Remote) (*exportExecutor, error) {
+	remote fsm.Remote) (fsm.PhaseExecutor, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -38,7 +38,7 @@ import (
 
 // NewConnectInstaller returns executor that establishes trust b/w installed
 // cluster and the installer process
-func NewConnectInstaller(p fsm.ExecutorParams, operator ops.Operator) (*connectExecutor, error) {
+func NewConnectInstaller(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	err := checkConnectData(p.Phase.Data)
 	if err != nil {
 		return nil, trace.Wrap(err)

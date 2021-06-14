@@ -386,10 +386,3 @@ func phaseTitle(phase installpb.Phase) string {
 	}
 	return fmt.Sprintf("Executing phase %v", phase.ID)
 }
-
-func phaseForOperation(op ops.SiteOperation) *installpb.Phase {
-	return &installpb.Phase{
-		ID:  fsm.RootPhase,
-		Key: installpb.KeyToProto(op.Key()),
-	}
-}

@@ -58,7 +58,7 @@ func (i *Installer) NotifyOperationAvailable(op ops.SiteOperation) error {
 	return nil
 }
 
-// Returns a new cluster request
+// NewCluster returns a new cluster create request.
 // Implements engine.ClusterFactory
 func (i *Installer) NewCluster() ops.NewSiteRequest {
 	return i.config.ClusterFactory.NewCluster()
@@ -98,7 +98,7 @@ func (i *Installer) CompleteOperation(operation ops.SiteOperation) error {
 	if err := i.uploadInstallLog(operation.Key()); err != nil {
 		errors = append(errors, err)
 	}
-	if err := i.emitAuditEvents(i.ctx, operation); err != nil {
+	if err := i.emitAuditEvents(operation); err != nil {
 		errors = append(errors, err)
 	}
 	i.sendElapsedTime(operation.Created)
@@ -127,6 +127,7 @@ func (i *Installer) CompleteFinalInstallStep(key ops.SiteOperationKey, delay tim
 
 // PrintStep publishes a progress entry described with (format, args) tuple to the client.
 // Implements Interface
+//nolint:goprintffuncname
 func (i *Installer) PrintStep(format string, args ...interface{}) {
 	event := dispatcher.Event{
 		Progress: &ops.ProgressEntry{
@@ -244,7 +245,7 @@ func (i *Installer) uploadInstallLog(operationKey ops.SiteOperationKey) error {
 
 // emitAuditEvents sends the install operation's start/finish
 // events to the installed cluster's audit log.
-func (i *Installer) emitAuditEvents(ctx context.Context, operation ops.SiteOperation) error {
+func (i *Installer) emitAuditEvents(operation ops.SiteOperation) error {
 	operator, err := localenv.ClusterOperator()
 	if err != nil {
 		i.WithError(err).Warn("Failed to create cluster operator.")

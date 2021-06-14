@@ -33,7 +33,7 @@ import (
 //
 // Specifically, it removes the directories where Teleport node and auth server
 // keep their data so they regenerate their secrets upon startup.
-func NewDirectories(p fsm.ExecutorParams, operator ops.Operator) (*directoriesExecutor, error) {
+func NewDirectories(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

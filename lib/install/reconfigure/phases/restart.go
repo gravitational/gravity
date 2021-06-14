@@ -31,7 +31,7 @@ import (
 )
 
 // NewRestart returns executor that restarts systemd unit for the specified package.
-func NewRestart(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (*restartExecutor, error) {
+func NewRestart(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

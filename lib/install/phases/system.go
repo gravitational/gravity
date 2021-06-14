@@ -32,7 +32,7 @@ import (
 )
 
 // NewSystem returns a new "system" phase executor
-func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *localpack.PackageServer, remote fsm.Remote) (*systemExecutor, error) {
+func NewSystem(p fsm.ExecutorParams, operator ops.Operator, localPackages *localpack.PackageServer, remote fsm.Remote) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase:       p.Phase.ID,

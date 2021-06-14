@@ -33,7 +33,7 @@ import (
 )
 
 // NewNetwork returns executor that cleans up network interfaces on the node.
-func NewNetwork(p fsm.ExecutorParams, operator ops.Operator) (*networkExecutor, error) {
+func NewNetwork(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

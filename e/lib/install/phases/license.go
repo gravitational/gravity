@@ -28,7 +28,7 @@ import (
 )
 
 // NewLicense returns a new "license" phase executor
-func NewLicense(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*licenseExecutor, error) {
+func NewLicense(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
