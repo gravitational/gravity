@@ -137,7 +137,7 @@ func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.Docke
 }
 
 func (r *registryHelper) push(image loc.DockerImage, c *C) {
-	c.Assert(r.helper.PushImage(image.String(), r.r.Addr()), IsNil)
+	c.Assert(r.helper.Push(image.String(), r.r.Addr()), IsNil)
 }
 
 type registryHelper struct {

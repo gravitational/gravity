@@ -47,8 +47,8 @@ type Synchronizer struct {
 	progressReporter utils.Progress
 }
 
-// PushImage pushes the specified image into the registry
-func (h *Synchronizer) PushImage(image, registryAddr string) error {
+// Push pushes the specified image into the registry
+func (h *Synchronizer) Push(image, registryAddr string) error {
 	parsedImage, err := loc.ParseDockerImage(image)
 	if err != nil {
 		return trace.Wrap(err)
@@ -175,7 +175,7 @@ func (h *Synchronizer) pullAndPush(image string, reg RegistryInfo, needPull bool
 			return trace.Wrap(err)
 		}
 	}
-	return trace.Wrap(h.PushImage(image, reg.Address))
+	return trace.Wrap(h.Push(image, reg.Address))
 }
 
 // ImageTags returns the list of tags for specified image from the registry
