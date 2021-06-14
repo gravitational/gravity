@@ -119,11 +119,11 @@ func (h *dockerHelper) PushImage(image, registryAddr string) error {
 	}
 	if err = h.pushCmd(dstDockerImage); err != nil {
 		h.log.Warnf("Failed to push %v: %v.", image, err)
-		return trace.Wrap(err)
+		return trace.Wrap(err).AddField("image", image)
 	}
 	h.progressReporter.PrintSubStep("Vendored image %v", image)
 	if err = h.removeTagCmd(dstDockerImage); err != nil {
-		h.log.Warnf("Failed to remove %v.", image)
+		h.log.WithError(err).Debugf("Failed to remove %v.", image)
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (h *dockerHelper) tagCmd(image string, tag loc.DockerImage) error {
 		Force: true,
 	}
 	h.log.Infof("Tagging %v with opts=%v.", image, opts)
-	return h.dockerClient.TagImage(image, opts)
+	return trace.Wrap(h.dockerClient.TagImage(image, opts))
 }
 
 func (h *dockerHelper) pushCmd(image loc.DockerImage) error {
@@ -147,9 +147,9 @@ func (h *dockerHelper) pushCmd(image loc.DockerImage) error {
 	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
 	// auth headers are set.
 	// https://github.com/moby/moby/issues/10983
-	return h.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
+	return trace.Wrap(h.dockerClient.PushImage(opts, dockerapi.AuthConfiguration{
 		Password: "not-a-real-password",
-	})
+	}))
 }
 
 // ImageExists checks if the image exists in the registry
@@ -237,8 +237,12 @@ func (h *dockerHelper) ImageTags(ctx context.Context, registryURL, repository st
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	list, err := rep.Tags(ctx).All(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 
-	return rep.Tags(ctx).All(ctx)
+	return list, nil
 }
 
 func (h *dockerHelper) getImageID(ctx context.Context, registryURL, repository, tag string) (string, error) {
