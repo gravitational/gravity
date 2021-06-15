@@ -63,6 +63,8 @@ var (
 		// has stopped on 7.1.x and is being continued on 8.0.x.
 		semver.New("7.1.0"),
 		semver.New("8.0.0"),
+		// Keep the latest version to allow upgrade within the current major
+		semver.New("9.0.0"),
 	}
 
 	// UpgradeViaVersions maps older gravity versions to versions that can be
