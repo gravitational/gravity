@@ -29,7 +29,7 @@ func (i *RegistryInfo) GetURL() string {
 	return fmt.Sprintf("%s://%s", i.Protocol, i.Address)
 }
 
-// NewSynchronizer creates a new Synchronizer
+// NewSynchronizer creates a new docker image synchronizer responsible for exporting docker images to a filesystem during build.
 func NewSynchronizer(log log.FieldLogger, dockerClient Interface, progressReporter utils.Progress) *Synchronizer {
 	return &Synchronizer{
 		log:              log,
