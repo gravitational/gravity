@@ -748,7 +748,9 @@ selinux:
 
 .PHONY: golint
 golint: golangci-verify
-	$(GOLINT) run -c .golangci.yml \
+	$(GOLINT) run \
+		--config .golangci.yml \
+		--modules-download-mode vendor \
 		$(GOLINT_PACKAGES)
 
 GOLANGCI_REQUIRED_MAJOR := 1
