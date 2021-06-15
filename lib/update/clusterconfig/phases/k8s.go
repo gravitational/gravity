@@ -79,6 +79,7 @@ func createServiceWithClusterIP(ctx context.Context, service v1.Service, alloc *
 		case utils.IsTransientClusterError(err), isIPRangeMistmatchError(err):
 			// Fall-through
 		case isIPAlreadyAllocatedError(err):
+			//nolint:errcheck
 			alloc.Release(ip)
 			ip, err = alloc.AllocateNext()
 			if err != nil {

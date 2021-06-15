@@ -22,12 +22,14 @@ import "github.com/gravitational/trace"
 
 // DropCapabilitiesForJournalExport drops capabilities except those required
 // to export a systemd journal
+//nolint:staticcheck,nolintlint // avoid false positives on platforms other than linux
 func DropCapabilitiesForJournalExport() error {
 	return trace.NotImplemented("API is not supported")
 }
 
 // DropCapabilities drops all capabilities except those specified with keep
 // from the current process
+//nolint:staticcheck,nolintlint // avoid false positives on platforms other than linux
 func DropCapabilities(keep map[int]struct{}) error {
 	return trace.NotImplemented("API is not supported")
 }

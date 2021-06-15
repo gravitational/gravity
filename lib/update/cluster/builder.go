@@ -391,7 +391,6 @@ const etcdNumParallel = 15
 func (r phaseBuilder) etcdPlan(
 	leadMaster storage.Server,
 	otherMasters []storage.Server,
-	workers []storage.Server,
 	currentVersion string,
 	desiredVersion string,
 ) *update.Phase {
@@ -809,6 +808,5 @@ func (e electionChanges) ID() string {
 }
 
 type waitsForEndpoints bool
-type enableElections bool
 
 const etcdPhaseName = "etcd"

@@ -91,7 +91,7 @@ func NewUpdatePhaseInit(
 	users users.Identity,
 	client *kubernetes.Clientset,
 	logger log.FieldLogger,
-) (*updatePhaseInit, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.Package == nil {
 		return nil, trace.BadParameter("no application package specified for phase %v", p.Phase)
 	}

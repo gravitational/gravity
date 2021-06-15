@@ -37,7 +37,7 @@ func NewUpdatePhaseSELinux(
 	operator ops.Operator,
 	apps app.Applications,
 	logger log.FieldLogger,
-) (*updatePhaseSELinux, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no update application package specified for phase %v", p.Phase)
 	}
