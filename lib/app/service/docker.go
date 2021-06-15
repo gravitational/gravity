@@ -23,7 +23,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
-	"github.com/gravitational/gravity/lib/run"
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
@@ -61,11 +60,8 @@ func exportLayers(
 		Address:  registry.Addr(),
 		Protocol: "http",
 	}
-	group, ctx := run.WithContext(ctx, run.WithParallel(parallel))
+
 	err = s.PullAndExportImages(ctx, images, regInfo, forcePull, parallel)
-	if err := group.Wait(); err != nil {
-		return trace.Wrap(err)
-	}
 	if err != nil {
 		return trace.Wrap(err, "failed to export image layers")
 	}
