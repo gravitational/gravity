@@ -64,7 +64,7 @@ func (p *Phase) ChildLiteral(sub string) string {
 	return path.Join(p.ID, sub)
 }
 
-// Required adds the specified phases reqs as requirements for this phase
+// Require adds the specified phases reqs as requirements for this phase
 func (p *Phase) Require(reqs ...PhaseIder) *Phase {
 	for _, req := range reqs {
 		p.Requires = append(p.Requires, req.GetID())
@@ -99,7 +99,7 @@ func (r PhaseRef) GetID() string {
 // PhaseRef refers to a phase by ID
 type PhaseRef string
 
-// Phases aliases the operation phase object from lib/storage
+// Phase aliases the operation phase object from lib/storage
 type Phase storage.OperationPhase
 
 type ParentPhase interface {

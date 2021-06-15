@@ -45,7 +45,7 @@ func NewRestart(
 	packages pack.PackageService,
 	localPackages update.LocalPackageService,
 	logger log.FieldLogger,
-) (*restart, error) {
+) (libfsm.PhaseExecutor, error) {
 	base, err := libbasephase.NewRestart(params, operator, operation.ID, apps, backend, packages, localPackages, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)

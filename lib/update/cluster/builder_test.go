@@ -747,21 +747,6 @@ func (r params) etcdShutdownNode(server storage.UpdateServer, isLeader bool) sto
 	}
 }
 
-func (r params) etcdShutdownWorkerNode(server storage.UpdateServer) storage.OperationPhase {
-	t := func(format string) string {
-		return fmt.Sprintf(format, server.Hostname)
-	}
-	return storage.OperationPhase{
-		ID:          t("/etcd/shutdown/%v"),
-		Description: t("Shutdown etcd on node %q"),
-		Executor:    updateEtcdShutdown,
-		Data: &storage.OperationPhaseData{
-			Server: &server.Server,
-			Data:   "false",
-		},
-	}
-}
-
 func (r params) etcdUpgradeNode(server storage.UpdateServer) storage.OperationPhase {
 	t := func(format string) string {
 		return fmt.Sprintf(format, server.Hostname)

@@ -40,7 +40,7 @@ func NewUpdateConfig(
 	apps appGetter,
 	packages, hostPackages packageService,
 	logger log.FieldLogger,
-) (*updateConfig, error) {
+) (libfsm.PhaseExecutor, error) {
 	if params.Phase.Data == nil || params.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no installed application package specified for phase %q",
 			params.Phase.ID)

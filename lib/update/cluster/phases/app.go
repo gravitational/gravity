@@ -52,7 +52,7 @@ func NewUpdatePhaseApp(
 	apps app.Applications,
 	client *kubernetes.Clientset,
 	logger log.FieldLogger,
-) (*updatePhaseApp, error) {
+) (fsm.PhaseExecutor, error) {
 	cluster, err := operator.GetLocalSite(context.TODO())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -136,7 +136,7 @@ func NewUpdatePhaseBeforeApp(
 	apps app.Applications,
 	client *kubernetes.Clientset,
 	logger log.FieldLogger,
-) (*updatePhaseBeforeApp, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data.Package == nil {
 		return nil, trace.NotFound("no package specified for phase %q", p.Phase.ID)
 	}

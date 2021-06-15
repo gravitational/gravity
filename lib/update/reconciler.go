@@ -36,7 +36,7 @@ type Reconciler interface {
 
 // NewDefaultReconciler returns an implementation of Reconciler that syncs changes between
 // the authoritative and the remote backends
-func NewDefaultReconciler(remote, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) *reconciler {
+func NewDefaultReconciler(remote, authoritative storage.Backend, clusterName, operationID string, logger logrus.FieldLogger) Reconciler {
 	return &reconciler{
 		FieldLogger:  logger,
 		backend:      remote,

@@ -124,7 +124,7 @@ type engine struct {
 
 // newEngine returns a new instance of FSM engine for update
 func newEngine(ctx context.Context, config Config, logger logrus.FieldLogger) (*engine, error) {
-	plan, err := loadPlan(config.LocalBackend, config.Operation.Key(), logger)
+	plan, err := loadPlan(config.LocalBackend, config.Operation.Key())
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -321,7 +321,7 @@ func (f *engine) reconcilePlan(ctx context.Context) error {
 	return nil
 }
 
-func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey, logger logrus.FieldLogger) (*storage.OperationPlan, error) {
+func loadPlan(backend storage.Backend, opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
 	plan, err := backend.GetOperationPlan(opKey.SiteDomain, opKey.OperationID)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)

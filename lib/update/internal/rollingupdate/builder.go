@@ -172,7 +172,7 @@ func (r Builder) commonFirstMaster(server storage.UpdateServer, others ...storag
 	}
 	if r.CustomUpdate != nil {
 		return append(phases,
-			r.custom(&server.Server, nil),
+			r.custom(&server.Server),
 			r.taint(&server.Server, nil),
 			r.uncordon(&server.Server, nil),
 			r.endpoints(&server.Server, nil),
@@ -224,7 +224,7 @@ func (r Builder) taint(server, execer *storage.Server) *builder.Phase {
 }
 
 // custom assumes r.CustomUpdate != nil
-func (r Builder) custom(server, execer *storage.Server) *builder.Phase {
+func (r Builder) custom(server *storage.Server) *builder.Phase {
 	node := *r.CustomUpdate
 	node.Data.Server = server
 	return builder.NewPhase(node)
