@@ -5,7 +5,7 @@ set -o pipefail
 
 source $(dirname $0)/lib/utils.sh
 
-# UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
+# UPGRADE_MAP maps gravity version -> space separated list of linux distros to upgrade from
 declare -A UPGRADE_MAP
 UPGRADE_MAP[7.1.0-alpha.5]="ubuntu:20" # this version
 UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="redhat:8.2" # compatible LTS version
