@@ -388,7 +388,7 @@ func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exp
 	}
 
 	if err := exportLayers(ctx, registryDir, images, v.dockerClient,
-		log.WithField("export-directory", exportDir), parallel, forcePull, progress); err != nil {
+		log.WithField("export-directory", registryDir), parallel, forcePull, progress); err != nil {
 		return trace.Wrap(err)
 	}
 	if dockerCacheDir != "" {
