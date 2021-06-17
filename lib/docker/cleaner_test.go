@@ -18,16 +18,17 @@ package docker
 
 import (
 	"context"
+	"sort"
 
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
+	"gopkg.in/check.v1"
 )
 
-var _ = Suite(&CleanerSuite{})
+var _ = check.Suite(&CleanerSuite{})
 
 type CleanerSuite struct {
 	client      *dockerapi.Client
@@ -36,16 +37,16 @@ type CleanerSuite struct {
 	registryDir string
 }
 
-func (s *CleanerSuite) SetUpTest(c *C) {
+func (s *CleanerSuite) SetUpTest(c *check.C) {
 	var err error
 	s.client, err = NewClientFromEnv()
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 	s.sync = NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
 	s.registryDir = c.MkDir()
 	s.registry = newRegistry(s.registryDir, s.sync, c)
 }
 
-func (s *CleanerSuite) TearDownTest(*C) {
+func (s *CleanerSuite) TearDownTest(*check.C) {
 	_ = s.registry.r.Close()
 }
 
@@ -56,7 +57,7 @@ func (s *CleanerSuite) removeImages(images []loc.DockerImage) {
 	}
 }
 
-func (s *CleanerSuite) generateImages(c *C) ([]loc.DockerImage, []loc.DockerImage, []loc.DockerImage) {
+func (s *CleanerSuite) generateImages(c *check.C) ([]loc.DockerImage, []loc.DockerImage, []loc.DockerImage) {
 	cleanImages := generateDockerImages(s.client, "test/clean", 5, c)
 	validImages := generateDockerImages(s.client, "test/valid", 5, c)
 	invalidImages := generateDockerImages(s.client, "test/invalid", 6, c)
@@ -70,52 +71,71 @@ func (s *CleanerSuite) generateImages(c *C) ([]loc.DockerImage, []loc.DockerImag
 	requiredImages = append(requiredImages, validImages...)
 	requiredImages = append(requiredImages, invalidImages[3:]...)
 
-	expectDeletedImages := make([]loc.DockerImage, 0)
-	expectDeletedImages = append(expectDeletedImages, cleanImages...)
-	expectDeletedImages = append(expectDeletedImages, invalidImages[:3]...)
+	expectedDeletedImages := make([]loc.DockerImage, 0)
+	expectedDeletedImages = append(expectedDeletedImages, cleanImages...)
+	expectedDeletedImages = append(expectedDeletedImages, invalidImages[:3]...)
 
-	return allImages, requiredImages, expectDeletedImages
+	return allImages, requiredImages, expectedDeletedImages
 }
 
-func (s *CleanerSuite) TestCleanRegistry(c *C) {
-	allImages, requiredImages, expectDeletedImages := s.generateImages(c)
+func getTags(images []loc.DockerImage, repoName string) []string {
+	tags := make([]string, 0)
+	for _, image := range images {
+		if image.Repository == repoName {
+			tags = append(tags, image.Tag)
+		}
+	}
+	if len(tags) == 0 {
+		return nil
+	}
+	sort.Strings(tags)
+	return tags
+}
+
+func (s *CleanerSuite) TestCleanRegistry(c *check.C) {
+	allImages, requiredImages, expectedDeletedImages := s.generateImages(c)
 
 	defer s.removeImages(allImages)
 
 	s.registry.pushImages(allImages, c)
-	// http server of registry must be closed, CleanRegistry is not using http protocol
+	// registry http server must be stopped since CleanRegistry requires direct access to the registry's root directory
 	_ = s.registry.r.Close()
 
-	requiredImgs := make([]string, 0)
+	requiredImageReferences := make([]string, 0)
 	for _, i := range requiredImages {
-		requiredImgs = append(requiredImgs, i.String())
+		requiredImageReferences = append(requiredImageReferences, i.String())
 	}
 	ctx := context.Background()
 
 	// delete unnecessary images
-	err := CleanRegistry(ctx, s.registryDir, requiredImgs)
-	c.Assert(err, IsNil)
+	err := CleanRegistry(ctx, s.registryDir, requiredImageReferences)
+	c.Assert(err, check.IsNil)
 
-	// re-create the http registry to make sure all the required images are there
+	// restart the registry http server to make sure all the required images are there
 	s.registry = newRegistry(s.registryDir, s.sync, c)
 
 	for _, image := range requiredImages {
 		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image.Repository, image.Tag)
-		c.Assert(err, IsNil)
-		c.Assert(exists, Equals, true)
+		c.Assert(err, check.IsNil)
+		c.Assert(exists, check.Equals, true)
 	}
-	for _, image := range expectDeletedImages {
+	for _, image := range expectedDeletedImages {
 		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image.Repository, image.Tag)
-		c.Assert(err, IsNil)
-		c.Assert(exists, Equals, false)
+		c.Assert(err, check.IsNil)
+		c.Assert(exists, check.Equals, false)
 	}
 	validTags, err := s.sync.ImageTags(ctx, s.registry.info.GetURL(), "test/valid")
-	c.Assert(err, IsNil)
-	c.Assert(len(validTags), Equals, 5)
+	c.Assert(err, check.IsNil)
+	sort.Strings(validTags)
+	c.Assert(validTags, check.DeepEquals, getTags(requiredImages, "test/valid"))
+
 	invalidTags, err := s.sync.ImageTags(ctx, s.registry.info.GetURL(), "test/invalid")
-	c.Assert(err, IsNil)
-	c.Assert(len(invalidTags), Equals, 3)
+	c.Assert(err, check.IsNil)
+	sort.Strings(invalidTags)
+	c.Assert(invalidTags, check.DeepEquals, getTags(requiredImages, "test/invalid"))
+
 	cleanedTags, err := s.sync.ImageTags(ctx, s.registry.info.GetURL(), "test/clean")
-	c.Assert(err, IsNil)
-	c.Assert(len(cleanedTags), Equals, 0)
+	c.Assert(err, check.IsNil)
+	sort.Strings(cleanedTags)
+	c.Assert(cleanedTags, check.DeepEquals, getTags(requiredImages, "test/clean"))
 }

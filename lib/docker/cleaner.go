@@ -29,35 +29,56 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// CleanRegistry removes images in registry that are not needed
+// CleanRegistry removes images not present in requiredImages from registry rooted at registryDir
 func CleanRegistry(ctx context.Context, registryDir string, requiredImages []string) error {
-	repoIndex, err := imagesToRepoIndex(requiredImages)
+	c, err := newCleaner(ctx, registryDir)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+
+	unusedIndex, err := c.indexUnused(ctx, requiredImages)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if err = c.untag(ctx, *unusedIndex); err != nil {
+		return trace.Wrap(err)
+	}
+	return trace.Wrap(c.deleteUnusedBlobs(ctx))
+}
+
+func newCleaner(ctx context.Context, registryDir string) (*cleaner, error) {
 	driver := filesystem.New(filesystem.DriverParameters{
 		RootDirectory: registryDir,
 		MaxThreads:    defaults.ImageServiceMaxThreads,
 	})
 	registry, err := storage.NewRegistry(ctx, driver, storage.EnableDelete)
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
 	repositoryEnumerator, ok := registry.(distribution.RepositoryEnumerator)
 	if !ok {
-		return trace.Errorf("unable to convert Registry to RepositoryEnumerator")
+		return nil, trace.Errorf("unable to convert Registry to RepositoryEnumerator")
 	}
-	deleteRepoIndex := newRepoIndex()
-	err = repositoryEnumerator.Enumerate(ctx, func(repoName string) error {
+	return &cleaner{
+		registry: registry,
+		driver:   driver,
+		enum:     repositoryEnumerator,
+	}, nil
+}
+
+func (c *cleaner) indexUnused(ctx context.Context, images []string) (*repoIndex, error) {
+	repoIndex, err := imagesToRepoIndex(images)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	deletedIndex := newRepoIndex()
+	err = c.enum.Enumerate(ctx, func(repoName string) error {
 		requiredRepoTagIndex := repoIndex.getTagIndex(repoName)
 
-		named, err := dockerref.WithName(repoName)
+		repository, err := c.getRepository(ctx, repoName)
 		if err != nil {
-			return trace.Wrap(err, "failed to parse repo name %s", repoName)
-		}
-		repository, err := registry.Repository(ctx, named)
-		if err != nil {
-			return trace.Wrap(err, "failed to construct repository")
+			return trace.Wrap(err)
 		}
 		tags, err := repository.Tags(ctx).All(ctx)
 		if err != nil {
@@ -66,48 +87,64 @@ func CleanRegistry(ctx context.Context, registryDir string, requiredImages []str
 		for _, tag := range tags {
 			// need to delete entire repository
 			if requiredRepoTagIndex == nil {
-				deleteRepoIndex.ensureTagIndex(repoName).add(tag)
+				deletedIndex.ensureTagIndex(repoName).add(tag)
 				continue
 			}
 
 			if !requiredRepoTagIndex.tags[tag] {
-				deleteRepoIndex.ensureTagIndex(repoName).add(tag)
+				deletedIndex.ensureTagIndex(repoName).add(tag)
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		return nil, trace.Wrap(err)
 	}
+	return deletedIndex, nil
+}
 
-	// untag all unnecessary images
-	for _, repoTagIndex := range deleteRepoIndex.repos {
-		named, err := dockerref.WithName(repoTagIndex.name)
+func (c *cleaner) getRepository(ctx context.Context, name string) (distribution.Repository, error) {
+	named, err := dockerref.WithName(name)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to parse repo name %s", name)
+	}
+	repository, err := c.registry.Repository(ctx, named)
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to construct repository")
+	}
+	return repository, nil
+}
+
+// untag untags the images given with index from the registry
+func (c *cleaner) untag(ctx context.Context, index repoIndex) error {
+	for _, repoTagIndex := range index.repos {
+		repository, err := c.getRepository(ctx, repoTagIndex.name)
 		if err != nil {
-			return trace.Wrap(err, "failed to parse repo name %s", repoTagIndex.name)
-		}
-		repository, err := registry.Repository(ctx, named)
-		if err != nil {
-			return trace.Wrap(err, "failed to construct repository")
+			return trace.Wrap(err)
 		}
 		tagService := repository.Tags(ctx)
 		for tag := range repoTagIndex.tags {
 			err := tagService.Untag(ctx, tag)
 			if err != nil {
-				return trace.Wrap(err, "unable to untag %s:%s", named.String(), tag)
+				return trace.Wrap(err, "unable to untag %s:%s", repoTagIndex.name, tag)
 			}
 		}
 	}
+	return nil
+}
 
-	// delete all blobs
+type cleaner struct {
+	enum         distribution.RepositoryEnumerator
+	registry     distribution.Namespace
+	driver       *filesystem.Driver
+	deletedIndex repoIndex
+}
+
+func (c *cleaner) deleteUnusedBlobs(ctx context.Context) error {
 	opts := storage.GCOpts{
 		RemoveUntagged: true,
 	}
-	err = storage.MarkAndSweep(ctx, driver, registry, opts)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	return nil
+	return trace.Wrap(storage.MarkAndSweep(ctx, c.driver, c.registry, opts))
 }
 
 type repoIndex struct {
