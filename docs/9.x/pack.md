@@ -61,9 +61,10 @@ a Cluster Image.
 tele build [options] [app.yaml]
 
 Options:
-  -o           The name of the produced tarball, for example "-o cluster-image.tar".
-               By default the name of the current directory will be used.
-  --state-dir  The build cache directory to speed up subsequent builds. Defaults to ~/.gravity.
+  -o                The name of the produced tarball, for example "-o cluster-image.tar".
+                    By default the name of the current directory will be used.
+  --state-dir       The build cache directory to speed up subsequent builds. Defaults to ~/.gravity.
+  --image-cache-dir The docker image cache directory to speed up subsequent builds. (Optional)
 
 ```
 
@@ -80,6 +81,11 @@ There are two kinds of external sources for Cluster dependencies:
 2. **Application Containers**. If your Cluster must have pre-loaded
    applications, their container images will be downloaded from the external
    container registry.
+
+The `--image-cache-dir` can be useful for pipeline processes where the local docker image cache 
+is cleaned between different builds. It is not recommended to use one folder in 
+several processes at the same time. This cache directory is not automatically cleaned. If the user wants 
+to clean this directory, it is enough to delete all files and directories that are inside.
 
 You can follow the [Quick Start](quickstart.md) to build a Cluster Image from a
 sample Image Manifest.
