@@ -45,8 +45,8 @@ func (s *DockerSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.helper = NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
 	// Set up source and destination registries
-	s.src = s.newRegistry(c)
-	s.dst = s.newRegistry(c)
+	s.src = newRegistry(c.MkDir(), s.helper, c)
+	s.dst = newRegistry(c.MkDir(), s.helper, c)
 }
 
 func (s *DockerSuite) TearDownTest(*C) {
@@ -72,8 +72,7 @@ func (s *DockerSuite) listTags(repository string, c *C) (tags map[string]bool) {
 }
 
 // newRegistry returns a new started docker registry
-func (s *DockerSuite) newRegistry(c *C) *registryHelper {
-	dir := c.MkDir()
+func newRegistry(dir string, s *Synchronizer, c *C) *registryHelper {
 	config := BasicConfiguration("127.0.0.1:0", dir)
 	r, err := NewRegistry(config)
 	c.Assert(err, IsNil)
@@ -85,22 +84,22 @@ func (s *DockerSuite) newRegistry(c *C) *registryHelper {
 			Address:  r.Addr(),
 			Protocol: "http",
 		},
-		helper: s.helper,
+		helper: s,
 	}
 }
 
-func (s *DockerSuite) generateDockerImage(version string, c *C) loc.DockerImage {
+func generateDockerImage(client *dockerapi.Client, repoName, tag string, c *C) loc.DockerImage {
 	image := loc.DockerImage{
-		Repository: imageRepository,
-		Tag:        version,
+		Repository: repoName,
+		Tag:        tag,
 	}
 	imageName := image.String()
 	files := make([]*archive.Item, 0)
-	files = append(files, archive.ItemFromStringMode("version.txt", version, 0666))
+	files = append(files, archive.ItemFromStringMode("version.txt", tag, 0666))
 	dockerFile := "FROM scratch\nCOPY version.txt .\n"
 	files = append(files, archive.ItemFromStringMode("Dockerfile", dockerFile, 0666))
 	r := archive.MustCreateMemArchive(files)
-	c.Assert(s.client.BuildImage(dockerapi.BuildImageOptions{
+	c.Assert(client.BuildImage(dockerapi.BuildImageOptions{
 		Name:         imageName,
 		InputStream:  r,
 		OutputStream: os.Stdout,
@@ -108,14 +107,14 @@ func (s *DockerSuite) generateDockerImage(version string, c *C) loc.DockerImage 
 	return image
 }
 
-func (s *DockerSuite) generateDockerImages(size int, c *C) []loc.DockerImage {
+func generateDockerImages(client *dockerapi.Client, repoName string, size int, c *C) []loc.DockerImage {
 	// Use a predictable tagging scheme
 	imageTag := func(i int) string {
 		return fmt.Sprintf("v0.0.%d", i)
 	}
 	images := make([]loc.DockerImage, 0, size)
 	for i := 0; i < size; i++ {
-		image := s.generateDockerImage(imageTag(i), c)
+		image := generateDockerImage(client, repoName, imageTag(i), c)
 		images = append(images, image)
 	}
 	return images
@@ -138,6 +137,12 @@ func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.Docke
 
 func (r *registryHelper) push(image loc.DockerImage, c *C) {
 	c.Assert(r.helper.Push(image.String(), r.r.Addr()), IsNil)
+}
+
+func (r *registryHelper) pushImages(images []loc.DockerImage, c *C) {
+	for _, image := range images {
+		r.push(image, c)
+	}
 }
 
 type registryHelper struct {
@@ -167,7 +172,7 @@ func (s *DockerSuite) TestPullAndPushImages(c *C) {
 	// Setup
 	const dockerImageSize = 6
 
-	dockerImages := s.generateDockerImages(dockerImageSize, c)
+	dockerImages := generateDockerImages(s.client, imageRepository, dockerImageSize, c)
 	defer s.removeImages(dockerImages)
 	defer s.removeTaggedImages(s.src.info.Address, dockerImages)
 

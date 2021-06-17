@@ -395,6 +395,9 @@ func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exp
 		if err := utils.CopyDirContents(dockerCacheDir, layersDir); err != nil {
 			return trace.Wrap(err, "failed to copy directory from %q to %q", dockerCacheDir, layersDir)
 		}
+		if err := docker.CleanRegistry(ctx, layersDir, images); err != nil {
+			return trace.Wrap(err, "failed to clean registry %s", registryDir)
+		}
 	}
 	return nil
 }
