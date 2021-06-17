@@ -41,7 +41,7 @@ func CleanRegistry(ctx context.Context, registryDir string, requiredImages []str
 		return trace.Wrap(err)
 	}
 
-	if err = c.untag(ctx, *unusedIndex); err != nil {
+	if err = c.untag(ctx, unusedIndex); err != nil {
 		return trace.Wrap(err)
 	}
 	return trace.Wrap(c.deleteUnusedBlobs(ctx))
@@ -116,7 +116,7 @@ func (c *cleaner) getRepository(ctx context.Context, name string) (distribution.
 }
 
 // untag untags the images given with index from the registry
-func (c *cleaner) untag(ctx context.Context, index repoIndex) error {
+func (c *cleaner) untag(ctx context.Context, index *repoIndex) error {
 	for _, repoTagIndex := range index.repos {
 		repository, err := c.getRepository(ctx, repoTagIndex.name)
 		if err != nil {
@@ -134,10 +134,9 @@ func (c *cleaner) untag(ctx context.Context, index repoIndex) error {
 }
 
 type cleaner struct {
-	enum         distribution.RepositoryEnumerator
-	registry     distribution.Namespace
-	driver       *filesystem.Driver
-	deletedIndex repoIndex
+	enum     distribution.RepositoryEnumerator
+	registry distribution.Namespace
+	driver   *filesystem.Driver
 }
 
 func (c *cleaner) deleteUnusedBlobs(ctx context.Context) error {
