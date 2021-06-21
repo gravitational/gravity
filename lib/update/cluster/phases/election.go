@@ -54,7 +54,7 @@ func NewPhaseElectionChange(
 	operator ops.Operator,
 	remote fsm.Remote,
 	logger logrus.FieldLogger,
-) (*phaseElectionChange, error) {
+) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ElectionChange == nil {
 		return nil, trace.BadParameter("no election status specified for phase %q", p.Phase.ID)
 	}

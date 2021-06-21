@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/defaults"
+	"github.com/gravitational/gravity/lib/fsm"
 	libstatus "github.com/gravitational/gravity/lib/status"
 
 	"github.com/gravitational/trace"
@@ -31,7 +32,7 @@ type checkLocalHealth struct {
 }
 
 // NewPhaseNodeHealth creates an upgrade phase to check whether the node is healthy
-func NewPhaseNodeHealth(logger log.FieldLogger) (*checkLocalHealth, error) {
+func NewPhaseNodeHealth(logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	return &checkLocalHealth{
 		FieldLogger: logger,
 	}, nil

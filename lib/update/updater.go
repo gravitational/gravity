@@ -33,6 +33,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 )
@@ -304,6 +305,6 @@ type Updater struct {
 type LocalPackageService interface {
 	pack.PackageService
 	UnpackedPath(loc.Locator) (path string, err error)
-	Unpack(loc loc.Locator, targetDir string) error
+	UnpackWithOptions(loc loc.Locator, targetDir string, opts *archive.TarOptions) error
 	GetPackageManifest(loc loc.Locator) (*pack.Manifest, error)
 }
