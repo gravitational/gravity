@@ -124,7 +124,7 @@ endif
 #
 .PHONY: test
 test: testbox test-etcd
-	docker run --net=host --rm=true $(NOROOT) \
+	docker run --net=host --rm=true -u root  \
 		-v $(TOP):$(SRCDIR) \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		--tmpfs /tmp:rw,nosuid,nodev,exec,relatime \

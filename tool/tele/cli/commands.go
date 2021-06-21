@@ -59,6 +59,8 @@ type BuildCmd struct {
 	OutFile *string
 	// Overwrite overwrites existing tarball
 	Overwrite *bool
+	// ImageCacheDir is the docker image cache directory to speed up subsequent builds
+	ImageCacheDir *string
 	// Name allows to override app name
 	Name *string
 	// Version allows to override app version

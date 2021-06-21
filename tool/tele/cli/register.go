@@ -44,6 +44,7 @@ func RegisterCommands(app *kingpin.Application) Application {
 	tele.BuildCmd.ManifestPath = tele.BuildCmd.Arg("path", fmt.Sprintf("Path to the cluster image manifest file (must be named %q), or unpacked Helm chart to build an application image out of.", defaults.ManifestFileName)).Default(defaults.ManifestFileName).String()
 	tele.BuildCmd.OutFile = tele.BuildCmd.Flag("output", "Cluster or application image file name. Defaults to <name>-<version>.tar.").Short('o').String()
 	tele.BuildCmd.Overwrite = tele.BuildCmd.Flag("overwrite", "Overwrite the existing image file.").Short('f').Bool()
+	tele.BuildCmd.ImageCacheDir = tele.BuildCmd.Flag("image-cache-dir", "The docker image cache directory to speed up subsequent builds.").String()
 	tele.BuildCmd.Name = tele.BuildCmd.Flag("name", "Optional cluster image name, overrides the one specified in the manifest file.").Hidden().String()
 	tele.BuildCmd.Version = tele.BuildCmd.Flag("version", "Optional cluster image version, overrides the one specified in the manifest file.").Hidden().String()
 	tele.BuildCmd.VendorPatterns = tele.BuildCmd.Flag("glob", "File pattern to search for container image references.").Default(defaults.VendorPattern).Hidden().Strings()
