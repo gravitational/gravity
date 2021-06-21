@@ -19,12 +19,8 @@ GRAVITY_PKG_PATH ?= github.com/gravitational/gravity
 ASSETSDIR=$(TOP)/assets
 BINDIR ?= /usr/bin
 
-# Current Kubernetes version
-K8S_VER := 1.21.2
-# Kubernetes version suffix for the planet package, constructed by concatenating
-# major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
-# 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
-K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
+include versions.mk
+
 GOLFLAGS ?= -w -s
 GOLINT ?= golangci-lint
 GOLINT_PACKAGES ?= \
@@ -36,41 +32,22 @@ GOPATH ?= $(shell go env GOPATH)
 
 TODO_PKGS ?= lib/ mage/ tool/ e/
 
-ETCD_VER := v2.3.7
-
-FIO_VER ?= 3.15
 FIO_TAG := fio-$(FIO_VER)
 FIO_PKG_TAG := $(FIO_VER).0
 
 # Current versions of the dependencies
-CURRENT_TAG ?= $(shell ./version.sh)
-GRAVITY_TAG := $(CURRENT_TAG)
-# Abbreviated gravity version to use as a build ID
-GRAVITY_VERSION := $(CURRENT_TAG)
+GRAVITY_TAG ?= $(GRAVITY_VERSION)
 
 RELEASE_TARBALL_NAME ?=
 RELEASE_OUT ?=
 
-TELEPORT_TAG = 3.2.17
 # TELEPORT_REPOTAG adapts TELEPORT_TAG to the teleport tagging scheme
 TELEPORT_REPOTAG := v$(TELEPORT_TAG)
-PLANET_TAG := 9.0.3-$(K8S_VER_SUFFIX)
-PLANET_BRANCH := $(PLANET_TAG)
 K8S_APP_TAG := $(GRAVITY_TAG)
 TELEKUBE_APP_TAG := $(GRAVITY_TAG)
 WORMHOLE_APP_TAG := $(GRAVITY_TAG)
-INGRESS_APP_TAG ?= 0.0.1
-STORAGE_APP_TAG ?= 0.0.4
-LOGGING_APP_TAG ?= 7.1.2
-MONITORING_APP_TAG ?= 7.1.4
-DNS_APP_TAG = 7.1.2
-BANDWAGON_TAG ?= 7.1.0
 RBAC_APP_TAG := $(GRAVITY_TAG)
-TILLER_VERSION = 2.16.12
-TILLER_APP_TAG = 7.1.0
-SELINUX_VERSION ?= 6.0.0
-# URI of Wormhole container for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
+
 # set this to true if you want to use locally built planet packages
 DEV_PLANET ?=
 OS := $(shell uname | tr '[:upper:]' '[:lower:]')

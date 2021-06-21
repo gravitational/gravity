@@ -3,43 +3,11 @@ CURRENT_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 
 BUILDDIR ?= $(CURRENT_DIR)/_build
 
+include versions.mk
 GOLANG_VER := 1.13.8-stretch
-FIO_VER := 3.15
-TELEPORT_TAG = 3.2.17
-K8S_VER := 1.21.0
-# Kubernetes version suffix for the planet package, constructed by concatenating
-# major + minor padded to 2 chars with 0 + patch also padded to 2 chars, e.g.
-# 1.13.5 -> 11305, 1.13.12 -> 11312, 2.0.0 -> 20000 and so on
-K8S_VER_SUFFIX := $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
-PLANET_TAG := 9.0.0-$(K8S_VER_SUFFIX)
-PLANET_BRANCH := master
-# system applications
-INGRESS_APP_TAG := 0.0.1
-STORAGE_APP_TAG := 0.0.4
-LOGGING_APP_TAG := 7.1.2
-MONITORING_APP_TAG := 7.1.4
-DNS_APP_TAG := 7.1.2
-BANDWAGON_TAG := 7.1.0
-TILLER_VERSION := 2.16.12
-TILLER_APP_TAG := 7.1.0
-# abbreviated gravity version to use as a build ID
-GRAVITY_VERSION := $(shell ./version.sh)
-# grpc
-PROTOC_VER := 3.10.0
-PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG := v1.3.0
-GRPC_GATEWAY_TAG := v1.11.3
-# current Kubernetes version
-K8S_VER := 1.21.0
-# wormhole container URI for default install
-WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
-# selinux
-SELINUX_VERSION := 6.0.0
-SELINUX_REPO := git@github.com:a-palchikov/selinux.git
-SELINUX_BRANCH := dmitri/buildx
-#TODO(dima): update once the https://github.com/gravitational/selinux/pull/16 has been merged
-#SELINUX_REPO := git@github.com:gravitational/selinux.git
-#SELINUX_BRANCH := distro/centos_rhel/7
+
+SELINUX_REPO := git@github.com:gravitational/selinux.git
+SELINUX_BRANCH := distro/centos_rhel/7
 
 # Set to non-empty value to trigger streaming builder progress
 CI ?=
@@ -113,6 +81,7 @@ magnet-vars: | $(BUILDDIR)
 	@echo MAGNET_SELINUX_BRANCH=$(SELINUX_BRANCH)
 	@echo MAGNET_WORMHOLE_IMG=$(WORMHOLE_IMG)
 	@echo MAGNET_BUILD_VERSION=$(GRAVITY_VERSION)
+	@echo MAGNET_GOLANGCI_LINT_VER=$(GOLANGCI_LINT_VER)
 	@echo MAGNET_CI=$(CI)
 	@echo MAGNET_BUILDDIR=$(BUILDDIR)
 
