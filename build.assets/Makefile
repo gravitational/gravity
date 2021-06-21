@@ -126,12 +126,13 @@ endif
 #
 .PHONY: test
 test: buildbox test-etcd
-	docker run --net=host --rm=true $(NOROOT) \
+	docker run --net=host --rm=true -u root \
 		-v $(TOP):$(SRCDIR) \
+		-v /var/run/docker.sock:/var/run/docker.sock \
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(BBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race -mod=vendor' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
