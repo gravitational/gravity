@@ -21,7 +21,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/loc"
-
 	. "gopkg.in/check.v1"
 )
 

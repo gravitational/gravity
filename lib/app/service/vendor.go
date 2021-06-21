@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -102,6 +101,8 @@ type VendorRequest struct {
 	ResourcePatterns []string
 	// IgnoreResourcePatterns is a list of file path patterns to ignore when searching for images
 	IgnoreResourcePatterns []string
+	// ImageCacheDir is the directory were the pulled docker images are cached between builds
+	ImageCacheDir string
 	// SetImages is a list of images to rewrite to new versions
 	SetImages []loc.DockerImage
 	// SetDeps is a list of app dependencies to rewrite to new versions
@@ -211,6 +212,10 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	log.Infof("Chart images: %v.", chartImages)
 
 	images = append(images, chartImages...)
+	// pull the default container image along with the rest of images
+	images = append(images, defaults.ContainerImage)
+
+	log.Infof("All images to push to the registry: %v.", images)
 
 	// Now that we have all referenced images in our local registry, and can find them without
 	// a registry prefix, rewrite our resource files to vendor the images.
@@ -233,25 +238,16 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	// pull the default container image along with the rest of images
-	imagesToPull := append(images, defaults.ContainerImage)
-	imagesToPull = append(imagesToPull, runtimeImages...)
-
 	group, groupCtx := run.WithContext(ctx, run.WithParallel(req.Parallel))
-	for _, image := range imagesToPull {
+	for i := range runtimeImages {
+		image := runtimeImages[i] // create new variable for goroutine below
 		log := log.WithField("image", image)
-		if strings.HasPrefix(image, v.registryURL) {
-			// image has already been vendored
-			continue
-		}
-		image := image // create new variable for go routine below
 		group.Go(groupCtx, func() error {
 			// pull all missing images (this will correctly fail for images without a remote
 			// registry that do not exist i.e. due to failed image build)
 			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req); err != nil {
 				return trace.Wrap(err)
 			}
-
 			// tag all images without their registry, so that we can find them later after
 			// stripping remote registries
 			if err := tagImageWithoutRegistry(image, v.dockerClient, log); err != nil {
@@ -275,29 +271,8 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	if ok, _ := utils.IsDirectory(filepath.Join(unpackedDir, defaults.RegistryDir)); ok {
-		log.Debug("Registry layers are present.")
-		return nil
-	}
-
-	// if the application package does not contain the dump of docker images of the referenced
-	// containers, pull all the necessary images, then export those images to disk
-	images, err = resourceFiles.Images()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	images = append(images, hooks.InitContainerImage)
-	for i, image := range images {
-		images[i] = v.imageService.Unwrap(image)
-	}
-
-	log.Infof("No registry layers found, will pull and export images %q.", images)
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(images), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(chartImages), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
+	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(images), unpackedDir, req.ImageCacheDir, req.Parallel,
+		req.Pull, req.ProgressReporter); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -382,7 +357,14 @@ func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest)
 // pullAndExportImages pulls the docker images of all referenced container images (if not yet
 // present locally), pushes them into an instance of a private docker registry and then
 // dumps the contents of this private registry into the specified directory
-func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exportDir string, parallel int, progress utils.Progress) error {
+func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exportDir, dockerCacheDir string,
+	parallel int, forcePull bool, progress utils.Progress) error {
+	if dockerCacheDir != "" {
+		_, err := utils.StatDir(dockerCacheDir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	resourcesDir := filepath.Join(exportDir, "resources")
 	if err := os.MkdirAll(resourcesDir, defaults.PrivateDirMask); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
@@ -400,9 +382,22 @@ func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exp
 			"failed to create %q", layersDir)
 	}
 
-	if err := exportLayers(ctx, exportDir, images, v.dockerClient,
-		log.WithField("export-directory", exportDir), parallel, progress); err != nil {
+	registryDir := layersDir
+	if dockerCacheDir != "" {
+		registryDir = dockerCacheDir
+	}
+
+	if err := exportLayers(ctx, registryDir, images, v.dockerClient,
+		log.WithField("export-directory", registryDir), parallel, forcePull, progress); err != nil {
 		return trace.Wrap(err)
+	}
+	if dockerCacheDir != "" {
+		if err := utils.CopyDirContents(dockerCacheDir, layersDir); err != nil {
+			return trace.Wrap(err, "failed to copy directory from %q to %q", dockerCacheDir, layersDir)
+		}
+		if err := docker.CleanRegistry(ctx, layersDir, images); err != nil {
+			return trace.Wrap(err, "failed to clean registry %s", registryDir)
+		}
 	}
 	return nil
 }
