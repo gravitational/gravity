@@ -80,6 +80,8 @@ type Config struct {
 	AutoScaling *autoscaling.AutoScaling
 	// NewLocalInstance is used to retrieve local instance metadata
 	NewLocalInstance NewLocalInstance
+	// Region specifies the AWS region the gravity controllers are running in
+	Region string
 }
 
 // CheckAndSetDefaults checks and sets default values
@@ -87,9 +89,20 @@ func (cfg *Config) CheckAndSetDefaults() error {
 	if cfg.ClusterName == "" {
 		return trace.BadParameter("missing parameter ClusterName")
 	}
+
 	if cfg.NewLocalInstance == nil {
 		cfg.NewLocalInstance = gaws.NewLocalInstance
 	}
+
+	if cfg.Region == "" {
+		instance, err := cfg.NewLocalInstance()
+		if err != nil {
+			return trace.Wrap(err)
+		}
+
+		cfg.Region = instance.Region
+	}
+
 	return nil
 }
 
@@ -98,12 +111,9 @@ func New(cfg Config) (*Autoscaler, error) {
 	if err := cfg.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	instance, err := cfg.NewLocalInstance()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+
 	sess, err := session.NewSession(&aws.Config{
-		Region: &instance.Region,
+		Region: &cfg.Region,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
