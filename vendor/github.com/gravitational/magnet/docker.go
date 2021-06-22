@@ -311,6 +311,8 @@ type DockerConfigRun struct {
 	Volumes []DockerBindMount
 	// Workdir sets the working directory inside the container
 	WorkDir string
+	// Network for the container to connect to
+	Network string
 }
 
 // DockerRun creates a command builder for running a docker container.
@@ -394,6 +396,12 @@ func (m *DockerConfigRun) SetWorkDir(workdir string) *DockerConfigRun {
 	return m
 }
 
+// SetNetwork overrides the network container will connect to
+func (m *DockerConfigRun) SetNetwork(network string) *DockerConfigRun {
+	m.Network = network
+	return m
+}
+
 // Run calls docker by cli to run the configured container.
 func (m *DockerConfigRun) Run(ctx context.Context, image, cmd string, cargs ...string) error {
 	args := []string{"run"}
@@ -424,6 +432,10 @@ func (m *DockerConfigRun) Run(ctx context.Context, image, cmd string, cargs ...s
 
 	if len(m.WorkDir) > 0 {
 		args = append(args, "-w", m.WorkDir)
+	}
+
+	if len(m.Network) > 0 {
+		args = append(args, "--network", m.Network)
 	}
 
 	for _, value := range m.Volumes {

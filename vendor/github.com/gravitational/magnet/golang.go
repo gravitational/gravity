@@ -11,8 +11,7 @@ import (
 )
 
 type GolangConfigCommon struct {
-	// BuildContainer is the container image to use when running Go commands
-	BuildContainer string
+	DockerConfig
 
 	// GOOS to pass to the Go compiler as an env variable
 	GOOS string
@@ -38,23 +37,17 @@ type GolangConfigCommon struct {
 	// Verbose prints the name of packages as they are compiled
 	Verbose bool
 
-	// ASMFlags is a list of arguments to pass on each go tool asm invocation.
-	// ASMFlags []string
-
 	// BuildMode is the go build mode to use (see go help buildmode)
 	BuildMode string
 
 	// Compiler is the name of the compiler to use (gccgo or gc)
 	// Compiler string
 
-	//GCCGOFlags is a list of arguments to pass on each gccfo compiler/linker invocation
+	//GCCGOFlags is a list of arguments to pass on each gccgo compiler/linker invocation
 	GCCGOFlags []string
 
 	// GCFlags is a list of arguments to pass on each go tool compile invocation
 	GCFlags []string
-
-	// InstallSuffix is a suffix to use in the name of the package installation directory
-	// InstallSuffix string
 
 	// LDFlags is a list of arguments to pass on each go tool link invocation
 	LDFlags []string
@@ -65,9 +58,44 @@ type GolangConfigCommon struct {
 
 	// Tags is a list of build tags to consider as satisified during the build
 	Tags []string
+}
+
+// DockerConfig specifies docker configuration
+type DockerConfig struct {
+	// BuildContainer is the container image to use when running Go commands
+	BuildContainer string
 
 	// Volumes lists additional docker bind mounts for container workflows
 	Volumes []DockerBindMount
+
+	// User specifies the user for the container
+	User User
+
+	// Network the container should connect to
+	Network string
+}
+
+// User describes a user
+type User struct {
+	// ID identifies the user - either username or numeric ID
+	ID string
+	// GID optionally identifies the group the user belongs to.
+	// Either a name or numeric ID
+	GID string
+}
+
+func (r User) uid() string {
+	if r.ID == "" {
+		return fmt.Sprint(os.Getuid())
+	}
+	return r.ID
+}
+
+func (r User) gid() string {
+	if r.GID == "" {
+		return fmt.Sprint(os.Getgid())
+	}
+	return r.GID
 }
 
 func (m *GolangConfigCommon) genFlags() []string {
@@ -342,6 +370,18 @@ func (m *GolangConfigBuild) SetBuildContainerConfig(config BuildContainer) *Gola
 	return m
 }
 
+// SetNetwork overrides the network the container will connect to
+func (m *GolangConfigBuild) SetNetwork(network string) *GolangConfigBuild {
+	m.Network = network
+	return m
+}
+
+// SetUser overrides the user for the container
+func (m *GolangConfigBuild) SetUser(user User) *GolangConfigBuild {
+	m.User = user
+	return m
+}
+
 // Build executes the build as configured.
 func (m *GolangConfigBuild) Build(ctx context.Context, packages ...string) error {
 	if len(m.BuildContainer) > 0 {
@@ -363,8 +403,8 @@ func (m *GolangConfigBuild) buildDocker(ctx context.Context, packages ...string)
 
 	cmd := m.target.DockerRun().
 		SetRemove(true).
-		SetUID(fmt.Sprint(os.Getuid())).
-		SetGID(fmt.Sprint(os.Getgid())).
+		SetUID(m.User.uid()).
+		SetGID(m.User.gid()).
 		SetEnv("XDG_CACHE_HOME", "/cache").
 		SetEnv("GOCACHE", "/cache/go").
 		SetEnvs(m.Env).
@@ -443,6 +483,18 @@ func (m *GolangConfigTest) Test(ctx context.Context, packages ...string) error {
 	return trace.Wrap(m.testLocal(ctx, packages...))
 }
 
+// SetNetwork overrides the network the container will connect to
+func (m *GolangConfigTest) SetNetwork(network string) *GolangConfigTest {
+	m.Network = network
+	return m
+}
+
+// SetUser overrides the user for the container
+func (m *GolangConfigTest) SetUser(user User) *GolangConfigTest {
+	m.User = user
+	return m
+}
+
 func (m *GolangConfigTest) testDocker(ctx context.Context, packages ...string) error {
 	if err := m.paths.compute(m.target.root.ModulePath, m.Env); err != nil {
 		return trace.Wrap(err)
@@ -455,12 +507,13 @@ func (m *GolangConfigTest) testDocker(ctx context.Context, packages ...string) e
 
 	cmd := m.target.DockerRun().
 		SetRemove(true).
-		SetUID(fmt.Sprint(os.Getuid())).
-		SetGID(fmt.Sprint(os.Getgid())).
+		SetUID(m.User.uid()).
+		SetGID(m.User.gid()).
 		SetEnv("XDG_CACHE_HOME", "/cache").
 		SetEnv("GOCACHE", "/cache/go").
 		SetEnvs(m.Env).
 		SetWorkDir(m.paths.containerPath).
+		SetNetwork("host").
 		AddVolume(DockerBindMount{
 			Source:      m.paths.hostPath,
 			Destination: m.paths.containerPath,
@@ -728,6 +781,18 @@ func (m *GolangConfigCover) SetMod(mode string) *GolangConfigCover {
 	return m
 }
 
+// SetNetwork overrides the network the container will connect to
+func (m *GolangConfigCover) SetNetwork(network string) *GolangConfigCover {
+	m.Network = network
+	return m
+}
+
+// SetUser overrides the user for the container
+func (m *GolangConfigCover) SetUser(user User) *GolangConfigCover {
+	m.User = user
+	return m
+}
+
 // Run runs the coverage tool
 func (m *GolangConfigCover) Run(ctx context.Context) error {
 	if len(m.BuildContainer) > 0 {
@@ -747,8 +812,8 @@ func (m *GolangConfigCover) docker(ctx context.Context) error {
 	}
 	cmd := m.target.DockerRun().
 		SetRemove(true).
-		SetUID(fmt.Sprint(os.Getuid())).
-		SetGID(fmt.Sprint(os.Getgid())).
+		SetUID(m.User.uid()).
+		SetGID(m.User.gid()).
 		SetEnv("XDG_CACHE_HOME", "/cache").
 		SetEnv("GOCACHE", "/cache/go").
 		SetEnvs(m.Env).
