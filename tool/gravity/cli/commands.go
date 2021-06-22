@@ -483,6 +483,9 @@ type AutoJoinCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Region specifies the region the cluster controllers is running in, so the worker can discover the cluster
+	// in the correct region
+	Region *string
 }
 
 // LeaveCmd removes the current node from the cluster

@@ -1095,6 +1095,7 @@ type autojoinConfig struct {
 	advertiseAddr string
 	token         string
 	seLinux       bool
+	region        string
 }
 
 func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
@@ -1206,6 +1207,7 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 
 	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
 		ClusterName: config.clusterName,
+		Region:      config.region,
 	})
 	if err != nil {
 		return trace.Wrap(err)

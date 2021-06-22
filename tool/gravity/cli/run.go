@@ -388,6 +388,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
 			token:         *g.AutoJoinCmd.Token,
 			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,
+			region:        *g.AutoJoinCmd.Region,
 		})
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)

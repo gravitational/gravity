@@ -130,6 +130,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
 	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.AutoJoinCmd.Region = g.AutoJoinCmd.Flag("region", "The region to discover the controller nodes").String()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup.").Bool()
