@@ -1,7 +1,7 @@
 
 FIO_VER ?= 3.15
 TELEPORT_TAG ?= 3.2.17
-ETCD_VER ?= v2.3.7
+ETCD_VER ?= 2.3.7
 # abbreviated gravity version to use as a build ID
 GRAVITY_VERSION ?= $(shell ./version.sh)
 # current Kubernetes version
