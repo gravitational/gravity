@@ -6,9 +6,6 @@ BUILDDIR ?= $(CURRENT_DIR)/_build
 include versions.mk
 GOLANG_VER := 1.13.8-stretch
 
-SELINUX_REPO := git@github.com:gravitational/selinux.git
-SELINUX_BRANCH := distro/centos_rhel/7
-
 # Set to non-empty value to trigger streaming builder progress
 CI ?=
 
