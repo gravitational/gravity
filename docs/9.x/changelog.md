@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.1  | No  | pre-release          | June 10, 2021        | Set upon release        | 1.21.0               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.0  | No  | pre-release          | June 9, 2021         | Set upon release        | 1.19.11              | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.1  | No  | pre-release          | June 23, 2021        | Set upon release        | 1.19.12              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.32        | Yes | April 3, 2020        | June 9, 2021         | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
@@ -85,14 +85,22 @@ extend updates past End of Support through customer agreements if required.
 
 8.0 is currently pre-release.
 
+### 8.0.0-beta.1 (June 23, 2021)
+
+#### Improvements
+* Update Kubernetes to 1.19.12 ([#2547](https://github.com/gravitational/gravity/pull/2547), [planet#852](https://github.com/gravitational/planet/pull/852))
+* Add ability to cache Docker images ([#2549](https://github.com/gravitational/gravity/pull/2549))
+
+#### Bugfixes
+* Fix unsupported direct upgrades ([#2545](https://github.com/gravitational/gravity/pull/2545))
+
 ### 8.0.0-beta.0 (June 9, 2021)
 
-### Improvements
+#### Improvements
 * Add ability to disable label reconciliation ([#2507](https://github.com/gravitational/gravity/pull/2507)).
 * Update Kubernetes to 1.19.11 ([#2487](https://github.com/gravitational/gravity/pull/2487), [planet#840](https://github.com/gravitational/planet/pull/840)).
 
 #### Bugfixes
-
 * Fix a security issue with runc container escapes (CVE-2021-30465) ([#2535](https://github.com/gravitational/gravity/pull/2535), [planet#849](https://github.com/gravitational/planet/pull/849)).
 
 !!! warning
