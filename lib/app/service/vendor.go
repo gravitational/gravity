@@ -271,7 +271,8 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(images), unpackedDir, req.ImageCacheDir, req.Parallel,
+	exportImages := excludeImagesStartingWith(teleutils.Deduplicate(images), v.registryURL)
+	if err = v.pullAndExportImages(ctx, exportImages, unpackedDir, req.ImageCacheDir, req.Parallel,
 		req.Pull, req.ProgressReporter); err != nil {
 		return trace.Wrap(err)
 	}
