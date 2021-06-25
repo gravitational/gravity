@@ -15,7 +15,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | [8.0](#80-releases) | 8.0.0-beta.1  | No  | pre-release          | June 23, 2021        | Set upon release        | 1.19.12              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.32        | Yes | April 3, 2020        | June 9, 2021         | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
-| [5.5](#55-releases) | 5.5.59        | Yes | March 8, 2019        | March 30, 2021       | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
+| [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
 minor version, allowing for seamless upgrades per Kubernetes
@@ -1693,6 +1693,11 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.60 LTS (June 25, 2021)
+#### Bugfixes
+* Fix monitoring-app DNS configuration ([#2554](https://github.com/gravitational/gravity/pull/2554), [monitoring-app#211](https://github.com/gravitational/monitoring-app/pull/211)).
+* Remove `gravity app sync`'s dependence on a kubernetes config ([#2482](https://github.com/gravitational/gravity/pull/2482)).
 
 ### 5.5.59 LTS (March 30, 2021)
 #### Bugfixes
