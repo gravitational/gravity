@@ -55,7 +55,10 @@ var (
 
 	// golangciVersion is the version of golangci-lint to use for linting
 	// https://github.com/golangci/golangci-lint/releases
-	golangciVersion = "v1.39.0"
+	golangciVersion = env.E(magnet.EnvVar{
+		Key:   "GOLANGCI_LINT_VER",
+		Short: "The version of Go linter",
+	})
 
 	// FIO vars
 	fioVersion = env.E(magnet.EnvVar{

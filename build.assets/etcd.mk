@@ -1,7 +1,7 @@
 where-am-i = $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))
 TEST_ETCD_CERTS := $(realpath $(dir $(call where-am-i))../assets/certs)
 TEST_ETCD_CONFIG := '{"nodes": ["https://localhost:4001"], "key":"/gravity/test", "tls_key_file": "$(TEST_ETCD_CERTS)/proxy1-key.pem", "tls_cert_file": "$(TEST_ETCD_CERTS)/proxy1.pem", "tls_ca_file": "$(TEST_ETCD_CERTS)/ca.pem"}'
-TEST_ETCD_IMAGE := quay.io/coreos/etcd:v2.3.7
+TEST_ETCD_IMAGE := quay.io/coreos/etcd:v$(ETCD_VER)
 TEST_ETCD_INSTANCE := testetcd0
 
 ifeq ($(TEST_ETCD_STATEFUL),yes)

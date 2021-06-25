@@ -14,6 +14,8 @@ LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
 
+include ../versions.mk
+
 DOCKER_ARGS ?= --pull
 NOROOT=-u $$(id -u):$$(id -g)
 BBOX = gravity-buildbox:latest
@@ -21,22 +23,11 @@ BBOX = gravity-buildbox:latest
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
 # Git versions (refspecs) for build targets
-TELEPORT_TAG ?= master
-PLANET_TAG ?= master
-PLANET_BRANCH ?= $(PLANET_TAG)
-BANDWAGON_TAG ?= 1.0.0
 BANDWAGON_BRANCH ?= $(BANDWAGON_TAG)
-LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
-MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
-INGRESS_APP_TAG ?= 0.0.1
 INGRESS_APP_BRANCH ?= $(INGRESS_APP_TAG)
-STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
-K8S_APP_TAG ?= 0.0.1
-TILLER_APP_TAG ?= 0.0.1
-SELINUX_BRANCH ?= distro/centos_rhel/7
 
 GOLFLAGS ?= -w -s
 
@@ -49,7 +40,6 @@ INGRESS_APP_REPO = https://github.com/gravitational/ingress-app.git
 STORAGE_APP_REPO = https://github.com/gravitational/storage-app.git
 BANDWAGON_REPO = https://github.com/gravitational/bandwagon.git
 FIO_REPO = https://github.com/axboe/fio.git
-SELINUX_REPO = https://github.com/gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -104,13 +94,6 @@ TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
 
 # Version of the version tool
 VERSION_TAG := 0.0.2
-GOLANGCI_LINT_VER := 1.40.1
-
-# grpc
-PROTOC_VER ?= 3.10.0
-PROTOC_PLATFORM := linux-x86_64
-GOGO_PROTO_TAG ?= v1.3.0
-GRPC_GATEWAY_TAG ?= v1.11.3
 
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
