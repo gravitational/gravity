@@ -69,6 +69,22 @@ func exportLayers(
 	return nil
 }
 
+// excludeImagesStartingWith excludes the items witch start with prefix
+// It works with zero memory allocation and changes the input slice
+func excludeImagesStartingWith(images []string, prefix string) []string {
+	if prefix == "" {
+		return images
+	}
+	x := 0
+	for _, image := range images {
+		if !strings.HasPrefix(image, prefix) {
+			images[x] = image
+			x++
+		}
+	}
+	return images[:x]
+}
+
 // parseImageNameTag parses the specified image reference into name/tag tuple.
 // The returned name will include domain/path parts merged in a way to conform
 // to telekube package name syntax.
