@@ -55,19 +55,19 @@ type Client struct {
 const progressPollInterval = 2 * time.Second
 
 // NewAuthenticatedClient returns a new client with the specified user security context
-func NewAuthenticatedClient(addr, username, password string, params ...ClientParam) (*Client, error) {
+func NewAuthenticatedClient(addr, username, password string, params ...Param) (*Client, error) {
 	params = append(params, BasicAuth(username, password))
 	return NewClient(addr, params...)
 }
 
 // NewBearerClient returns a new client that user bearer token for authentication
-func NewBearerClient(addr, token string, params ...ClientParam) (*Client, error) {
+func NewBearerClient(addr, token string, params ...Param) (*Client, error) {
 	params = append(params, BearerAuth(token))
 	return NewClient(addr, params...)
 }
 
 // NewClient returns a new client
-func NewClient(addr string, params ...ClientParam) (*Client, error) {
+func NewClient(addr string, params ...Param) (*Client, error) {
 	c, err := roundtrip.NewClient(addr, CurrentVersion)
 	if err != nil {
 		return nil, err
@@ -82,14 +82,14 @@ func NewClient(addr string, params ...ClientParam) (*Client, error) {
 }
 
 // BasicAuth sets username and password for HTTP client
-func BasicAuth(username, password string) ClientParam {
+func BasicAuth(username, password string) Param {
 	return func(c *Client) error {
 		return roundtrip.BasicAuth(username, password)(&c.Client)
 	}
 }
 
 // BearerAuth sets token for HTTP client
-func BearerAuth(password string) ClientParam {
+func BearerAuth(password string) Param {
 	return func(c *Client) error {
 		return roundtrip.BearerAuth(password)(&c.Client)
 	}
@@ -97,7 +97,7 @@ func BearerAuth(password string) ClientParam {
 
 // HTTPClient is a functional parameter that sets the internal
 // HTTP client
-func HTTPClient(h *http.Client) ClientParam {
+func HTTPClient(h *http.Client) Param {
 	return func(c *Client) error {
 		return roundtrip.HTTPClient(h)(&c.Client)
 	}
@@ -105,16 +105,17 @@ func HTTPClient(h *http.Client) ClientParam {
 
 // WithLocalDialer specifies the dialer to use for connecting to an endpoint
 // if standard dialing fails
-func WithLocalDialer(dialer httplib.Dialer) ClientParam {
+func WithLocalDialer(dialer httplib.Dialer) Param {
 	return func(c *Client) error {
 		c.dialer = dialer
 		return nil
 	}
 }
 
-// ClientParam defines the API to override configuration on client c
-type ClientParam func(c *Client) error
+// Param defines the API to override configuration on client c
+type Param func(c *Client) error
 
+// CreateImportOperation creates a new import operation.
 // POST app/v1/operations/import/
 func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOperation, error) {
 	translateProgress := func(progressc chan *app.ProgressEntry, errorc chan error,
@@ -176,6 +177,7 @@ func (c *Client) CreateImportOperation(req *app.ImportRequest) (*storage.AppOper
 	return &op, nil
 }
 
+// GetOperationProgress queries the operation progress.
 // GET app/v1/operations/import/:operation_id/progress
 func (c *Client) GetOperationProgress(op storage.AppOperation) (*app.ProgressEntry, error) {
 	out, err := c.Get(c.Endpoint(
@@ -190,6 +192,7 @@ func (c *Client) GetOperationProgress(op storage.AppOperation) (*app.ProgressEnt
 	return &progress, nil
 }
 
+// GetOperationLogs returns the operation logs.
 // GET app/v1/operations/import/:operation_id/logs
 func (c *Client) GetOperationLogs(op storage.AppOperation) (io.ReadCloser, error) {
 	endpoint := c.Endpoint("operations", "import", op.ID, "logs")
@@ -202,12 +205,14 @@ func (c *Client) GetOperationLogs(op storage.AppOperation) (io.ReadCloser, error
 	return clt, nil
 }
 
+// GetOperationCrashReport returns the crash report.
 // GET app/v1/operations/import/:operation_id/crash-report
 func (c *Client) GetOperationCrashReport(op storage.AppOperation) (io.ReadCloser, error) {
 	return c.getFile(c.Endpoint("operations", "import", op.ID, "crash-report"),
 		url.Values{})
 }
 
+// GetImportedApplication returns the application descriptor for the specified import operation.
 // GET app/v1/operations/import/:operation_id
 func (c *Client) GetImportedApplication(op storage.AppOperation) (*app.Application, error) {
 	out, err := c.Get(c.Endpoint("operations", "import", op.ID), url.Values{})
@@ -222,6 +227,7 @@ func (c *Client) GetImportedApplication(op storage.AppOperation) (*app.Applicati
 	return &app, nil
 }
 
+// GetAppManifest returns the manifest for the application specified with locator.
 // GET app/v1/applications/:repository_name/:package_name/:version/manifest
 func (c *Client) GetAppManifest(locator loc.Locator) (io.ReadCloser, error) {
 	return c.getFile(c.Endpoint("applications",
@@ -229,6 +235,7 @@ func (c *Client) GetAppManifest(locator loc.Locator) (io.ReadCloser, error) {
 		"manifest"), url.Values{})
 }
 
+// GetAppResources returns the Reader to the application resources tarball.
 // GET app/v1/applications/:repository_name/:package_name/:version/resources
 func (c *Client) GetAppResources(locator loc.Locator) (io.ReadCloser, error) {
 	return c.getFile(c.Endpoint("applications",
@@ -236,6 +243,7 @@ func (c *Client) GetAppResources(locator loc.Locator) (io.ReadCloser, error) {
 		"resources"), url.Values{})
 }
 
+// GetAppInstaller returns the Reader to the application installer tarball.
 // GET app/v1/applications/:repository_id/:package_id/:version/standalone-installer
 func (c *Client) GetAppInstaller(req app.InstallerRequest) (io.ReadCloser, error) {
 	rawReq, err := req.ToRaw()
@@ -252,6 +260,7 @@ func (c *Client) GetAppInstaller(req app.InstallerRequest) (io.ReadCloser, error
 		"standalone-installer"), values)
 }
 
+// ListApps returns the list of applications as requested in req.
 // GET app/v1/applications/:repository_id/
 func (c *Client) ListApps(req app.ListAppsRequest) (apps []app.Application, err error) {
 	// repository may be empty, and if it is, there will be extra slashes in the endpoint
@@ -259,7 +268,7 @@ func (c *Client) ListApps(req app.ListAppsRequest) (apps []app.Application, err 
 	out, err := c.Get(endpoint, url.Values{
 		"type":           []string{string(req.Type)},
 		"exclude_hidden": []string{strconv.FormatBool(req.ExcludeHidden)},
-		"pattern":        []string{string(req.Pattern)},
+		"pattern":        []string{req.Pattern},
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -270,6 +279,7 @@ func (c *Client) ListApps(req app.ListAppsRequest) (apps []app.Application, err 
 	return apps, nil
 }
 
+// GetApp returns the application descriptor for application specified with locator.
 // GET app/v1/applications/:repository_id/:package_id/:version
 func (c *Client) GetApp(locator loc.Locator) (*app.Application, error) {
 	out, err := c.Get(c.Endpoint("applications", locator.Repository, locator.Name,
@@ -284,6 +294,7 @@ func (c *Client) GetApp(locator loc.Locator) (*app.Application, error) {
 	return &app, nil
 }
 
+// UninstallApp uninstalls for the application specified with locator.
 // POST app/v1/operations/uninstall/:repository_id/:package_id/:version
 func (c *Client) UninstallApp(locator loc.Locator) (*app.Application, error) {
 	out, err := c.PostJSON(c.Endpoint(
@@ -299,6 +310,7 @@ func (c *Client) UninstallApp(locator loc.Locator) (*app.Application, error) {
 	return &app, nil
 }
 
+// DeleteApp deletes the application described with req.
 // DELETE app/v1/:repository_id/:package_id/:version?force=true
 func (c *Client) DeleteApp(req app.DeleteRequest) error {
 	_, err := c.Delete(
@@ -310,6 +322,7 @@ func (c *Client) DeleteApp(req app.DeleteRequest) error {
 	return nil
 }
 
+// ExportApp exports the application described with req.
 // POST app/v1/operations/export/:repository_id/:package_id/:version
 func (c *Client) ExportApp(req app.ExportAppRequest) error {
 	config := serviceapi.ExportConfig{
@@ -323,6 +336,7 @@ func (c *Client) ExportApp(req app.ExportAppRequest) error {
 	return nil
 }
 
+// StatusApp runs the application status hook and returns the results.
 // GET app/v1/applications/:repository_id/:package_id/:version/status
 func (c *Client) StatusApp(locator loc.Locator) (*app.Status, error) {
 	out, err := c.Get(c.Endpoint(
@@ -337,6 +351,8 @@ func (c *Client) StatusApp(locator loc.Locator) (*app.Status, error) {
 	return &status, nil
 }
 
+// StartAppHook starts a new application hook job specified with req.
+// The operation is asynchronous - use WaitAppHook to wait for completion.
 // POST app/v1/applications/:repository_id/:package_id/:version/hook/start
 func (c *Client) StartAppHook(ctx context.Context, req app.HookRunRequest) (*app.HookRef, error) {
 	out, err := c.PostJSON(c.Endpoint(
@@ -352,6 +368,7 @@ func (c *Client) StartAppHook(ctx context.Context, req app.HookRunRequest) (*app
 	return &ref, nil
 }
 
+// WaitAppHook blocks until the application hook either completes or exceeds the deadline.
 // GET app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name/wait
 func (c *Client) WaitAppHook(ctx context.Context, ref app.HookRef) error {
 	_, err := c.Get(c.Endpoint(
@@ -363,6 +380,7 @@ func (c *Client) WaitAppHook(ctx context.Context, ref app.HookRef) error {
 	return nil
 }
 
+// StreamAppHookLogs streams the application hook logs into the specified writer out.
 func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.Writer) error {
 	endpoint := c.Endpoint(
 		"applications", ref.Application.Repository, ref.Application.Name, ref.Application.Version, "hook", ref.Namespace, ref.Name, "stream")
@@ -374,6 +392,7 @@ func (c *Client) StreamAppHookLogs(ctx context.Context, ref app.HookRef, out io.
 	return err
 }
 
+// DeleteAppHookJob deletes the application hook job specified with req.
 // DELETE app/v1/applications/:repository_id/:package_id/:version/hook/:namespace/:name
 func (c *Client) DeleteAppHookJob(ctx context.Context, req app.DeleteAppHookJobRequest) error {
 	_, err := c.Delete(c.Endpoint(
@@ -400,15 +419,18 @@ func (c *Client) FetchIndexFile() (io.Reader, error) {
 	return c.getFile(c.Endpoint("charts", "index.yaml"), url.Values{})
 }
 
+// CreateApp creates a new application.
 // POST app/v1/applications/:repository_id
 func (c *Client) CreateApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*app.Application, error) {
 	return c.createApp(locator, nil, reader, labels, false)
 }
 
+// CreateAppWithManifest creates a new application with the specified manifest.
 func (c *Client) CreateAppWithManifest(locator loc.Locator, manifest []byte, reader io.Reader, labels map[string]string) (*app.Application, error) {
 	return c.createApp(locator, manifest, reader, labels, false)
 }
 
+// UpsertApp creates a new or updates an existing application.
 // POST app/v1/applications/:repository_id
 func (c *Client) UpsertApp(locator loc.Locator, reader io.Reader, labels map[string]string) (*app.Application, error) {
 	return c.createApp(locator, nil, reader, labels, true)

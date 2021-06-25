@@ -35,7 +35,7 @@ message LocalStatusResponse {
 
 // LastSeenRequest requests the last seen timestamp for the specified member.
 message LastSeenRequest {
-  // Name specifies the member's serf name.
+  // Name specifies the member's name.
   string name = 1;
 }
 
@@ -60,7 +60,7 @@ message SystemStatus {
   string summary = 4;
 }
 
-// MembereStatus represents the status of a member of the serf cluster.
+// MembereStatus represents the cluster member status.
 message MemberStatus {
   enum Type {
     None = 0;
@@ -142,7 +142,7 @@ message TimeResponse {
 
 // UpdateRequest requests a new event be added to the timeline.
 message UpdateRequest {
-  // Name specifies the serf name of the requesting node.
+  // Name specifies the name of the requesting node.
   string name = 1;
   // Event specifies the event to be added to the timeline.
   TimelineEvent event = 2;

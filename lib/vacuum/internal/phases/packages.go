@@ -37,7 +37,7 @@ func NewPackages(
 	packages libpack.PackageService,
 	silent localenv.Silent,
 	logger log.FieldLogger,
-) (*packageExecutor, error) {
+) (libfsm.PhaseExecutor, error) {
 	var remoteApps []storage.Application
 	if params.Phase.Data != nil && params.Phase.Data.GarbageCollect != nil {
 		remoteApps = params.Phase.Data.GarbageCollect.RemoteApps

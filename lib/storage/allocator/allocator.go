@@ -60,6 +60,7 @@ type bitAllocator interface {
 func NewAllocationMap(max int, rangeSpec string) *AllocationBitmap {
 	a := AllocationBitmap{
 		strategy: randomScanStrategy{
+			//nolint:gosec
 			rand: rand.New(rand.NewSource(time.Now().UnixNano())),
 		},
 		allocated: big.NewInt(0),
@@ -114,13 +115,6 @@ func (r *AllocationBitmap) Release(offset int) error {
 	r.count--
 	return nil
 }
-
-const (
-	// Find the size of a big.Word in bytes.
-	notZero   = uint64(^big.Word(0))
-	wordPower = (notZero>>8)&1 + (notZero>>16)&1 + (notZero>>32)&1
-	wordSize  = 1 << wordPower
-)
 
 // Has returns true if the provided item is already allocated and a call
 // to Allocate(offset) would fail.

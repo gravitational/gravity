@@ -71,23 +71,23 @@ func New(cfg Config) (users.Identity, error) {
 
 // ActivateCertAuthority moves a CertAuthority from the deactivated list to
 // the normal list.
-func (u *UsersService) ActivateCertAuthority(id teleservices.CertAuthID) error {
-	return u.backend.ActivateCertAuthority(id)
+func (c *UsersService) ActivateCertAuthority(id teleservices.CertAuthID) error {
+	return c.backend.ActivateCertAuthority(id)
 }
 
 // DeactivateCertAuthority moves a CertAuthority from the normal list to
 // the deactivated list.
-func (u *UsersService) DeactivateCertAuthority(id teleservices.CertAuthID) error {
-	return u.backend.DeactivateCertAuthority(id)
+func (c *UsersService) DeactivateCertAuthority(id teleservices.CertAuthID) error {
+	return c.backend.DeactivateCertAuthority(id)
 }
 
-func (u *UsersService) SetAuth(auth teleauth.ClientI) {
-	u.auth = auth
+func (c *UsersService) SetAuth(auth teleauth.ClientI) {
+	c.auth = auth
 }
 
-func (u *UsersService) CreateAPIKey(key storage.APIKey, upsert bool) (*storage.APIKey, error) {
+func (c *UsersService) CreateAPIKey(key storage.APIKey, upsert bool) (*storage.APIKey, error) {
 	// make sure the user we're creating an API key for exists
-	_, err := u.GetUser(key.UserEmail)
+	_, err := c.GetUser(key.UserEmail)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -98,9 +98,9 @@ func (u *UsersService) CreateAPIKey(key storage.APIKey, upsert bool) (*storage.A
 		}
 	}
 	if upsert {
-		_, err = u.backend.UpsertAPIKey(key)
+		_, err = c.backend.UpsertAPIKey(key)
 	} else {
-		_, err = u.backend.CreateAPIKey(key)
+		_, err = c.backend.CreateAPIKey(key)
 	}
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -108,71 +108,71 @@ func (u *UsersService) CreateAPIKey(key storage.APIKey, upsert bool) (*storage.A
 	return &key, nil
 }
 
-func (u *UsersService) GetAPIKeys(userEmail string) (keys []storage.APIKey, err error) {
+func (c *UsersService) GetAPIKeys(userEmail string) (keys []storage.APIKey, err error) {
 	// verify user existence
-	_, err = u.GetUser(userEmail)
+	_, err = c.GetUser(userEmail)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	keys, err = u.backend.GetAPIKeys(userEmail)
+	keys, err = c.backend.GetAPIKeys(userEmail)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return keys, nil
 }
 
-func (u *UsersService) GetAPIKeyByToken(token string) (key *storage.APIKey, err error) {
-	key, err = u.backend.GetAPIKey(token)
+func (c *UsersService) GetAPIKeyByToken(token string) (key *storage.APIKey, err error) {
+	key, err = c.backend.GetAPIKey(token)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return key, nil
 }
 
-func (u *UsersService) DeleteAPIKey(userEmail, token string) error {
-	return trace.Wrap(u.backend.DeleteAPIKey(userEmail, token))
+func (c *UsersService) DeleteAPIKey(userEmail, token string) error {
+	return trace.Wrap(c.backend.DeleteAPIKey(userEmail, token))
 }
 
 // CreateProvisioningToken creates a new token from the specified template t
-func (u *UsersService) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
-	return u.backend.CreateProvisioningToken(t)
+func (c *UsersService) CreateProvisioningToken(t storage.ProvisioningToken) (*storage.ProvisioningToken, error) {
+	return c.backend.CreateProvisioningToken(t)
 }
 
-func (u *UsersService) GetSiteProvisioningTokens(siteDomain string) ([]storage.ProvisioningToken, error) {
-	return u.backend.GetSiteProvisioningTokens(siteDomain)
+func (c *UsersService) GetSiteProvisioningTokens(siteDomain string) ([]storage.ProvisioningToken, error) {
+	return c.backend.GetSiteProvisioningTokens(siteDomain)
 }
 
 // GetProvisioningToken returns token by ID
-func (u *UsersService) GetProvisioningToken(token string) (*storage.ProvisioningToken, error) {
-	return u.backend.GetProvisioningToken(token)
+func (c *UsersService) GetProvisioningToken(token string) (*storage.ProvisioningToken, error) {
+	return c.backend.GetProvisioningToken(token)
 }
 
 // GetOperationProvisioningToken returns token created for the particular site operation
-func (u *UsersService) GetOperationProvisioningToken(clusterName, operationID string) (*storage.ProvisioningToken, error) {
-	return u.backend.GetOperationProvisioningToken(clusterName, operationID)
+func (c *UsersService) GetOperationProvisioningToken(clusterName, operationID string) (*storage.ProvisioningToken, error) {
+	return c.backend.GetOperationProvisioningToken(clusterName, operationID)
 }
 
 // AddUserLoginAttempt logs user login attempt
-func (u *UsersService) AddUserLoginAttempt(user string, attempt teleservices.LoginAttempt, ttl time.Duration) error {
-	return u.backend.AddUserLoginAttempt(user, attempt, ttl)
+func (c *UsersService) AddUserLoginAttempt(user string, attempt teleservices.LoginAttempt, ttl time.Duration) error {
+	return c.backend.AddUserLoginAttempt(user, attempt, ttl)
 }
 
 // GetUserLoginAttempts returns user login attempts
-func (u *UsersService) GetUserLoginAttempts(user string) ([]teleservices.LoginAttempt, error) {
-	return u.backend.GetUserLoginAttempts(user)
+func (c *UsersService) GetUserLoginAttempts(user string) ([]teleservices.LoginAttempt, error) {
+	return c.backend.GetUserLoginAttempts(user)
 }
 
 // DeleteUserLoginAttempts removes all login attempts of a user. Should be called after successful login.
-func (u *UsersService) DeleteUserLoginAttempts(user string) error {
-	return u.backend.DeleteUserLoginAttempts(user)
+func (c *UsersService) DeleteUserLoginAttempts(user string) error {
+	return c.backend.DeleteUserLoginAttempts(user)
 }
 
 // CreateInstallToken creates a new one-time installation token
-func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storage.InstallToken, err error) {
+func (c *UsersService) CreateInstallToken(t storage.InstallToken) (token *storage.InstallToken, err error) {
 	// In case token was supplied externally, use the provided value
 	data := t.Token
 	if data == "" {
-		// generate a token for a one-time installation for the specifed account
+		// generate a token for a one-time installation for the specified account
 		data, err = users.CryptoRandomToken(defaults.InstallTokenBytes)
 		if err != nil {
 			return nil, trace.Wrap(err)
@@ -181,7 +181,7 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storag
 	}
 	email := fmt.Sprintf("install@%v", data)
 
-	user, err := u.backend.GetUser(t.UserEmail)
+	user, err := c.backend.GetUser(t.UserEmail)
 	if trace.IsNotFound(err) {
 		// we create install token with no actual permissions
 		user = storage.NewUser(email, storage.UserSpecV2{
@@ -197,28 +197,28 @@ func (u *UsersService) CreateInstallToken(t storage.InstallToken) (token *storag
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		_, err = u.createUserWithRoles(user, []teleservices.Role{role}, nil)
+		_, err = c.createUserWithRoles(user, []teleservices.Role{role}, nil)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 	}
 
 	t.UserEmail = user.GetName()
-	token, err = u.backend.CreateInstallToken(t)
+	token, err = c.backend.CreateInstallToken(t)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return token, nil
 }
 
-func (u *UsersService) LoginWithInstallToken(tokenID string) (*users.LoginResult, error) {
-	token, err := u.GetInstallToken(tokenID)
+func (c *UsersService) LoginWithInstallToken(tokenID string) (*users.LoginResult, error) {
+	token, err := c.GetInstallToken(tokenID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	var result users.LoginResult
-	session, err := u.auth.CreateWebSession(token.UserEmail)
+	session, err := c.auth.CreateWebSession(token.UserEmail)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -228,33 +228,33 @@ func (u *UsersService) LoginWithInstallToken(tokenID string) (*users.LoginResult
 }
 
 // GetInstallToken returns the token by ID
-func (u *UsersService) GetInstallToken(tokenID string) (*storage.InstallToken, error) {
-	return u.backend.GetInstallToken(tokenID)
+func (c *UsersService) GetInstallToken(tokenID string) (*storage.InstallToken, error) {
+	return c.backend.GetInstallToken(tokenID)
 }
 
 // GetInstallTokenByUser returns the token by user ID
-func (u *UsersService) GetInstallTokenByUser(email string) (*storage.InstallToken, error) {
-	return u.backend.GetInstallTokenByUser(email)
+func (c *UsersService) GetInstallTokenByUser(email string) (*storage.InstallToken, error) {
+	return c.backend.GetInstallTokenByUser(email)
 }
 
 // GetInstallTokenForCluster returns token by cluster name
-func (u *UsersService) GetInstallTokenForCluster(name string) (*storage.InstallToken, error) {
-	return u.backend.GetInstallTokenForCluster(name)
+func (c *UsersService) GetInstallTokenForCluster(name string) (*storage.InstallToken, error) {
+	return c.backend.GetInstallTokenForCluster(name)
 }
 
 // UpdateInstallToken updates an existing install token and changes role
 // for the user associated with the install token to reduce it's scope
 // to the just created cluster
-func (u *UsersService) UpdateInstallToken(req users.InstallTokenUpdateRequest) (*storage.InstallToken, teleservices.Role, error) {
+func (c *UsersService) UpdateInstallToken(req users.InstallTokenUpdateRequest) (*storage.InstallToken, teleservices.Role, error) {
 	if err := req.Check(); err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	token, err := u.GetInstallToken(req.Token)
+	token, err := c.GetInstallToken(req.Token)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	token.SiteDomain = req.SiteDomain
-	token, err = u.backend.UpdateInstallToken(*token)
+	token, err = c.backend.UpdateInstallToken(*token)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
@@ -262,16 +262,16 @@ func (u *UsersService) UpdateInstallToken(req users.InstallTokenUpdateRequest) (
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	err = u.backend.UpsertRole(role, storage.Forever)
+	err = c.backend.UpsertRole(role, storage.Forever)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	user, err := u.backend.GetUser(token.UserEmail)
+	user, err := c.backend.GetUser(token.UserEmail)
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
 	roles := []string{role.GetName()}
-	if err := u.backend.UpdateUser(user.GetName(), storage.UpdateUserReq{
+	if err := c.backend.UpdateUser(user.GetName(), storage.UpdateUserReq{
 		Roles: &roles,
 	}); err != nil {
 		return nil, nil, trace.Wrap(err)
@@ -429,7 +429,7 @@ func (c *UsersService) authenticateAPIKey(token string) (storage.User, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return (storage.User)(u), nil
+	return u, nil
 }
 
 // authenticateProvisioningToken is a helper to authenticate using provisioning token
@@ -442,7 +442,7 @@ func (c *UsersService) authenticateProvisioningToken(token string) (storage.User
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return (storage.User)(u), nil
+	return u, nil
 }
 
 // CreateUser creates a new generic user without privileges
@@ -455,8 +455,8 @@ func (c *UsersService) CreateUser(user teleservices.User) error {
 	return trace.Wrap(err)
 }
 
-// CreateAgent creates a new "robot" agent user used by various automation tools (e.g. jenkins)
-// with correct privileges
+// CreateAgent creates a new "robot" agent user used by various automation tools
+// (e.g. release automation) with correct privileges
 func (c *UsersService) CreateAgent(agent storage.User) (storage.User, error) {
 	agent.SetType(storage.AgentUser)
 	reader, err := users.NewReaderRole()
@@ -1113,47 +1113,47 @@ func (c *UsersService) GetAccounts() ([]users.Account, error) {
 }
 
 // UpsertU2FRegisterChallenge upserts a U2F challenge for a new user corresponding to the token
-func (u *UsersService) UpsertU2FRegisterChallenge(token string, u2fChallenge *u2f.Challenge) error {
-	return u.backend.UpsertU2FRegisterChallenge(token, u2fChallenge)
+func (c *UsersService) UpsertU2FRegisterChallenge(token string, u2fChallenge *u2f.Challenge) error {
+	return c.backend.UpsertU2FRegisterChallenge(token, u2fChallenge)
 }
 
 // GetU2FRegisterChallenge returns a U2F challenge for a new user corresponding to the token
-func (u *UsersService) GetU2FRegisterChallenge(token string) (*u2f.Challenge, error) {
-	return u.backend.GetU2FRegisterChallenge(token)
+func (c *UsersService) GetU2FRegisterChallenge(token string) (*u2f.Challenge, error) {
+	return c.backend.GetU2FRegisterChallenge(token)
 }
 
 // UpsertU2FRegistration upserts a U2F registration from a valid register response
-func (u *UsersService) UpsertU2FRegistration(user string, u2fReg *u2f.Registration) error {
-	return u.backend.UpsertU2FRegistration(user, u2fReg)
+func (c *UsersService) UpsertU2FRegistration(user string, u2fReg *u2f.Registration) error {
+	return c.backend.UpsertU2FRegistration(user, u2fReg)
 }
 
 // GetU2FRegistration returns a U2F registration from a valid register response
-func (u *UsersService) GetU2FRegistration(user string) (*u2f.Registration, error) {
-	return u.backend.GetU2FRegistration(user)
+func (c *UsersService) GetU2FRegistration(user string) (*u2f.Registration, error) {
+	return c.backend.GetU2FRegistration(user)
 }
 
 // UpsertU2FRegistrationCounter upserts a counter associated with a U2F registration
-func (u *UsersService) UpsertU2FRegistrationCounter(user string, counter uint32) error {
-	return u.backend.UpsertU2FRegistrationCounter(user, counter)
+func (c *UsersService) UpsertU2FRegistrationCounter(user string, counter uint32) error {
+	return c.backend.UpsertU2FRegistrationCounter(user, counter)
 }
 
 // GetU2FRegistrationCounter returns a counter associated with a U2F registration
-func (u *UsersService) GetU2FRegistrationCounter(user string) (counter uint32, e error) {
-	return u.backend.GetU2FRegistrationCounter(user)
+func (c *UsersService) GetU2FRegistrationCounter(user string) (counter uint32, e error) {
+	return c.backend.GetU2FRegistrationCounter(user)
 }
 
 // UpsertU2FSignChallenge upserts a U2F sign (auth) challenge
-func (u *UsersService) UpsertU2FSignChallenge(user string, u2fChallenge *u2f.Challenge) error {
-	return u.backend.UpsertU2FSignChallenge(user, u2fChallenge)
+func (c *UsersService) UpsertU2FSignChallenge(user string, u2fChallenge *u2f.Challenge) error {
+	return c.backend.UpsertU2FSignChallenge(user, u2fChallenge)
 }
 
 // GetU2FSignChallenge returns a U2F sign (auth) challenge
-func (u *UsersService) GetU2FSignChallenge(user string) (*u2f.Challenge, error) {
-	return u.backend.GetU2FSignChallenge(user)
+func (c *UsersService) GetU2FSignChallenge(user string) (*u2f.Challenge, error) {
+	return c.backend.GetU2FSignChallenge(user)
 }
 
 // CreateResetToken resets user password and creates a token to let existing user to change it
-func (u *UsersService) CreateResetToken(advertiseURL string, username string, ttl time.Duration) (*storage.UserToken, error) {
+func (c *UsersService) CreateResetToken(advertiseURL string, username string, ttl time.Duration) (*storage.UserToken, error) {
 	if err := utils.CheckUserName(username); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1168,7 +1168,7 @@ func (u *UsersService) CreateResetToken(advertiseURL string, username string, tt
 		ttl = defaults.UserResetTokenTTL
 	}
 
-	user, err := u.backend.GetUser(username)
+	user, err := c.backend.GetUser(username)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1177,12 +1177,12 @@ func (u *UsersService) CreateResetToken(advertiseURL string, username string, tt
 		return nil, trace.BadParameter("this user %v does not support passwords", user.GetName())
 	}
 
-	_, err = u.ResetPassword(username)
+	_, err = c.ResetPassword(username)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	userToken, err := u.createUserToken(storage.UserTokenTypeReset, username, ttl)
+	userToken, err := c.createUserToken(storage.UserTokenTypeReset, username, ttl)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1195,22 +1195,22 @@ func (u *UsersService) CreateResetToken(advertiseURL string, username string, tt
 	userToken.URL = tokenURL
 
 	// remove any other invite tokens for this user
-	err = u.backend.DeleteUserTokens(storage.UserTokenTypeReset, username)
+	err = c.backend.DeleteUserTokens(storage.UserTokenTypeReset, username)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	_, err = u.backend.CreateUserToken(*userToken)
+	_, err = c.backend.CreateUserToken(*userToken)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	return u.GetUserToken(userToken.Token)
+	return c.GetUserToken(userToken.Token)
 }
 
 // ResetUserWithToken sets user password based on user token and logs in user
-// after that in case of successfull operation
-func (u *UsersService) ResetUserWithToken(req users.UserTokenCompleteRequest) (teleservices.WebSession, error) {
+// after that in case of successful operation
+func (c *UsersService) ResetUserWithToken(req users.UserTokenCompleteRequest) (teleservices.WebSession, error) {
 	pass := req.Password
 	if err := pass.Check(); err != nil {
 		return nil, trace.Wrap(err)
@@ -1221,7 +1221,7 @@ func (u *UsersService) ResetUserWithToken(req users.UserTokenCompleteRequest) (t
 		return nil, trace.Wrap(err)
 	}
 
-	userToken, otpBytes, err := u.ProcessUserTokenCompleteRequest(storage.UserTokenTypeReset, req)
+	userToken, otpBytes, err := c.ProcessUserTokenCompleteRequest(storage.UserTokenTypeReset, req)
 	if err != nil {
 		log.Warningf("Failed to get user token: %v.", err)
 		return nil, trace.AccessDenied("expired or incorrect token")
@@ -1229,7 +1229,7 @@ func (u *UsersService) ResetUserWithToken(req users.UserTokenCompleteRequest) (t
 
 	hashString := string(hash)
 
-	err = u.backend.UpdateUser(userToken.User, storage.UpdateUserReq{
+	err = c.backend.UpdateUser(userToken.User, storage.UpdateUserReq{
 		HOTP:     &otpBytes,
 		Password: &hashString,
 	})
@@ -1238,12 +1238,12 @@ func (u *UsersService) ResetUserWithToken(req users.UserTokenCompleteRequest) (t
 	}
 
 	// dispose of the token so it can't be reused
-	err = u.backend.DeleteUserToken(req.TokenID)
+	err = c.backend.DeleteUserToken(req.TokenID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	session, err := u.auth.CreateWebSession(userToken.User)
+	session, err := c.auth.CreateWebSession(userToken.User)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1519,18 +1519,18 @@ func (c *UsersService) GetUsersByAccountID(accountID string) ([]storage.User, er
 }
 
 // TryAcquireLock grabs a lock that will be released automatically in ttl time
-func (u *UsersService) TryAcquireLock(token string, ttl time.Duration) error {
-	return u.backend.TryAcquireLock(token, ttl)
+func (c *UsersService) TryAcquireLock(token string, ttl time.Duration) error {
+	return c.backend.TryAcquireLock(token, ttl)
 }
 
 // AcquireLock grabs a lock that will be released automatically in ttl time
-func (u *UsersService) AcquireLock(token string, ttl time.Duration) error {
-	return u.backend.AcquireLock(token, ttl)
+func (c *UsersService) AcquireLock(token string, ttl time.Duration) error {
+	return c.backend.AcquireLock(token, ttl)
 }
 
 // ReleaseLock releases lock by token name
-func (u *UsersService) ReleaseLock(token string) error {
-	return u.backend.ReleaseLock(token)
+func (c *UsersService) ReleaseLock(token string) error {
+	return c.backend.ReleaseLock(token)
 }
 
 // UpsertToken adds provisioning tokens for the auth server
@@ -1540,8 +1540,8 @@ func (*UsersService) UpsertToken(token string, roles teleport.Roles, ttl time.Du
 
 // GetToken is called by Teleport to verify the token supplied by a connecting
 // trusted cluster, it is expected to be an API key of Gatekeeper user
-func (u *UsersService) GetToken(token string) (*teleservices.ProvisionToken, error) {
-	key, err := u.GetAPIKeyByToken(token)
+func (c *UsersService) GetToken(token string) (*teleservices.ProvisionToken, error) {
+	key, err := c.GetAPIKeyByToken(token)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -1567,149 +1567,149 @@ func (*UsersService) GetTokens() ([]teleservices.ProvisionToken, error) {
 }
 
 // GetNodes returns a list of registered servers
-func (u *UsersService) GetNodes(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error) {
-	return u.backend.GetNodes(namespace, opts...)
+func (c *UsersService) GetNodes(namespace string, opts ...teleservices.MarshalOption) ([]teleservices.Server, error) {
+	return c.backend.GetNodes(namespace, opts...)
 }
 
 // UpsertNode registers node presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
-func (u *UsersService) UpsertNode(server teleservices.Server) error {
-	return u.backend.UpsertNode(server)
+func (c *UsersService) UpsertNode(server teleservices.Server) error {
+	return c.backend.UpsertNode(server)
 }
 
-// UpsertNode upserts multiple nodes
-func (u *UsersService) UpsertNodes(namespace string, servers []teleservices.Server) error {
-	return u.backend.UpsertNodes(namespace, servers)
+// UpsertNodes upserts multiple nodes
+func (c *UsersService) UpsertNodes(namespace string, servers []teleservices.Server) error {
+	return c.backend.UpsertNodes(namespace, servers)
 }
 
 // GetAuthServers returns a list of registered servers
-func (u *UsersService) GetAuthServers() ([]teleservices.Server, error) {
-	return u.backend.GetAuthServers()
+func (c *UsersService) GetAuthServers() ([]teleservices.Server, error) {
+	return c.backend.GetAuthServers()
 }
 
 // UpsertAuthServer registers auth server presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
-func (u *UsersService) UpsertAuthServer(server teleservices.Server) error {
-	return u.backend.UpsertAuthServer(server)
+func (c *UsersService) UpsertAuthServer(server teleservices.Server) error {
+	return c.backend.UpsertAuthServer(server)
 }
 
 // UpsertProxy registers proxy server presence, permanently if ttl is 0 or
 // for the specified duration with second resolution if it's >= 1 second
-func (u *UsersService) UpsertProxy(server teleservices.Server) error {
-	return u.backend.UpsertProxy(server)
+func (c *UsersService) UpsertProxy(server teleservices.Server) error {
+	return c.backend.UpsertProxy(server)
 }
 
 // GetProxies returns a list of registered proxies
-func (u *UsersService) GetProxies() ([]teleservices.Server, error) {
-	return u.backend.GetProxies()
+func (c *UsersService) GetProxies() ([]teleservices.Server, error) {
+	return c.backend.GetProxies()
 }
 
 // UpsertReverseTunnel upserts reverse tunnel entry temporarily or permanently
-func (u *UsersService) UpsertReverseTunnel(tunnel teleservices.ReverseTunnel) error {
-	return u.backend.UpsertReverseTunnel(tunnel)
+func (c *UsersService) UpsertReverseTunnel(tunnel teleservices.ReverseTunnel) error {
+	return c.backend.UpsertReverseTunnel(tunnel)
 }
 
 // GetReverseTunnels returns a list of registered servers
-func (u *UsersService) GetReverseTunnels() ([]teleservices.ReverseTunnel, error) {
-	return u.backend.GetReverseTunnels()
+func (c *UsersService) GetReverseTunnels() ([]teleservices.ReverseTunnel, error) {
+	return c.backend.GetReverseTunnels()
 }
 
 // GetReverseTunnel returns reverse tunnel by name
-func (u *UsersService) GetReverseTunnel(name string) (teleservices.ReverseTunnel, error) {
-	return u.backend.GetReverseTunnel(name)
+func (c *UsersService) GetReverseTunnel(name string) (teleservices.ReverseTunnel, error) {
+	return c.backend.GetReverseTunnel(name)
 }
 
 // DeleteReverseTunnel deletes reverse tunnel by it's domain name
-func (u *UsersService) DeleteReverseTunnel(domainName string) error {
-	return u.backend.DeleteReverseTunnel(domainName)
+func (c *UsersService) DeleteReverseTunnel(domainName string) error {
+	return c.backend.DeleteReverseTunnel(domainName)
 }
 
 // CreateCertAuthority creates a new certificate authority
-func (u *UsersService) CreateCertAuthority(ca teleservices.CertAuthority) error {
-	return u.backend.CreateCertAuthority(ca)
+func (c *UsersService) CreateCertAuthority(ca teleservices.CertAuthority) error {
+	return c.backend.CreateCertAuthority(ca)
 }
 
 // UpsertCertAuthority updates or inserts a new certificate authority
-func (u *UsersService) UpsertCertAuthority(ca teleservices.CertAuthority) error {
-	return u.backend.UpsertCertAuthority(ca)
+func (c *UsersService) UpsertCertAuthority(ca teleservices.CertAuthority) error {
+	return c.backend.UpsertCertAuthority(ca)
 }
 
 // CompareAndSwapCertAuthority updates existing cert authority if the existing
 // cert authority value matches the value stored in the backend
-func (u *UsersService) CompareAndSwapCertAuthority(new, existing teleservices.CertAuthority) error {
-	return u.backend.CompareAndSwapCertAuthority(new, existing)
+func (c *UsersService) CompareAndSwapCertAuthority(new, existing teleservices.CertAuthority) error {
+	return c.backend.CompareAndSwapCertAuthority(new, existing)
 }
 
 // DeleteCertAuthority deletes particular certificate authority
-func (u *UsersService) DeleteCertAuthority(id teleservices.CertAuthID) error {
-	return u.backend.DeleteCertAuthority(id)
+func (c *UsersService) DeleteCertAuthority(id teleservices.CertAuthID) error {
+	return c.backend.DeleteCertAuthority(id)
 }
 
 // DeleteAllCertAuthorities deletes all cert authorities
-func (u *UsersService) DeleteAllCertAuthorities(caType teleservices.CertAuthType) error {
-	return u.backend.DeleteAllCertAuthorities(caType)
+func (c *UsersService) DeleteAllCertAuthorities(caType teleservices.CertAuthType) error {
+	return c.backend.DeleteAllCertAuthorities(caType)
 }
 
 // GetCertAuthority returns certificate authority by given id. Parameter loadSigningKeys
 // controls if signing keys are loaded
-func (u *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
-	return u.backend.GetCertAuthority(id, loadSigningKeys)
+func (c *UsersService) GetCertAuthority(id teleservices.CertAuthID, loadSigningKeys bool, opts ...teleservices.MarshalOption) (teleservices.CertAuthority, error) {
+	return c.backend.GetCertAuthority(id, loadSigningKeys)
 }
 
 // GetCertAuthorities returns a list of authorities of a given type
 // loadSigningKeys controls whether signing keys should be loaded or not
-func (u *UsersService) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool, opts ...teleservices.MarshalOption) ([]teleservices.CertAuthority, error) {
-	return u.backend.GetCertAuthorities(caType, loadSigningKeys, opts...)
+func (c *UsersService) GetCertAuthorities(caType teleservices.CertAuthType, loadSigningKeys bool, opts ...teleservices.MarshalOption) ([]teleservices.CertAuthority, error) {
+	return c.backend.GetCertAuthorities(caType, loadSigningKeys, opts...)
 }
 
 // GetNamespaces returns a list of namespaces
-func (u *UsersService) GetNamespaces() ([]teleservices.Namespace, error) {
-	return u.backend.GetNamespaces()
+func (c *UsersService) GetNamespaces() ([]teleservices.Namespace, error) {
+	return c.backend.GetNamespaces()
 }
 
 // UpsertNamespace upserts namespace
-func (u *UsersService) UpsertNamespace(n teleservices.Namespace) error {
-	return u.backend.UpsertNamespace(n)
+func (c *UsersService) UpsertNamespace(n teleservices.Namespace) error {
+	return c.backend.UpsertNamespace(n)
 }
 
 // GetNamespace returns a namespace by name
-func (u *UsersService) GetNamespace(name string) (*teleservices.Namespace, error) {
-	return u.backend.GetNamespace(name)
+func (c *UsersService) GetNamespace(name string) (*teleservices.Namespace, error) {
+	return c.backend.GetNamespace(name)
 }
 
 // DeleteNamespace deletes a namespace with all the keys from the backend
-func (u *UsersService) DeleteNamespace(namespace string) error {
-	return u.backend.DeleteNamespace(namespace)
+func (c *UsersService) DeleteNamespace(namespace string) error {
+	return c.backend.DeleteNamespace(namespace)
 }
 
 // DeleteAllNamespaces deletes all namespaces
-func (u *UsersService) DeleteAllNamespaces() error {
-	return u.backend.DeleteAllNamespaces()
+func (c *UsersService) DeleteAllNamespaces() error {
+	return c.backend.DeleteAllNamespaces()
 }
 
 // GetRoles returns a list of roles registered with the local auth server
-func (u *UsersService) GetRoles() ([]teleservices.Role, error) {
-	return u.backend.GetRoles()
+func (c *UsersService) GetRoles() ([]teleservices.Role, error) {
+	return c.backend.GetRoles()
 }
 
 // UpsertRole updates parameters about role
-func (u *UsersService) UpsertRole(role teleservices.Role, ttl time.Duration) error {
-	return u.backend.UpsertRole(role, ttl)
+func (c *UsersService) UpsertRole(role teleservices.Role, ttl time.Duration) error {
+	return c.backend.UpsertRole(role, ttl)
 }
 
 // CreateRole creates new role
-func (u *UsersService) CreateRole(role teleservices.Role, ttl time.Duration) error {
-	return u.backend.CreateRole(role, ttl)
+func (c *UsersService) CreateRole(role teleservices.Role, ttl time.Duration) error {
+	return c.backend.CreateRole(role, ttl)
 }
 
 // GetRole returns a role by name
-func (u *UsersService) GetRole(name string) (teleservices.Role, error) {
-	return u.backend.GetRole(name)
+func (c *UsersService) GetRole(name string) (teleservices.Role, error) {
+	return c.backend.GetRole(name)
 }
 
 // DeleteRole deletes a role with all the keys from the backend
-func (u *UsersService) DeleteRole(roleName string) error {
-	users, err := u.backend.GetAllUsers()
+func (c *UsersService) DeleteRole(roleName string) error {
+	users, err := c.backend.GetAllUsers()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -1720,118 +1720,118 @@ func (u *UsersService) DeleteRole(roleName string) error {
 			}
 		}
 	}
-	return u.backend.DeleteRole(roleName)
+	return c.backend.DeleteRole(roleName)
 }
 
 // DeleteAllRoles deletes all roles
-func (u *UsersService) DeleteAllRoles() error {
-	return u.backend.DeleteAllRoles()
+func (c *UsersService) DeleteAllRoles() error {
+	return c.backend.DeleteAllRoles()
 }
 
 // UpsertTrustedCluster creates or updates a TrustedCluster in the backend.
-func (u *UsersService) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) (teleservices.TrustedCluster, error) {
-	return u.auth.UpsertTrustedCluster(trustedCluster)
+func (c *UsersService) UpsertTrustedCluster(trustedCluster teleservices.TrustedCluster) (teleservices.TrustedCluster, error) {
+	return c.auth.UpsertTrustedCluster(trustedCluster)
 }
 
 // GetTrustedCluster returns a single TrustedCluster by name.
-func (u *UsersService) GetTrustedCluster(name string) (teleservices.TrustedCluster, error) {
-	return u.backend.GetTrustedCluster(name)
+func (c *UsersService) GetTrustedCluster(name string) (teleservices.TrustedCluster, error) {
+	return c.backend.GetTrustedCluster(name)
 }
 
 // GetTrustedClusters returns all TrustedClusters in the backend.
-func (u *UsersService) GetTrustedClusters() ([]teleservices.TrustedCluster, error) {
-	return u.backend.GetTrustedClusters()
+func (c *UsersService) GetTrustedClusters() ([]teleservices.TrustedCluster, error) {
+	return c.backend.GetTrustedClusters()
 }
 
 // DeleteTrustedCluster removes a TrustedCluster from the backend by name.
-func (u *UsersService) DeleteTrustedCluster(name string) error {
-	return u.auth.DeleteTrustedCluster(name)
+func (c *UsersService) DeleteTrustedCluster(name string) error {
+	return c.auth.DeleteTrustedCluster(name)
 }
 
 // CreateRemoteCluster creates a remote cluster
-func (u *UsersService) CreateRemoteCluster(conn teleservices.RemoteCluster) error {
-	return u.backend.CreateRemoteCluster(conn)
+func (c *UsersService) CreateRemoteCluster(conn teleservices.RemoteCluster) error {
+	return c.backend.CreateRemoteCluster(conn)
 }
 
 // GetRemoteCluster returns a remote cluster by name
-func (u *UsersService) GetRemoteCluster(clusterName string) (teleservices.RemoteCluster, error) {
-	return u.backend.GetRemoteCluster(clusterName)
+func (c *UsersService) GetRemoteCluster(clusterName string) (teleservices.RemoteCluster, error) {
+	return c.backend.GetRemoteCluster(clusterName)
 }
 
 // GetRemoteClusters returns a list of remote clusters
-func (u *UsersService) GetRemoteClusters(opts ...teleservices.MarshalOption) ([]teleservices.RemoteCluster, error) {
-	return u.backend.GetRemoteClusters()
+func (c *UsersService) GetRemoteClusters(opts ...teleservices.MarshalOption) ([]teleservices.RemoteCluster, error) {
+	return c.backend.GetRemoteClusters()
 }
 
 // DeleteRemoteCluster deletes remote cluster by name
-func (u *UsersService) DeleteRemoteCluster(clusterName string) error {
-	return u.backend.DeleteRemoteCluster(clusterName)
+func (c *UsersService) DeleteRemoteCluster(clusterName string) error {
+	return c.backend.DeleteRemoteCluster(clusterName)
 }
 
 // DeleteAllRemoteClusters deletes all remote clusters
-func (u *UsersService) DeleteAllRemoteClusters() error {
-	return u.backend.DeleteAllRemoteClusters()
+func (c *UsersService) DeleteAllRemoteClusters() error {
+	return c.backend.DeleteAllRemoteClusters()
 }
 
 // DeleteAllNodes deletes all nodes
-func (u *UsersService) DeleteAllNodes(namespace string) error {
-	return u.backend.DeleteAllNodes(namespace)
+func (c *UsersService) DeleteAllNodes(namespace string) error {
+	return c.backend.DeleteAllNodes(namespace)
 }
 
 // DeleteAllReverseTunnels deletes all reverse tunnels
-func (u *UsersService) DeleteAllReverseTunnels() error {
-	return u.backend.DeleteAllReverseTunnels()
+func (c *UsersService) DeleteAllReverseTunnels() error {
+	return c.backend.DeleteAllReverseTunnels()
 }
 
 // DeleteAllProxies deletes all proxies
-func (u *UsersService) DeleteAllProxies() error {
-	return u.backend.DeleteAllProxies()
+func (c *UsersService) DeleteAllProxies() error {
+	return c.backend.DeleteAllProxies()
 }
 
 // SetAuthPreference updates cluster auth preference
-func (u *UsersService) SetAuthPreference(authP teleservices.AuthPreference) error {
+func (c *UsersService) SetAuthPreference(authP teleservices.AuthPreference) error {
 	err := authP.CheckAndSetDefaults()
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	return u.backend.UpsertAuthPreference(authP)
+	return c.backend.UpsertAuthPreference(authP)
 }
 
 // GetAuthPreference returns cluster auth preference
-func (u *UsersService) GetAuthPreference() (teleservices.AuthPreference, error) {
-	return u.backend.GetAuthPreference()
+func (c *UsersService) GetAuthPreference() (teleservices.AuthPreference, error) {
+	return c.backend.GetAuthPreference()
 }
 
 // GetClusterName returns cluster name from cluster configuration
-func (u *UsersService) GetClusterName() (teleservices.ClusterName, error) {
-	return u.backend.GetClusterName()
+func (c *UsersService) GetClusterName() (teleservices.ClusterName, error) {
+	return c.backend.GetClusterName()
 }
 
 // SetClusterName sets the name of the cluster in the backend. SetClusterName
 // can only be called once on a cluster after which it will return trace.AlreadyExists.
-func (u *UsersService) SetClusterName(clusterName teleservices.ClusterName) error {
-	return u.backend.CreateClusterName(clusterName)
+func (c *UsersService) SetClusterName(clusterName teleservices.ClusterName) error {
+	return c.backend.CreateClusterName(clusterName)
 }
 
 // GetStaticTokens returns static tokens from cluster configuration
-func (u *UsersService) GetStaticTokens() (teleservices.StaticTokens, error) {
-	return u.backend.GetStaticTokens()
+func (c *UsersService) GetStaticTokens() (teleservices.StaticTokens, error) {
+	return c.backend.GetStaticTokens()
 }
 
 // SetStaticTokens updates static tokens in cluster configuration
-func (u *UsersService) SetStaticTokens(tokens teleservices.StaticTokens) error {
-	return u.backend.UpsertStaticTokens(tokens)
+func (c *UsersService) SetStaticTokens(tokens teleservices.StaticTokens) error {
+	return c.backend.UpsertStaticTokens(tokens)
 }
 
 // GetClusterConfig returns cluster configuration
-func (u *UsersService) GetClusterConfig() (teleservices.ClusterConfig, error) {
-	return u.backend.GetClusterConfig()
+func (c *UsersService) GetClusterConfig() (teleservices.ClusterConfig, error) {
+	return c.backend.GetClusterConfig()
 }
 
 // SetClusterConfig returns cluster configuration
-func (u *UsersService) SetClusterConfig(config teleservices.ClusterConfig) error {
-	return u.backend.UpsertClusterConfig(config)
+func (c *UsersService) SetClusterConfig(config teleservices.ClusterConfig) error {
+	return c.backend.UpsertClusterConfig(config)
 }
 
 func formatUserTokenURL(advertiseURL string, path string) (string, error) {
@@ -1846,7 +1846,7 @@ func formatUserTokenURL(advertiseURL string, path string) (string, error) {
 	return u.String(), nil
 }
 
-func (u *UsersService) createUserToken(tokenType string, name string, ttl time.Duration) (*storage.UserToken, error) {
+func (c *UsersService) createUserToken(tokenType string, name string, ttl time.Duration) (*storage.UserToken, error) {
 	err := utils.CheckUserName(name)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1874,19 +1874,19 @@ func (u *UsersService) createUserToken(tokenType string, name string, ttl time.D
 
 	return &storage.UserToken{
 		Token:   token,
-		Expires: u.clock.Now().UTC().Add(ttl),
+		Expires: c.clock.Now().UTC().Add(ttl),
 		Type:    tokenType,
 		User:    name,
 		HOTP:    otpBytes,
 		QRCode:  otpQR,
-		Created: u.clock.Now().UTC(),
+		Created: c.clock.Now().UTC(),
 	}, nil
 }
 
-func (u *UsersService) filterOutDeletedRoles(roles []string) ([]string, error) {
+func (c *UsersService) filterOutDeletedRoles(roles []string) ([]string, error) {
 	var out []string
 	for _, role := range roles {
-		_, err := u.backend.GetRole(role)
+		_, err := c.backend.GetRole(role)
 		if err != nil {
 			if !trace.IsNotFound(err) {
 				return nil, trace.Wrap(err)

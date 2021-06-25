@@ -31,7 +31,7 @@ import (
 )
 
 // NewGravity returns executor that waits for gravity-site to become available.
-func NewGravity(p fsm.ExecutorParams, operator ops.Operator) (*gravityExecutor, error) {
+func NewGravity(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

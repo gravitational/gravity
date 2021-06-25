@@ -27,7 +27,6 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
-	"github.com/gravitational/teleport/lib/utils"
 	teleutils "github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/trace"
 	"github.com/jonboulle/clockwork"
@@ -132,7 +131,7 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.ComponentConfigs.Kubelet = &Kubelet{}
 		}
 		if len(updateKubelet.ExtraArgs) != 0 &&
-			!utils.StringSlicesEqual(updateKubelet.ExtraArgs, r.Spec.ComponentConfigs.Kubelet.ExtraArgs) {
+			!teleutils.StringSlicesEqual(updateKubelet.ExtraArgs, r.Spec.ComponentConfigs.Kubelet.ExtraArgs) {
 			r.Spec.ComponentConfigs.Kubelet.ExtraArgs = other.Spec.ComponentConfigs.Kubelet.ExtraArgs
 		}
 		if len(updateKubelet.Config) != 0 &&

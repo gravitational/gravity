@@ -111,7 +111,7 @@ type Config struct {
 }
 
 // New creates a new credentials service with the provided config.
-func New(config Config) (*credentialsService, error) {
+func New(config Config) (Service, error) {
 	// Bolt-backed key store is only used inside deployed clusters so may
 	// not be provided.
 	var dbKeyStore *users.KeyStore

@@ -42,8 +42,8 @@ func (r *aws) verifyPermissions(ctx context.Context, manifest *schema.Manifest) 
 			}
 		}
 	}
-	return validation.Validate(r.accessKey, r.secretKey, r.sessionToken,
-		r.regionName, probes, ctx)
+	return validation.Validate(ctx, r.accessKey, r.secretKey, r.sessionToken,
+		r.regionName, probes)
 }
 
 // aws implements AWS cloud provider

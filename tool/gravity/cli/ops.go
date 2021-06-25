@@ -19,6 +19,8 @@ package cli
 import (
 	"context"
 	"fmt"
+
+	//nolint:gosec // imported for side-effects
 	_ "net/http/pprof"
 
 	appservice "github.com/gravitational/gravity/lib/app/service"
@@ -51,7 +53,7 @@ func appPackage(env *localenv.LocalEnvironment) error {
 	return nil
 }
 
-func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment, opsURL string) error {
+func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, env *localenv.LocalEnvironment) error {
 	clusterOperator, err := env.SiteOperator()
 	if err != nil {
 		return trace.Wrap(err, "unable to access cluster.\n"+
@@ -103,7 +105,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 
 	var registries []string
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(ctx, env, cluster.ClusterState.Servers)
+		registries, err = getRegistries(ctx, cluster.ClusterState.Servers)
 		return trace.Wrap(err)
 	})
 	if err != nil {
@@ -188,7 +190,7 @@ func getTarballEnvironForUpgrade(env *localenv.LocalEnvironment, stateDir string
 }
 
 // getRegistries returns a list of registry addresses in the cluster
-func getRegistries(ctx context.Context, env *localenv.LocalEnvironment, servers []storage.Server) ([]string, error) {
+func getRegistries(ctx context.Context, servers []storage.Server) ([]string, error) {
 	// return registry addresses on all masters
 	ips, err := getMasterNodes(ctx, servers)
 	if err != nil {

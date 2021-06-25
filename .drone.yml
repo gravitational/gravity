@@ -26,6 +26,14 @@ steps:
     volumes:
       - name: dockersock
         path: /var/run
+  - name: lint
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - make -C build.assets golint
+    volumes:
+      - name: dockersock
+        path: /var/run
   - name: build
     image: docker:git
     environment:
@@ -81,7 +89,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -173,7 +181,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -195,6 +203,8 @@ name: pr docs
 trigger:
   event:
   - pull_request
+  branch:
+  - master
 
 steps:
   - name: wait for docker
@@ -232,7 +242,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -337,7 +347,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -433,7 +443,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -528,7 +538,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -621,7 +631,7 @@ steps:
 
 services:
   - name: run docker daemon
-    image: docker:dind
+    image: docker:20.10.6-dind
     privileged: true
     volumes:
       - name: dockersock
@@ -632,6 +642,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: caab2cfccea5948cc372cd269e409daf721baf73000a0f50ea26e6165db53761
+hmac: 158e6bd70dd4125d7efd7a80da469c28ea66284d78bb995304409bdf6af4ab4c
 
 ...

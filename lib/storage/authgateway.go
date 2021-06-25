@@ -264,7 +264,7 @@ func (gw *AuthGatewayV1) ApplyTo(other AuthGateway) {
 	}
 }
 
-// Apply applies auth gateway settings to the provided config.
+// ApplyToTeleportConfig applies auth gateway settings to the provided config.
 func (gw *AuthGatewayV1) ApplyToTeleportConfig(config *teleconfig.FileConfig) {
 	if gw.Spec.ConnectionLimits != nil {
 		if gw.Spec.ConnectionLimits.MaxConnections != nil {
@@ -532,7 +532,7 @@ func (gw *AuthGatewayV1) SetExpiry(expires time.Time) {
 	gw.Metadata.SetExpiry(expires)
 }
 
-// Expires returns the resource expiration time.
+// Expiry returns the resource expiration time.
 func (gw *AuthGatewayV1) Expiry() time.Time {
 	return gw.Metadata.Expiry()
 }

@@ -22,7 +22,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/install"
-	"github.com/gravitational/gravity/lib/install/client"
 	installerclient "github.com/gravitational/gravity/lib/install/client"
 	"github.com/gravitational/gravity/lib/install/reconfigure"
 	"github.com/gravitational/gravity/lib/localenv"
@@ -77,15 +76,15 @@ func reconfigureCluster(env *localenv.LocalEnvironment, config InstallConfig, co
 	}
 	env.PrintStep("Starting reconfiguration to advertise address %v", config.AdvertiseAddr)
 	baseDir := utils.Exe.WorkingDir
-	strategy, err := newReconfiguratorConnectStrategy(env, baseDir, config, cli.CommandArgs{
+	strategy, err := newReconfiguratorConnectStrategy(baseDir, cli.CommandArgs{
 		Parser: cli.ArgsParserFunc(parseArgs),
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = InstallerClient(env, client.Config{
+	err = InstallerClient(env, installerclient.Config{
 		ConnectStrategy: strategy,
-		Lifecycle: &client.AutomaticLifecycle{
+		Lifecycle: &installerclient.AutomaticLifecycle{
 			Aborter:   AborterForMode(strategy.ServiceName, config.Mode, env),
 			Completer: InstallerCompleteOperation(strategy.ServiceName, env),
 		},
@@ -151,9 +150,7 @@ func newReconfigurator(ctx context.Context, config *install.Config, state *local
 // newReconfiguratorConnectStrategy returns a new service connect strategy
 // for the agent executing the cluster reconfiguration operation.
 func newReconfiguratorConnectStrategy(
-	env *localenv.LocalEnvironment,
 	baseDir string,
-	config InstallConfig,
 	commandArgs cli.CommandArgs,
 ) (strategy *installerclient.InstallerStrategy, err error) {
 	installedPath, err := install.InstallBinaryIntoDefaultLocation(log)

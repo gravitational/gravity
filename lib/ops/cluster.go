@@ -73,7 +73,7 @@ func getAWSCreds() (*credentials.Value, error) {
 }
 
 // CreateCluster is a shortcut function to create clusters,
-// works for AWS only at the moment. If successfull returns key to a started
+// works for AWS only at the moment. If successful returns key to a started
 // install operation.
 func CreateCluster(operator Operator, clusterI storage.Cluster) (*SiteOperationKey, error) {
 	cluster, ok := clusterI.(*storage.ClusterV2)

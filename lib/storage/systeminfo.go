@@ -162,7 +162,7 @@ func (r *SystemV2) GetProcesses() []Process {
 
 // GetDevices returns the list of unallocated devices
 func (r *SystemV2) GetDevices() Devices {
-	return Devices(r.Spec.Devices)
+	return r.Spec.Devices
 }
 
 // GetSystemPackages returns the list of installed system packages

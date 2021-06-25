@@ -28,6 +28,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 
+	dockerarchive "github.com/docker/docker/pkg/archive"
 	"github.com/gravitational/configure/cstrings"
 	"github.com/gravitational/trace"
 	"github.com/mailgun/timetools"
@@ -94,7 +95,7 @@ func (p *PackageServer) PackageDownloadURL(loc loc.Locator) string {
 		"packages", loc.Name, loc.Version, "file"}, "/")
 }
 
-// Get repositories returns a list of repositories
+// GetRepositories repositories returns a list of repositories
 func (p *PackageServer) GetRepositories() ([]string, error) {
 	out := []string{}
 
@@ -248,7 +249,7 @@ func (p *PackageServer) processMetadata(locator loc.Locator) (loc.Locator, error
 	return *locatorPtr, nil
 }
 
-// Read package opens and returns package contents
+// ReadPackage package opens and returns package contents
 func (p *PackageServer) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadCloser, error) {
 	var err error
 	loc, err = p.processMetadata(loc)
@@ -357,7 +358,7 @@ func (p *PackageServer) DeleteRepository(repository string) error {
 	return trace.Wrap(p.backend.DeleteRepository(repository))
 }
 
-// Readpack.PackageEnvelope returns package envelope without reading the BLOB
+// ReadPackageEnvelope returns package envelope without reading the BLOB
 func (p *PackageServer) ReadPackageEnvelope(loc loc.Locator) (*pack.PackageEnvelope, error) {
 	var err error
 	loc, err = p.processMetadata(loc)
@@ -383,8 +384,12 @@ func (p *PackageServer) UnpackedPath(loc loc.Locator) (string, error) {
 }
 
 func (p *PackageServer) Unpack(loc loc.Locator, targetDir string) error {
-	var err error
+	return p.UnpackWithOptions(loc, targetDir, nil)
+}
 
+// UnpackWithOptions unpacks the package specified with loc in targetDir
+// using opts for extraction
+func (p *PackageServer) UnpackWithOptions(loc loc.Locator, targetDir string, opts *dockerarchive.TarOptions) (err error) {
 	loc, err = p.processMetadata(loc)
 	if err != nil {
 		return trace.Wrap(err)
@@ -404,7 +409,7 @@ func (p *PackageServer) Unpack(loc loc.Locator, targetDir string) error {
 		log.WithField("package", loc).Info("Package is already unpacked.")
 		return nil
 	}
-	if err := pack.Unpack(p, loc, targetDir, nil); err != nil {
+	if err := pack.Unpack(p, loc, targetDir, opts); err != nil {
 		return trace.Wrap(err)
 	}
 	return nil

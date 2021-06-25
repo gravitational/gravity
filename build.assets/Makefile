@@ -7,10 +7,14 @@
 #
 
 OPS_URL ?=
-LOCALDIR := $(dir $(CURDIR)/$(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST)))
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+LOCALDIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
+TOP := $(abspath $(LOCALDIR)/..)
 LOCAL_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build
 # Path to the local gravity build assets directory used inside the container
 LOCAL_GRAVITY_BUILDDIR ?= /gopath/src/github.com/gravitational/gravity/build/$(GRAVITY_VERSION)
+
+include ../versions.mk
 
 DOCKER_ARGS ?= --pull
 NOROOT=-u $$(id -u):$$(id -g)
@@ -19,22 +23,11 @@ BBOX = gravity-buildbox:latest
 GRAVITY_WEB_APP_DIR ?= $(abspath $(LOCALDIR)/../web)/
 
 # Git versions (refspecs) for build targets
-TELEPORT_TAG ?= master
-PLANET_TAG ?= master
-PLANET_BRANCH ?= $(PLANET_TAG)
-BANDWAGON_TAG ?= 1.0.0
 BANDWAGON_BRANCH ?= $(BANDWAGON_TAG)
-LOGGING_APP_TAG ?= 0.0.1
 LOGGING_APP_BRANCH ?= $(LOGGING_APP_TAG)
-MONITORING_APP_TAG ?= 0.0.1
 MONITORING_APP_BRANCH ?= $(MONITORING_APP_TAG)
-INGRESS_APP_TAG ?= 0.0.1
 INGRESS_APP_BRANCH ?= $(INGRESS_APP_TAG)
-STORAGE_APP_TAG ?= 0.0.1
 STORAGE_APP_BRANCH ?= $(STORAGE_APP_TAG)
-K8S_APP_TAG ?= 0.0.1
-TILLER_APP_TAG ?= 0.0.1
-SELINUX_BRANCH ?= distro/centos_rhel/7
 
 GOLFLAGS ?= -w -s
 
@@ -47,7 +40,6 @@ INGRESS_APP_REPO = https://github.com/gravitational/ingress-app.git
 STORAGE_APP_REPO = https://github.com/gravitational/storage-app.git
 BANDWAGON_REPO = https://github.com/gravitational/bandwagon.git
 FIO_REPO = https://github.com/axboe/fio.git
-SELINUX_REPO = https://github.com/gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -100,12 +92,8 @@ BASH ?= /bin/bash
 # packages to test
 TEST_PACKAGES ?= $(GRAVITY_PKG_PATH)/lib/... $(GRAVITY_PKG_PATH)/tool/...
 
-GRPC_PROTOS = \
-	$(TOP)/lib/install/proto/installer.proto \
-	$(TOP)/lib/rpc/proto/agent.proto \
-	$(TOP)/lib/rpc/proto/discovery.proto \
-	$(TOP)/lib/network/validation/proto/validation.proto
-GRPC_PROTO_OUTPUTS = $(GRPC_PROTOS:.proto=.pb.go)
+# Version of the version tool
+VERSION_TAG := 0.0.2
 
 # Export variables for recursive make invocations
 export GRAVITY_PKG_PATH
@@ -126,12 +114,13 @@ endif
 #
 .PHONY: test
 test: buildbox test-etcd
-	docker run --net=host --rm=true $(NOROOT) \
+	docker run --net=host --rm=true -u root \
 		-v $(TOP):$(SRCDIR) \
+		-v /var/run/docker.sock:/var/run/docker.sock \
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(BBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race -mod=vendor' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
@@ -194,13 +183,11 @@ endif
 # generate gRPC code
 #
 .PHONY: grpc
-grpc: buildbox $(GRPC_PROTO_OUTPUTS)
-
-$(GRPC_PROTO_OUTPUTS): $(GRPC_PROTOS)
+grpc:
 	docker run --rm=true $(NOROOT) \
-		   -v $(TOP):$(SRCDIR) \
-		   $(BBOX) \
-		   dumb-init make -C $(subst $(TOP),$(SRCDIR),$(@D))
+	   -v $(TOP):$(SRCDIR) \
+	   $(BBOX) \
+	   dumb-init make -C $(SRCDIR) grpc
 
 #
 # this is a temporary target until we upgrade docker packages
@@ -236,6 +223,26 @@ build-in-container: buildbox
 		   $(GOCACHE_DOCKER_OPTIONS) \
 		   $(BBOX) \
 		   dumb-init make -C $(SRCDIR)/build.assets -j $(TARGETS)
+
+#
+# golint gravity binaries in a buildbox container
+#
+.PHONY: golint
+golint: buildbox
+	docker run --rm=true $(NOROOT) \
+		   -v $(TOP):$(SRCDIR) \
+		   -w /gopath/src/github.com/gravitational/gravity \
+		   -e "LOCAL_BUILDDIR=$(LOCAL_BUILDDIR)" \
+		   -e "LOCAL_GRAVITY_BUILDDIR=$(LOCAL_GRAVITY_BUILDDIR)" \
+		   -e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
+		   -e "GRAVITY_VERSION=$(GRAVITY_VERSION)" \
+		   -e "GRAVITY_TAG=$(GRAVITY_TAG)" \
+		   -e 'GRAVITY_LINKFLAGS=$(GRAVITY_LINKFLAGS)' \
+		   -e "GRAVITY_BUILDFLAGS=$(GRAVITY_BUILDFLAGS)" \
+		   -e "GRAVITY_BUILDTAGS=$(GRAVITY_BUILDTAGS)" \
+		   $(GOCACHE_DOCKER_OPTIONS) \
+		   $(BBOX) \
+		   dumb-init make -C $(SRCDIR) golint
 
 #
 # build gravity binaries on host
@@ -509,7 +516,7 @@ build-planet-sub:
 	if [ ! -d "$(PLANET_SRCDIR)/planet" ]; then cd $(PLANET_SRCDIR) && git clone $(PLANET_REPO); fi
 	cd $(PLANET_SRCDIR)/planet && git fetch --all && git checkout $(PLANET_BRANCH)
 	@echo -e "\n----> Building Planet images...\n"
-	BUILDDIR=$(PLANET_BUILDDIR) make -C $(PLANET_SRCDIR)/planet production USER=jenkins
+	BUILDDIR=$(PLANET_BUILDDIR) make -C $(PLANET_SRCDIR)/planet production
 	mv -f $(PLANET_BUILDDIR)/planet.tar.gz $(PLANET_OUT)
 
 .PHONY: pull-planet
@@ -698,6 +705,7 @@ buildbox:
 		--build-arg GOGO_PROTO_TAG=$(GOGO_PROTO_TAG) \
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg GOLANGCI_LINT_VER=$(GOLANGCI_LINT_VER) \
 		--build-arg UID=$(shell id -u) \
 		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BBOX) .

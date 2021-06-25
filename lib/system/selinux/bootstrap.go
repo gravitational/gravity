@@ -77,7 +77,7 @@ func Unload(ctx context.Context, config BootstrapConfig) error {
 // is supported
 func IsSystemSupported(systemID string) bool {
 	switch systemID {
-	case "centos", "rhel":
+	case "centos", "rhel": //nolint:goconst
 		return true
 	default:
 		return false
@@ -124,8 +124,8 @@ func (r *BootstrapConfig) checkAndSetDefaults() error {
 		r.Path = utils.Exe.WorkingDir
 	}
 	if r.OS == nil {
-		metadata, err := monitoring.GetOSRelease()
-		if err != nil {
+		metadata, err := monitoring.GetOSRelease() //nolint:staticcheck,nolintlint
+		if err != nil {                            //nolint:staticcheck,nolintlint
 			return trace.Wrap(err)
 		}
 		r.OS = metadata
@@ -315,7 +315,7 @@ type portRanges struct {
 
 // bootstrapScript defines the set of modifications to bootstrap the installer from
 // the location specified with .Path as the installer location.
-// The commands are used in conjuction with `semanage import/export`
+// The commands are used in conjunction with `semanage import/export`
 // TODO(dmitri): currently the template drops all local ports/file contexts as the
 // corresponding 'semanage' commands fail unconditionally for existing mappings and
 // it would require more work to figure out the correct diff to delete

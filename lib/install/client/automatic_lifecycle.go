@@ -39,10 +39,11 @@ func (r *AutomaticLifecycle) HandleStatus(ctx context.Context, c *Client, status
 			return nil
 		case pb.StatusAborted:
 			return r.Abort(ctx, c)
+		default:
+			// We received completion status
+			err := r.Complete(ctx, c, status)
+			return trace.Wrap(err)
 		}
-		// We received completion status
-		err := r.Complete(ctx, c, status)
-		return trace.Wrap(err)
 	case trace.IsEOF(statusErr):
 		// Stream done but no completion event
 		if err := c.shutdown(ctx); err != nil && !isServerUnavailableError(err) {

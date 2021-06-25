@@ -89,7 +89,7 @@ func (a *ACLService) DeleteRepository(repository string) error {
 	return a.packages.DeleteRepository(repository)
 }
 
-// Get repositories returns a list of repositories
+// GetRepositories repositories returns a list of repositories
 func (a *ACLService) GetRepositories() ([]string, error) {
 	if err := a.checker.CheckAccessToRule(a.context(), teledefaults.Namespace, storage.KindRepository, teleservices.VerbList, false); err != nil {
 		return nil, trace.Wrap(err)
@@ -158,7 +158,7 @@ func (a *ACLService) UpdatePackageLabels(loc loc.Locator, addLabels map[string]s
 	return a.packages.UpdatePackageLabels(loc, addLabels, removeLabels)
 }
 
-// Read package opens and returns package contents
+// ReadPackage package opens and returns package contents
 func (a *ACLService) ReadPackage(loc loc.Locator) (*PackageEnvelope, io.ReadCloser, error) {
 	if err := a.repoAction(loc.Repository, teleservices.VerbRead); err != nil {
 		return nil, nil, trace.Wrap(err)

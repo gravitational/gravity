@@ -41,7 +41,7 @@ import (
 )
 
 // NewWait returns a new "wait" phase executor
-func NewWait(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (*waitExecutor, error) {
+func NewWait(p fsm.ExecutorParams, operator ops.Operator, client *kubernetes.Clientset) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -140,7 +140,7 @@ func (*waitExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewHealth returns a new "health" phase executor
-func NewHealth(p fsm.ExecutorParams, operator ops.Operator) (*healthExecutor, error) {
+func NewHealth(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -211,7 +211,7 @@ func (*healthExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewRBAC returns a new "rbac" phase executor
-func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (*rbacExecutor, error) {
+func NewRBAC(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, client *kubernetes.Clientset) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,

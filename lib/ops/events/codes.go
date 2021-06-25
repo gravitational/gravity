@@ -69,7 +69,7 @@ var (
 		Name: OperationStartedEvent,
 		Code: OperationUpdateStartCode,
 	}
-	// OperationUpdateCompete is emitted when cluster upgrade successfully finishes.
+	// OperationUpdateComplete is emitted when cluster upgrade successfully finishes.
 	OperationUpdateComplete = events.Event{
 		Name: OperationCompletedEvent,
 		Code: OperationUpdateCompleteCode,

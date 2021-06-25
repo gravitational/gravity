@@ -1,4 +1,15 @@
-<a href='https://gravitational.com/gravity/'>
+# Support Notice
+
+**The Gravity project is no longer under active development.** 
+The project's development has been limited to maintenance and support for our
+commercial customers until maintenance agreements expire.
+
+Please see our blog post for more information:
+https://goteleport.com/blog/gravitational-is-teleport/
+
+---
+
+<a href='https://gravitational.com/gravity/download/'>
     <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
 </a>
 
@@ -12,7 +23,7 @@ the world without a massive DevOps team.
 
 |Project Links| Description
 |---|----
-| [Gravity Website](https://gravitational.com/gravity/)  | The official website of the enterprise edition of Gravity |
+| [Gravity Downloads](https://goteleport.com/gravity/download/)  | The latest binaries |
 | [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
 | [Gravity Examples](examples/) | Examples of applications packaged with Gravity |
 | [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
@@ -33,7 +44,7 @@ Gravity has been running in production in major financial institutions,
 government data centers and enterprises. Gravitational open sourced it in the
 fall of 2018.
 
-<a href='https://gravitational.com/gravity/'>
+<a href='https://gravitational.com/gravity/download/'>
     <img src='https://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'>
 </a>
 
@@ -190,4 +201,4 @@ $ make clean
 
 To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
 
-Want to join our team? [We are always hiring!](https://jobs.lever.co/gravitational)
+Want to join our team? [We are always hiring!](https://jobs.lever.co/teleport)

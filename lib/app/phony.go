@@ -24,7 +24,7 @@ import (
 
 // Phony describes a broken application reference.
 // It is used to refer to missing applications in sites that have invalid application reference.
-// This is a temporary measure in abscence of the enforcing FOREIGN KEY constraint to bridge
+// This is a temporary measure in absence of the enforcing FOREIGN KEY constraint to bridge
 // the transition to when it is either possible to update an application in-use or application
 // packages are never invalidated (and instead new versions are released)
 var Phony *Application

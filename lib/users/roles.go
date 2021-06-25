@@ -32,7 +32,7 @@ import (
 )
 
 // GetAdminKubernetesGroups returns list of K8s groups with admin privileges
-// this fucntion should go away once UI will be able to set this instead
+// this function should go away once UI will be able to set this instead
 // of hardcoding it
 func GetAdminKubernetesGroups() []string {
 	return []string{"admin"}
@@ -165,7 +165,7 @@ func NewInstallTokenRole(name string, clusterName, repoName string) (teleservice
 	})
 }
 
-// NewReaderRole returns new role that gives accesss to published applications
+// NewReaderRole returns new role that gives access to published applications
 func NewReaderRole() (teleservices.Role, error) {
 	return NewSystemRole(constants.RoleReader, teleservices.RoleSpecV3{
 		Allow: teleservices.RoleConditions{

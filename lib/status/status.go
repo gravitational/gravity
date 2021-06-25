@@ -37,7 +37,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/roundtrip"
-	"github.com/gravitational/satellite/agent/proto/agentpb"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 	"github.com/gravitational/satellite/monitoring"
 	"github.com/gravitational/trace"
@@ -184,7 +183,7 @@ func getLocalNodeStatus(ctx context.Context) (err error) {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if status.GetSystemStatus() != agentpb.SystemStatus_Running {
+	if status.GetSystemStatus() != pb.SystemStatus_Running {
 		return trace.BadParameter("node is degraded")
 	}
 	return nil
@@ -360,7 +359,7 @@ func (r ClusterOperationProgress) IsCompleted() bool {
 	return r.Completion == constants.Completed
 }
 
-// Progress describes the progress of an operation
+// ClusterOperationProgress describes the progress of an operation
 type ClusterOperationProgress struct {
 	// Message provides the free text associated with this entry
 	Message string `json:"message"`
@@ -409,10 +408,6 @@ type ClusterServer struct {
 	InstanceType string `json:"instance_type,omitempty"`
 }
 
-func (r ClusterOperation) isFailed() bool {
-	return r.State == ops.OperationStateFailed
-}
-
 // String returns a textual representation of this system status
 func (r SystemStatus) String() string {
 	switch pb.SystemStatus_Type(r) {
@@ -440,7 +435,7 @@ const (
 	NodeHealthy = "healthy"
 	// NodeOffline is the status of an unreachable/unavailable node
 	NodeOffline = "offline"
-	// NodeDegraged is the status of a node with failed probes
+	// NodeDegraded is the status of a node with failed probes
 	NodeDegraded = "degraded"
 
 	// publicIPAddrTag is the name of the tag containing node IP

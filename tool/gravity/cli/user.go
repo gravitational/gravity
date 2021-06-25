@@ -29,7 +29,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-func createUser(localEnv *localenv.LocalEnvironment, opsCenterURL, username, type_, password string) error {
+func createUser(localEnv *localenv.LocalEnvironment, opsCenterURL, username, typ, password string) error {
 	operator, err := localEnv.OperatorService(opsCenterURL)
 	if err != nil {
 		return trace.Wrap(err)
@@ -37,7 +37,7 @@ func createUser(localEnv *localenv.LocalEnvironment, opsCenterURL, username, typ
 
 	err = operator.CreateUser(ops.NewUserRequest{
 		Name:     username,
-		Type:     type_,
+		Type:     typ,
 		Password: password,
 	})
 

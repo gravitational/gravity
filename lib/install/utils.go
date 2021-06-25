@@ -267,7 +267,7 @@ func GetServerUpdateRequest(op ops.SiteOperation, servers []checks.ServerInfo) (
 		}
 		req.Servers = append(req.Servers, server)
 		profile := req.Profiles[serverInfo.Role]
-		profile.Count += 1
+		profile.Count++
 		req.Profiles[serverInfo.Role] = profile
 	}
 	return &req, nil
@@ -288,6 +288,7 @@ func ServerRequirements(flavor schema.Flavor) map[string]storage.ServerProfileRe
 // depending on the distribution.
 // The specified uid/gid pair is used to set user/group permissions on the
 // resulting binary
+//nolint:revive // stable name
 func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 	for _, targetPath := range state.GravityBinPaths {
 		err = InstallBinaryInto(targetPath, logger, utils.OwnerOption(uid, gid))
@@ -311,6 +312,7 @@ func InstallBinary(uid, gid int, logger log.FieldLogger) (err error) {
 // InstallBinaryIntoDefaultLocation installs the gravity binary into one of the default locations
 // based on the distribution.
 // Returns the path of the binary if installed successfully
+//nolint:revive // stable name
 func InstallBinaryIntoDefaultLocation(logger log.FieldLogger, opts ...utils.FileOption) (path string, err error) {
 	var targetPath string
 	for _, targetPath = range state.GravityBinPaths {
@@ -328,6 +330,7 @@ func InstallBinaryIntoDefaultLocation(logger log.FieldLogger, opts ...utils.File
 }
 
 // InstallBinaryInto installs this gravity binary into targetPath using given file options.
+//nolint:revive // stable name
 func InstallBinaryInto(targetPath string, logger log.FieldLogger, opts ...utils.FileOption) error {
 	opts = append(opts, utils.PermOption(defaults.SharedExecutableMask))
 	dir := filepath.Dir(targetPath)

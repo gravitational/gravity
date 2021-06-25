@@ -22,6 +22,8 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+
+	//nolint:gosec // imported for side-effects
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"

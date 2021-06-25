@@ -148,7 +148,7 @@ func getResources(env *localenv.LocalEnvironment, kind string, name string, with
 
 // NewDefaultClusterOperationHandler creates an instance of the default cluster operation
 // handler
-func NewDefaultClusterOperationHandler(factory LocalEnvironmentFactory) clusterOperationHandler {
+func NewDefaultClusterOperationHandler(factory LocalEnvironmentFactory) gravity.ClusterOperationHandler {
 	return clusterOperationHandler{
 		LocalEnvironmentFactory: factory,
 	}

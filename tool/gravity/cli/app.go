@@ -42,6 +42,7 @@ import (
 	"github.com/gravitational/gravity/tool/common"
 
 	dockerarchive "github.com/docker/docker/pkg/archive"
+	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
 )
 
@@ -70,7 +71,7 @@ func runAppHook(env *localenv.LocalEnvironment, req appservice.HookRunRequest) (
 }
 
 // statusApp prints application status in json format
-func statusApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL string) error {
+func statusApp(env *localenv.LocalEnvironment, appPackage loc.Locator) error {
 	registryURL, err := localAppEnviron()
 	if err != nil {
 		return trace.Wrap(err)
@@ -163,7 +164,7 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 	steps := 3
 	if req.Vendor {
-		steps += 1
+		steps++
 	}
 	progress := utils.NewProgress(context.TODO(), "app import", steps, silent)
 	defer progress.Stop()
@@ -182,7 +183,13 @@ func importApp(env *localenv.LocalEnvironment, registryURL, dockerURL, source st
 	}
 
 	if req.Vendor {
-		dockerClient, err := docker.NewClient(dockerURL)
+		var dockerClient *dockerapi.Client
+		var err error
+		if dockerURL != "" {
+			dockerClient, err = docker.NewClient(dockerURL)
+		} else {
+			dockerClient, err = docker.NewClientFromEnv()
+		}
 		if err != nil {
 			return trace.Wrap(err)
 		}

@@ -47,7 +47,7 @@ type sshCommand struct {
 type SSHCommands interface {
 	// adds new command with default policy
 	C(format string, a ...interface{}) SSHCommands
-	// adds new command which will tolerate any error occured
+	// adds new command which will tolerate any error occurred
 	IgnoreError(format string, a ...interface{}) SSHCommands
 	// WithRetries executes the specified command as a script,
 	// retrying several times upon failure
@@ -310,15 +310,17 @@ func (l *readLogger) Read(p []byte) (n int, err error) {
 
 // NewStderrLogger returns a new io.Writer that logs its input
 // with log.Warn
-func NewStderrLogger(log logrus.FieldLogger) *stderrLogger {
-	return &stderrLogger{log: log}
+func NewStderrLogger(log logrus.FieldLogger) *StderrLogger {
+	return &StderrLogger{log: log}
 }
 
-type stderrLogger struct {
+// StderrLogger is a stdlib-compatible logger that logs to the underlying
+// logger at Warn level
+type StderrLogger struct {
 	log logrus.FieldLogger
 }
 
-func (w *stderrLogger) Write(p []byte) (n int, err error) {
+func (w *StderrLogger) Write(p []byte) (n int, err error) {
 	w.log.Warn(string(p))
 	return len(p), nil
 }

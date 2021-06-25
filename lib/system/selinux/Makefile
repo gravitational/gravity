@@ -11,7 +11,7 @@ GRAVITY_REPOSITORY?=github.com/gravitational/gravity
 POLICY_OUT:=internal/policy/policy_embed.go
 ASSETSDIR:=internal/policy/assets/$(OS_RELEASE)
 
-all: buildbox $(POLICY_OUT)
+all: buildbox $(POLICY_OUT) | $(ASSETSDIR)
 
 $(POLICY_OUT): internal/policy/policy.go $(ASSETSDIR)/container.pp.bz2 $(ASSETSDIR)/gravity.pp.bz2 $(ASSETSDIR)/gravity.statedir.fc.template
 	$(CONTAINER_RUNTIME) run \
@@ -25,3 +25,6 @@ buildbox: internal/generate/generate.go
 	$(CONTAINER_RUNTIME) build \
 		--tag $(BUILDBOX) \
 		--file Dockerfile .
+
+$(ASSETSDIR):
+	mkdir -p $@

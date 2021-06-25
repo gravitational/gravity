@@ -33,7 +33,7 @@ import (
 )
 
 // New creates a new package vacuum cleaner
-func New(config Config) (*cleanup, error) {
+func New(config Config) (*Cleanup, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -47,8 +47,8 @@ func New(config Config) (*cleanup, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	return &cleanup{
-		Config:         config,
+	return &Cleanup{
+		config:         config,
 		runtimeVersion: *baseVersion,
 	}, nil
 }
@@ -84,7 +84,7 @@ type Config struct {
 // packageService defines the subset of package APIs as required for pruning
 type packageService interface {
 	GetRepositories() ([]string, error)
-	GetPackages(respository string) ([]pack.PackageEnvelope, error)
+	GetPackages(repository string) ([]pack.PackageEnvelope, error)
 	ReadPackageEnvelope(loc.Locator) (*pack.PackageEnvelope, error)
 	DeletePackage(loc.Locator) error
 }
@@ -94,7 +94,7 @@ type packageService interface {
 // that are still required, and sweeps the rest.
 // It will not remove packages from repositories other than the defaults.SystemAccountOrg
 // unless it can tell if a package is safe to remove.
-func (r *cleanup) Prune(context.Context) error {
+func (r *Cleanup) Prune(context.Context) error {
 	required, err := r.mark()
 	if err != nil {
 		return trace.Wrap(err)
@@ -125,16 +125,16 @@ func (r *cleanup) Prune(context.Context) error {
 // application as required.
 // Returns the map of package locator -> descriptor for packages that are not
 // eligible for removal
-func (r *cleanup) mark() (required packageMap, err error) {
-	dependencies := append(r.App.Manifest.AllPackageDependencies(),
-		r.App.Manifest.Dependencies.GetApps()...)
-	dependencies = append(dependencies, r.App.Locator)
-	if base := r.App.Manifest.Base(); base != nil {
+func (r *Cleanup) mark() (required packageMap, err error) {
+	dependencies := append(r.config.App.Manifest.AllPackageDependencies(),
+		r.config.App.Manifest.Dependencies.GetApps()...)
+	dependencies = append(dependencies, r.config.App.Locator)
+	if base := r.config.App.Manifest.Base(); base != nil {
 		dependencies = append(dependencies, *base)
 	}
 
 	required = make(packageMap)
-	for _, app := range r.Apps {
+	for _, app := range r.config.Apps {
 		dependencies = append(dependencies, app.Manifest.AllPackageDependencies()...)
 		dependencies = append(dependencies, app.Manifest.Dependencies.GetApps()...)
 		dependencies = append(dependencies, app.Locator)
@@ -148,7 +148,7 @@ func (r *cleanup) mark() (required packageMap, err error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		r.PrintStep("Mark package %v as required.", dependency)
+		r.config.PrintStepf("Mark package %v as required.", dependency)
 		required[dependency.ZeroVersion()] = existingPackage{
 			Version:         *semver,
 			PackageEnvelope: pack.PackageEnvelope{Locator: dependency},
@@ -160,15 +160,15 @@ func (r *cleanup) mark() (required packageMap, err error) {
 
 // build builds a package tree to be able to track package dependencies
 // and prune packages in proper order
-func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage, err error) {
+func (r *Cleanup) build(required packageMap) (state map[loc.Locator]statePackage, err error) {
 	state = make(map[loc.Locator]statePackage)
-	repositories, err := r.Packages.GetRepositories()
+	repositories, err := r.config.Packages.GetRepositories()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
 	for _, repository := range repositories {
-		envelopes, err := r.Packages.GetPackages(repository)
+		envelopes, err := r.config.Packages.GetPackages(repository)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -193,12 +193,7 @@ func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage
 			}
 
 			for _, item := range items {
-				deletePackage, err := r.shouldDeletePackage(item.existingPackage, required)
-				if err != nil {
-					return nil, trace.Wrap(err)
-				}
-
-				if !deletePackage {
+				if !r.shouldDeletePackage(item.existingPackage, required) {
 					continue
 				}
 
@@ -214,16 +209,16 @@ func (r *cleanup) build(required packageMap) (state map[loc.Locator]statePackage
 			}
 		}
 	}
-	r.Debug("Package state:", state)
+	r.config.Debug("Package state:", state)
 	return state, nil
 }
 
-func (r *cleanup) deletePackage(item statePackage) error {
-	r.PrintStep("Deleting package %v.", item.Locator)
-	if r.DryRun {
+func (r *Cleanup) deletePackage(item statePackage) error {
+	r.config.PrintStepf("Deleting package %v.", item.Locator)
+	if r.config.DryRun {
 		return nil
 	}
-	err := r.Packages.DeletePackage(item.Locator)
+	err := r.config.Packages.DeletePackage(item.Locator)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -234,21 +229,21 @@ func (r *cleanup) deletePackage(item statePackage) error {
 // It will match the package against the specified map of required packages.
 // It will also apply a couple of additional ad-hoc heuristics to decide if a package
 // should be deleted
-func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool, err error) {
-	log := r.WithField("package", pkg.Locator)
+func (r *Cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) (delete bool) {
+	log := r.config.WithField("package", pkg.Locator)
 
 	if existingVersion, exists := required[pkg.Locator.ZeroVersion()]; exists {
 		if existingVersion.Compare(pkg.Version) > 0 {
 			log.Debug("Will delete an obsolete package.")
-			return true, nil
+			return true
 		}
 		log.Debug("Will not delete a package still in use.")
-		return false, nil
+		return false
 	}
 
 	if loc.IsLegacyRuntimePackage(pkg.PackageEnvelope.Locator) {
 		log.Debug("Will delete a legacy runtime package.")
-		return true, nil
+		return true
 	}
 
 	if isRPCUpdateCredentialsPackage(pkg.PackageEnvelope) && pkg.Version.Compare(r.runtimeVersion) < 0 {
@@ -256,27 +251,27 @@ func (r *cleanup) shouldDeletePackage(pkg existingPackage, required packageMap) 
 		// All RPC packages with versions prior or equal to the currently
 		// installed runtime version are eligible for removal.
 		log.Debug("Will delete an obsolete RPC credentials package.")
-		return true, nil
+		return true
 	}
 
 	if pkg.Locator.Repository != defaults.SystemAccountOrg {
 		log.Debug("Will not delete from a custom repository.")
-		return false, nil
+		return false
 	}
 
 	log.Debug("Will not delete an unknown package.")
-	return false, nil
+	return false
 }
 
 // withDependencies computes owner packages for the specified package pkg using
 // the specified owner search algorithm and the existing package state
-func (r *cleanup) withDependencies(pkg existingPackage, owner ownerFunc, state map[loc.Locator]statePackage) (items []statePackage, err error) {
-	ownerPackages, err := owner(pkg.PackageEnvelope, r.Packages)
+func (r *Cleanup) withDependencies(pkg existingPackage, owner ownerFunc, state map[loc.Locator]statePackage) (items []statePackage, err error) {
+	ownerPackages, err := owner(pkg.PackageEnvelope, r.config.Packages)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
 	if trace.IsNotFound(err) {
-		r.Warnf("Orphaned package %v.", pkg.Locator)
+		r.config.Warnf("Orphaned package %v.", pkg.Locator)
 		return []statePackage{
 			statePackage{existingPackage: pkg},
 		}, nil
@@ -385,8 +380,9 @@ type existingPackage struct {
 	pack.PackageEnvelope
 }
 
-type cleanup struct {
-	Config
+// Cleanup implements garbage collection for packages
+type Cleanup struct {
+	config Config
 	// runtimeVersion specifies the version of gravity
 	runtimeVersion semver.Version
 }

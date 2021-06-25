@@ -34,7 +34,7 @@ type S struct{}
 
 var _ = Suite(&S{})
 
-func (_ *S) TestFetchesFilesystem(c *C) {
+func (*S) TestFetchesFilesystem(c *C) {
 	var testCases = []struct {
 		lsblk      utils.CommandRunner
 		filesystem string

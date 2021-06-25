@@ -77,8 +77,8 @@ func GetRemoteClient(remoteSite rt.RemoteSite, remoteURL *url.URL) *http.Client 
 
 	transport := &http.Transport{
 		Dial: remoteDialer,
-		// TODO(klizhentas) we must add trust for Gravity CA as well
 		TLSClientConfig: &tls.Config{
+			//nolint:gosec	// TODO(klizhentas) we must add trust for Gravity CA as well
 			InsecureSkipVerify: true,
 		},
 		MaxIdleConnsPerHost: defaults.MaxRouterIdleConnsPerHost,
@@ -107,6 +107,7 @@ func WithInsecure() ClientOption {
 		// Make sure not to override existing TLS configuration.
 		tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
 		if tlsConfig == nil {
+			//nolint:gosec	// TODO: set MinVersion
 			tlsConfig = &tls.Config{}
 		}
 		tlsConfig.InsecureSkipVerify = true
@@ -183,6 +184,7 @@ func GetClient(insecure bool, options ...ClientOption) *http.Client {
 // options
 func NewClient(options ...ClientOption) *http.Client {
 	transport := &http.Transport{
+		//nolint:gosec	// TODO: set MinVersion
 		TLSClientConfig: &tls.Config{},
 		DialContext:     (&net.Dialer{Timeout: defaults.DialTimeout}).DialContext,
 	}
@@ -206,8 +208,8 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	}
 
 	caFile := state.Secret(stateDir, defaults.RootCertFilename)
-	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
-	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.KeySuffix))
 
 	// Load the CA of the server
 	ca, err := ioutil.ReadFile(caFile)
@@ -216,7 +218,7 @@ func GetPlanetClient(options ...ClientOption) (*http.Client, error) {
 	}
 	options = append(options, WithCA(ca))
 
-	// For backwards compatability, only add the client key file if it exists on disk
+	// For backwards compatibility, only add the client key file if it exists on disk
 	// TODO(knisbet) this fallback can be removed when we no longer support upgrades from 5.0
 	if _, err := os.Stat(clientKeyFile); !os.IsNotExist(err) {
 		// Load client cert/key
@@ -279,7 +281,7 @@ func LocalResolverDialer(dnsAddr string) Dialer {
 	}
 }
 
-// dial dials the specified address and returns a new connection
+// Dial dials the specified address and returns a new connection
 func Dial(ctx context.Context, network, addr string) (net.Conn, error) {
 	var d net.Dialer
 	return d.DialContext(ctx, network, addr)
@@ -435,8 +437,8 @@ func GetGRPCPlanetClient(ctx context.Context) (client.Client, error) {
 	}
 
 	caFile := state.Secret(stateDir, defaults.RootCertFilename)
-	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.CertSuffix))
-	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRpcKeyPair, ".", utils.KeySuffix))
+	clientCertFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.CertSuffix))
+	clientKeyFile := state.Secret(stateDir, fmt.Sprint(constants.PlanetRPCKeyPair, ".", utils.KeySuffix))
 
 	config := client.Config{
 		Address:  addr,

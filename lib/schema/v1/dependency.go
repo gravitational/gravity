@@ -27,7 +27,7 @@ import (
 const (
 	// SelectorRole defines a package role selector
 	SelectorRole = "role"
-	// SelectorPlacement defines a node placemenet selector
+	// SelectorPlacement defines a node placement selector
 	SelectorPlacement = "placement"
 
 	// PlacementMaster defines the value of the placement selector to be on master
@@ -184,23 +184,23 @@ func PackageMarshalJSON(locator *loc.Locator) ([]byte, error) {
 	return []byte(strconv.Quote(locator.String())), nil
 }
 
-type packageMatcher func(*PackageDependency) bool
+type packageMatcher func(PackageDependency) bool
 
 func matchWithSelector(selector, value string) packageMatcher {
-	return func(dependency *PackageDependency) bool {
+	return func(dependency PackageDependency) bool {
 		return dependency.Selector[selector] == value
 	}
 }
 
 func matchWithName(name string) packageMatcher {
-	return func(dependency *PackageDependency) bool {
+	return func(dependency PackageDependency) bool {
 		return dependency.Package.Name == name
 	}
 }
 
 func packagesWithMatcher(dependencies PackageDependencies, matcher packageMatcher) (packages []loc.Locator) {
 	for _, dependency := range dependencies {
-		if matcher(&dependency) {
+		if matcher(dependency) {
 			packages = append(packages, dependency.Package)
 		}
 	}

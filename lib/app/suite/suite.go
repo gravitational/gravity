@@ -49,7 +49,7 @@ import (
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
+	. "gopkg.in/check.v1" // nolint:revive,stylecheck // tests will be rewritten to use testify
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/repo"
 	batchv1 "k8s.io/api/batch/v1"
@@ -58,7 +58,7 @@ import (
 )
 
 type AppsSuite struct {
-	NewService func(*C, docker.DockerInterface, docker.ImageService) app.Applications
+	NewService func(*C, docker.Interface, docker.ImageService) app.Applications
 	Packages   pack.PackageService
 	ca         authority.TLSKeyPair
 }
@@ -831,7 +831,7 @@ func (r *AppsSuite) importApplicationWithResources(apps app.Applications, vendor
 	application.PackageEnvelope.SizeBytes = importedApplication.PackageEnvelope.SizeBytes
 	application.PackageEnvelope.SHA512 = importedApplication.PackageEnvelope.SHA512
 	application.PackageEnvelope.Created = importedApplication.PackageEnvelope.Created
-	// As the manifest is rewritten during import we cannot rely on textual comparision
+	// As the manifest is rewritten during import we cannot rely on textual comparison
 	// TODO: this step requires a call to resolveManifest to update manifest
 	// importedManifest, err := schema.ParseManifestYAML([]byte(importedApplication.PackageEnvelope.Manifest))
 	// c.Assert(importedApplication.Manifest, DeepEquals, manifest)

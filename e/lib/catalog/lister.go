@@ -30,7 +30,7 @@ type appLister struct {
 }
 
 // NewLister returns a lister that uses Ops Center's app service.
-func NewLister(env *localenv.LocalEnvironment) (*appLister, error) {
+func NewLister(env *localenv.LocalEnvironment) (catalog.Lister, error) {
 	url, err := env.SelectOpsCenterWithDefault("", defaults.DistributionOpsCenter)
 	if err != nil {
 		return nil, trace.Wrap(err)

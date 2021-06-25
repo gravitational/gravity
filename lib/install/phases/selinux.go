@@ -54,10 +54,7 @@ func NewSELinux(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicatio
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	paths, err := getPaths(*profile, p.Phase.Data.Server.StateDir())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	paths := getPaths(*profile, p.Phase.Data.Server.StateDir())
 	operation, err := operator.GetSiteOperation(fsm.OperationKey(p.Plan))
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -144,7 +141,7 @@ func getPorts(profile schema.NodeProfile) (ports []schema.PortRange, err error) 
 	return ports, nil
 }
 
-func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path, err error) {
+func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path) {
 	for _, volume := range profile.Requirements.Volumes {
 		if volume.SELinuxLabel == "" {
 			volume.SELinuxLabel = defaults.ContainerFileLabel
@@ -157,5 +154,5 @@ func getPaths(profile schema.NodeProfile, stateDir string) (paths []selinux.Path
 			Label: volume.SELinuxLabel,
 		})
 	}
-	return paths, nil
+	return paths
 }

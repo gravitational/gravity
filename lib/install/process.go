@@ -128,9 +128,3 @@ type ProcessConfig struct {
 	// Token specifies the token the wizard will use to authenticate joining agents.
 	Token string
 }
-
-func shutdown(p process.GravityProcess) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaults.ShutdownTimeout)
-	defer cancel()
-	p.Shutdown(ctx)
-}

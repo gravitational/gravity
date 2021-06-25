@@ -107,7 +107,7 @@ func (s *PlanSuite) SetUpSuite(c *check.C) {
 	s.cluster.ClusterState = storage.ClusterState{
 		Servers: []storage.Server{s.masterNode},
 	}
-	s.clusterNodes = storage.Servers(s.cluster.ClusterState.Servers)
+	s.clusterNodes = s.cluster.ClusterState.Servers
 	s.joiningNode = storage.Server{
 		AdvertiseIP: "10.10.0.2",
 		Hostname:    "node-2",

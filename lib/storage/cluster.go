@@ -107,8 +107,8 @@ type ClusterV2 struct {
 }
 
 // GetName returns cluster name and is a shortcut for GetMetadata().Name
-func (t *ClusterV2) GetName() string {
-	return t.Metadata.Name
+func (c *ClusterV2) GetName() string {
+	return c.Metadata.Name
 }
 
 // SetName sets cluster name
@@ -126,7 +126,7 @@ func (c *ClusterV2) SetExpiry(expires time.Time) {
 	c.Metadata.SetExpiry(expires)
 }
 
-// Expires returns cluster expiration time
+// Expiry returns cluster expiration time
 func (c *ClusterV2) Expiry() time.Time {
 	return c.Metadata.Expiry()
 }
@@ -176,7 +176,7 @@ func (c *ClusterV2) GetProvider() string {
 	return c.Spec.Provider
 }
 
-// GetAWSRegion returns region
+// GetRegion returns the AWS region if specified
 func (c *ClusterV2) GetRegion() string {
 	if c.Spec.AWS != nil {
 		return c.Spec.AWS.Region
@@ -189,7 +189,7 @@ func (c *ClusterV2) GetNodes() []ClusterNodeSpecV2 {
 	return c.Spec.Nodes
 }
 
-// Check checks validity of all parameters and sets defaults
+// CheckAndSetDefaults checks validity of all parameters and sets defaults
 func (c *ClusterV2) CheckAndSetDefaults() error {
 	if c.Metadata.Name == "" {
 		return trace.BadParameter("parameter metadata.name can't be empty")
@@ -299,7 +299,7 @@ type ClusterNodeSpecV2 struct {
 	Count int `json:"count"`
 }
 
-// ClusterV2Schema is JSON schema for server
+// ClusterSpecV2Schema is JSON schema for server
 const ClusterSpecV2Schema = `{
   "type": "object",
   "additionalProperties": false,

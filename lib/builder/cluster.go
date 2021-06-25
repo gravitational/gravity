@@ -30,18 +30,18 @@ import (
 )
 
 // NewClusterBuilder returns a builder that produces cluster images.
-func NewClusterBuilder(config Config) (*clusterBuilder, error) {
+func NewClusterBuilder(config Config) (*ClusterBuilder, error) {
 	engine, err := newEngine(config)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &clusterBuilder{
-		Engine: engine,
+	return &ClusterBuilder{
+		engine: engine,
 	}, nil
 }
 
-type clusterBuilder struct {
-	*Engine
+type ClusterBuilder struct {
+	engine *Engine
 }
 
 // ClusterRequest combines parameters for building a cluster image.
@@ -59,7 +59,7 @@ type ClusterRequest struct {
 }
 
 // Build builds a cluster image according to the provided parameters.
-func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
+func (b *ClusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	imageSource, err := GetClusterImageSource(req.SourcePath)
 	if err != nil {
 		return trace.Wrap(err)
@@ -84,19 +84,19 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	}
 
 	locator := imageLocator(manifest, req.Vendor)
-	b.NextStep("Building cluster image %v %v from %v", locator.Name,
+	b.engine.NextStep("Building cluster image %v %v from %v", locator.Name,
 		locator.Version, imageSource.Type())
 
-	b.NextStep("Selecting base image version")
-	runtimeVersion, err := b.SelectRuntime(manifest)
+	b.engine.NextStep("Selecting base image version")
+	runtimeVersion, err := b.engine.SelectRuntime(manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.checkVersion(runtimeVersion)
+	err = b.engine.checkVersion(runtimeVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.SyncPackageCache(manifest, runtimeVersion)
+	err = b.engine.SyncPackageCache(manifest, runtimeVersion)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("base image version %v not found", runtimeVersion)
@@ -110,8 +110,8 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	}
 	defer os.RemoveAll(vendorDir)
 
-	b.NextStep("Discovering and embedding Docker images")
-	stream, err := b.Vendor(ctx, VendorRequest{
+	b.engine.NextStep("Discovering and embedding Docker images")
+	stream, err := b.engine.Vendor(ctx, VendorRequest{
 		SourceDir: imageSource.Dir(),
 		VendorDir: vendorDir,
 		Manifest:  manifest,
@@ -122,26 +122,31 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	}
 	defer stream.Close()
 
-	b.NextStep("Creating application")
-	application, err := b.CreateApplication(stream)
+	b.engine.NextStep("Creating application")
+	application, err := b.engine.CreateApplication(stream)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	b.NextStep("Packaging cluster image")
-	installer, err := b.GenerateInstaller(manifest, *application)
+	b.engine.NextStep("Packaging cluster image")
+	installer, err := b.engine.GenerateInstaller(manifest, *application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	defer installer.Close()
 
-	b.NextStep("Saving cluster image to %v", outputPath)
-	err = b.WriteInstaller(installer, outputPath)
+	b.engine.NextStep("Saving cluster image to %v", outputPath)
+	err = b.engine.WriteInstaller(installer, outputPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	return nil
+}
+
+// Close closes the builder
+func (b *ClusterBuilder) Close() error {
+	return b.engine.Close()
 }
 
 // imageLocator returns locator of the image that's being built.

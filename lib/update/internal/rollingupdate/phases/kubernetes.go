@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/kubernetes"
 	"github.com/gravitational/gravity/lib/storage"
@@ -37,7 +36,7 @@ import (
 )
 
 // NewTaint returns an executor for adding a taint to a node
-func NewTaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*tainter, error) {
+func NewTaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(params, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -48,9 +47,9 @@ func NewTaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger lo
 }
 
 // Execute adds a taint on the specified node.
-func (r *tainter) Execute(ctx context.Context) error {
-	r.Infof("Taint %v.", r.Server)
-	err := taint(ctx, r.Client.CoreV1().Nodes(), r.Server.KubeNodeID(), addTaint(true))
+func (p *tainter) Execute(ctx context.Context) error {
+	p.Infof("Taint %v.", p.Server)
+	err := taint(ctx, p.Client.CoreV1().Nodes(), p.Server.KubeNodeID(), addTaint(true))
 	return trace.Wrap(err)
 }
 
@@ -65,7 +64,7 @@ func (p *tainter) Rollback(ctx context.Context) error {
 }
 
 // NewUntaint returns a new executor for removing a taint from a node
-func NewUntaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*untainter, error) {
+func NewUntaint(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(params, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -92,7 +91,7 @@ func (*untainter) Rollback(context.Context) error {
 }
 
 // NewDrain returns a new executor for draining a node
-func NewDrain(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*drainer, error) {
+func NewDrain(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(params, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -117,7 +116,7 @@ func (p *drainer) Rollback(ctx context.Context) error {
 }
 
 // NewUncordon returns a new executor for uncordoning a node
-func NewUncordon(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*uncordoner, error) {
+func NewUncordon(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(params, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -141,7 +140,7 @@ func (*uncordoner) Rollback(context.Context) error {
 
 // NewEndpoints returns a new executor for waiting for cluster controller endpoints
 // to become active
-func NewEndpoints(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*endpoints, error) {
+func NewEndpoints(params libfsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (libfsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(params, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -196,7 +195,7 @@ type kubernetesOperation struct {
 
 // PreCheck makes sure the phase is being executed on the correct server
 func (p *kubernetesOperation) PreCheck(context.Context) error {
-	return trace.Wrap(fsm.CheckMasterServer(p.Servers))
+	return trace.Wrap(libfsm.CheckMasterServer(p.Servers))
 }
 
 // PostCheck is no-op for this phase

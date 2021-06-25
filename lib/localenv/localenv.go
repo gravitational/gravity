@@ -374,7 +374,7 @@ func (env *LocalEnvironment) AppService(opsCenterURL string, config AppConfig, o
 	if credentials.TLS != nil {
 		options = append(options, httplib.WithTLSClientConfig(credentials.TLS))
 	}
-	params := []appclient.ClientParam{
+	params := []appclient.Param{
 		appclient.HTTPClient(env.HTTPClient(options...)),
 		appclient.WithLocalDialer(httplib.LocalResolverDialer(env.DNS.Addr())),
 	}
@@ -408,7 +408,7 @@ func (env *LocalEnvironment) AppServiceCluster() (appbase.Applications, error) {
 
 func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.Applications, err error) {
 	var imageService docker.ImageService
-	var dockerClient docker.DockerInterface
+	var dockerClient docker.Interface
 	if config.RegistryURL != "" {
 		imageService, err = docker.NewImageService(docker.RegistryConnectionRequest{
 			RegistryAddress: config.RegistryURL,
@@ -538,7 +538,7 @@ func newPackClient(entry users.LoginEntry, opsCenterURL string, params ...roundt
 }
 
 // NewAppsClient creates a new app service client.
-func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.ClientParam) (client appbase.Applications, err error) {
+func NewAppsClient(entry users.LoginEntry, opsCenterURL string, params ...appclient.Param) (client appbase.Applications, err error) {
 	if entry.Email != "" && entry.Password != "" {
 		client, err = appclient.NewAuthenticatedClient(
 			opsCenterURL, entry.Email, entry.Password, params...)
@@ -673,7 +673,7 @@ func (r Silent) Printf(format string, args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Printf(format, args...) //nolint:errcheck
+	fmt.Printf(format, args...)
 }
 
 // Print outputs specified arguments to stdout if the silent mode is not on.
@@ -681,7 +681,7 @@ func (r Silent) Print(args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Print(args...) //nolint:errcheck
+	fmt.Print(args...)
 }
 
 // Println outputs specified arguments to stdout if the silent mode is not on.
@@ -689,16 +689,16 @@ func (r Silent) Println(args ...interface{}) {
 	if r {
 		return
 	}
-	fmt.Println(args...) //nolint:errcheck
+	fmt.Println(args...)
 }
 
 // PrintStep outputs the message with timestamp to stdout
+//nolint:goprintffuncname
 func (r Silent) PrintStep(format string, args ...interface{}) {
 	if r {
 		return
 	}
 	timestamp := color.New(color.Bold).Sprint(time.Now().UTC().Format(constants.HumanDateFormatSeconds))
-	// nolint:errcheck
 	fmt.Printf("%v\t%v\n", timestamp, fmt.Sprintf(format, args...))
 }
 

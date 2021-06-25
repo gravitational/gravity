@@ -393,7 +393,7 @@ type InstallCmd struct {
 	// DNSPort overrides default DNS port for planet DNS.
 	DNSPort *int
 	// DockerStorageDriver specifies Docker storage driver to use
-	DockerStorageDriver *dockerStorageDriver
+	DockerStorageDriver *dockerStorageDriverValue
 	// DockerArgs specifies additional Docker arguments
 	DockerArgs *[]string
 	// ServiceUID is system user ID
@@ -483,6 +483,9 @@ type AutoJoinCmd struct {
 	// the client will simply connect to the service and stream its output and errors
 	// and control whether it should stop
 	FromService *bool
+	// Region specifies the region the cluster controllers is running in, so the worker can discover the cluster
+	// in the correct region
+	Region *string
 }
 
 // LeaveCmd removes the current node from the cluster
@@ -1331,7 +1334,7 @@ type UsersInviteCmd struct {
 	TTL *time.Duration
 }
 
-// UserResetCmd generates a user password reset link
+// UsersResetCmd generates a user password reset link
 type UsersResetCmd struct {
 	*kingpin.CmdClause
 	// Name is user name

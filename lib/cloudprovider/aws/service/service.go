@@ -121,21 +121,21 @@ type Instance struct {
 }
 
 // New returns a new instance of the AWS provider
-func New(accessKey, secretKey, sessionToken string) *provider {
+func New(accessKey, secretKey, sessionToken string) *Provider {
 	creds := credentials.NewStaticCredentials(accessKey, secretKey, sessionToken)
-	return &provider{creds}
+	return &Provider{creds: creds}
 }
 
 // Validate runs permission validation against the given set of actions (resources)
 // and obtains basic cloud provider metadata.
-func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx context.Context) (*ValidateOutput, error) {
+func (r *Provider) Validate(ctx context.Context, probes validation.Probes, policyVersion string) (*ValidateOutput, error) {
 	// FIXME: assuming a default region for the permissions check as the region
 	// is not specified in input.
 	// The permissions check does not really require the region, but
 	// the queries it executes are region-based. This should not be a problem,
 	// since we're not quering actual data, but verifying that the access is
 	// at all given - regardless of the region.
-	actions, err := validation.ValidateWithCreds(r.creds, *defaultRegion, probes, ctx)
+	actions, err := validation.ValidateWithCreds(ctx, r.creds, *defaultRegion, probes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -149,7 +149,7 @@ func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx 
 		return nil, trace.Wrap(err)
 	}
 
-	regions, err := describeRegions(session, r.creds, ctx)
+	regions, err := describeRegions(ctx, session, r.creds)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -159,11 +159,11 @@ func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx 
 		result = append(result, region)
 	}
 
-	if err = r.describeVPCs(session, regions, ctx); err != nil {
+	if err = r.describeVPCs(ctx, session, regions); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	if err = r.describeKeyPairs(session, regions, ctx); err != nil {
+	if err = r.describeKeyPairs(ctx, session, regions); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
@@ -173,7 +173,7 @@ func (r *provider) Validate(probes validation.Probes, policyVersion string, ctx 
 }
 
 // GetAvailabilityZones returns a list of available availability zones for the specified region
-func (r *provider) GetAvailabilityZones(region string) ([]string, error) {
+func (r *Provider) GetAvailabilityZones(region string) ([]string, error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -206,7 +206,7 @@ func (r *provider) GetAvailabilityZones(region string) ([]string, error) {
 }
 
 // GetInternetGatewayID returns ID of the internet gateway attached to the specified VPC
-func (r *provider) GetInternetGatewayID(region, vpcID string) (string, error) {
+func (r *Provider) GetInternetGatewayID(region, vpcID string) (string, error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return "", trace.Wrap(err)
@@ -231,7 +231,7 @@ func (r *provider) GetInternetGatewayID(region, vpcID string) (string, error) {
 }
 
 // FindVPCByTag returns the first VPC in region matching the provided tag
-func (r *provider) FindVPCByTag(region, key, value string) (*VPC, error) {
+func (r *Provider) FindVPCByTag(region, key, value string) (*VPC, error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -260,7 +260,7 @@ func (r *provider) FindVPCByTag(region, key, value string) (*VPC, error) {
 }
 
 // GetSubnets returns a list of all subnets found in the specified VPC
-func (r *provider) GetSubnets(region, vpcID string) ([]Subnet, error) {
+func (r *Provider) GetSubnets(region, vpcID string) ([]Subnet, error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -294,7 +294,7 @@ func (r *provider) GetSubnets(region, vpcID string) ([]Subnet, error) {
 }
 
 // GetCIDRBlocks returns CIDR blocks for the specified VPC and all its subnets
-func (r *provider) GetCIDRBlocks(region, vpcID string) (vpcBlock string, subnetBlocks []string, err error) {
+func (r *Provider) GetCIDRBlocks(region, vpcID string) (vpcBlock string, subnetBlocks []string, err error) {
 	session, err := session.NewSession()
 	if err != nil {
 		return "", nil, trace.Wrap(err)
@@ -329,20 +329,20 @@ func (r *provider) GetCIDRBlocks(region, vpcID string) (vpcBlock string, subnetB
 	return vpcBlock, subnetBlocks, nil
 }
 
-func (r *provider) describeVPCs(session *session.Session, regions map[string]*Region, ctx context.Context) error {
+func (r *Provider) describeVPCs(ctx context.Context, session *session.Session, regions map[string]*Region) error {
 	type result struct {
 		region string
 		vpcs   []VPC
 		err    error
 	}
 
-	describeVPCs := func(region string, ctx context.Context, resultC chan<- *result) {
+	describeVPCs := func(ctx context.Context, region string, resultC chan<- *result) {
 		conn := ec2.New(session, &awsapi.Config{
 			Credentials: r.creds,
 			Region:      &region,
 		})
 
-		resp, err := conn.DescribeVpcs(&ec2.DescribeVpcsInput{})
+		resp, err := conn.DescribeVpcsWithContext(ctx, &ec2.DescribeVpcsInput{})
 		if err != nil {
 			resultC <- &result{err: err}
 			return
@@ -368,7 +368,7 @@ func (r *provider) describeVPCs(session *session.Session, regions map[string]*Re
 
 	resultC := make(chan *result)
 	for regionName := range regions {
-		go describeVPCs(regionName, ctx, resultC)
+		go describeVPCs(ctx, regionName, resultC)
 	}
 
 	var errors []error
@@ -391,19 +391,19 @@ func (r *provider) describeVPCs(session *session.Session, regions map[string]*Re
 	return nil
 }
 
-func (r *provider) describeKeyPairs(session *session.Session, regions map[string]*Region, ctx context.Context) error {
+func (r *Provider) describeKeyPairs(ctx context.Context, session *session.Session, regions map[string]*Region) error {
 	type result struct {
 		region   string
 		keyPairs []KeyPair
 		err      error
 	}
-	describeKeyPairs := func(region string, ctx context.Context, resultC chan<- *result) {
+	describeKeyPairs := func(ctx context.Context, region string, resultC chan<- *result) {
 		conn := ec2.New(session, &awsapi.Config{
 			Credentials: r.creds,
 			Region:      &region,
 		})
 
-		resp, err := conn.DescribeKeyPairs(&ec2.DescribeKeyPairsInput{})
+		resp, err := conn.DescribeKeyPairsWithContext(ctx, &ec2.DescribeKeyPairsInput{})
 		if err != nil {
 			resultC <- &result{err: err}
 			return
@@ -419,7 +419,7 @@ func (r *provider) describeKeyPairs(session *session.Session, regions map[string
 
 	resultC := make(chan *result)
 	for regionName := range regions {
-		go describeKeyPairs(regionName, ctx, resultC)
+		go describeKeyPairs(ctx, regionName, resultC)
 	}
 
 	var errors []error
@@ -442,13 +442,13 @@ func (r *provider) describeKeyPairs(session *session.Session, regions map[string
 	return nil
 }
 
-func describeRegions(session *session.Session, creds *credentials.Credentials, ctx context.Context) (regions map[string]*Region, err error) {
+func describeRegions(ctx context.Context, session *session.Session, creds *credentials.Credentials) (regions map[string]*Region, err error) {
 	conn := ec2.New(session, &awsapi.Config{
 		Credentials: creds,
 		Region:      defaultRegion,
 	})
 
-	resp, err := conn.DescribeRegions(&ec2.DescribeRegionsInput{})
+	resp, err := conn.DescribeRegionsWithContext(ctx, &ec2.DescribeRegionsInput{})
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -460,53 +460,10 @@ func describeRegions(session *session.Session, creds *credentials.Credentials, c
 	return regions, nil
 }
 
-type provider struct {
+type Provider struct {
 	creds *credentials.Credentials
 }
 
 // defaultRegion defines an EC2 region to use for API calls where a region is not determining the results
 // (i.e. querying all regions or making a resource probing call where region is irrelevant)
 var defaultRegion = awsapi.String("us-east-1")
-
-var EC2InstanceTypes = []Instance{
-	{Name: "t2.nano", CPU: 1, MemoryMiB: 500},
-	{Name: "t2.micro", CPU: 1, MemoryMiB: 1000},
-	{Name: "t2.small", CPU: 1, MemoryMiB: 2000},
-	{Name: "t2.medium", CPU: 2, MemoryMiB: 4000},
-	{Name: "t2.large", CPU: 2, MemoryMiB: 8000},
-	{Name: "m3.medium", CPU: 1, MemoryMiB: 3750},
-	{Name: "m3.large", CPU: 2, MemoryMiB: 7500},
-	{Name: "m3.xlarge", CPU: 4, MemoryMiB: 15000},
-	{Name: "m3.2xlarge", CPU: 8, MemoryMiB: 30000},
-	{Name: "m4.large", CPU: 2, MemoryMiB: 8000},
-	{Name: "m4.xlarge", CPU: 4, MemoryMiB: 16000},
-	{Name: "m4.2xlarge", CPU: 8, MemoryMiB: 32000},
-	{Name: "m4.4xlarge", CPU: 16, MemoryMiB: 64000},
-	{Name: "m4.10xlarge", CPU: 40, MemoryMiB: 160000},
-	{Name: "c3.large", CPU: 2, MemoryMiB: 3750},
-	{Name: "c3.xlarge", CPU: 4, MemoryMiB: 7500},
-	{Name: "c3.2xlarge", CPU: 8, MemoryMiB: 15000},
-	{Name: "c3.4xlarge", CPU: 16, MemoryMiB: 30000},
-	{Name: "c3.8xlarge", CPU: 32, MemoryMiB: 60000},
-	{Name: "c4.large", CPU: 2, MemoryMiB: 3750},
-	{Name: "c4.xlarge", CPU: 4, MemoryMiB: 7500},
-	{Name: "c4.2xlarge", CPU: 8, MemoryMiB: 15000},
-	{Name: "c4.4xlarge", CPU: 16, MemoryMiB: 30000},
-	{Name: "c4.8xlarge", CPU: 36, MemoryMiB: 60000},
-	{Name: "x1.32xlarge", CPU: 128, MemoryMiB: 1952000},
-	{Name: "g2.2xlarge", CPU: 8, MemoryMiB: 15000},
-	{Name: "g2.8xlarge", CPU: 32, MemoryMiB: 60000},
-	{Name: "r3.large", CPU: 2, MemoryMiB: 15250},
-	{Name: "r3.xlarge", CPU: 4, MemoryMiB: 30500},
-	{Name: "r3.2xlarge", CPU: 8, MemoryMiB: 61000},
-	{Name: "r3.4xlarge", CPU: 16, MemoryMiB: 122000},
-	{Name: "r3.8xlarge", CPU: 32, MemoryMiB: 244000},
-	{Name: "i2.xlarge", CPU: 4, MemoryMiB: 30500},
-	{Name: "i2.2xlarge", CPU: 8, MemoryMiB: 61000},
-	{Name: "i2.4xlarge", CPU: 16, MemoryMiB: 122000},
-	{Name: "i2.8xlarge", CPU: 32, MemoryMiB: 244000},
-	{Name: "d2.xlarge", CPU: 4, MemoryMiB: 30500},
-	{Name: "d2.2xlarge", CPU: 8, MemoryMiB: 61000},
-	{Name: "d2.4xlarge", CPU: 16, MemoryMiB: 122000},
-	{Name: "d2.8xlarge", CPU: 36, MemoryMiB: 244000},
-}

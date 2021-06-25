@@ -88,7 +88,7 @@ func Secret(baseDir, secretName string) string {
 	return filepath.Join(baseDir, defaults.SecretsDir, secretName)
 }
 
-// Secret returns a secrets directory
+// SecretDir returns a secrets directory
 func SecretDir(baseDir string) string {
 	return filepath.Join(baseDir, defaults.SecretsDir)
 }

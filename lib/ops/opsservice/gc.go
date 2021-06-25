@@ -20,14 +20,13 @@ import (
 	"context"
 
 	"github.com/gravitational/gravity/lib/ops"
-	"github.com/gravitational/gravity/lib/storage"
 
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 )
 
 // createGarbageCollectOperation creates a new garbage collection operation in the cluster
-func (s *site) createGarbageCollectOperation(ctx context.Context, req ops.CreateClusterGarbageCollectOperationRequest) (*ops.SiteOperationKey, error) {
+func (s *site) createGarbageCollectOperation(ctx context.Context) (*ops.SiteOperationKey, error) {
 	_, err := ops.GetCompletedInstallOperation(s.key, s.service)
 	if err != nil {
 		return nil, trace.Wrap(err, "garbage collection can only be started on an installed cluster")
@@ -39,7 +38,7 @@ func (s *site) createGarbageCollectOperation(ctx context.Context, req ops.Create
 		SiteDomain: s.key.SiteDomain,
 		Type:       ops.OperationGarbageCollect,
 		Created:    s.clock().UtcNow(),
-		CreatedBy:  storage.UserFromContext(ctx),
+		CreatedBy:  ops.UserFromContext(ctx),
 		Updated:    s.clock().UtcNow(),
 		State:      ops.OperationGarbageCollectInProgress,
 	}

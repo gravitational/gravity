@@ -33,7 +33,7 @@ func newBuilder(app loc.Locator) *builder {
 	}
 }
 
-func newBuilderWithServices(config planConfig) (*builder, error) {
+func newBuilderWithServices(config planConfig) *builder {
 	return &builder{
 		Builder: rollingupdate.Builder{
 			App: config.app.Package,
@@ -52,7 +52,7 @@ func newBuilderWithServices(config planConfig) (*builder, error) {
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func (r builder) init(desc string) *libbuilder.Phase {

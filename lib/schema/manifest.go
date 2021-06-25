@@ -355,6 +355,7 @@ func (m Manifest) RuntimeImages() (images []string) {
 }
 
 // AllPackageDependencies returns the list of all available package dependencies
+//nolint:stylecheck // TODO: receiver names 'in' (in auto-generated code) vs 'm'
 func (m Manifest) AllPackageDependencies() (deps []loc.Locator) {
 	if m.SystemOptions != nil && m.SystemOptions.Dependencies.Runtime != nil {
 		deps = append(deps, m.SystemOptions.Dependencies.Runtime.Locator)
@@ -509,6 +510,7 @@ type Dependencies struct {
 }
 
 // ByName returns a dependency package locator by its name
+//nolint:stylecheck // TODO: receiver names 'in' (in auto-generated code) vs 'd'
 func (d Dependencies) ByName(names ...string) (*loc.Locator, error) {
 	for _, dep := range append(d.Packages, d.Apps...) {
 		if utils.StringInSlice(names, dep.Locator.Name) {
@@ -901,6 +903,7 @@ type Volume struct {
 }
 
 // CheckAndSetDefaults checks and sets defaults
+//nolint:stylecheck // TODO: receiver names 'in' (in auto-generated code) vs 'v'
 func (v *Volume) CheckAndSetDefaults() error {
 	if v.UID != nil {
 		if *v.UID < 0 {
@@ -1197,13 +1200,13 @@ type EncryptionExtension struct {
 	CACert string `json:"caCert,omitempty"`
 }
 
-// Logs allows to customize logs feature
+// LogsExtension allows to customize logs feature
 type LogsExtension struct {
 	// Disabled allows to disable Logs tab
 	Disabled bool `json:"disabled,omitempty"`
 }
 
-// Monitoring allows to customize monitoring feature
+// MonitoringExtension allows to customize monitoring feature
 type MonitoringExtension struct {
 	// Disabled allows to disable Monitoring tab
 	Disabled bool `json:"disabled,omitempty"`
@@ -1215,7 +1218,7 @@ type CatalogExtension struct {
 	Disabled bool `json:"disabled,omitempty"`
 }
 
-// Kubernetes allows to customize kubernetes feature
+// KubernetesExtension allows to customize kubernetes feature
 type KubernetesExtension struct {
 	// Disabled allows to disable Kubernetes tab
 	Disabled bool `json:"disabled,omitempty"`
@@ -1227,7 +1230,7 @@ type OpsCenterExtension struct {
 	Disabled bool `json:"disabled,omitempty"`
 }
 
-// Configuration allows to customize configuration feature
+// ConfigurationExtension allows to customize configuration feature
 type ConfigurationExtension struct {
 	// Disabled allows to disable Configuration tab
 	Disabled bool `json:"disabled,omitempty"`

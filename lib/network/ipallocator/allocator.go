@@ -29,8 +29,11 @@ import (
 )
 
 var (
-	ErrFull              = errors.New("range is full")
-	ErrAllocated         = errors.New("provided IP is already allocated")
+	// ErrFull indicates a range is full error
+	ErrFull = errors.New("range is full")
+	// ErrAllocated indicates an IP already allocated error
+	ErrAllocated = errors.New("provided IP is already allocated")
+	// ErrMismatchedNetwork indicates a mismatched network error
 	ErrMismatchedNetwork = errors.New("the provided network does not match the current range")
 )
 
@@ -208,9 +211,8 @@ func RangeSize(subnet *net.IPNet) int64 {
 	// the bitmap to 64k.
 	if bits == 128 && (bits-ones) >= 16 {
 		return int64(1) << uint(16)
-	} else {
-		return int64(1) << uint(bits-ones)
 	}
+	return int64(1) << uint(bits-ones)
 }
 
 // GetIndexedIP returns a net.IP that is subnet.IP + index in the contiguous IP space.

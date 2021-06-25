@@ -24,10 +24,10 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 )
 
-// HasVars takes a slice of values and value files and returns true
+// HasVar takes a slice of values and value files and returns true
 // if there is a variable with the provided name among them.
 func HasVar(name string, valueFiles valueFiles, values []string) (bool, error) {
-	allVals, err := merge(valueFiles, values, nil, nil, "", "", "")
+	allVals, err := merge(valueFiles, values, nil, nil)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}

@@ -35,8 +35,8 @@ func DiffPorts(old, new Manifest, profileName string) (tcp, udp []int, err error
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	sort.Sort(sort.IntSlice(oldTCP))
-	sort.Sort(sort.IntSlice(oldUDP))
+	sort.Ints(oldTCP)
+	sort.Ints(oldUDP)
 
 	newProfile, err := new.NodeProfiles.ByName(profileName)
 	if err != nil {
@@ -47,8 +47,8 @@ func DiffPorts(old, new Manifest, profileName string) (tcp, udp []int, err error
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	sort.Sort(sort.IntSlice(tcp))
-	sort.Sort(sort.IntSlice(udp))
+	sort.Ints(tcp)
+	sort.Ints(udp)
 
 	commonTCP := append(oldTCP, tcp...)
 	commonUDP := append(oldUDP, udp...)

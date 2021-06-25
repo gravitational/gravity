@@ -18,16 +18,20 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log/syslog"
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 
 	"github.com/docker/distribution/configuration"
 	registrycontext "github.com/docker/distribution/context"
 	"github.com/docker/distribution/registry/handlers"
 	"github.com/docker/distribution/registry/listener"
+
+	// imported for side-effects
 	_ "github.com/docker/distribution/registry/storage/driver/filesystem"
 	"github.com/docker/distribution/version"
 
@@ -56,7 +60,7 @@ func NewRegistry(config *configuration.Configuration) (*Registry, error) {
 	}, nil
 }
 
-// Starts starts the registry server and returns when the server
+// Start starts the registry server and returns when the server
 // has actually started listening.
 func (r *Registry) Start() error {
 	listener, err := listener.NewListener(r.config.HTTP.Net, r.config.HTTP.Addr)
@@ -83,6 +87,14 @@ func (r *Registry) listenAndServe(listener net.Listener) error {
 
 // Addr returns the address this registry listens on.
 func (r *Registry) Addr() string {
+	if runtime.GOOS == "darwin" {
+		switch addr := r.addr.(type) {
+		case *net.TCPAddr:
+			// See https://github.com/docker/for-mac/issues/3611
+			// FIXME(dima): avoid hardcoding 0.0.0.0
+			return fmt.Sprintf("0.0.0.0:%d", addr.Port)
+		}
+	}
 	return r.addr.String()
 }
 

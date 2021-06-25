@@ -144,8 +144,8 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 // ServeHTTP lets the authentication middleware serve the request before
 // passing it through to the router.
-func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.middleware.ServeHTTP(w, r)
+func (h *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.middleware.ServeHTTP(w, r)
 }
 
 /* createAppImportOperation initiates import of an application.
@@ -223,10 +223,7 @@ func (h *WebHandler) getOperationProgress(w http.ResponseWriter,
 	req *http.Request, params httprouter.Params,
 	context *handlerContext) error {
 
-	op, err := importOperation(params)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	op := importOperation(params)
 	progress, err := context.applications.GetOperationProgress(*op)
 	if err != nil {
 		return trace.Wrap(err)
@@ -244,10 +241,7 @@ func (h *WebHandler) getOperationLogs(w http.ResponseWriter,
 	req *http.Request, params httprouter.Params,
 	context *handlerContext) error {
 
-	op, err := importOperation(params)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	op := importOperation(params)
 	reader, err := context.applications.GetOperationLogs(*op)
 	if err != nil {
 		return trace.Wrap(err)
@@ -276,10 +270,7 @@ func (h *WebHandler) getImportedApp(w http.ResponseWriter,
 	req *http.Request, params httprouter.Params,
 	context *handlerContext) error {
 
-	op, err := importOperation(params)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	op := importOperation(params)
 	app, err := context.applications.GetImportedApplication(*op)
 	if err != nil {
 		return trace.Wrap(err)
@@ -297,10 +288,7 @@ func (h *WebHandler) getOperationCrashReport(w http.ResponseWriter,
 	req *http.Request, params httprouter.Params,
 	context *handlerContext) error {
 
-	op, err := importOperation(params)
-	if err != nil {
-		return trace.Wrap(err)
-	}
+	op := importOperation(params)
 	report, err := context.applications.GetOperationCrashReport(*op)
 	if err != nil {
 		return trace.Wrap(err)
@@ -1012,11 +1000,11 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 	}
 }
 
-func importOperation(params httprouter.Params) (*storage.AppOperation, error) {
+func importOperation(params httprouter.Params) *storage.AppOperation {
 	operationID := params[0].Value
 	return &storage.AppOperation{
 		ID: operationID,
-	}, nil
+	}
 }
 
 func appPackage(params httprouter.Params) (*loc.Locator, error) {

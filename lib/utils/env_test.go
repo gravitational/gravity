@@ -55,9 +55,9 @@ func (s *EnvSuite) TestGetenvInt(c *C) {
 	c.Assert(val, Equals, 42)
 
 	os.Setenv("TEST1", "qwerty")
-	val, err = GetenvInt("TEST1")
+	_, err = GetenvInt("TEST1")
 	c.Assert(err, NotNil)
 
-	val, err = GetenvInt("DOESNOTEXIST")
+	_, err = GetenvInt("DOESNOTEXIST")
 	c.Assert(err, FitsTypeOf, trace.NotFound(""))
 }

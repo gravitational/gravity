@@ -656,7 +656,7 @@ func (o *OperatorACL) GetOperationPlan(key SiteOperationKey) (*storage.Operation
 	return o.operator.GetOperationPlan(key)
 }
 
-// Configure packages configures packages for the specified operation
+// ConfigurePackages packages configures packages for the specified operation
 func (o *OperatorACL) ConfigurePackages(req ConfigurePackagesRequest) error {
 	if err := o.ClusterAction(req.SiteDomain, storage.KindCluster, teleservices.VerbUpdate); err != nil {
 		return trace.Wrap(err)

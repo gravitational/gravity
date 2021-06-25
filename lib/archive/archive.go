@@ -153,7 +153,7 @@ func HasFile(tarballPath, filename string) error {
 	err = TarGlob(tar.NewReader(file), ".", []string{filename},
 		func(match string, file io.Reader) error {
 			hasFile = true
-			return Abort
+			return ErrAbort
 		})
 	if err != nil {
 		if trace.Unwrap(err) == tar.ErrHeader {
@@ -191,7 +191,7 @@ func TarGlob(source *tar.Reader, dir string, patterns []string, handler func(mat
 				matched, _ := filepath.Match(pattern, filepath.Base(relpath))
 				if matched {
 					if err = handler(relpath, source); err != nil {
-						if trace.Unwrap(err) == Abort {
+						if trace.Unwrap(err) == ErrAbort {
 							return nil
 						}
 						return trace.Wrap(err)
@@ -222,7 +222,7 @@ func TarGlobWithPrefix(source *tar.Reader, prefix string, handler TarGlobHandler
 		path := filepath.Clean(hdr.Name)
 		if strings.HasPrefix(path, prefix) {
 			if err = handler(hdr, source); err != nil {
-				if trace.Unwrap(err) == Abort {
+				if trace.Unwrap(err) == ErrAbort {
 					return nil
 				}
 				return trace.Wrap(err)
@@ -363,8 +363,8 @@ func MustCreateMemArchive(items []*Item) *bytes.Buffer {
 	return r
 }
 
-// Abort is a special error value used to abort an iteration
-var Abort = errors.New("abort iteration")
+// ErrAbort is a special error value used to abort an iteration
+var ErrAbort = errors.New("abort iteration")
 
 // extractFile extracts a single file or directory from tarball into dir.
 // Uses header to determine the type of item to create
@@ -377,6 +377,7 @@ func extractFile(tarball *tar.Reader, header *tar.Header, dir, path string) erro
 	case tar.TypeBlock, tar.TypeChar, tar.TypeReg, tar.TypeRegA, tar.TypeFifo:
 		return writeFile(targetPath, tarball, header.FileInfo().Mode())
 	case tar.TypeLink:
+		//nolint:gosec // the linkname had been sanitized with SanitizeTarPath
 		return writeHardLink(targetPath, filepath.Join(dir, header.Linkname))
 	case tar.TypeSymlink:
 		return writeSymbolicLink(targetPath, header.Linkname)
@@ -390,6 +391,7 @@ func extractFile(tarball *tar.Reader, header *tar.Header, dir, path string) erro
 // links that could escape the tar file (e.g. ../../etc/passwrd)
 func SanitizeTarPath(header *tar.Header, dir string) error {
 	// Security: sanitize that all tar paths resolve to within the destination directory
+	//nolint:gosec
 	destPath := filepath.Join(dir, header.Name)
 	if !strings.HasPrefix(destPath, filepath.Clean(dir)+string(os.PathSeparator)) {
 		return trace.BadParameter("%s: illegal file path", header.Name).AddField("prefix", dir)
@@ -402,6 +404,7 @@ func SanitizeTarPath(header *tar.Header, dir string) error {
 			}
 		} else {
 			// relative paths are relative to the filename after extraction to a directory
+			//nolint:gosec
 			linkPath := filepath.Join(dir, filepath.Dir(header.Name), header.Linkname)
 			if !strings.HasPrefix(linkPath, filepath.Clean(dir)+string(os.PathSeparator)) {
 				return trace.BadParameter("%s: illegal link path", header.Linkname).AddField("prefix", dir)

@@ -31,7 +31,7 @@ import (
 )
 
 // NewDecrypt returns a new "decrypt" phase executor
-func NewDecrypt(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService, apps app.Applications) (*decryptExecutor, error) {
+func NewDecrypt(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService, apps app.Applications) (fsm.PhaseExecutor, error) {
 	application, err := apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
 		return nil, trace.Wrap(err)

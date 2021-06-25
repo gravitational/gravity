@@ -36,7 +36,7 @@ import (
 )
 
 // NewWaitPlanet returns executor that waits for planet to start on the joining node
-func NewWaitPlanet(p fsm.ExecutorParams, operator ops.Operator) (*waitPlanetExecutor, error) {
+func NewWaitPlanet(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,
@@ -104,7 +104,7 @@ func (*waitPlanetExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewWaitK8s returns executor that waits for Kubernetes node to register
-func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator) (*waitK8sExecutor, error) {
+func NewWaitK8s(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	client, _, err := httplib.GetUnprivilegedKubeClient(p.Plan.DNSConfig.Addr())
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -165,7 +165,7 @@ func (*waitK8sExecutor) PostCheck(ctx context.Context) error {
 }
 
 // NewWaitTeleport returns executor that waits for Teleport node to register
-func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (*waitTeleportExecutor, error) {
+func NewWaitTeleport(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
 			constants.FieldPhase: p.Phase.ID,

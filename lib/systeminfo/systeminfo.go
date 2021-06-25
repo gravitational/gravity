@@ -47,12 +47,13 @@ func New() (*storage.SystemV2, error) {
 // of its parent directories.
 func FilesystemForDir(system storage.System, dirName string) (*FilesystemInfo, error) {
 	var fileSystem *storage.Filesystem
+	filesystems := system.GetFilesystems()
 L:
 	for {
-		for _, fs := range system.GetFilesystems() {
+		for i, fs := range filesystems {
 			// do not take rootfs into account as it is considered always mounted on `/`
 			if fs.DirName == dirName && fs.Type != "rootfs" {
-				fileSystem = &fs
+				fileSystem = &filesystems[i]
 				break L
 			}
 		}
@@ -87,12 +88,12 @@ type FilesystemInfo struct {
 	Usage storage.FilesystemUsage
 }
 
-// TotalBytes reportes usage in KiB (kibibits or 1024 bits)
+// TotalBytes reports usage in KiB (kibibits or 1024 bits)
 func (r FilesystemInfo) TotalBytes() uint64 {
 	return r.Usage.TotalKB * 1024
 }
 
-// FreeBytes reportes free disk space in KiB (kibibits or 1024 bits)
+// FreeBytes reports free disk space in KiB (kibibits or 1024 bits)
 func (r FilesystemInfo) FreeBytes() uint64 {
 	return r.Usage.FreeKB * 1024
 }

@@ -144,11 +144,11 @@ func ExecUnprivileged(ctx context.Context, command string, args []string, opts .
 		return trace.ConvertSystemError(err)
 	}
 	cmd := exec.CommandContext(ctx, command, args...)
-	uid, err := getUid(*nobody)
+	uid, err := getUID(*nobody)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	gid, err := getGid(*nobody)
+	gid, err := getGID(*nobody)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -242,7 +242,7 @@ fi
 `, int(delay/time.Second), strings.Join(args, " "))
 
 	scriptPath := filepath.Join(dir, "script.sh")
-	if err := ioutil.WriteFile(scriptPath, []byte(script), 0777); err != nil {
+	if err := ioutil.WriteFile(scriptPath, []byte(script), defaults.PrivateExecutableFileMask); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -260,7 +260,7 @@ type Command interface {
 	Args() []string
 }
 
-func getUid(u user.User) (uid uint32, err error) {
+func getUID(u user.User) (uid uint32, err error) {
 	id, err := strconv.Atoi(u.Uid)
 	if err != nil {
 		return 0, trace.BadParameter("invalid UID for user %v: %v", u.Username, u.Uid)
@@ -268,7 +268,7 @@ func getUid(u user.User) (uid uint32, err error) {
 	return uint32(id), nil
 }
 
-func getGid(u user.User) (gid uint32, err error) {
+func getGID(u user.User) (gid uint32, err error) {
 	id, err := strconv.Atoi(u.Gid)
 	if err != nil {
 		return 0, trace.BadParameter("invalid GID for user %v: %v", u.Username, u.Gid)

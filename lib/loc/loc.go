@@ -124,7 +124,7 @@ func (l *Locator) SemVer() (*semver.Version, error) {
 	return v, nil
 }
 
-// EqualTo returns 'true' if this locator is equal to others
+// IsEqualTo returns true if this locator is equal to the other
 func (l Locator) IsEqualTo(other Locator) bool {
 	return l.Repository == other.Repository && l.Name == other.Name && l.Version == other.Version
 }

@@ -191,9 +191,9 @@ func (o *Operator) DeleteAlert(ctx context.Context, key ops.SiteKey, name string
 	}
 
 	var alert *v1.ConfigMap
-	for _, config := range configmaps.Items {
+	for i, config := range configmaps.Items {
 		if config.Name == name {
-			alert = &config
+			alert = &configmaps.Items[i]
 			break
 		}
 	}

@@ -239,10 +239,11 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		return nil, trace.Wrap(err)
 	}
 
+	servers := cluster.servers()
 	var master *storage.Server
-	for _, server := range cluster.servers() {
+	for i, server := range servers {
 		if server.IsMaster() {
-			master = &server
+			master = &servers[i]
 			break
 		}
 	}
@@ -253,6 +254,15 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 	dockerConfig := cluster.dockerConfig()
 	checks.OverrideDockerConfig(&dockerConfig,
 		checks.DockerConfigFromSchema(req.Manifest.SystemOptions.DockerConfig()))
+
+	env := req.Env
+	if env == nil {
+		// Keep existing environment configuration inside the container
+		env, err = o.getClusterEnvironment()
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
 
 	config := planetConfig{
 		master: masterConfig{
@@ -267,11 +277,18 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		dockerRuntime: node.Docker,
 		planetPackage: req.RuntimePackage,
 		configPackage: configPackage,
-		env:           req.Env,
+		env:           env,
 	}
 
 	if len(req.Config) != 0 {
 		clusterConfig, err := clusterconfig.Unmarshal(req.Config)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		config.config = clusterConfig
+	} else {
+		// Keep the existing cluster configuration during the update
+		clusterConfig, err := cluster.getClusterConfiguration()
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -320,7 +337,7 @@ func (o *Operator) ConfigureNode(req ops.ConfigureNodeRequest) error {
 		return trace.Wrap(err)
 	}
 
-	commands, err := remoteDirectories(*operation, node, updateApp.Manifest,
+	commands, err := remoteDirectories(node, updateApp.Manifest,
 		cluster.ServiceUser.UID, cluster.ServiceUser.GID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -358,7 +375,7 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationUpdate,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   storage.UserFromContext(context),
+		CreatedBy:   ops.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateUpdateInProgress,
 		Provisioner: installOperation.Provisioner,

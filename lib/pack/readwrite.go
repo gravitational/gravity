@@ -67,7 +67,7 @@ func WritePackage(m Manifest, w io.Writer, files []PackageFile) error {
 		if err := tw.WriteHeader(hdr); err != nil {
 			return trace.Wrap(err, "error writing tar header")
 		}
-		if _, err := tw.Write([]byte(f.Contents)); err != nil {
+		if _, err := tw.Write(f.Contents); err != nil {
 			return trace.Wrap(err, "error writing file body")
 		}
 	}

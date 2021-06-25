@@ -22,7 +22,7 @@ import (
 	"github.com/gravitational/trace"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/api/batch/v1"
+	v1 "k8s.io/api/batch/v1"
 )
 
 // Hooks defines all supported application lifecycle hooks
@@ -86,6 +86,7 @@ type Hooks struct {
 }
 
 // AllHooks returns all non-nil hooks.
+//nolint:stylecheck // TODO: receiver names 'in' (in auto-generated code) vs 'h'
 func (h Hooks) AllHooks() (all []*Hook) {
 	value := reflect.ValueOf(h)
 	for i := 0; i < value.NumField(); i++ {

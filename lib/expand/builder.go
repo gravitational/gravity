@@ -22,7 +22,6 @@ import (
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
-	"github.com/gravitational/gravity/lib/install/phases"
 	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
@@ -79,7 +78,7 @@ func (b *planBuilder) AddInitPhase(plan *storage.OperationPlan) {
 // AddBootstrapSELinuxPhase appends the phase to configure SELinux on a node
 func (b *planBuilder) AddBootstrapSELinuxPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID:          phases.BootstrapSELinuxPhase,
+		ID:          installphases.BootstrapSELinuxPhase,
 		Description: "Configure SELinux",
 		Data: &storage.OperationPhaseData{
 			Server:     &b.JoiningNode,
@@ -393,9 +392,9 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 		TeleportPackage: *teleportPackage,
 		PlanetPackage:   *planetPackage,
 		JoiningNode:     operation.Servers[0],
-		ClusterNodes:    storage.Servers(ctx.Cluster.ClusterState.Servers),
+		ClusterNodes:    ctx.Cluster.ClusterState.Servers,
 		Peer:            ctx.Peer,
-		Master:          storage.Servers(ctx.Cluster.ClusterState.Servers).Masters()[0],
+		Master:          ctx.Cluster.ClusterState.Servers.Masters()[0],
 		AdminAgent:      *adminAgent,
 		RegularAgent:    *regularAgent,
 		ServiceUser:     ctx.Cluster.ServiceUser,

@@ -17,6 +17,9 @@ limitations under the License.
 package httplib
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -36,14 +39,21 @@ func InKubernetes() bool {
 func InGravity(dnsAddress string) error {
 	client := GetClient(true,
 		WithLocalResolver(dnsAddress),
-		WithTimeout(defaults.ClusterCheckTimeout),
 		WithInsecure())
-	_, err := client.Get(defaults.GravityServiceURL)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ClusterCheckTimeout)
+	defer cancel()
+	req, err := http.NewRequest(http.MethodGet, defaults.GravityServiceURL, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	req = req.WithContext(ctx)
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Warnf("Gravity controller is inaccessible: %v.", err)
 		return trace.NotFound("No Gravity cluster detected. This failure " +
 			"could happen during failover, try again. Execute this command " +
 			"locally on one of the cluster nodes.")
 	}
+	resp.Body.Close()
 	return nil
 }

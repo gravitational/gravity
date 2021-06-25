@@ -51,7 +51,7 @@ const (
 	// KubectlPath is where kubectl binary gets mounted inside hook containers
 	KubectlPath = "/usr/local/bin/kubectl"
 
-	// Helm is where helm binary gets mounted inside hook containers
+	// HelmPath is where helm binary gets mounted inside hook containers
 	HelmPath = "/usr/local/bin/helm"
 
 	// HelmValuesFile is the name of the file with helm values
@@ -60,13 +60,13 @@ const (
 	// VolumeBin is the name of the volume with host's /usr/bin dir
 	VolumeBin = "bin"
 
-	// VolumeKubectl is the name of the volume with kubectl
+	// VolumeKubectlBin is the name of the volume with kubectl
 	VolumeKubectlBin = "kubectl-bin"
 
 	// VolumeHelmBin is the name of the volume with helm binary
 	VolumeHelmBin = "helm-bin"
 
-	// VolumeHelmValues is the name of the volume with helm values file
+	// VolumeHelm is the name of the volume with helm values file
 	VolumeHelm = "helm"
 
 	// VolumeBackup is the name of the volume that stores results of the backup hook

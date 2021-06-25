@@ -143,14 +143,14 @@ func SyncApp(ctx context.Context, req SyncRequest) error {
 	return nil
 }
 
-func unpackRemotePackage(ctx context.Context, packages pack.PackageService, package_ loc.Locator, unpackPath string) error {
+func unpackRemotePackage(ctx context.Context, packages pack.PackageService, pkg loc.Locator, unpackPath string) error {
 	b := backoff.NewConstantBackOff(defaults.RetryInterval)
 	err := utils.RetryTransient(ctx, b, func() error {
-		err := pack.Unpack(packages, package_, unpackPath, nil)
+		err := pack.Unpack(packages, pkg, unpackPath, nil)
 		if err == nil {
 			return nil
 		}
-		log.Warnf("Failed to unpack package %v: %v.", package_, err)
+		log.Warnf("Failed to unpack package %v: %v.", pkg, err)
 		return trace.Wrap(err)
 	})
 	return trace.Wrap(err)

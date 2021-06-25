@@ -37,6 +37,8 @@ func printVersion(format constants.Format) error {
 			return trace.Wrap(err)
 		}
 		fmt.Print(string(bytes))
+	default:
+		return trace.BadParameter("unknown format %q", format)
 	}
 	return nil
 }

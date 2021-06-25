@@ -198,6 +198,7 @@ func ClientCredentials(secretsDir string) (credentials.TransportCredentials, err
 		ServerName:   pb.ServerName,
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      certPool,
+		MinVersion:   tls.VersionTLS12, // TODO(dima): bump to TLS1.3
 	})
 	return creds, nil
 }
@@ -234,6 +235,7 @@ func ClientCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 		ServerName:   pb.ServerName,
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      certPool,
+		MinVersion:   tls.VersionTLS12, // TODO(dima): bump to TLS1.3
 	})
 	return creds, nil
 }
@@ -264,6 +266,7 @@ func ServerCredentials(secretsDir string) (credentials.TransportCredentials, err
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{serverCert},
 		ClientCAs:    certPool,
+		MinVersion:   tls.VersionTLS12, // TODO(dima): bump to TLS1.3
 	})
 
 	return creds, nil
@@ -302,6 +305,7 @@ func ServerCredentialsFromKeyPairs(keys, caKeys authority.TLSKeyPair) (credentia
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    certPool,
+		MinVersion:   tls.VersionTLS12, // TODO(dima): bump to TLS1.3
 	})
 	return creds, nil
 }

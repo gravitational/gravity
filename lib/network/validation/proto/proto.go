@@ -29,7 +29,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// Checks makes sure the request is correct
+// Check makes sure the request is correct
 func (r CheckPortsRequest) Check() error {
 	if len(r.Listen) == 0 {
 		return trace.BadParameter("at least one listen address should be provided: %v", r)
@@ -49,7 +49,7 @@ func (r CheckPortsRequest) Check() error {
 	return nil
 }
 
-// Checks makes sure the request is correct
+// Check makes sure the request is correct
 func (r CheckBandwidthRequest) Check() error {
 	if len(r.Ping) < 1 {
 		return trace.BadParameter("at least one ping address should be provided: %v", r)
@@ -137,12 +137,12 @@ func (r CheckPortsResponse) FailureCount() int {
 	var failures int
 	for _, listen := range r.Listen {
 		if listen.Code != 0 {
-			failures += 1
+			failures++
 		}
 	}
 	for _, ping := range r.Ping {
 		if ping.Code != 0 {
-			failures += 1
+			failures++
 		}
 	}
 	return failures
@@ -152,9 +152,8 @@ func (r CheckPortsResponse) FailureCount() int {
 func (r ServerResult) Result() string {
 	if r.Code == 0 {
 		return fmt.Sprintf("success from %v", r.Server.Address())
-	} else {
-		return fmt.Sprintf("failure(code:%v) from %v: %v", r.Code, r.Server.Address(), r.Error)
 	}
+	return fmt.Sprintf("failure(code:%v) from %v: %v", r.Code, r.Server.Address(), r.Error)
 }
 
 // DurationFromProto returns a time.Duration from the given protobuf value

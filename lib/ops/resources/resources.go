@@ -251,9 +251,10 @@ func (r *ResourceControl) Get(w io.Writer, req ListRequest, format constants.For
 		return collection.WriteJSON(w)
 	case constants.EncodingYAML:
 		return collection.WriteYAML(w)
+	default:
+		return trace.BadParameter("unsupported format %q, supported are: %v",
+			format, constants.OutputFormats)
 	}
-	return trace.BadParameter("unsupported format %q, supported are: %v",
-		format, constants.OutputFormats)
 }
 
 // Remove removes the specified resource
@@ -271,11 +272,11 @@ func Split(r io.Reader) (kubernetesResources []runtime.Object, gravityResources 
 	err = ForEach(r, func(resource storage.UnknownResource) error {
 		if isKubernetesResource(resource) {
 			// reinterpret as a Kubernetes resource
-			var kResource resources.Unknown
-			if err := json.Unmarshal(resource.Raw, &kResource); err != nil {
+			var unknown resources.Unknown
+			if err := json.Unmarshal(resource.Raw, &unknown); err != nil {
 				return trace.Wrap(err)
 			}
-			kubernetesResources = append(kubernetesResources, &kResource)
+			kubernetesResources = append(kubernetesResources, &unknown)
 		} else {
 			gravityResources = append(gravityResources, resource)
 		}

@@ -571,7 +571,7 @@ func (r *Mounts) UnmarshalJSON(p []byte) error {
 	return nil
 }
 
-// Mounts defines a mount point that maps a directory on host (Source) to a directory inside planet's
+// Mount defines a mount point that maps a directory on host (Source) to a directory inside planet's
 // filesystem namespace (Destination).
 type Mount struct {
 	// Name defines a name for this mount
@@ -622,34 +622,7 @@ var schema *jsonschema.Schema
 // resource scheme
 var SchemeGroupVersion = kubeschema.GroupVersion{Group: "", Version: Version}
 
-var VariablesSchema = fmt.Sprintf(`{
-  "type": "object",
-  "additionalProperties": false,
-  "properties": {
-    "system": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "site_domain": {"type": "string"},
-        "ops_url": {"type": "string"},
-        "devmode": {"type": "boolean"},
-        "token": {"type": "string"},
-        "teleport_proxy_address": {"type": "string", "default": "opscenter.localhost.localdomain"}
-      }
-    },
-    "provisioners": {
-      "type": "object",
-      "additionalProperties": false,
-      "default": {},
-      "properties": {
-        "onprem": %v,
-        "virsh": %v,
-        "aws_terraform": %v
-      }
-    }
-  }
-}`, OnPremSchema, VirshSchema, AWSTerraformSchema)
-
+// AWSTerraformSchema defines the AWS provisioner schema
 const AWSTerraformSchema = `{
   "type": "object",
   "additionalProperties": false,
@@ -729,6 +702,7 @@ const AWSTerraformSchema = `{
   }
 }`
 
+// VirshSchema defines the virsh provisioner schema
 const VirshSchema = `{
   "type": "object",
   "additionalProperties": false,
@@ -791,6 +765,7 @@ const VirshSchema = `{
   }
 }`
 
+// OnPremSchema defines the schema for the onprem provisioner
 const OnPremSchema = `{
   "type": "object",
   "additionalProperties": false,
@@ -818,6 +793,7 @@ const OnPremSchema = `{
   }
 }`
 
+// ServerSchema defines the cluster node schema
 const ServerSchema = `{
   "type": "object",
   "additionalProperties": false,
@@ -925,6 +901,7 @@ const ServerSchema = `{
   }
 }`
 
+// ManifestSchema defines the schema for the manifest v1
 var ManifestSchema = fmt.Sprintf(`{
   "type": "object",
   "required": ["apiVersion", "kind", "metadata"],

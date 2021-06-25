@@ -43,7 +43,7 @@ type GravityProcess interface {
 	AgentService() ops.AgentService
 	// UsersService returns the process identity service
 	UsersService() users.Identity
-	// Config returns the proces config
+	// Config returns the process config
 	Config() *processconfig.Config
 	// Shutdown starts graceful shutdown of the process,
 	// blocks until all resources are freed and go-routines have shut down

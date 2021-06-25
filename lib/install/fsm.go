@@ -80,7 +80,7 @@ type FSMConfig struct {
 	DNSConfig storage.DNSConfig
 }
 
-// Check validates install FSM config and sets some defaults
+// CheckAndSetDefaults validates install FSM config and sets some defaults
 func (c *FSMConfig) CheckAndSetDefaults() (err error) {
 	err = c.OperationKey.Check()
 	if err != nil {

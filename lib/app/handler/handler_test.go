@@ -99,7 +99,7 @@ func (r *HandlerSuite) SetUpTest(c *C) {
 	err = r.users.UpsertUser(r.user)
 	c.Assert(err, IsNil)
 
-	r.suite.NewService = func(c *C, dockerClient docker.DockerInterface, imageService docker.ImageService) app.Applications {
+	r.suite.NewService = func(c *C, dockerClient docker.Interface, imageService docker.ImageService) app.Applications {
 		var kubeClient *kubernetes.Clientset
 		var err error
 		if utils.RunKubernetesTests() {

@@ -25,10 +25,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/gravitational/gravity/lib/constants"
-
 	"github.com/coreos/go-semver/semver"
-	"github.com/gravitational/teleport/lib/utils"
+
+	"github.com/gravitational/gravity/lib/constants"
+	teleutils "github.com/gravitational/teleport/lib/utils"
+
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -79,10 +80,13 @@ const (
 	// WaitForEventInterval indicates the delay between above attempts
 	WaitForEventInterval = 5 * time.Second
 
-	// Default retry settings
-	RetryInterval           = 5 * time.Second
-	RetryAttempts           = 100
-	RetryLessAttempts       = 20
+	// RetryInterval is the interval between retry attempts
+	RetryInterval = 5 * time.Second
+	// RetryAttempts is the total number of attempts
+	RetryAttempts = 100
+	// RetryLessAttempts is the total number of attempts in retry scenario with a smaller wait window
+	RetryLessAttempts = 20
+	// RetrySmallerMaxInterval is the total time for the retry scenario with a smaller wait window
 	RetrySmallerMaxInterval = RetryLessAttempts * RetryInterval
 
 	// EtcdRetryInterval is the retry interval for some etcd commands
@@ -280,14 +284,8 @@ const (
 	// SatelliteRPCAgentPort is port used by satellite agent to expose its status
 	SatelliteRPCAgentPort = 7575
 
-	// SatelliteRPCAgentPort is port used by satellite agent to expose metrics
+	// SatelliteMetricsPort is port used by satellite agent to expose metrics
 	SatelliteMetricsPort = 7580
-
-	// SatelliteRPCAgentPort is port used by satellite agent to communicate to the serf cluster
-	SatelliteSerfRPCPort = 7373
-
-	// SerfAgentPort is port that serf agent on a node binds on
-	SerfAgentPort = 7496
 
 	// AlertmanagerServicePort is the Alertmanage service port
 	AlertmanagerServicePort = 9093
@@ -375,9 +373,6 @@ const (
 
 	// WaitForEtcdScript is the path to the planet wait for etcd to be available script
 	WaitForEtcdScript = "/usr/bin/scripts/wait-for-etcd.sh"
-
-	// SerfBin is the default location of the serf binary
-	SerfBin = "/usr/bin/serf"
 
 	// JournalctlBin is the default location of the journalctl inside planet
 	JournalctlBin = "/bin/journalctl"
@@ -509,6 +504,9 @@ const (
 	// PrivateDirMask is a mask for private directories
 	PrivateDirMask = 0700
 
+	// PrivateExecutableFileMask is a mask for private binaries
+	PrivateExecutableFileMask = 0700
+
 	// PrivateFileMask is a mask for private files
 	PrivateFileMask = 0600
 
@@ -616,7 +614,7 @@ const (
 	LograngeAggregatorServiceName = "lr-aggregator"
 
 	// WriteFactor is a default amount of acknowledged writes for object storage
-	// to be considered successfull
+	// to be considered successful
 	WriteFactor = 1
 
 	// ElectionTerm is a leader election term for multiple gravity instances
@@ -733,15 +731,6 @@ const (
 	// MaxRouterIdleConnsPerHost defines tha maximum number of idle connections for "opsroute" transport
 	MaxRouterIdleConnsPerHost = 5
 
-	// KubernetesRoleLabel is the Kubernetes node label with system role
-	KubernetesRoleLabel = "gravitational.io/k8s-role"
-
-	// KubernetesAdvertiseIPLabel is the kubernetes node label of the advertise IP address
-	KubernetesAdvertiseIPLabel = "gravitational.io/advertise-ip"
-
-	// RunLevelLabel is the Kubernetes node taint label representing a run-level
-	RunLevelLabel = "gravitational.io/runlevel"
-
 	// RunLevelSystem is the Kubernetes run-level for system applications
 	RunLevelSystem = "system"
 
@@ -749,7 +738,7 @@ const (
 	RoleMaster = "master"
 
 	// DockerDeviceCapacity defines the baseline size for the docker devicemapper device
-	// used by default if no backend and no size has been explicitely specified
+	// used by default if no backend and no size has been explicitly specified
 	DockerDeviceCapacity = "4GB"
 
 	// DockerBridge specifies the default name of the docker bridge
@@ -1327,7 +1316,7 @@ var (
 	// DockerRegistry is a default name for private docker registry
 	DockerRegistry = DockerRegistryAddr("leader.telekube.local")
 
-	// NetworkIntefacePrefixes is a list of Kubernetes-specific network interface prefixes.
+	// NetworkInterfacePrefixes is a list of Kubernetes-specific network interface prefixes.
 	NetworkInterfacePrefixes = []string{
 		"docker",
 		"flannel",
@@ -1358,9 +1347,9 @@ var (
 // HookSecurityContext returns default securityContext for hook pods
 func HookSecurityContext() *v1.PodSecurityContext {
 	var (
-		runAsNonRoot bool  = false
-		runAsUser    int64 = 0
-		fsGroup      int64 = 0
+		runAsNonRoot = false
+		runAsUser    int64
+		fsGroup      int64
 	)
 
 	return &v1.PodSecurityContext{
@@ -1450,7 +1439,7 @@ func AlternateBinPath(paths ...string) (path string) {
 func TLSConfig() *tls.Config {
 	return &tls.Config{
 		MinVersion:               tls.VersionTLS12,
-		CipherSuites:             utils.DefaultCipherSuites(),
+		CipherSuites:             teleutils.DefaultCipherSuites(),
 		PreferServerCipherSuites: true,
 	}
 }

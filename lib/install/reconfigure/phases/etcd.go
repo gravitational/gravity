@@ -31,7 +31,7 @@ import (
 )
 
 // NewEtcd returns executor that updates etcd member with new advertise URL.
-func NewEtcd(p fsm.ExecutorParams, operator ops.Operator) (*etcdExecutor, error) {
+func NewEtcd(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

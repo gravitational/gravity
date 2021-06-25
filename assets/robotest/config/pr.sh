@@ -5,14 +5,10 @@ set -o pipefail
 
 source $(dirname $0)/lib/utils.sh
 
-# UPGRADE_MAP maps gravity version -> list of linux distros to upgrade from
+# UPGRADE_MAP maps gravity version -> space separated list of linux distros to upgrade from
 declare -A UPGRADE_MAP
-UPGRADE_MAP[7.1.0-alpha.5]="ubuntu:20" # this version
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="redhat:8.2" # compatible LTS version
-UPGRADE_MAP[7.0.13]="centos:7.9" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
-UPGRADE_MAP[7.0.12]="ubuntu:18" # 7.0.12 is the first LTS 7.0 release
-UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/gravitational/planet/pull/671 included
-# UPGRADE_MAP[7.0.0]="ubuntu:16" # 7.0.0 is prone to upgrade failure without https://github.com/gravitational/planet/pull/671
+UPGRADE_MAP[7.1.0-alpha.6]="ubuntu:20"
+UPGRADE_MAP[8.0.0-beta.0]="redhat:8.2 centos:7.9 ubuntu:16 ubuntu:18"
 
 function build_upgrade_suite {
   local size='"flavor":"three","nodes":3,"role":"node"'

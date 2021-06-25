@@ -27,12 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app"
 	autoscaleaws "github.com/gravitational/gravity/lib/autoscale/aws"
 	"github.com/gravitational/gravity/lib/checks"
 	awscloud "github.com/gravitational/gravity/lib/cloudprovider/aws"
-	cloudaws "github.com/gravitational/gravity/lib/cloudprovider/aws"
 	cloudgce "github.com/gravitational/gravity/lib/cloudprovider/gce"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -183,7 +181,7 @@ type InstallConfig struct {
 	// of the operation
 	writeStateDir string
 	// app is the application being installed
-	app app.Application
+	app appservice.Application
 	// kubernetesResources lists additional Kubernetes resources supplied on command line
 	kubernetesResources []runtime.Object
 	// gravityResources lists additional Gravity resources supplied on command line
@@ -222,15 +220,15 @@ func newReconfigureConfig(env *localenv.LocalEnvironment, g *Application) (*Inst
 }
 
 // Apply updates the config with the data found from the cluster/operation.
-func (c *InstallConfig) Apply(cluster storage.Site, operation storage.SiteOperation) {
-	c.SiteDomain = cluster.Domain
-	c.AppPackage = cluster.App.Locator().String()
-	c.CloudProvider = cluster.Provider
-	c.PodCIDR = operation.Vars().OnPrem.PodCIDR
-	c.ServiceCIDR = operation.Vars().OnPrem.ServiceCIDR
-	c.VxlanPort = operation.Vars().OnPrem.VxlanPort
-	c.ServiceUID = cluster.ServiceUser.UID
-	c.ServiceGID = cluster.ServiceUser.GID
+func (i *InstallConfig) Apply(cluster storage.Site, operation storage.SiteOperation) {
+	i.SiteDomain = cluster.Domain
+	i.AppPackage = cluster.App.Locator().String()
+	i.CloudProvider = cluster.Provider
+	i.PodCIDR = operation.Vars().OnPrem.PodCIDR
+	i.ServiceCIDR = operation.Vars().OnPrem.ServiceCIDR
+	i.VxlanPort = operation.Vars().OnPrem.VxlanPort
+	i.ServiceUID = cluster.ServiceUser.UID
+	i.ServiceGID = cluster.ServiceUser.GID
 }
 
 // NewInstallConfig creates install config from the passed CLI args and flags
@@ -583,8 +581,9 @@ func (i *InstallConfig) BootstrapSELinux(ctx context.Context, printer utils.Prin
 		}
 		return nil
 	}
+	//nolint:staticcheck,nolintlint
 	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
+	if err != nil { //nolint:staticcheck,nolintlint
 		return trace.Wrap(err)
 	}
 	if !selinux.GetEnabled() {
@@ -610,7 +609,7 @@ func (i *InstallConfig) validateApplicationDir() error {
 }
 
 // getApp returns the application package for this installer
-func (i *InstallConfig) getApp() (app *app.Application, err error) {
+func (i *InstallConfig) getApp() (app *appservice.Application, err error) {
 	env, err := localenv.NewLocalEnvironment(localenv.LocalEnvironmentArgs{
 		StateDir:        i.StateDir,
 		ReadonlyBackend: true,
@@ -986,8 +985,9 @@ func (j *JoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Printer
 		}
 		return nil
 	}
+	//nolint:staticcheck,nolintlint
 	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
+	if err != nil { //nolint:staticcheck,nolintlint
 		return trace.Wrap(err)
 	}
 	if !selinux.GetEnabled() {
@@ -1037,17 +1037,17 @@ func (j *autojoinConfig) newJoinConfig() JoinConfig {
 	}
 }
 
-func (r *autojoinConfig) checkAndSetDefaults() error {
-	if r.advertiseAddr == "" {
+func (j *autojoinConfig) checkAndSetDefaults() error {
+	if j.advertiseAddr == "" {
 		return trace.BadParameter("advertise address is required")
 	}
-	if err := checkLocalAddr(r.advertiseAddr); err != nil {
+	if err := checkLocalAddr(j.advertiseAddr); err != nil {
 		return trace.Wrap(err)
 	}
-	if r.serviceURL == "" {
+	if j.serviceURL == "" {
 		return trace.BadParameter("service URL is required")
 	}
-	if r.token == "" {
+	if j.token == "" {
 		return trace.BadParameter("token is required")
 	}
 	return nil
@@ -1062,8 +1062,9 @@ func (j *autojoinConfig) bootstrapSELinux(ctx context.Context, printer utils.Pri
 		}
 		return nil
 	}
+	//nolint:staticcheck,nolintlint
 	metadata, err := monitoring.GetOSRelease()
-	if err != nil {
+	if err != nil { //nolint:staticcheck,nolintlint
 		return trace.Wrap(err)
 	}
 	if !selinux.GetEnabled() {
@@ -1094,6 +1095,7 @@ type autojoinConfig struct {
 	advertiseAddr string
 	token         string
 	seLinux       bool
+	region        string
 }
 
 func (r *agentConfig) newServiceArgs(gravityPath string) (args []string) {
@@ -1183,11 +1185,12 @@ func retryUpdateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoi
 		}
 		// TODO(Knisbet) replace with NewRequestWithContext when on golang 1.13
 		req = req.WithContext(ctx)
-		_, err = client.Do(req)
+		resp, err := client.Do(req)
 		if err != nil {
 			return trace.Wrap(err, "Waiting for service URL to become available.").
 				AddField("service_url", config.serviceURL)
 		}
+		resp.Body.Close()
 
 		return trace.Wrap(err)
 	}
@@ -1195,7 +1198,7 @@ func retryUpdateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoi
 }
 
 func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConfig) error {
-	instance, err := cloudaws.NewLocalInstance()
+	instance, err := awscloud.NewLocalInstance()
 	if err != nil {
 		log.WithError(err).Warn("Failed to fetch instance metadata on AWS.")
 		return trace.BadParameter("autojoin only supports AWS")
@@ -1204,6 +1207,7 @@ func updateJoinConfigFromCloudMetadata(ctx context.Context, config *autojoinConf
 
 	autoscaler, err := autoscaleaws.New(autoscaleaws.Config{
 		ClusterName: config.clusterName,
+		Region:      config.region,
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -1299,6 +1303,7 @@ func generateClusterName() string {
 	return fmt.Sprintf(
 		"%v%d",
 		strings.Replace(namesgenerator.GetRandomName(0), "_", "", -1),
+		//nolint:gosec
 		rand.Intn(10000))
 }
 
@@ -1308,14 +1313,14 @@ func AborterForMode(serviceName, mode string, env *localenv.LocalEnvironment) fu
 	case constants.InstallModeInteractive:
 		return installerInteractiveUninstallSystem(env)
 	default:
-		return installerAbortOperation(serviceName, env)
+		return installerAbortOperation(serviceName)
 	}
 }
 
 // installerAbortOperation implements the clean up phase when the installer service
 // is explicitly interrupted by user.
 // stateDir specifies the location of operation-specific state
-func installerAbortOperation(serviceName string, env *localenv.LocalEnvironment) func(context.Context) error {
+func installerAbortOperation(serviceName string) func(context.Context) error {
 	return func(ctx context.Context) error {
 		logger := log.WithField(trace.Component, "installer:abort").WithField("service", serviceName)
 		logger.Info("Leaving cluster.")
@@ -1353,7 +1358,7 @@ func installerInteractiveUninstallSystem(env *localenv.LocalEnvironment) func(co
 }
 
 // InstallerCompleteOperation implements the clean up phase when the installer service
-// shuts down after a sucessfully completed operation
+// shuts down after a successfully completed operation
 func InstallerCompleteOperation(serviceName string, env *localenv.LocalEnvironment) installerclient.CompletionHandler {
 	return func(ctx context.Context, status installpb.ProgressResponse_Status) error {
 		logger := log.WithField(trace.Component, "installer:cleanup").WithField("service", serviceName)

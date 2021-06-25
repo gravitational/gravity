@@ -52,7 +52,7 @@ func top(env *localenv.LocalEnvironment, interval, step time.Duration) error {
 	}
 	defer termui.Close()
 
-	go render(env, context.TODO(), prometheusClient, interval, step)
+	go render(context.TODO(), env, prometheusClient, interval, step)
 
 	termui.Handle("/sys/kbd/q", func(termui.Event) {
 		termui.StopLoop()
@@ -64,7 +64,7 @@ func top(env *localenv.LocalEnvironment, interval, step time.Duration) error {
 
 // render continuously spins in a loop retrieving cluster metrics and rendering
 // terminal widgets at a certain interval.
-func render(env *localenv.LocalEnvironment, ctx context.Context, client monitoring.Metrics, interval, step time.Duration) {
+func render(ctx context.Context, env *localenv.LocalEnvironment, client monitoring.Metrics, interval, step time.Duration) {
 	ticker := time.NewTicker(refreshInterval)
 	defer ticker.Stop()
 	for {
@@ -238,7 +238,7 @@ func getChart(p chartParams) *termui.LineChart {
 	return chart
 }
 
-// Dimensions contains dimentions (height/width) for terminal widgets.
+// Dimensions contains dimensions (height/width) for terminal widgets.
 type Dimensions struct {
 	TitleH, TitleW int
 	GaugeH, GaugeW int

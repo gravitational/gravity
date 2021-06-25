@@ -340,8 +340,8 @@ func NewWebHandler(cfg WebHandlerConfig) (*WebHandler, error) {
 
 // ServeHTTP lets the authentication middleware serve the request before
 // passing it through to the router.
-func (s *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.middleware.ServeHTTP(w, r)
+func (h *WebHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.middleware.ServeHTTP(w, r)
 }
 
 func (h *WebHandler) options(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -375,7 +375,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 
    GET /portal/v1/status
 
-   checkers expect the response to be exaclty: {"status": "healthy"}
+   checkers expect the response to be exactly: {"status": "healthy"}
    otherwise they will alert with the response body
 */
 func (h *WebHandler) getStatus(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -687,7 +687,7 @@ func (h *WebHandler) updateUser(w http.ResponseWriter, r *http.Request, p httpro
    Success response:
 
    {
-     "message": "user jenkins deleted"
+     "message": "user alice deleted"
    }
 */
 func (h *WebHandler) deleteLocalUser(w http.ResponseWriter, r *http.Request, p httprouter.Params, context *HandlerContext) error {
@@ -2380,8 +2380,8 @@ func (h *WebHandler) emitAuditEvent(w http.ResponseWriter, r *http.Request, p ht
 	return nil
 }
 
-func (s *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
-	return NeedsAuth(s.cfg.Devmode, s.cfg.Backend, s.cfg.Operator, s.cfg.Authenticator, s.cfg.Users, fn)
+func (h *WebHandler) needsAuth(fn ServiceHandle) httprouter.Handle {
+	return NeedsAuth(h.cfg.Devmode, h.cfg.Backend, h.cfg.Operator, h.cfg.Authenticator, h.cfg.Users, fn)
 }
 
 // GetHandlerContext authenticates the user that made the request and returns
@@ -2396,10 +2396,9 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 	}
 
 	// Enrich the request context with additional auth info.
-	ctx := r.Context()
-	ctx = context.WithValue(ctx, constants.UserContext, authResult.User.GetName())
+	ctx := ops.NewUserContext(r.Context(), authResult.User.GetName())
 	if authResult.Session != nil {
-		ctx = context.WithValue(ctx, constants.WebSessionContext, authResult.Session.GetWebSession())
+		ctx = ops.NewSessionContext(ctx, authResult.Session.GetWebSession())
 	}
 
 	// create a permission aware wrapper packages service
@@ -2412,7 +2411,7 @@ func GetHandlerContext(w http.ResponseWriter, r *http.Request, backend storage.B
 		return nil, trace.BadParameter("internal server error")
 	}
 	// enrich context with operator bound to current user
-	ctx = context.WithValue(ctx, constants.OperatorContext, wrappedOperator)
+	ctx = ops.NewOperatorContext(ctx, wrappedOperator)
 	handlerContext := &HandlerContext{
 		Operator: wrappedOperator,
 		User:     authResult.User,

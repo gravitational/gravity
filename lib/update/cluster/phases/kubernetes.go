@@ -43,7 +43,7 @@ type phaseTaint struct {
 }
 
 // NewPhaseTaint returns a new executor for adding a taint to a node
-func NewPhaseTaint(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseTaint, error) {
+func NewPhaseTaint(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -76,7 +76,7 @@ type phaseUntaint struct {
 }
 
 // NewPhaseUntaint returns a new executor for removing a taint from a node
-func NewPhaseUntaint(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseUntaint, error) {
+func NewPhaseUntaint(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -108,7 +108,7 @@ type phaseDrain struct {
 }
 
 // NewPhaseDrain returns a new executor for draining a node
-func NewPhaseDrain(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseDrain, error) {
+func NewPhaseDrain(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -144,7 +144,7 @@ type phaseKubeletPermissions struct {
 }
 
 // NewPhaseKubeletPermissions returns a new executor for bootstrapping additional kubelet permissions
-func NewPhaseKubeletPermissions(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseKubeletPermissions, error) {
+func NewPhaseKubeletPermissions(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -172,7 +172,7 @@ type phaseUncordon struct {
 }
 
 // NewPhaseUncordon returns a new executor for uncordoning a node
-func NewPhaseUncordon(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseUncordon, error) {
+func NewPhaseUncordon(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -202,7 +202,7 @@ type phaseEndpoints struct {
 }
 
 // NewPhaseEndpoints returns a new executor for waiting for endpoints
-func NewPhaseEndpoints(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (*phaseEndpoints, error) {
+func NewPhaseEndpoints(p fsm.ExecutorParams, client *kubeapi.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	op, err := newKubernetesOperation(p, client, logger)
 	if err != nil {
 		return nil, trace.Wrap(err)

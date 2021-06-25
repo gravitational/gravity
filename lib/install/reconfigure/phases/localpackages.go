@@ -32,7 +32,7 @@ import (
 //
 // Specifically, it removes configuration and secret packages left from
 // the original installation from the node local state.
-func NewPackages(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (*packagesExecutor, error) {
+func NewPackages(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

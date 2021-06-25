@@ -36,9 +36,7 @@ import (
 // Collect collects diagnostic information using the default set of collectors.
 // The results are written as a compressed tarball to w.
 func Collect(ctx context.Context, config Config, w io.Writer) error {
-	if err := config.checkAndSetDefaults(); err != nil {
-		return trace.Wrap(err)
-	}
+	config.setDefaults()
 	var collectors Collectors
 	for _, filter := range teleutils.Deduplicate(config.Filters) {
 		switch filter {
@@ -86,14 +84,13 @@ func Collect(ctx context.Context, config Config, w io.Writer) error {
 	return trace.ConvertSystemError(err)
 }
 
-func (r *Config) checkAndSetDefaults() error {
+func (r *Config) setDefaults() {
 	if len(r.Filters) == 0 {
 		r.Filters = AllFilters
 	}
 	if r.FieldLogger == nil {
 		r.FieldLogger = log.WithField(trace.Component, "report-collector")
 	}
-	return nil
 }
 
 // Config defines collector configuration

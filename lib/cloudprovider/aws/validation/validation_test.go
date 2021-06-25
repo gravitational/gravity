@@ -36,7 +36,7 @@ func (r *ValidationSuite) TestAddsDependencies(c *C) {
 	probes := Probes{
 		{Action{IAM, "AddRoleToInstanceProfile"}, validateAddRoleToInstanceProfile},
 	}
-	actions, err := validateWithContext(client, probes, validator, context.TODO())
+	actions, err := validateWithContext(context.TODO(), client, probes, validator)
 	c.Assert(err, IsNil)
 	c.Assert(actions, DeepEquals, Actions{
 		{IAM, "AddRoleToInstanceProfile"},
@@ -48,7 +48,7 @@ func (r *ValidationSuite) TestEmptyStatementAlwaysValidates(c *C) {
 	validator := fakeValidator{}
 	client := &clientContext{}
 	var probes Probes
-	actions, err := validateWithContext(client, probes, validator, context.TODO())
+	actions, err := validateWithContext(context.TODO(), client, probes, validator)
 	c.Assert(err, IsNil)
 	c.Assert(actions, IsNil)
 }

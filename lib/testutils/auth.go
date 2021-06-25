@@ -400,9 +400,9 @@ func (s *AuthClient) RotateCertAuthority(req auth.RotateRequest) error {
 func (s *AuthClient) RotateExternalCertAuthority(ca services.CertAuthority) error {
 	return nil
 }
-func (c *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
+func (s *AuthClient) UploadSessionRecording(r events.SessionRecording) error {
 	return nil
 }
-func (c *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
+func (s *AuthClient) GetClusterCACert() (*auth.LocalCAResponse, error) {
 	return nil, nil
 }

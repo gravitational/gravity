@@ -63,7 +63,7 @@ func (s *site) createShrinkOperation(context context.Context, req ops.CreateSite
 		SiteDomain:  s.key.SiteDomain,
 		Type:        ops.OperationShrink,
 		Created:     s.clock().UtcNow(),
-		CreatedBy:   storage.UserFromContext(context),
+		CreatedBy:   ops.UserFromContext(context),
 		Updated:     s.clock().UtcNow(),
 		State:       ops.OperationStateShrinkInProgress,
 		Provisioner: server.Provisioner,
@@ -306,8 +306,7 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 		}
 	}
 
-	// if the node is online, it needs to leave the serf cluster to
-	// prevent joining back
+	// if the node is online, drain the node
 	if online {
 		if !force {
 			s.reportProgress(opCtx, ops.ProgressEntry{
@@ -320,20 +319,6 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 			if err != nil {
 				return trace.Wrap(err, "failed to drain the node")
 			}
-		}
-
-		s.reportProgress(opCtx, ops.ProgressEntry{
-			State:      ops.ProgressStateInProgress,
-			Completion: 35,
-			Message:    "removing the node from the serf cluster",
-		})
-
-		err = s.serfNodeLeave(agentRunner)
-		if err != nil {
-			if !force {
-				return trace.Wrap(err, "failed to remove the node from the serf cluster")
-			}
-			logger.WithError(err).Warn("Failed to remove node from serf cluster.")
 		}
 	}
 
@@ -374,9 +359,7 @@ func (s *site) shrinkOperationStart(opCtx *operationContext) (err error) {
 			Message:    "uninstalling the system software",
 		})
 
-		if err = s.uninstallSystem(opCtx, agentRunner); err != nil {
-			logger.WithError(err).Warn("Failed to uninstall the system software.")
-		}
+		s.uninstallSystem(opCtx, agentRunner)
 	}
 
 	if isAWSProvisioner(opCtx.operation.Provisioner) {
@@ -466,10 +449,11 @@ func (s *site) pickShrinkMasterRunner(ctx *operationContext, removedServer stora
 		return nil, trace.Wrap(err)
 	}
 	// Pick any master server except the one that's being removed.
-	for _, master := range masters {
+	for i, master := range masters {
 		if master.IP != removedServer.AdvertiseIP {
 			return &serverRunner{
-				&master, &teleportRunner{ctx, s.domainName, s.teleport()},
+				server: &masters[i],
+				runner: &teleportRunner{ctx, s.domainName, s.teleport()},
 			}, nil
 		}
 	}
@@ -527,7 +511,7 @@ func (s *site) removeFromEtcd(ctx context.Context, opCtx *operationContext, serv
 	})
 }
 
-func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) error {
+func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) {
 	commands := [][]string{
 		s.gravityCommand("system", "uninstall",
 			"--confirm",
@@ -543,8 +527,6 @@ func (s *site) uninstallSystem(ctx *operationContext, runner *serverRunner) erro
 			}).Error("Failed to run.")
 		}
 	}
-
-	return nil
 }
 
 func (s *site) launchAgent(ctx context.Context, opCtx *operationContext, server storage.Server) (*serverRunner, error) {
@@ -734,14 +716,10 @@ func (s *site) removeObjectPeer(peerID string) error {
 }
 
 func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner) (err error) {
-	provisionedServer := ProvisionedServer{Server: server}
 	commands := [][]string{
 		s.planetEnterCommand(
 			defaults.KubectlBin, "delete", "nodes", "--ignore-not-found=true",
 			fmt.Sprintf("-l=%v=%v", v1.LabelHostname, server.KubeNodeID())),
-		// Issue `serf force-leave -prune` from the master node to immediately
-		// evict the member from the serf cluster.
-		s.planetEnterCommand(defaults.SerfBin, "force-leave", "-prune", provisionedServer.AgentName(s.domainName)),
 	}
 
 	err = utils.Retry(defaults.RetryInterval, defaults.RetryAttempts, func() error {
@@ -754,21 +732,6 @@ func (s *site) removeNodeFromCluster(server storage.Server, runner *serverRunner
 		return nil
 	})
 
-	return trace.Wrap(err)
-}
-
-// serfNodeLeave removes the node specified with runner from the serf cluster
-// by issuing a `serf leave` from the node itself.
-func (s *site) serfNodeLeave(runner *serverRunner) error {
-	// Issue `serf leave` from the node to remove the node from the serf cluster
-	command := s.planetEnterCommand(defaults.SerfBin, "leave")
-	err := utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		out, err := runner.Run(command...)
-		if err != nil {
-			return trace.Wrap(err, "command %q failed: %s", command, out)
-		}
-		return nil
-	})
 	return trace.Wrap(err)
 }
 

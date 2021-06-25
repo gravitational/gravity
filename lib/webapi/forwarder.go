@@ -115,22 +115,14 @@ func (s *sessionContext) key() string {
 	return fmt.Sprintf("%v.%v.%v", s.clusterName, s.webSession.GetUser(), s.webSession.GetName())
 }
 
-func getSessionContext(clusterName string, ctx context.Context) (*sessionContext, error) {
-	webSessionI := ctx.Value(constants.WebSessionContext)
-	if webSessionI == nil {
+func getSessionContext(ctx context.Context, clusterName string) (*sessionContext, error) {
+	webSession := ops.SessionFromContext(ctx)
+	if webSession == nil {
 		return nil, trace.NotFound("missing web session context")
 	}
-	webSession, ok := webSessionI.(teleservices.WebSession)
-	if !ok {
-		return nil, trace.BadParameter("unsupported web session type")
-	}
-	operatorI := ctx.Value(constants.OperatorContext)
-	if webSessionI == nil {
+	operator := ops.OperatorFromContext(ctx)
+	if operator == nil {
 		return nil, trace.NotFound("missing operator context")
-	}
-	operator, ok := operatorI.(ops.Operator)
-	if !ok {
-		return nil, trace.BadParameter("unsupported web session type")
 	}
 	return &sessionContext{operator: operator, webSession: webSession, clusterName: clusterName}, nil
 }
@@ -182,6 +174,7 @@ func (f *forwarder) newKubeForwarder(ctx *sessionContext) (*forward.Forwarder, e
 		return nil, trace.BadParameter("failed to append certs from PEM")
 	}
 
+	//nolint:gosec // TODO: set MinVersion
 	tlsConfig := &tls.Config{
 		RootCAs:      pool,
 		Certificates: []tls.Certificate{cert},
@@ -234,8 +227,8 @@ func (f *forwarder) newKubeForwarder(ctx *sessionContext) (*forward.Forwarder, e
 	return fwd, nil
 }
 
-func (f *forwarder) getOrCreateKubeForwarder(clusterName string, ctx context.Context) (*forward.Forwarder, error) {
-	sessionContext, err := getSessionContext(clusterName, ctx)
+func (f *forwarder) getOrCreateKubeForwarder(ctx context.Context, clusterName string) (*forward.Forwarder, error) {
+	sessionContext, err := getSessionContext(ctx, clusterName)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -250,7 +243,7 @@ func (f *forwarder) getOrCreateKubeForwarder(clusterName string, ctx context.Con
 
 // ForwardToKube forwards the request to the k8s TLS API
 func (f *forwarder) ForwardToKube(w http.ResponseWriter, r *http.Request, clusterName, URL string) error {
-	fwd, err := f.getOrCreateKubeForwarder(clusterName, r.Context())
+	fwd, err := f.getOrCreateKubeForwarder(r.Context(), clusterName)
 	if err != nil {
 		return trace.Wrap(err)
 	}

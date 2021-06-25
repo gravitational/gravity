@@ -33,7 +33,7 @@ import (
 )
 
 // NewNode returns executor that removes old Kubernetes node object.
-func NewNode(p fsm.ExecutorParams, operator ops.Operator) (*nodeExecutor, error) {
+func NewNode(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

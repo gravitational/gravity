@@ -25,7 +25,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
-	"github.com/gravitational/gravity/lib/fsm"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
@@ -174,9 +173,9 @@ type updater interface {
 	io.Closer
 	Run(ctx context.Context) error
 	RunPhase(ctx context.Context, phase string, phaseTimeout time.Duration, force bool) error
-	RollbackPhase(ctx context.Context, params fsm.Params, phaseTimeout time.Duration) error
+	RollbackPhase(ctx context.Context, params libfsm.Params, phaseTimeout time.Duration) error
 	Complete(context.Context, error) error
-	Check(params fsm.Params) error
+	Check(params libfsm.Params) error
 }
 
 func clusterStateFromPlan(plan storage.OperationPlan) (result storage.ClusterState) {

@@ -34,11 +34,11 @@ type FSMSpecFunc func(FSMConfig) fsm.FSMSpecFunc
 
 // FSMSpec is the install FSM spec.
 //
-// It may be overriden by external implementations to support additional
+// It may be overridden by external implementations to support additional
 // install operation phases (e.g. by the enterprise version).
 var FSMSpec FSMSpecFunc = DefaultFSMSpec
 
-// DefaultFSMSpec returns a function that returns an the default install FSM
+// DefaultFSMSpec returns a function that returns the default install FSM
 // spec for the provided install FSM config.
 func DefaultFSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 	return func(p fsm.ExecutorParams, remote fsm.Remote) (fsm.PhaseExecutor, error) {

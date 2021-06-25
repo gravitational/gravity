@@ -39,18 +39,18 @@ func (r *ValidationSuite) TestComputesDiff(c *check.C) {
 	}{
 		{
 			total: []*pb.Addr{
-				&pb.Addr{Network: "udp", Addr: "1.2.3.6:1012"},
-				&pb.Addr{Network: "tcp", Addr: "1.2.3.4:1010"},
-				&pb.Addr{Network: "tcp", Addr: "1.2.3.5:1011"},
+				{Network: "udp", Addr: "1.2.3.6:1012"},
+				{Network: "tcp", Addr: "1.2.3.4:1010"},
+				{Network: "tcp", Addr: "1.2.3.5:1011"},
 			},
 			actual: []*pb.ServerResult{
-				&pb.ServerResult{Code: 1, Error: "connection refused",
+				{Code: 1, Error: "connection refused",
 					Server: &pb.Addr{Network: "tcp", Addr: "1.2.3.4:1010"},
 				},
 			},
 			diff: []*pb.Addr{
-				&pb.Addr{Network: "tcp", Addr: "1.2.3.5:1011"},
-				&pb.Addr{Network: "udp", Addr: "1.2.3.6:1012"},
+				{Network: "tcp", Addr: "1.2.3.5:1011"},
+				{Network: "udp", Addr: "1.2.3.6:1012"},
 			},
 		},
 	}

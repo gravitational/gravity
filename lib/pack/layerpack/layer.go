@@ -150,7 +150,7 @@ func (l *Layer) DeletePackage(loc loc.Locator) error {
 	return l.outer.DeletePackage(loc)
 }
 
-// Read package opens and returns package contents
+// ReadPackage package opens and returns package contents
 func (l *Layer) ReadPackage(loc loc.Locator) (*pack.PackageEnvelope, io.ReadCloser, error) {
 	e, rc, err := l.outer.ReadPackage(loc)
 	if err == nil {

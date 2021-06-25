@@ -22,7 +22,6 @@ import (
 	"io"
 	"strconv"
 	"text/template"
-	"time"
 
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/constants"
@@ -116,10 +115,10 @@ func configureMetadata(job *batchv1.Job, p Params) error {
 		job.Spec.ActiveDeadlineSeconds = new(int64)
 	}
 	if *job.Spec.ActiveDeadlineSeconds == 0 {
-		*job.Spec.ActiveDeadlineSeconds = int64(time.Duration(
-			defaults.HookJobDeadline).Seconds())
+		*job.Spec.ActiveDeadlineSeconds =
+			int64(defaults.HookJobDeadline.Seconds())
 	}
-	// deadline may have been overridden via hook request, if so, it takes precendence
+	// deadline may have been overridden via hook request, if so, it takes precedence
 	if p.JobDeadline != 0 {
 		*job.Spec.ActiveDeadlineSeconds = int64(p.JobDeadline.Seconds())
 	}
@@ -426,7 +425,7 @@ type initScriptContext struct {
 	StateDir string
 	// ServiceURL specifies the URL to the cluster controller service
 	ServiceURL string
-	// DirectServiceAddr specifies the optional addres of the cluster
+	// DirectServiceAddr specifies the optional address of the cluster
 	// controller service as IP:Port. If specified, has priority over
 	// the DNS name to avoid a resolution step.
 	//

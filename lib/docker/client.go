@@ -51,7 +51,7 @@ func NewClientWithTimeout(endpoint string, timeout time.Duration) (*dockerapi.Cl
 }
 
 // NewDefaultClient returns a new docker client using defaults
-func NewDefaultClient() (DockerInterface, error) {
+func NewDefaultClient() (Interface, error) {
 	endpoint := utils.GetenvWithDefault("DOCKER_HOST", constants.DockerEngineURL)
 	client, err := NewClient(endpoint)
 	if err != nil {

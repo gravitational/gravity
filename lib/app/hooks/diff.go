@@ -41,7 +41,6 @@ func diffPodSets(existing map[string]v1.Pod, new map[string]v1.Pod) []podDiff {
 				diffs = append(diffs, diff)
 			}
 		}
-
 	}
 	return diffs
 }

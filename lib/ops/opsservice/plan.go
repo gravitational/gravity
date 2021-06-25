@@ -117,28 +117,27 @@ func (s *ProvisionedServer) EtcdMemberName(domain string) string {
 }
 
 // AgentName returns a unique agent name for this server.
-// The name of the agent is used to refer to this server in the serf cluster.
+// The name of the agent is used to refer to this server in the cluster.
 func (s *ProvisionedServer) AgentName(domain string) string {
 	return s.FQDN(domain)
 }
 
+// IsMaster determines whether this server is a master
 func (s *ProvisionedServer) IsMaster() bool {
 	return s.Profile.ServiceRole == schema.ServiceRoleMaster
 }
 
-func (s *ProvisionedServer) PackageSuffix(domain string) string {
-	return PackageSuffix(s, domain)
-}
-
-// Name returns unqualified name - without cluster name
+// UnqualifiedName returns unqualified name - without cluster name
 func (s *ProvisionedServer) UnqualifiedName(clusterName string) string {
 	return strings.TrimSuffix(s.FQDN(clusterName), "."+clusterName)
 }
 
+// FQDN returns this server's fully qualified domain name
 func (s *ProvisionedServer) FQDN(domain string) string {
 	return FQDN(domain, s.Server.Hostname, s.AdvertiseIP)
 }
 
+// String returns a text description of this server
 func (s *ProvisionedServer) String() string {
 	return fmt.Sprintf(
 		"ProvisionedServer(hostname=%v,ip=%v)", s.Hostname, s.AdvertiseIP)
@@ -149,6 +148,7 @@ func (s *ProvisionedServer) InGravity(dir ...string) string {
 	return filepath.Join(append([]string{s.StateDir()}, dir...)...)
 }
 
+// FQDN returns a fully qualified domain name from specified parameter
 func FQDN(domain, hostname, ip string) string {
 	// in case hostname comes already with this domain suffix,
 	// we assume that it's set by provisioner or user in on-prem

@@ -197,7 +197,7 @@ func SetDefaults(manifest *Manifest) error {
 		}
 
 		// Allow using the gravity labels to indicate the service role and not just the kubernetes labels
-		// as the kubernetes labels may have undesireable implications
+		// as the kubernetes labels may have undesirable implications
 		if label, ok := manifest.NodeProfiles[i].Labels[ServiceLabelRole]; ok {
 			manifest.NodeProfiles[i].ServiceRole = ServiceRole(label)
 		}

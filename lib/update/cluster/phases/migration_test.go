@@ -55,19 +55,17 @@ func (s *PhaseMigrationSuite) SetUpSuite(c *check.C) {
 }
 
 func (s *PhaseMigrationSuite) TestMigrateRoles(c *check.C) {
-	phase, err := NewPhaseMigrateRoles(
-		storage.OperationPlan{
-			OperationID: "op-1",
-			ClusterName: s.cluster.Domain,
-		},
-		s.backend, logrus.StandardLogger())
-	c.Assert(err, check.IsNil)
-
-	phase.getBackupBackend = func(_ string) (storage.Backend, error) {
+	getBackupBackend := func(string) (storage.Backend, error) {
 		return keyval.NewBolt(keyval.BoltConfig{
 			Path: filepath.Join(s.backupDir, "backup.db"),
 		})
 	}
+	phase := newPhaseMigrateRoles(
+		storage.OperationPlan{
+			OperationID: "op-1",
+			ClusterName: s.cluster.Domain,
+		},
+		s.backend, logrus.StandardLogger(), getBackupBackend)
 
 	role, err := users.NewSystemRole(constants.RoleAdmin, teleservices.RoleSpecV3{
 		Allow: teleservices.RoleConditions{
@@ -187,4 +185,15 @@ func (s *PhaseMigrationSuite) TestMigrateLinks(c *check.C) {
 	clustersAfterRollback, err := s.backend.GetTrustedClusters()
 	c.Assert(err, check.IsNil)
 	c.Assert(len(clustersAfterRollback), check.Equals, 0)
+}
+
+// newPhaseMigrateRoles returns a new roles migration executor
+func newPhaseMigrateRoles(plan storage.OperationPlan, backend storage.Backend, logger logrus.FieldLogger, getBackupBackend func(string) (storage.Backend, error)) *phaseMigrateRoles {
+	return &phaseMigrateRoles{
+		FieldLogger:      logger,
+		Backend:          backend,
+		ClusterName:      plan.ClusterName,
+		OperationID:      plan.OperationID,
+		getBackupBackend: getBackupBackend,
+	}
 }

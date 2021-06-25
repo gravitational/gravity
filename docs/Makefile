@@ -8,7 +8,7 @@ DOCKERPORTS = -p $(PORT):$(PORT)
 NOROOT=-u $$(id -u):$$(id -g)
 DOCKERFLAGS = --rm=true $(NOROOT) -v "$$(pwd)/../":$(WORKDIR) -w $(WORKDIR)/docs -h docs
 DOCKERMAKE=docker run $(DOCKERFLAGS) $(DOCBOX) make
-VERSIONS=4.x 5.x 6.x 7.x
+VERSIONS=4.x 5.x 6.x 7.x 8.x 9.x
 LATEST=$(lastword $(VERSIONS))
 CFGS=$(addsuffix .yaml, $(VERSIONS))
 LATEST_CFG=$(lastword $(CFGS))
@@ -44,7 +44,6 @@ $(DOCBOX_ID_FILE): Dockerfile
 	docker build \
 		--build-arg UID=$$(id -u) \
 		--build-arg GID=$$(id -g) \
-		--build-arg WORKDIR=$(WORKDIR) \
 		--build-arg PORT=$(PORT) \
 		--tag $(DOCBOX) .
 	# prefer --iidfile to touch, but jenkin's docker is too old. See ops issue #141

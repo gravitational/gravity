@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/app/resources"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/constants"
@@ -55,7 +54,7 @@ import (
 // VendorerConfig is configuration for vendorer
 type VendorerConfig struct {
 	// DockerClient is the docker client to use to manage images
-	DockerClient docker.DockerInterface
+	DockerClient docker.Interface
 	// ImageService is the docker registry service
 	docker.ImageService
 	// RegistryURL is the URL of the active docker registry to use
@@ -65,8 +64,9 @@ type VendorerConfig struct {
 }
 
 // NewVendorer creates a new vendorer instance.
+//nolint:revive // will be exported in a separate PR
 func NewVendorer(config VendorerConfig) (*vendorer, error) {
-	dockerPuller := docker.NewDockerPuller(config.DockerClient)
+	dockerPuller := docker.NewPuller(config.DockerClient)
 	v := &vendorer{
 		dockerClient: config.DockerClient,
 		imageService: config.ImageService,
@@ -101,6 +101,8 @@ type VendorRequest struct {
 	ResourcePatterns []string
 	// IgnoreResourcePatterns is a list of file path patterns to ignore when searching for images
 	IgnoreResourcePatterns []string
+	// ImageCacheDir is the directory were the pulled docker images are cached between builds
+	ImageCacheDir string
 	// SetImages is a list of images to rewrite to new versions
 	SetImages []loc.DockerImage
 	// SetDeps is a list of app dependencies to rewrite to new versions
@@ -128,9 +130,9 @@ type VendorRequest struct {
 // vendorer is a helper struct that encapsulates all services needed to vendor/rewrite images in
 // the application being imported.
 type vendorer struct {
-	dockerClient docker.DockerInterface
+	dockerClient docker.Interface
 	imageService docker.ImageService
-	dockerPuller docker.DockerPuller
+	dockerPuller docker.PullService
 	registryURL  string
 	packages     pack.PackageService
 }
@@ -177,7 +179,9 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	// first, rewrite all "multi-source" values that might refer to files and replace them
 	// with literal values, since some of them may also contain docker image references
 	// and generate overlay network jobs
-	err = resourceFiles.RewriteManifest(makeRewriteMultiSourceFunc(req.ManifestPath), makeRewriteWormholeJobFunc())
+	err = resourceFiles.RewriteManifest(ctx,
+		makeRewriteMultiSourceFunc(req.ManifestPath),
+		makeRewriteWormholeJobFunc())
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -208,6 +212,10 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	log.Infof("Chart images: %v.", chartImages)
 
 	images = append(images, chartImages...)
+	// pull the default container image along with the rest of images
+	images = append(images, defaults.ContainerImage)
+
+	log.Infof("All images to push to the registry: %v.", images)
 
 	// Now that we have all referenced images in our local registry, and can find them without
 	// a registry prefix, rewrite our resource files to vendor the images.
@@ -225,30 +233,21 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		manifestRewrites = append(manifestRewrites, fetchRuntimeImages(&runtimeImages))
 	}
 
-	err = resourceFiles.RewriteManifest(manifestRewrites...)
+	err = resourceFiles.RewriteManifest(ctx, manifestRewrites...)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	// pull the default container image along with the rest of images
-	imagesToPull := append(images, defaults.ContainerImage)
-	imagesToPull = append(imagesToPull, runtimeImages...)
-
 	group, groupCtx := run.WithContext(ctx, run.WithParallel(req.Parallel))
-	for _, image := range imagesToPull {
+	for i := range runtimeImages {
+		image := runtimeImages[i] // create new variable for goroutine below
 		log := log.WithField("image", image)
-		if strings.HasPrefix(image, v.registryURL) {
-			// image has already been vendored
-			continue
-		}
-		image := image // create new variable for go routine below
 		group.Go(groupCtx, func() error {
 			// pull all missing images (this will correctly fail for images without a remote
 			// registry that do not exist i.e. due to failed image build)
 			if err := pullMissingRemoteImage(image, v.dockerPuller, log, req); err != nil {
 				return trace.Wrap(err)
 			}
-
 			// tag all images without their registry, so that we can find them later after
 			// stripping remote registries
 			if err := tagImageWithoutRegistry(image, v.dockerClient, log); err != nil {
@@ -262,7 +261,7 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 	}
 
 	if req.VendorRuntime {
-		err = resourceFiles.RewriteManifest(v.translateRuntimeImages)
+		err = resourceFiles.RewriteManifest(ctx, v.translateRuntimeImages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -272,29 +271,9 @@ func (v *vendorer) VendorDir(ctx context.Context, unpackedDir string, req Vendor
 		return trace.Wrap(err)
 	}
 
-	if ok, _ := utils.IsDirectory(filepath.Join(unpackedDir, defaults.RegistryDir)); ok {
-		log.Debug("Registry layers are present.")
-		return nil
-	}
-
-	// if the application package does not contain the dump of docker images of the referenced
-	// containers, pull all the necessary images, then export those images to disk
-	images, err = resourceFiles.Images()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	images = append(images, hooks.InitContainerImage)
-	for i, image := range images {
-		images[i] = v.imageService.Unwrap(image)
-	}
-
-	log.Infof("No registry layers found, will pull and export images %q.", images)
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(images), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
-		return trace.Wrap(err)
-	}
-
-	if err = v.pullAndExportImages(ctx, teleutils.Deduplicate(chartImages), unpackedDir, req.Parallel, req.ProgressReporter); err != nil {
+	exportImages := excludeImagesStartingWith(teleutils.Deduplicate(images), v.registryURL)
+	if err = v.pullAndExportImages(ctx, exportImages, unpackedDir, req.ImageCacheDir, req.Parallel,
+		req.Pull, req.ProgressReporter); err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -379,7 +358,14 @@ func printResourceStatus(resourceFile resources.ResourceFile, req VendorRequest)
 // pullAndExportImages pulls the docker images of all referenced container images (if not yet
 // present locally), pushes them into an instance of a private docker registry and then
 // dumps the contents of this private registry into the specified directory
-func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exportDir string, parallel int, progress utils.Progress) error {
+func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exportDir, dockerCacheDir string,
+	parallel int, forcePull bool, progress utils.Progress) error {
+	if dockerCacheDir != "" {
+		_, err := utils.StatDir(dockerCacheDir)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	resourcesDir := filepath.Join(exportDir, "resources")
 	if err := os.MkdirAll(resourcesDir, defaults.PrivateDirMask); err != nil {
 		return trace.Wrap(trace.ConvertSystemError(err),
@@ -397,14 +383,27 @@ func (v *vendorer) pullAndExportImages(ctx context.Context, images []string, exp
 			"failed to create %q", layersDir)
 	}
 
-	if err := exportLayers(ctx, exportDir, images, v.dockerClient,
-		log.WithField("export-directory", exportDir), parallel, progress); err != nil {
+	registryDir := layersDir
+	if dockerCacheDir != "" {
+		registryDir = dockerCacheDir
+	}
+
+	if err := exportLayers(ctx, registryDir, images, v.dockerClient,
+		log.WithField("export-directory", registryDir), parallel, forcePull, progress); err != nil {
 		return trace.Wrap(err)
+	}
+	if dockerCacheDir != "" {
+		if err := utils.CopyDirContents(dockerCacheDir, layersDir); err != nil {
+			return trace.Wrap(err, "failed to copy directory from %q to %q", dockerCacheDir, layersDir)
+		}
+		if err := docker.CleanRegistry(ctx, layersDir, images); err != nil {
+			return trace.Wrap(err, "failed to clean registry %s", registryDir)
+		}
 	}
 	return nil
 }
 
-func (v *vendorer) translateRuntimeImages(m *schema.Manifest) error {
+func (v *vendorer) translateRuntimeImages(ctx context.Context, m *schema.Manifest) error {
 	if m.SystemOptions != nil && m.SystemOptions.BaseImage != "" {
 		_, tag, err := parseImageNameTag(m.SystemOptions.BaseImage)
 		if err != nil {
@@ -418,10 +417,10 @@ func (v *vendorer) translateRuntimeImages(m *schema.Manifest) error {
 				defaults.SystemAccountOrg, constants.PlanetPackage, tag)
 		}
 		req := docker.TranslateImageRequest{
-			Image:           m.SystemOptions.BaseImage,
-			Package:         *runtimePackage,
-			DockerInterface: v.dockerClient,
-			PackageService:  v.packages,
+			Image:          m.SystemOptions.BaseImage,
+			Package:        *runtimePackage,
+			Client:         v.dockerClient,
+			PackageService: v.packages,
 		}
 		if err := docker.TranslateRuntimeImage(req); err != nil {
 			return trace.Wrap(err)
@@ -446,10 +445,10 @@ func (v *vendorer) translateRuntimeImages(m *schema.Manifest) error {
 			}
 			runtimePackage = *newPackage
 			req := docker.TranslateImageRequest{
-				Image:           profile.SystemOptions.BaseImage,
-				Package:         runtimePackage,
-				DockerInterface: v.dockerClient,
-				PackageService:  v.packages,
+				Image:          profile.SystemOptions.BaseImage,
+				Package:        runtimePackage,
+				Client:         v.dockerClient,
+				PackageService: v.packages,
 			}
 			if err := docker.TranslateRuntimeImage(req); err != nil {
 				return trace.Wrap(err)
@@ -550,7 +549,7 @@ func makeRewriteSetImagesFunc(setImages []loc.DockerImage) rewriteFunc {
 
 // makeRewriteAppMetadataFunc returns a function to rewrite application metadata: repository, name or version
 func makeRewriteAppMetadataFunc(setRepository, setName, setVersion string) resources.ManifestRewriteFunc {
-	return func(m *schema.Manifest) error {
+	return func(ctx context.Context, m *schema.Manifest) error {
 		if setRepository != "" {
 			m.Metadata.Repository = setRepository
 		}
@@ -568,13 +567,13 @@ func makeRewriteAppMetadataFunc(setRepository, setName, setVersion string) resou
 // makeRewriteMultiSourceFunc returns a function that rewrites "multi-source" values in manifest
 // with their literal values
 func makeRewriteMultiSourceFunc(manifestPath string) resources.ManifestRewriteFunc {
-	return func(m *schema.Manifest) error {
-		return trace.Wrap(schema.ProcessMultiSourceValues(m, manifestPath))
+	return func(ctx context.Context, m *schema.Manifest) error {
+		return trace.Wrap(schema.ProcessMultiSourceValues(ctx, m, manifestPath))
 	}
 }
 
 func makeRewriteWormholeJobFunc() resources.ManifestRewriteFunc {
-	return func(m *schema.Manifest) error {
+	return func(ctx context.Context, m *schema.Manifest) error {
 		if m.Providers != nil && m.Providers.Generic.Networking.Type == constants.WireguardNetworkType {
 			if m.Hooks == nil {
 				m.Hooks = &schema.Hooks{}
@@ -656,7 +655,7 @@ func makeRewriteDepsFunc(setPackages []loc.Locator) resources.ManifestRewriteFun
 		}
 		return l
 	}
-	return func(m *schema.Manifest) error {
+	return func(ctx context.Context, m *schema.Manifest) error {
 		for i := range m.Dependencies.Packages {
 			m.Dependencies.Packages[i].Locator = rewrite(m.Dependencies.Packages[i].Locator)
 		}
@@ -678,7 +677,7 @@ func makeRewriteDepsFunc(setPackages []loc.Locator) resources.ManifestRewriteFun
 // makeRewritePackagesMetadataFunc returns a function that processes metadata for the app's dependency
 // packages (base, packages, apps) and rewrites versions accordingly
 func makeRewritePackagesMetadataFunc(packages pack.PackageService) resources.ManifestRewriteFunc {
-	return func(m *schema.Manifest) error {
+	return func(ctx context.Context, m *schema.Manifest) error {
 		base := m.Base()
 		if base != nil {
 			newLoc, err := pack.ProcessMetadata(packages, base)
@@ -709,7 +708,7 @@ func makeRewritePackagesMetadataFunc(packages pack.PackageService) resources.Man
 }
 
 func fetchRuntimeImages(images *[]string) resources.ManifestRewriteFunc {
-	return func(m *schema.Manifest) error {
+	return func(ctx context.Context, m *schema.Manifest) error {
 		*images = m.RuntimeImages()
 		return nil
 	}
@@ -817,5 +816,5 @@ func resourcesFromPath(root string, req VendorRequest) (result resources.Resourc
 	if err != nil {
 		return nil, nil, trace.Wrap(err)
 	}
-	return
+	return result, chartResources, nil
 }

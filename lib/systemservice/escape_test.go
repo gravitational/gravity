@@ -16,11 +16,9 @@ limitations under the License.
 
 package systemservice
 
-import (
-	. "gopkg.in/check.v1"
-)
+import . "gopkg.in/check.v1"
 
-func (_ *SystemdSuite) TestEscapesSystemdUnitNames(c *C) {
+func (*SystemdSuite) TestEscapesSystemdUnitNames(c *C) {
 	var testCases = []struct {
 		input    string
 		expected string

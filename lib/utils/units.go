@@ -116,10 +116,10 @@ func (r *TransferRate) UnmarshalJSON(data []byte) error {
 
 // MustParseTransferRate parses the provided data as a transfer rate or panics
 func MustParseTransferRate(data string) TransferRate {
-	if !strings.HasSuffix(string(data), "/s") {
+	if !strings.HasSuffix(data, "/s") {
 		panic(trace.BadParameter("unsupported transfer rate format"))
 	}
-	bytes, err := humanize.ParseBytes(strings.TrimSuffix(string(data), "/s"))
+	bytes, err := humanize.ParseBytes(strings.TrimSuffix(data, "/s"))
 	if err != nil {
 		panic(trace.Wrap(err))
 	}

@@ -25,7 +25,7 @@ import (
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/systeminfo"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	. "gopkg.in/check.v1"
 )

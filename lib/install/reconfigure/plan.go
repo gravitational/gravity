@@ -78,7 +78,9 @@ func (p *Planner) GetOperationPlan(operator ops.Operator, cluster ops.Site, oper
 	builder.AddLocalPackagesPhase(plan)
 	builder.AddChecksPhase(plan)
 	builder.AddConfigurePhase(plan)
-	builder.AddPullPhase(plan)
+	if err := builder.AddPullPhase(plan); err != nil {
+		return nil, trace.Wrap(err)
+	}
 	if err := builder.AddMastersPhase(plan); err != nil {
 		return nil, trace.Wrap(err)
 	}

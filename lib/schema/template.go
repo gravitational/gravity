@@ -18,6 +18,7 @@ package schema
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -28,6 +29,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/trace"
 )
 
@@ -42,24 +44,24 @@ import (
 //   .installer.flavors.description
 //   .hooks.*.job
 //   .webConfig
-func ProcessMultiSourceValues(manifest *Manifest, manifestPath string) error {
-	err := processText(&manifest.ReleaseNotes, manifestPath)
+func ProcessMultiSourceValues(ctx context.Context, manifest *Manifest, manifestPath string) error {
+	err := processText(ctx, &manifest.ReleaseNotes, manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = processImage(&manifest.Logo, manifestPath)
+	err = processImage(ctx, &manifest.Logo, manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	if manifest.Installer != nil {
-		err = processText(&manifest.Installer.EULA.Source, manifestPath)
+		err = processText(ctx, &manifest.Installer.EULA.Source, manifestPath)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
-		err = processText(&manifest.Installer.Flavors.Description, manifestPath)
+		err = processText(ctx, &manifest.Installer.Flavors.Description, manifestPath)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -67,21 +69,21 @@ func ProcessMultiSourceValues(manifest *Manifest, manifestPath string) error {
 
 	for i, profile := range manifest.NodeProfiles {
 		for j := range profile.Requirements.CustomChecks {
-			err = processText(&manifest.NodeProfiles[i].Requirements.CustomChecks[j].Script, manifestPath)
+			err = processText(ctx, &manifest.NodeProfiles[i].Requirements.CustomChecks[j].Script, manifestPath)
 			if err != nil {
 				return trace.Wrap(err)
 			}
 		}
 	}
 
-	err = processText(&manifest.WebConfig, manifestPath)
+	err = processText(ctx, &manifest.WebConfig, manifestPath)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
 	if manifest.Hooks != nil {
 		for _, hook := range manifest.Hooks.AllHooks() {
-			err = processText(&hook.Job, manifestPath)
+			err = processText(ctx, &hook.Job, manifestPath)
 			if err != nil {
 				return trace.Wrap(err)
 			}
@@ -105,14 +107,14 @@ func ExpandEnvVars(manifest []byte) []byte {
 // processText replaces the value of "v" with the contents of the file
 // or downloaded content, or does not change it if it's neither "file://"
 // nor "http://"
-func processText(v *string, manifestPath string) error {
+func processText(ctx context.Context, v *string, manifestPath string) error {
 	var data []byte
 	var err error
 
 	if strings.HasPrefix(*v, "file://") {
 		data, _, err = valueFromFile(*v, manifestPath)
 	} else if strings.HasPrefix(*v, "http://") || strings.HasPrefix(*v, "https://") {
-		data, _, err = valueFromHTTP(*v)
+		data, _, err = valueFromHTTP(ctx, *v)
 	} else {
 		return nil
 	}
@@ -128,7 +130,7 @@ func processText(v *string, manifestPath string) error {
 // processImage replaces the value of "v" with the contents of the image
 // file or downloaded image in the web page friendly format, or does not
 // change it if it's neither "file://" nor "http://"
-func processImage(v *string, manifestPath string) error {
+func processImage(ctx context.Context, v *string, manifestPath string) error {
 	var data []byte
 	var mime string
 	var err error
@@ -136,7 +138,7 @@ func processImage(v *string, manifestPath string) error {
 	if strings.HasPrefix(*v, "file://") {
 		data, mime, err = valueFromFile(*v, manifestPath)
 	} else if strings.HasPrefix(*v, "http://") || strings.HasPrefix(*v, "https://") {
-		data, mime, err = valueFromHTTP(*v)
+		data, mime, err = valueFromHTTP(ctx, *v)
 	} else {
 		return nil
 	}
@@ -176,8 +178,14 @@ func valueFromFile(path, basePath string) (data []byte, mimeType string, err err
 
 // valueFromHTTP returns the content downloaded from the provided URL
 // and its MIME type
-func valueFromHTTP(url string) (data []byte, mimeType string, err error) {
-	response, err := http.Get(url)
+func valueFromHTTP(ctx context.Context, url string) (data []byte, mimeType string, err error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, "", trace.Wrap(err)
+	}
+	req = req.WithContext(ctx)
+	client := httplib.NewClient()
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, "", trace.Wrap(err)
 	}

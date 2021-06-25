@@ -108,7 +108,7 @@ func (o *Operator) AcceptRemoteCluster(req ops.AcceptRemoteClusterRequest) (*ops
 	}
 
 	return &ops.AcceptRemoteClusterResponse{
-		User: (storage.RemoteAccessUser)(*remoteAgent),
+		User: *remoteAgent,
 	}, nil
 }
 
@@ -203,7 +203,7 @@ func createMetadataPackage(application storage.Package, loc loc.Locator, package
 		// Hide the application from the list of applications to install
 		pack.WithHidden(true),
 	}
-	_, err = packages.CreatePackage(loc, utils.NopReader(), opts...)
+	_, err = packages.CreatePackage(loc, utils.NewNopReader(), opts...)
 	if err != nil {
 		return trace.Wrap(err)
 	}

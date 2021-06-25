@@ -32,14 +32,14 @@ import (
 
 // checkEtcdDisk makes sure that the disk used for etcd wal satisfies
 // performance requirements.
-func (r *checker) checkEtcdDisk(ctx context.Context, server Server) ([]*agentpb.Probe, error) {
+func (r *Checker) checkEtcdDisk(ctx context.Context, server Server) ([]*agentpb.Probe, error) {
 	// Test file should reside where etcd data will be.
 	testPath := state.InEtcdDir(server.ServerInfo.StateDir, testFile)
-	res, err := r.Remote.CheckDisks(ctx, server.AdvertiseIP, fioEtcdJob(testPath))
+	res, err := r.config.Remote.CheckDisks(ctx, server.AdvertiseIP, fioEtcdJob(testPath))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Debugf("Server %v disk test results: %s.", server.Hostname, res.String())
+	r.log.Debugf("Server %v disk test results: %s.", server.Hostname, res.String())
 	if len(res.Jobs) != 1 {
 		return nil, trace.BadParameter("expected 1 job result: %v", res)
 	}
@@ -49,7 +49,7 @@ func (r *checker) checkEtcdDisk(ctx context.Context, server Server) ([]*agentpb.
 	if len(probes) > 0 {
 		return probes, nil
 	}
-	log.Infof("Server %v passed etcd disk check, has %v sequential write iops and %vms fsync latency.",
+	r.log.Infof("Server %v passed etcd disk check, has %v sequential write iops and %vms fsync latency.",
 		server.Hostname, iops, latency)
 	return nil, nil
 }

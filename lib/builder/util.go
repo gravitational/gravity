@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
-	"runtime"
 
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
@@ -56,12 +55,7 @@ To resolve the issue you can do one of the following:
 
 // checkBuildEnv validates the tele build environment.
 func checkBuildEnv() error {
-	if runtime.GOOS != "linux" {
-		return trace.BadParameter(
-			`Platform %v is unsupported: tele build is currently only supported on Linux.
-`, runtime.GOOS)
-	}
-	client, err := docker.NewDefaultClient()
+	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return trace.Wrap(err)
 	}

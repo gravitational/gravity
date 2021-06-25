@@ -75,11 +75,11 @@ func (i *DockerImages) Set(v string) error {
 }
 
 // String returns a string representation of the DockerImages type.
-func (l *DockerImages) String() string {
-	return fmt.Sprintf("%v", []DockerImage(*l))
+func (i *DockerImages) String() string {
+	return fmt.Sprintf("%v", []DockerImage(*i))
 }
 
-// ImagesSlices creates a collection of DockerImages from a kingpin command line argument.
+// ImagesSlice creates a collection of DockerImages from a kingpin command line argument.
 func ImagesSlice(s kingpin.Settings) *DockerImages {
 	var images DockerImages
 	s.SetValue(&images)

@@ -37,7 +37,7 @@ import (
 // This phase patches the cluster state with updated node/cluster information
 // and also removes old certificate authorities to make sure they are
 // regenerated when teleport auth server starts up.
-func NewState(p fsm.ExecutorParams, operator ops.Operator) (*stateExecutor, error) {
+func NewState(p fsm.ExecutorParams, operator ops.Operator) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

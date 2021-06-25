@@ -24,8 +24,8 @@ import (
 	dockerapi "github.com/fsouza/go-dockerclient"
 )
 
-// DockerInterfaces defines an interface to docker
-type DockerInterface interface {
+// Interface defines an interface to docker
+type Interface interface {
 	// InspectImage retrieves metadata for the specified image
 	InspectImage(name string) (*dockerapi.Image, error)
 	// TagImage tags the image specified with name
@@ -71,8 +71,8 @@ type Image struct {
 	Tags []string `json:"tags" yaml:"tags"`
 }
 
-// DockerPuller defines an interface to pull images
-type DockerPuller interface {
+// PullService defines an interface to pull images
+type PullService interface {
 	// Pull pulls the specified image
 	Pull(image string) error
 	// IsImagePresent checks if the specified image is available locally

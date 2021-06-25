@@ -36,7 +36,7 @@ import (
 // Specifically, it updates the certificate authority package stored in the
 // cluster state with the one newly generated during the configure phase from
 // the local state.
-func NewClusterPackages(p fsm.ExecutorParams, operator ops.Operator, localPackages pack.PackageService) (*clusterPackagesExecutor, error) {
+func NewClusterPackages(p fsm.ExecutorParams, operator ops.Operator, localPackages pack.PackageService) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithField(constants.FieldPhase, p.Phase.ID),
 		Key:         p.Key(),

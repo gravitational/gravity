@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 
-	"github.com/gravitational/teleport/lib/auth"
 	teleauth "github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/auth/native"
 	teleclient "github.com/gravitational/teleport/lib/client"
@@ -62,7 +61,7 @@ func newTeleportProxyService(cfg teleportProxyConfig) (*teleportProxyService, er
 
 type teleportProxyConfig struct {
 	// AuthClient is the teleport auth server client
-	AuthClient *auth.Client
+	AuthClient *teleauth.Client
 	// ReverseTunnelAddr is the address of the reverse tunnel server
 	ReverseTunnelAddr teleutils.NetAddr
 	// WebProxyAddr is the address of the proxy web server
@@ -75,7 +74,7 @@ type teleportProxyConfig struct {
 
 type teleportProxyService struct {
 	sync.Mutex
-	authClient  *auth.Client
+	authClient  *teleauth.Client
 	cfg         teleportProxyConfig
 	authMethods []ssh.AuthMethod
 	ctx         context.Context
@@ -424,7 +423,7 @@ func (t *teleportProxyService) getTLSConfig(clusterName string) (*tls.Config, er
 	clientKey := &teleclient.Key{
 		TLSCert: cert,
 		Priv:    privateKey,
-		TrustedCA: auth.AuthoritiesToTrustedCerts(
+		TrustedCA: teleauth.AuthoritiesToTrustedCerts(
 			[]services.CertAuthority{ca}),
 	}
 	return clientKey.ClientTLSConfig()

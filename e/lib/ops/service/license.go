@@ -310,7 +310,7 @@ func GetLicenseFromConfigMap(client *kubernetes.Clientset) (string, error) {
 		return "", trace.NotFound("no license data in Kubernetes config map")
 	}
 
-	return string(licenseData), nil
+	return licenseData, nil
 }
 
 // DeleteLicenseSecret deletes the Kubernetes secret with cluster license

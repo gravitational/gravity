@@ -66,6 +66,7 @@ func Run(tele Application) error {
 				PackageVersion:         *tele.BuildCmd.Version,
 				ResourcePatterns:       *tele.BuildCmd.VendorPatterns,
 				IgnoreResourcePatterns: *tele.BuildCmd.VendorIgnorePatterns,
+				ImageCacheDir:          *tele.BuildCmd.ImageCacheDir,
 				SetImages:              *tele.BuildCmd.SetImages,
 				SetDeps:                *tele.BuildCmd.SetDeps,
 				Parallel:               *tele.BuildCmd.Parallel,
@@ -122,13 +123,13 @@ func Run(tele Application) error {
 
 	switch cmd {
 	case tele.PullCmd.FullCommand():
-		return pull(*env,
+		return pull(
 			*tele.PullCmd.App,
 			*tele.PullCmd.OutFile,
 			*tele.PullCmd.Force,
 			*tele.PullCmd.Quiet)
 	case tele.ListCmd.FullCommand():
-		return list(*env,
+		return list(
 			*tele.ListCmd.All,
 			*tele.ListCmd.Format)
 	}

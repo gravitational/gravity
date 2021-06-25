@@ -106,8 +106,8 @@ type Users interface {
 	// LoginWithInstallToken logs a user using a one-time install token
 	LoginWithInstallToken(token string) (*LoginResult, error)
 
-	// CreateAgent creates a new "robot" agent user used by various automation tools (e.g. jenkins)
-	// with correct privileges
+	// CreateAgent creates a new "robot" agent user used by various automation tools
+	// (e.g. release automation) with correct privileges
 	CreateAgent(user storage.User) (storage.User, error)
 
 	// CreateRemoteAgent creates a new site agent user that replicates the agent of a remote site.
@@ -157,7 +157,7 @@ type InstallTokenUpdateRequest struct {
 	Repository string `json:"repository"`
 }
 
-// UserTokenCompleteRequest defines a request to complete an action assosiated with
+// UserTokenCompleteRequest defines a request to complete an action associated with
 // the user token
 type UserTokenCompleteRequest struct {
 	// SecondFactorToken is 2nd factor token value
@@ -198,7 +198,7 @@ func (a *Account) Check() error {
 	return nil
 }
 
-// SignupResult represents successfull signup result:
+// SignupResult represents successful signup result:
 // * Account that was created
 // * User that was created
 // * WebSession initiated for this user
@@ -237,7 +237,7 @@ type Accounts interface {
 	CreateResetToken(advertiseURL string, email string, ttl time.Duration) (*storage.UserToken, error)
 
 	// ResetUserWithToken sets user password and hotp value based on password recovery token
-	// and logs in user after that in case of successfull operation
+	// and logs in user after that in case of successful operation
 	ResetUserWithToken(req UserTokenCompleteRequest) (teleservices.WebSession, error)
 
 	// UpdatePassword sets user password based on old password
@@ -535,8 +535,12 @@ func FindPreferredConnector(identity Identity) (teleservices.Resource, error) {
 }
 
 const (
-	ActionRead   = "read"
+	// ActionRead defines the action verb for read permission
+	ActionRead = "read"
+	// ActionCreate defines the action verb for create permission
 	ActionCreate = "create"
+	// ActionUpdate defines the action verb for update permission
 	ActionUpdate = "update"
+	// ActionDelete defines the action verb for delete permission
 	ActionDelete = "delete"
 )

@@ -59,8 +59,8 @@ type RepositoryV2 struct {
 }
 
 // GetName returns cluster name and is a shortcut for GetMetadata().Name
-func (t *RepositoryV2) GetName() string {
-	return t.Metadata.Name
+func (c *RepositoryV2) GetName() string {
+	return c.Metadata.Name
 }
 
 // SetName sets cluster name
@@ -78,7 +78,7 @@ func (c *RepositoryV2) SetExpiry(expires time.Time) {
 	c.Metadata.SetExpiry(expires)
 }
 
-// Expires returns cluster expiration time
+// Expiry returns cluster expiration time
 func (c *RepositoryV2) Expiry() time.Time {
 	return c.Metadata.Expiry()
 }

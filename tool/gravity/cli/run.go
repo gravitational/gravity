@@ -388,6 +388,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			serviceURL:    *g.AutoJoinCmd.ServiceAddr,
 			token:         *g.AutoJoinCmd.Token,
 			advertiseAddr: *g.AutoJoinCmd.AdvertiseAddr,
+			region:        *g.AutoJoinCmd.Region,
 		})
 	case g.UpdateCheckCmd.FullCommand():
 		return updateCheck(localEnv, *g.UpdateCheckCmd.App)
@@ -530,9 +531,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		}
 		if *g.StatusClusterCmd.Seconds != 0 {
 			return statusPeriodic(localEnv, printOptions, *g.StatusClusterCmd.Seconds)
-		} else {
-			return status(localEnv, printOptions)
 		}
+		return status(localEnv, printOptions)
 	case g.StatusHistoryCmd.FullCommand():
 		return statusHistory()
 	case g.UpdateUploadCmd.FullCommand():
@@ -540,8 +540,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		return uploadUpdate(context.Background(), tarballEnv, localEnv,
-			*g.UpdateUploadCmd.OpsCenterURL)
+		return uploadUpdate(context.Background(), tarballEnv, localEnv)
 	case g.AppPackageCmd.FullCommand():
 		return appPackage(localEnv)
 		// app commands
@@ -566,7 +565,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			},
 		})
 	case g.AppListCmd.FullCommand():
-		return releaseList(localEnv, releaseListConfig{
+		return releaseList(releaseListConfig{
 			Namespace: *g.AppCmd.Namespace,
 			All:       *g.AppListCmd.All,
 		})
@@ -602,7 +601,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			Release:   *g.AppUninstallCmd.Release,
 		})
 	case g.AppHistoryCmd.FullCommand():
-		return releaseHistory(localEnv, releaseHistoryConfig{
+		return releaseHistory(releaseHistoryConfig{
 			Namespace: *g.AppCmd.Namespace,
 			Release:   *g.AppHistoryCmd.Release,
 		})
@@ -623,7 +622,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			},
 		})
 	case g.AppSearchCmd.FullCommand():
-		return appSearch(localEnv,
+		return appSearch(
 			*g.AppSearchCmd.Pattern,
 			*g.AppSearchCmd.Remote,
 			*g.AppSearchCmd.All)
@@ -682,8 +681,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.AppPackageListCmd.OpsCenterURL)
 	case g.AppStatusCmd.FullCommand():
 		return statusApp(localEnv,
-			*g.AppStatusCmd.Locator,
-			*g.AppStatusCmd.OpsCenterURL)
+			*g.AppStatusCmd.Locator)
 	case g.AppPackageUninstallCmd.FullCommand():
 		return uninstallAppPackage(localEnv,
 			*g.AppPackageUninstallCmd.Locator)
@@ -816,8 +814,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return printLocalClusterInfo(localEnv,
 			*g.SiteInfoCmd.Format)
 	case g.SiteCompleteCmd.FullCommand():
-		return completeInstallerStep(localEnv,
-			*g.SiteCompleteCmd.Support)
+		return completeInstallerStep(localEnv)
 	case g.SiteResetPasswordCmd.FullCommand():
 		return resetPassword(localEnv)
 	case g.StatusResetCmd.FullCommand():
@@ -855,7 +852,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 	case g.SystemHistoryCmd.FullCommand():
 		return systemHistory(localEnv)
 	case g.SystemClusterInfoCmd.FullCommand():
-		return systemClusterInfo(localEnv)
+		return systemClusterInfo()
 	case g.SystemPullUpdatesCmd.FullCommand():
 		return systemPullUpdates(localEnv,
 			*g.SystemPullUpdatesCmd.OpsCenterURL,
@@ -914,13 +911,13 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemServiceUninstallCmd.Package,
 			*g.SystemServiceUninstallCmd.Name)
 	case g.SystemServiceListCmd.FullCommand():
-		return systemServiceList(localEnv)
+		return systemServiceList()
 	case g.SystemServiceStartCmd.FullCommand():
-		return systemServiceStart(localEnv, *g.SystemServiceStartCmd.Package)
+		return systemServiceStart(*g.SystemServiceStartCmd.Package)
 	case g.SystemServiceStopCmd.FullCommand():
-		return systemServiceStop(localEnv, *g.SystemServiceStopCmd.Package)
+		return systemServiceStop(*g.SystemServiceStopCmd.Package)
 	case g.SystemServiceJournalCmd.FullCommand():
-		return systemServiceJournal(localEnv,
+		return systemServiceJournal(
 			*g.SystemServiceJournalCmd.Package,
 			*g.SystemServiceJournalCmd.Args)
 	case g.SystemServiceStatusCmd.FullCommand():
@@ -946,10 +943,9 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 			*g.SystemStreamRuntimeJournalCmd.Since,
 			*g.SystemStreamRuntimeJournalCmd.Export)
 	case g.SystemSelinuxBootstrapCmd.FullCommand():
-		return bootstrapSELinux(localEnv,
+		return bootstrapSELinux(
 			*g.SystemSelinuxBootstrapCmd.Path,
-			*g.StateDir,
-			*g.SystemSelinuxBootstrapCmd.VxlanPort)
+			*g.StateDir)
 	case g.GarbageCollectCmd.FullCommand():
 		return garbageCollect(localEnv, *g.GarbageCollectCmd.Manual, *g.GarbageCollectCmd.Confirmed)
 	case g.SystemGCJournalCmd.FullCommand():
@@ -1015,7 +1011,7 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 				version:    *g.RPCAgentDeployCmd.Version,
 			})
 	case g.RPCAgentInstallCmd.FullCommand():
-		return rpcAgentInstall(localEnv, *g.RPCAgentInstallCmd.Args)
+		return rpcAgentInstall(*g.RPCAgentInstallCmd.Args)
 	case g.RPCAgentRunCmd.FullCommand():
 		updateEnv, err := g.NewUpdateEnv()
 		if err != nil {
@@ -1101,12 +1097,14 @@ func pickSiteHost() (string, error) {
 	log.Infof("trying these hosts: %v", hosts)
 	for _, host := range hosts {
 		log.Infof("connecting to %s", host)
+		//nolint:noctx // TODO: use context
 		r, err := http.Get(fmt.Sprintf("http://%s:8080", host))
 		if err == nil && r != nil {
-			log.Infof(r.Status)
+			r.Body.Close()
+			log.Info(r.Status)
 			return host, nil
 		} else if err != nil {
-			log.Infof(err.Error())
+			log.Info(err.Error())
 		}
 	}
 	return "", trace.Errorf("failed to find a gravity site to connect to")

@@ -192,7 +192,7 @@ func (f *FSM) RollbackPlan(ctx context.Context, progress utils.Progress, dryRun 
 		return trace.Wrap(err)
 	}
 	allPhases := plan.GetLeafPhases()
-	for i := len(allPhases) - 1; i >= 0; i -= 1 {
+	for i := len(allPhases) - 1; i >= 0; i-- {
 		phase := allPhases[i]
 		log := f.WithFields(logrus.Fields{"phase": phase.ID, "state": phase.GetState()})
 		if phase.IsUnstarted() || phase.IsRolledBack() {
@@ -404,7 +404,7 @@ func (f *FSM) executePhase(ctx context.Context, p Params, phase storage.Operatio
 	case CanRunRemotely:
 		err = trace.Wrap(f.executePhaseRemotely(ctx, p, phase, *execServer))
 		if err == nil {
-			// if the remote upgrade phase is successfull, we need to mark it in our local database
+			// if the remote upgrade phase is successful, we need to mark it in our local database
 			// because etcd might not be available to synchronize the changes back to us
 			err = f.ChangePhaseState(ctx, StateChange{
 				Phase: phase.ID,

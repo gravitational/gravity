@@ -50,6 +50,7 @@ type Operator interface {
 }
 
 // OpsCenter defines methods specific to installation via Ops Center
+//nolint:revive // stable term, rename to Hub?
 type OpsCenter interface {
 	// RegisterAgent is called by install agents to determine who's installer
 	// and who's joining agent when installing via Ops Center

@@ -52,7 +52,7 @@ func (p *Process) startSNIUpdater(ctx context.Context) {
 	}
 }
 
-func (p *Process) updateSNIRoutes(ctx context.Context) error {
+func (p *Process) updateSNIRoutes(context.Context) error {
 	accounts, err := p.operator.GetAccounts()
 	if err != nil {
 		return trace.Wrap(err)

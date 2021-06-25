@@ -80,7 +80,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 		Default(defaults.DNSListenAddr).IPList()
 	g.InstallCmd.DNSPort = g.InstallCmd.Flag("dns-port", "Custom listen port for in-cluster DNS.").
 		Default(strconv.Itoa(defaults.DNSPort)).Int()
-	g.InstallCmd.DockerStorageDriver = DockerStorageDriver(g.InstallCmd.Flag("storage-driver",
+	g.InstallCmd.DockerStorageDriver = dockerStorageDriver(g.InstallCmd.Flag("storage-driver",
 		fmt.Sprintf("Docker storage driver. Overrides the one specified in the cluster image manifest. Recognized are: %v.", strings.Join(constants.DockerSupportedDrivers, ", "))), constants.DockerSupportedDrivers)
 	g.InstallCmd.DockerArgs = g.InstallCmd.Flag("docker-opt", "Additional arguments to Docker. Can be specified multiple times.").Strings()
 	g.InstallCmd.ServiceUID = g.InstallCmd.Flag("service-uid",
@@ -130,6 +130,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AutoJoinCmd.Token = g.AutoJoinCmd.Flag("token", "Unique token to authorize this node to join the cluster.").Hidden().String()
 	g.AutoJoinCmd.SELinux = g.AutoJoinCmd.Flag("selinux", "Run with SELinux support. Default 'false'.").Default("false").Envar(defaults.GravitySELinuxEnv).Bool()
 	g.AutoJoinCmd.FromService = g.AutoJoinCmd.Flag("from-service", "Run in service mode.").Hidden().Bool()
+	g.AutoJoinCmd.Region = g.AutoJoinCmd.Flag("region", "The region to discover the controller nodes").String()
 
 	g.LeaveCmd.CmdClause = g.Command("leave", "Decommission this node from the cluster.")
 	g.LeaveCmd.Force = g.LeaveCmd.Flag("force", "Force local state cleanup.").Bool()
@@ -360,7 +361,7 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.AppImportCmd.Name = g.AppImportCmd.Flag("name", "optional app name, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.Version = g.AppImportCmd.Flag("version", "optional app version, overrides the one specified in the app manifest").String()
 	g.AppImportCmd.RegistryURL = g.AppImportCmd.Flag("registry-url", "optional remote docker registry URL").Default(defaults.DockerRegistry).String()
-	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").Default(constants.DockerEngineURL).String()
+	g.AppImportCmd.DockerURL = g.AppImportCmd.Flag("docker-url", "optional docker URL").String()
 	g.AppImportCmd.OpsCenterURL = g.AppImportCmd.Flag("ops-url", "optional Gravity Hub URL").String()
 	g.AppImportCmd.Vendor = g.AppImportCmd.Flag("vendor", "rewrite all container images to use private docker registry (requires --registry-url)").Bool()
 	g.AppImportCmd.Force = g.AppImportCmd.Flag("force", "overwrite existing application").Bool()
@@ -841,16 +842,16 @@ func Locator(s kingpin.Settings) *loc.Locator {
 	return l
 }
 
-// DockerStorageDriver defines a command line flag that recognizes
+// dockerStorageDriver defines a command line flag that recognizes
 // Docker storage drivers
-func DockerStorageDriver(s kingpin.Settings, allowed []string) *dockerStorageDriver {
-	driver := &dockerStorageDriver{allowed: allowed}
+func dockerStorageDriver(s kingpin.Settings, allowed []string) *dockerStorageDriverValue {
+	driver := &dockerStorageDriverValue{allowed: allowed}
 	s.SetValue(driver)
 	return driver
 }
 
 // Set validates value as a Docker storage driver
-func (r *dockerStorageDriver) Set(value string) error {
+func (r *dockerStorageDriverValue) Set(value string) error {
 	if !utils.StringInSlice(r.allowed, value) {
 		return trace.BadParameter("unrecognized docker storage driver %q, supported are: %v",
 			value, r.allowed)
@@ -860,16 +861,16 @@ func (r *dockerStorageDriver) Set(value string) error {
 }
 
 // String returns the value of the storage driver
-func (r *dockerStorageDriver) String() string {
+func (r *dockerStorageDriverValue) String() string {
 	if r == nil {
 		return ""
 	}
 	return r.value
 }
 
-// dockerStorageDriver is a string that only accepts recognized
+// dockerStorageDriverValue is a string that only accepts recognized
 // Docker storage driver name as a value
-type dockerStorageDriver struct {
+type dockerStorageDriverValue struct {
 	allowed []string
 	value   string
 }

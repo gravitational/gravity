@@ -107,7 +107,7 @@ func (r NetLink) Close() error {
 	return r.Local.Close()
 }
 
-// Dials dials the remote endpoint.
+// Dial dials the remote endpoint.
 // Implements Link
 func (r NetLink) Dial() (net.Conn, error) {
 	conn, err := net.Dial("tcp", r.Upstream)

@@ -49,9 +49,9 @@ type repoAddOptions struct {
 
 // repoAdd adds a chart repository. Code ported from:
 // https://github.com/helm/helm/blob/v3.4.2/cmd/helm/repo_add.go
-func (o *repoAddOptions) repoAdd() error {
+func (o *repoAddOptions) repoAdd() (err error) {
 	// Ensure the file directory exists as it is required for file locking
-	err := os.MkdirAll(filepath.Dir(o.repoFile), os.ModePerm)
+	err = os.MkdirAll(filepath.Dir(o.repoFile), os.ModePerm)
 	if err != nil && !os.IsExist(err) {
 		return trace.Wrap(err)
 	}
@@ -61,12 +61,22 @@ func (o *repoAddOptions) repoAdd() error {
 	lockCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	locked, err := fileLock.TryLockContext(lockCtx, time.Second)
-	if err == nil && locked {
-		defer fileLock.Unlock()
-	}
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	if !locked {
+		return trace.LimitExceeded("unable to obtain file lock")
+	}
+	defer func() {
+		errUnlock := fileLock.Unlock()
+		if err != nil {
+			if errUnlock != nil {
+				log.WithError(errUnlock).Error("Failed to unlock the file lock.")
+			}
+			return
+		}
+		err = errUnlock
+	}()
 
 	bytes, err := ioutil.ReadFile(o.repoFile)
 	if err != nil && !os.IsNotExist(err) {

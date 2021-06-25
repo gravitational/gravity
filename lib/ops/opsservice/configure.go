@@ -68,7 +68,7 @@ const (
 	etcdEndpointPort    = 2379
 )
 
-// Configure packages configures packages for the specified install operation
+// ConfigurePackages packages configures packages for the specified install operation
 func (o *Operator) ConfigurePackages(req ops.ConfigurePackagesRequest) error {
 	log.WithField("req", req).Info("Configuring packages.")
 	operation, err := o.GetSiteOperation(req.SiteOperationKey)
@@ -607,7 +607,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 			group:    constants.ClusterNodeGroup,
 		},
 		constants.APIServerKubeletClientKeyPair: {group: constants.ClusterAdminGroup},
-		constants.PlanetRpcKeyPair:              {},
+		constants.PlanetRPCKeyPair:              {},
 		constants.CoreDNSKeyPair:                {},
 		constants.FrontProxyClientKeyPair:       {},
 		constants.LograngeAdaptorKeyPair:        {},
@@ -736,7 +736,7 @@ func (s *site) getPlanetNodeSecretsPackage(ctx *operationContext, node *Provisio
 		constants.KubectlKeyPair:           {group: constants.ClusterNodeGroup},
 		constants.ProxyKeyPair:             {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair:           {userName: constants.ClusterNodeNamePrefix + ":" + node.KubeNodeID(), group: constants.ClusterNodeGroup},
-		constants.PlanetRpcKeyPair:         {},
+		constants.PlanetRPCKeyPair:         {},
 		constants.CoreDNSKeyPair:           {},
 		constants.LograngeCollectorKeyPair: {},
 	}
@@ -946,11 +946,7 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 	}
 	args = append(args, fmt.Sprintf("--dns-port=%v", dnsConfig.Port))
 
-	dockerArgs, err := configureDockerOptions(config.installExpand, node,
-		config.docker, config.dockerRuntime)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
+	dockerArgs := configureDockerOptions(config.docker)
 	args = append(args, dockerArgs...)
 
 	etcdArgs := manifest.EtcdArgs(*profile)
@@ -1452,12 +1448,7 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node
 // based on the operation op and docker manifest configuration block.
-func configureDockerOptions(
-	op ops.SiteOperation,
-	node ProvisionedServer,
-	docker storage.DockerConfig,
-	dockerRuntime storage.Docker,
-) (args []string, err error) {
+func configureDockerOptions(docker storage.DockerConfig) (args []string) {
 	formatOptions := func(args []string) string {
 		return fmt.Sprintf(`--docker-options=%v`, strings.Join(args, " "))
 	}
@@ -1476,7 +1467,7 @@ func configureDockerOptions(
 		args = append(args, formatOptions(docker.Args))
 	}
 
-	return args, nil
+	return args
 }
 
 func podSubnet(installExpand *storage.InstallExpandOperationState, override string) string {

@@ -36,14 +36,13 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
-	"github.com/gravitational/rigging"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
+	"github.com/gravitational/rigging"
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -87,7 +86,7 @@ func InitOperationPlan(
 
 	dnsConfig := cluster.DNSConfig
 	if dnsConfig.IsEmpty() {
-		log.Info("Detecting DNS configuration.")
+		logrus.Info("Detecting DNS configuration.")
 		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
@@ -343,10 +342,10 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	}
 	supportsTaints, err := supportsTaints(*installedGravityPackage)
 	if err != nil {
-		log.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
+		logrus.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
 	}
 	if !supportsTaints {
-		log.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
+		logrus.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
 	}
 
 	mastersPhase := *builder.masters(p.leadMaster, otherMasters, supportsTaints).
@@ -405,7 +404,6 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 			p.plan.OfflineCoordinator = &p.leadMaster.Server
 			etcdPhase := *builder.etcdPlan(p.leadMaster.Server,
 				serversToStorage(otherMasters...),
-				serversToStorage(nodes...),
 				currentVersion, desiredVersion)
 			// This does not depend on previous on purpose - when the etcd block is executed,
 			// remote agents might be able to sync the plan before the shutdown of etcd instances
@@ -587,7 +585,7 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 			return trace.Wrap(err)
 		}
 
-		return archive.Abort
+		return archive.ErrAbort
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)

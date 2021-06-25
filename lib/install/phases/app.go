@@ -35,7 +35,7 @@ import (
 )
 
 // NewApp returns executor that runs install and post-install hooks
-func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (*hookExecutor, error) {
+func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) (fsm.PhaseExecutor, error) {
 	return NewHook(p, operator, apps,
 		schema.HookInstall,
 		schema.HookInstalled,
@@ -43,7 +43,7 @@ func NewApp(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications) 
 }
 
 // NewHook returns executor that runs specified application hooks
-func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, hooks ...schema.HookType) (*hookExecutor, error) {
+func NewHook(p fsm.ExecutorParams, operator ops.Operator, apps app.Applications, hooks ...schema.HookType) (fsm.PhaseExecutor, error) {
 	if p.Phase.Data == nil || p.Phase.Data.ServiceUser == nil {
 		return nil, trace.BadParameter("service user is required")
 	}

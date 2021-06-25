@@ -35,7 +35,7 @@ import (
 
 // generateApplicationImageManifest generates an application image manifest
 // based on the provided Helm chart.
-func generateApplicationImageManifest(chart *chart.Chart) (*schema.Manifest, error) {
+func generateApplicationImageManifest(chart *chart.Chart) *schema.Manifest {
 	return &schema.Manifest{
 		Header: schema.Header{
 			TypeMeta: metav1.TypeMeta{
@@ -56,7 +56,7 @@ func generateApplicationImageManifest(chart *chart.Chart) (*schema.Manifest, err
 			},
 		},
 		Logo: chart.Metadata.Icon,
-	}, nil
+	}
 }
 
 // generateClusterImageManifest generates a cluster image manifest from the

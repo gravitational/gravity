@@ -254,6 +254,7 @@ func (q *mockQueue) ReceiveMessageWithContext(ctx aws.Context, i *sqs.ReceiveMes
 	}
 }
 
+//nolint:revive,stylecheck // implements external contract
 func (q *mockQueue) GetQueueUrlWithContext(ctx aws.Context, i *sqs.GetQueueUrlInput, opts ...request.Option) (*sqs.GetQueueUrlOutput, error) {
 	return &sqs.GetQueueUrlOutput{
 		QueueUrl: aws.String(q.url),

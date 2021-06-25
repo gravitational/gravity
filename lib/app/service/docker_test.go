@@ -18,10 +18,11 @@ package service
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/loc"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -81,5 +82,81 @@ func (s *VendorSuite) TestGeneratesProperPackageName(c *C) {
 		runtimePackage, err := generate(testCase.image)
 		c.Assert(err, IsNil, comment)
 		c.Assert(*runtimePackage, compare.DeepEquals, testCase.result, comment)
+	}
+}
+
+func Test_excludeImagesStartingWith(t *testing.T) {
+	type args struct {
+		images []string
+		prefix string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		{
+			name: "empty input - no changes",
+			args: args{
+				images: []string{},
+				prefix: "123",
+			},
+			want: []string{},
+		},
+		{
+			name: "empty pattern - nothing is excluded",
+			args: args{
+				images: []string{"name1", "name2"},
+				prefix: "",
+			},
+			want: []string{"name1", "name2"},
+		},
+		{
+			name: "exclude all images. result is empty slice",
+			args: args{
+				images: []string{"registry1/name1", "registry1/name2"},
+				prefix: "registry1",
+			},
+			want: []string{},
+		},
+		{
+			name: "doesn't exclude images since the pattern does not match",
+			args: args{
+				images: []string{"registry1/name1", "registry1/name2", "registry2/name2"},
+				prefix: "registry3",
+			},
+			want: []string{"registry1/name1", "registry1/name2", "registry2/name2"},
+		},
+		{
+			name: "search pattern at the start of slice",
+			args: args{
+				images: []string{"registry1/image1", "registry1/image2", "registry2/image3", "registry2/image4"},
+				prefix: "registry1",
+			},
+			want: []string{"registry2/image3", "registry2/image4"},
+		},
+		{
+			name: "search pattern in the middle of slice",
+			args: args{
+				images: []string{"registry1/image1", "registry2/image2", "registry2/image3", "registry3/image4"},
+				prefix: "registry2",
+			},
+			want: []string{"registry1/image1", "registry3/image4"},
+		},
+		{
+			name: "search pattern at the end of slice",
+			args: args{
+				images: []string{"registry1/name1", "registry1/name2", "registry2/name2", "registry2/name3"},
+				prefix: "registry2",
+			},
+			want: []string{"registry1/name1", "registry1/name2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := excludeImagesStartingWith(tt.args.images, tt.args.prefix); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("excludeImagesStartingWith() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

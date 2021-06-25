@@ -141,7 +141,7 @@ func (*v1codec) DecodeFromString(val string, in interface{}) error {
 		return trace.Wrap(err)
 	}
 
-	err = json.Unmarshal([]byte(data), &in)
+	err = json.Unmarshal(data, &in)
 	if err != nil {
 		log.Errorf("failed to decode: %s", data)
 		return trace.Wrap(err)

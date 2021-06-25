@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/defaults"
 
 	"github.com/docker/docker/pkg/archive"
-	dockerarchive "github.com/docker/docker/pkg/archive"
 	. "gopkg.in/check.v1"
 )
 
@@ -40,7 +39,7 @@ type S struct{}
 
 var _ = Suite(&S{})
 
-func (_ *S) TestTarGlob(c *C) {
+func (*S) TestTarGlob(c *C) {
 	var matches []string
 	var emptyResource string
 	files := []*Item{
@@ -62,7 +61,7 @@ func (_ *S) TestTarGlob(c *C) {
 	c.Assert(matches, DeepEquals, []string{"app.yaml", "resources.yaml"})
 }
 
-func (_ *S) TestTarGlobCanBeAborted(c *C) {
+func (*S) TestTarGlobCanBeAborted(c *C) {
 	var matches []string
 	var emptyResource string
 	files := []*Item{
@@ -79,13 +78,13 @@ func (_ *S) TestTarGlobCanBeAborted(c *C) {
 
 	err = TarGlob(r, "resources", []string{"a.yaml"}, func(match string, file io.Reader) error {
 		matches = append(matches, match)
-		return Abort
+		return ErrAbort
 	})
 	c.Assert(err, IsNil)
 	c.Assert(matches, DeepEquals, []string{"a.yaml"})
 }
 
-func (_ *S) TestWritesTarFromItems(c *C) {
+func (*S) TestWritesTarFromItems(c *C) {
 	buf := &bytes.Buffer{}
 	data := "foo"
 	item := ItemFromString("foo", data)
@@ -104,7 +103,7 @@ func (_ *S) TestWritesTarFromItems(c *C) {
 	AssertArchiveHasItems(c, ioutil.NopCloser(buf), nil, expected[0])
 }
 
-func (_ *S) TestCompressesDirectory(c *C) {
+func (*S) TestCompressesDirectory(c *C) {
 	var testCases = []file{
 		{name: "dir", isDir: true},
 		{name: "dir/file1", data: []byte("brown")},
@@ -121,7 +120,7 @@ func (_ *S) TestCompressesDirectory(c *C) {
 	AssertArchiveHasItems(c, ioutil.NopCloser(&buf), nil, testCases[0], testCases[1], testCases[2])
 }
 
-func (_ *S) TestExtractsWithoutPermissions(c *C) {
+func (*S) TestExtractsWithoutPermissions(c *C) {
 	var data = []byte("root")
 	rc := ioutil.NopCloser(bytes.NewReader(data))
 	items := []*Item{
@@ -139,14 +138,14 @@ func (_ *S) TestExtractsWithoutPermissions(c *C) {
 	}
 
 	dir := c.MkDir()
-	archive, err := CreateMemArchive(items)
-	archive2 := bytes.NewBuffer(archive.Bytes())
+	archive1, err := CreateMemArchive(items)
 	c.Assert(err, IsNil)
-	c.Assert(archive, Not(IsNil))
+	c.Assert(archive1, Not(IsNil))
+	archive2 := bytes.NewBuffer(archive1.Bytes())
 
 	if os.Getuid() != 0 {
 		// Only assert when not running as root
-		c.Assert(dockerarchive.Untar(archive, dir, DefaultOptions()), ErrorMatches, ".*operation not permitted.*")
+		c.Assert(archive.Untar(archive1, dir, DefaultOptions()), ErrorMatches, ".*operation not permitted.*")
 	}
 	c.Assert(Extract(archive2, dir), IsNil)
 
