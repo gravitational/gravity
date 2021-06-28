@@ -19,7 +19,11 @@ package phases
 import (
 	"archive/tar"
 	"context"
+	"crypto/tls"
+	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -38,6 +42,8 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/kubernetes/pkg/master/ports"
+	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 )
 
 // NewWait returns a new "wait" phase executor
@@ -90,12 +96,12 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 	for {
 		select {
 		case <-timer.C:
-			if err := p.tryQueryAPI(); err != nil {
+			if err := p.tryQueryAPI(ctx); err != nil {
 				p.Infof("Waiting for Kubernetes API to start: %v", err)
 				continue
 			}
 			p.Debug("Kubernetes API is available.")
-			if err := p.tryQueryNamespace(); err != nil {
+			if err := p.tryQueryNamespace(ctx); err != nil {
 				p.Infof("Waiting for kube-system namespace: %v", err)
 				continue
 			}
@@ -108,15 +114,87 @@ func (p *waitExecutor) waitForAPI(ctx context.Context, done chan bool) {
 	}
 }
 
-func (p *waitExecutor) tryQueryAPI() error {
-	_, err := p.Client.CoreV1().ComponentStatuses().
-		Get(context.TODO(), "scheduler", metav1.GetOptions{})
-	return trace.Wrap(err)
+func (p *waitExecutor) tryQueryAPI(ctx context.Context) error {
+	leaderIP, err := getLeader(ctx, p, p.ExecutorParams.Plan.ClusterName)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := schedulerHealthz(ctx, leaderIP); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := controllerManagerHealthz(ctx, leaderIP); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }
 
-func (p *waitExecutor) tryQueryNamespace() error {
+// getLeader returns IP address of the current leader node.
+func getLeader(ctx context.Context, log logrus.FieldLogger, clusterName string) (string, error) {
+	out, err := utils.RunPlanetCommand(ctx, log, "leader", "view",
+		fmt.Sprintf("--leader-key=/planet/cluster/%v/master", clusterName),
+		"--etcd-cafile=/var/state/root.cert",
+		"--etcd-certfile=/var/state/etcd.cert",
+		"--etcd-keyfile=/var/state/etcd.key")
+	if err != nil {
+		return "", trace.Wrap(err, "failed to query leader node: %s", string(out))
+	}
+	return string(out), nil
+}
+
+// healthzCheck checks the specified healthz endpoint for a healthy status.
+func healthzCheck(ctx context.Context, healthzEndpoint string) error {
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthzEndpoint, nil)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer resp.Body.Close()
+
+	out, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	if string(out) != "ok" {
+		return trace.Errorf("%s returned non-healthy status: %s", healthzEndpoint, string(out))
+	}
+
+	return nil
+}
+
+// schedulerHealthz checks for a healthy status from the scheduler healthz
+// endpoint for the specified leaderIP.
+func schedulerHealthz(ctx context.Context, leaderIP string) error {
+	url := fmt.Sprintf("https://%s:%d/healthz", leaderIP, kubeschedulerconfig.DefaultKubeSchedulerPort)
+	if err := healthzCheck(ctx, url); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+// controllerManagerHealthz checks for a healthy status from the controller-manager
+// healthz endpoint for the specified leaderIP.
+func controllerManagerHealthz(ctx context.Context, leaderIP string) error {
+	url := fmt.Sprintf("http://%s:%d/healthz", leaderIP, ports.InsecureKubeControllerManagerPort)
+	if err := healthzCheck(ctx, url); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *waitExecutor) tryQueryNamespace(ctx context.Context) error {
 	_, err := p.Client.CoreV1().Namespaces().
-		Get(context.TODO(), defaults.KubeSystemNamespace, metav1.GetOptions{})
+		Get(ctx, defaults.KubeSystemNamespace, metav1.GetOptions{})
 	return trace.Wrap(err)
 }
 
