@@ -145,7 +145,10 @@ func getLeader(ctx context.Context, log logrus.FieldLogger, clusterName string) 
 func healthzCheck(ctx context.Context, healthzEndpoint string) error {
 	client := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{
+				//nolint:gosec
+				InsecureSkipVerify: true,
+			},
 		},
 	}
 
