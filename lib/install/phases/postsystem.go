@@ -24,6 +24,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -138,7 +139,7 @@ func getLeader(ctx context.Context, log logrus.FieldLogger, clusterName string) 
 	if err != nil {
 		return "", trace.Wrap(err, "failed to query leader node: %s", string(out))
 	}
-	return string(out), nil
+	return strings.TrimSuffix(string(out), "\n"), nil
 }
 
 // healthzCheck checks the specified healthz endpoint for a healthy status.
