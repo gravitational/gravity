@@ -113,7 +113,7 @@ This version is equivalent to 7.1.0-alpha.6.
 
 ## 7.1 Releases
 
-7.1 is currently pre-release.
+The 7.1 line of development is a discontinued precursor to 8.0. Please use [8.0 releases](#80-releases) instead.
 
 ### 7.1.0-alpha.6 (April 14, 2021)
 
@@ -182,7 +182,7 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 ### 7.0.32 (June 9, 2021)
 
-### Improvements
+#### Improvements
 * Add ability to disable label reconciliation ([#2509](https://github.com/gravitational/gravity/pull/2509)).
 
 #### Bugfixes
