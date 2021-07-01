@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.1  | No  | pre-release          | June 10, 2021        | Set upon release        | 1.21.0               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.1  | No  | pre-release          | June 23, 2021        | Set upon release        | 1.19.12              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.32        | Yes | April 3, 2020        | June 9, 2021         | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.33        | Yes | April 3, 2020        | June 30, 2021        | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -113,7 +113,7 @@ This version is equivalent to 7.1.0-alpha.6.
 
 ## 7.1 Releases
 
-7.1 is currently pre-release.
+The 7.1 line of development is a discontinued precursor to 8.0. Please use [8.0 releases](#80-releases) instead.
 
 ### 7.1.0-alpha.6 (April 14, 2021)
 
@@ -175,9 +175,14 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 ## 7.0 Releases
 
+### 7.0.33 (June 30, 2021)
+
+#### Improvements
+* Add a new `tele build --image-cache-dir` flag to cache and re-use docker images ([#2550](https://github.com/gravitational/gravity/pull/2550)). See [Building a Cluster Image](pack.md#building-a-cluster-image) for further details.
+
 ### 7.0.32 (June 9, 2021)
 
-### Improvements
+#### Improvements
 * Add ability to disable label reconciliation ([#2509](https://github.com/gravitational/gravity/pull/2509)).
 
 #### Bugfixes
