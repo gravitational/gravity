@@ -245,11 +245,11 @@ func List(lister Lister, all bool, format constants.Format) error {
 		}
 		w.Flush()
 	case constants.EncodingShort:
-                sb := new(strings.Builder)
-                for _, item := range items {
-                        sb.WriteString(item.GetName() + ":" + item.GetVersion().String() + "\n")
-                }
-                fmt.Print(sb.String())
+		sb := new(strings.Builder)
+		for _, item := range items {
+			sb.WriteString(item.GetName() + ":" + item.GetVersion().String() + "\n")
+		}
+		fmt.Print(sb.String())
 	case constants.EncodingJSON:
 		bytes, err := json.MarshalIndent(items, "", "    ")
 		if err != nil {
