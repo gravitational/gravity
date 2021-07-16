@@ -189,7 +189,7 @@ func schedulerHealthz(ctx context.Context, leaderIP string) error {
 // controllerManagerHealthz checks for a healthy status from the controller-manager
 // healthz endpoint for the specified leaderIP.
 func controllerManagerHealthz(ctx context.Context, leaderIP string) error {
-	url := fmt.Sprintf("http://%s:%d/healthz", leaderIP, ports.InsecureKubeControllerManagerPort)
+	url := fmt.Sprintf("https://%s:%d/healthz", leaderIP, ports.KubeControllerManagerPort)
 	if err := healthzCheck(ctx, url); err != nil {
 		return trace.Wrap(err)
 	}
