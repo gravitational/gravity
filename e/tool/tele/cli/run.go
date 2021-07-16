@@ -84,6 +84,7 @@ func Run(tele Application) error {
 			PackageVersion:         *tele.BuildCmd.Version,
 			ResourcePatterns:       *tele.BuildCmd.VendorPatterns,
 			IgnoreResourcePatterns: *tele.BuildCmd.VendorIgnorePatterns,
+			ImageCacheDir:          *tele.BuildCmd.ImageCacheDir,
 			SetImages:              *tele.BuildCmd.SetImages,
 			SetDeps:                *tele.BuildCmd.SetDeps,
 			Parallel:               *tele.BuildCmd.Parallel,

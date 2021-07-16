@@ -37,14 +37,14 @@ SELINUX_BRANCH ?= distro/centos_rhel/7
 GOLFLAGS ?= -w -s
 
 # Git repositories
-TELEPORT_REPO = git@github.com:gravitational/teleport.git
-PLANET_REPO = git@github.com:gravitational/planet.git
-LOGGING_APP_REPO = git@github.com:gravitational/logging-app.git
-MONITORING_APP_REPO = git@github.com:gravitational/monitoring-app.git
-STORAGE_APP_REPO = git@github.com:gravitational/storage-app.git
-BANDWAGON_REPO = git@github.com:gravitational/bandwagon.git
-FIO_REPO = git@github.com:axboe/fio.git
-SELINUX_REPO = git@github.com:gravitational/selinux.git
+TELEPORT_REPO = https://github.com/gravitational/teleport.git
+PLANET_REPO = https://github.com/gravitational/planet.git
+LOGGING_APP_REPO = https://github.com/gravitational/logging-app.git
+MONITORING_APP_REPO = https://github.com/gravitational/monitoring-app.git
+STORAGE_APP_REPO = https://github.com/gravitational/storage-app.git
+BANDWAGON_REPO = https://github.com/gravitational/bandwagon.git
+FIO_REPO = https://github.com/axboe/fio.git
+SELINUX_REPO = https://github.com/gravitational/selinux.git
 
 # Amazon S3
 BUILD_BUCKET_URL = s3://clientbuilds.gravitational.io
@@ -124,7 +124,7 @@ endif
 #
 .PHONY: test
 test: testbox test-etcd
-	docker run --net=host --rm=true $(NOROOT) \
+	docker run --net=host --rm=true -u root  \
 		-v $(TOP):$(SRCDIR) \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		--tmpfs /tmp:rw,nosuid,nodev,exec,relatime \
@@ -187,7 +187,7 @@ build: build-on-host
 else
 .PHONY: build
 build: selinux grpc build-in-container
-	ln --symbolic --force --no-target-directory $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
+	ln -sfT $(GRAVITY_BUILDDIR) $(GRAVITY_CURRENT_BUILDDIR)
 endif
 
 #
@@ -413,7 +413,7 @@ tiller-app:
 
 .PHONY: site-app
 site-app:
-	$(eval TMPDIR := $(shell mktemp -d --tmpdir=$(GRAVITY_BUILDDIR)))
+	$(eval TMPDIR := $(shell mktemp -d -p $(GRAVITY_BUILDDIR)))
 	cp -r $(ASSETSDIR)/site-app/* $(TMPDIR)
 	cp $(GRAVITY_BUILDDIR)/gravity $(TMPDIR)/images/site
 	cd $(TMPDIR) && \
@@ -484,17 +484,17 @@ build-tsh-in-container: clone-teleport
 .PHONY: build-tsh-on-host
 build-tsh-on-host:
 	@echo "\n----> Building Tsh binary on host...\n"
-	GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
+	GO111MODULE=off GOPATH=$(BUILDDIR) go get -v $(TELEPORT_PKG_PATH) && \
 		cd $(BUILDDIR)/src/$(TELEPORT_PKG_PATH) && \
 		git fetch --all --tags && \
 		git checkout $(TELEPORT_REPOTAG) && \
-		GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
+		GO111MODULE=off GOPATH=$(BUILDDIR) go build -ldflags "$(GOLFLAGS)" -o $(TSH_OUT) ./tool/tsh
 	@echo "Done --> $(TSH_OUT)"
 
 .PHONY: build-tsh-inside-container
 build-tsh-inside-container:
 	@echo "\n----> Building Tsh binary inside container...\n"
-	go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
+	GO111MODULE=off go build -ldflags "$(GOLFLAGS)" -o $(LOCAL_GRAVITY_BUILDDIR)/tsh $(TELEPORT_PKG_PATH)/tool/tsh
 	@echo "Done --> $(LOCAL_GRAVITY_BUILDDIR)/tsh"
 
 .PHONY: clone-teleport
@@ -699,6 +699,8 @@ buildbox:
 		--build-arg GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG) \
 		--build-arg GODEP_TAG=$(GODEP_TAG) \
 		--build-arg VERSION_TAG=$(VERSION_TAG) \
+		--build-arg UID=$(shell id -u) \
+		--build-arg GID=$(shell id -g) \
 		$(DOCKER_ARGS) --tag $(BUILDBOX) .
 #
 # testbox container: container used for tests

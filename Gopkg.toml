@@ -42,7 +42,7 @@ ignored = [
 
 [[override]]
   name = "github.com/gravitational/trace"
-  version = "=1.1.11"
+  version = "=v1.1.14"
 
 [[override]]
   name = "github.com/mitchellh/go-ps"
@@ -248,7 +248,7 @@ ignored = [
   # use Gravity-specific 3.2 branch of teleport which includes
   # new Kubernetes because it can't be revendored in regular
   # 3.2 branch due to some compability issues
-  branch = "branch/3.2-g"
+  version = "=v3.2.17"
 
 [[constraint]]
   version = "0.0.1"

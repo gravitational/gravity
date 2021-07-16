@@ -19,6 +19,7 @@ package process
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -83,6 +84,7 @@ import (
 	teleweb "github.com/gravitational/teleport/lib/web"
 
 	"github.com/cloudflare/cfssl/csr"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/gravitational/license/authority"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/roundtrip"
@@ -91,6 +93,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 )
@@ -719,7 +722,7 @@ func (p *Process) reconcileNodeLabels(ctx context.Context, client *kubernetes.Cl
 		return trace.Wrap(err)
 	}
 	for ip, node := range nodes {
-		if err := p.reconcileNode(client, *cluster, ip, node); err != nil {
+		if err := p.reconcileNode(ctx, client, *cluster, ip, node); err != nil {
 			p.WithError(err).Errorf("Failed to reconcile labels for node %v/%v.",
 				node.Name, ip)
 		}
@@ -727,41 +730,66 @@ func (p *Process) reconcileNodeLabels(ctx context.Context, client *kubernetes.Cl
 	return nil
 }
 
-func (p *Process) reconcileNode(client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
+func (p *Process) reconcileNode(ctx context.Context, client *kubernetes.Clientset, cluster ops.Site, ip string, node v1.Node) error {
 	server, err := cluster.ClusterState.FindServerByIP(ip)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	missingLabels, err := getMissingLabels(cluster, *server, node)
+	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	if len(missingLabels) == 0 {
+
+	oldData, err := json.Marshal(node)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	requiredLabels := server.GetNodeLabels(profile.Labels)
+	needUpdate := false
+	node.Labels, needUpdate = reconcileLabels(p, node.Labels, requiredLabels)
+	if needUpdate {
 		return nil
 	}
-	p.Infof("Adding missing labels to node %v/%v: %v.", node.Name, ip, missingLabels)
-	for key, val := range missingLabels {
-		node.Labels[key] = val
+	newData, err := json.Marshal(node)
+	if err != nil {
+		return trace.Wrap(err)
 	}
-	if _, err := client.CoreV1().Nodes().Update(&node); err != nil {
+	patchData, err := jsonpatch.CreateMergePatch(oldData, newData)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Patching node %v/%v: %s", node.Name, ip, string(patchData))
+	if _, err := client.CoreV1().Nodes().Patch(node.Name, types.MergePatchType, patchData); err != nil {
 		return rigging.ConvertError(err)
 	}
 	return nil
 }
 
-func getMissingLabels(cluster ops.Site, server storage.Server, node v1.Node) (map[string]string, error) {
-	profile, err := cluster.App.Manifest.NodeProfiles.ByName(server.Role)
-	if err != nil {
-		return nil, trace.Wrap(err)
+func reconcileLabels(logger logrus.FieldLogger, currentLabels, requiredLabels map[string]string) (map[string]string, bool) {
+	labels := make(map[string]string)
+	for key, value := range currentLabels {
+		labels[key] = value
 	}
-	missingLabels := make(map[string]string)
-	requiredLabels := server.GetNodeLabels(profile.Labels)
+	needUpdate := false
+	reconcileMode, err := defaults.ParseReconcileMode(labels[defaults.KubernetesReconcileLabel])
+	if err != nil {
+		logger.WithError(err).Error("Unable to get reconcile mode, will reset to EnsureExists.")
+		needUpdate = true
+		reconcileMode = defaults.ReconcileModeEnsureExists
+		labels[defaults.KubernetesReconcileLabel] = defaults.ReconcileModeEnsureExists
+	}
+	if reconcileMode == defaults.ReconcileModeDisabled {
+		return labels, false
+	}
 	for key, val := range requiredLabels {
-		if _, ok := node.Labels[key]; !ok {
-			missingLabels[key] = val
+		currentVal, ok := labels[key]
+		if !ok || reconcileMode == defaults.ReconcileModeEnabled && currentVal != val {
+			labels[key] = val
+			needUpdate = true
 		}
 	}
-	return missingLabels, nil
+	return labels, needUpdate
 }
 
 func (p *Process) runNodeLabelsReconciler(client *kubernetes.Clientset) clusterService {

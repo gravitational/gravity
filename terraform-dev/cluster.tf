@@ -1,25 +1,25 @@
 variable "image_name" {
-  type = "string"
+  type = string
   default = "ubuntu-18.04-server-cloudimg-amd64.img"
 }
 
 variable "disk_size" {
-  type = "string"
+  type = string
   default = "15000000000"
 }
 
 variable "memory_size" {
-  type = "string"
+  type = string
   default = "4096"
 }
 
 variable "cpu_count" {
-  type = "string"
+  type = string
   default = "1"
 }
 
 variable "nodes_count" {
-  type = "string"
+  type = string
   default = "3"
 }
 
@@ -34,7 +34,7 @@ resource "libvirt_volume" "os-qcow2" {
   pool = "default"
   source = "/var/lib/libvirt/images/${var.image_name}"
   format = "raw"
-  count = "${var.nodes_count}"
+  count = var.nodes_count
 }
 
 # Create a network for our VMs
@@ -49,10 +49,10 @@ resource "libvirt_network" "vm_network" {
 
 resource "libvirt_volume" "root" {
   name = "root-disk-${count.index}.qcow2"
-  base_volume_id = "${element(libvirt_volume.os-qcow2.*.id, count.index)}"
+  base_volume_id = element(libvirt_volume.os-qcow2.*.id, count.index)
   pool = "default"
-  size = "${var.disk_size}"
-  count = "${var.nodes_count}"
+  size = var.disk_size
+  count = var.nodes_count
 }
 
 # Use CloudInit to add our ssh-key to the instance
@@ -62,20 +62,20 @@ resource "libvirt_cloudinit_disk" "commoninit" {
             ip_address = "172.28.128.${count.index+3}",
             hostname = "telekube${count.index}"
             })
-  count     = "${var.nodes_count}"
+  count     = var.nodes_count
 }
 
 # Create the machine
 resource "libvirt_domain" "domain-gravity" {
   name = "telekube${count.index}"
-  memory = "${var.memory_size}"
-  vcpu = "${var.cpu_count}"
-  count = "${var.nodes_count}"
-  cloudinit = "${element(libvirt_cloudinit_disk.commoninit.*.id, count.index)}"
+  memory = var.memory_size
+  vcpu = var.cpu_count
+  count = var.nodes_count
+  cloudinit = element(libvirt_cloudinit_disk.commoninit.*.id, count.index)
 
   network_interface {
     hostname = "telekube${count.index}"
-    network_id = "${libvirt_network.vm_network.id}"
+    network_id = libvirt_network.vm_network.id
     addresses = ["172.28.128.${count.index+3}"]
     mac = "6E:02:C0:21:62:5${count.index+3}"
     wait_for_lease = true
@@ -97,7 +97,7 @@ resource "libvirt_domain" "domain-gravity" {
   }
 
   disk {
-    volume_id = "${element(libvirt_volume.root.*.id, count.index)}"
+    volume_id = element(libvirt_volume.root.*.id, count.index)
   }
 }
 

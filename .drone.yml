@@ -1,0 +1,639 @@
+---
+kind: pipeline
+type: kubernetes
+name: pr build
+
+trigger:
+  event:
+  - pull_request
+
+steps:
+  - name: short circuit docs changes
+    image: docker:git
+    commands:
+      # If a change is entirely documentation, skip the expensive build & test steps.
+      # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
+      -  ./build.assets/drone/diff-is-all-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
+      - make -C e production telekube opscenter
+      - make build-tsh
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: unit test
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - make -C e test
+      - make test
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build robotest images
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - make -C e/assets/robotest images
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: run robotest
+    image: docker:git
+    environment:
+      GCP_ROBOTEST_CREDENTIALS:
+        from_secret: GCP_ROBOTEST_CREDENTIALS
+      # These files need to be in a volume that the docker service has access to
+      # We choose /tmp to accommodate https://github.com/gravitational/robotest/blob/3774f8641439b19c4e0e598db8f87c52ea0e4817/docker/suite/run_suite.sh#L106
+      SSH_KEY: /tmp/secrets/robotest
+      SSH_PUB: /tmp/secrets/robotest.pub
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/secrets/gcp.json
+    commands:
+      - apk add --no-cache make bash
+      - mkdir -p $(dirname $SSH_KEY)
+      - ssh-keygen -t ed25519 -N '' -f $SSH_KEY
+      - echo "$GCP_ROBOTEST_CREDENTIALS" > $GOOGLE_APPLICATION_CREDENTIALS
+      - make -C e robotest-run
+    volumes:
+      - name: dockersock
+        path: /var/run
+      - name: dockertmp
+        path: /tmp
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+      - name: dockertmp
+        path: /tmp
+
+volumes:
+  - name: dockersock
+    temp: {}
+  - name: dockertmp
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: post-merge build
+
+trigger:
+  event:
+  - push
+  branch:
+  - master
+
+steps:
+  - name: short circuit docs changes
+    image: docker:git
+    commands:
+      # If a change is entirely documentation, skip the expensive build & test steps.
+      # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
+      - ./build.assets/drone/diff-is-all-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
+      - make -C e production telekube opscenter
+      - make build-tsh
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build robotest images
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash libc6-compat
+      - export ROBOTEST_CONFIG=nightly
+      - make -C e/assets/robotest images
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: run robotest
+    image: docker:git
+    environment:
+      GCP_ROBOTEST_CREDENTIALS:
+        from_secret: GCP_ROBOTEST_CREDENTIALS
+      # These files need to be in a volume that the docker service has access to
+      # We choose /tmp to accommodate https://github.com/gravitational/robotest/blob/3774f8641439b19c4e0e598db8f87c52ea0e4817/docker/suite/run_suite.sh#L106
+      SSH_KEY: /tmp/secrets/robotest
+      SSH_PUB: /tmp/secrets/robotest.pub
+      GOOGLE_APPLICATION_CREDENTIALS: /tmp/secrets/gcp.json
+    commands:
+      - apk add --no-cache make bash
+      - mkdir -p $(dirname $SSH_KEY)
+      - ssh-keygen -t ed25519 -N '' -f $SSH_KEY
+      - echo "$GCP_ROBOTEST_CREDENTIALS" > $GOOGLE_APPLICATION_CREDENTIALS
+      - export ROBOTEST_CONFIG=nightly
+      - make -C e robotest-run
+    volumes:
+      - name: dockersock
+        path: /var/run
+      - name: dockertmp
+        path: /tmp
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+      - name: dockertmp
+        path: /tmp
+
+volumes:
+  - name: dockersock
+    temp: {}
+  - name: dockertmp
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: pr docs
+
+trigger:
+  event:
+  - pull_request
+  branch:
+  - master
+
+steps:
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build buildbox
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs bbox
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs docs
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: lint
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - make -C docs lint
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+---
+kind: pipeline
+type: kubernetes
+name: deploy docs
+
+trigger:
+  event:
+  - push
+  branch:
+  - master
+
+clone:
+  disable: true
+
+steps:
+  - name: clone gravity
+    image: docker:git
+    commands:
+    - git clone $DRONE_REPO_LINK gravity
+    - cd gravity
+    - git checkout $DRONE_COMMIT
+  - name: short circuit non-docs changes
+    image: docker:git
+    # Skip the rest of this pipeline if no docs were changed.
+    # https://discourse.drone.io/t/how-to-exit-a-pipeline-early-without-failing/3951
+    commands:
+      - cd gravity
+      -  ./build.assets/drone/diff-has-no-docs.sh $DRONE_COMMIT_BEFORE..$DRONE_COMMIT_AFTER && exit 78 || exit 0
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build buildbox
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs bbox
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: lint
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs lint
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    commands:
+      - apk add --no-cache make
+      - cd gravity
+      - make -C docs docs
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: clone web
+    image: docker:git
+    environment:
+      WEB_REPO:
+        from_secret: WEB_REPO
+      GITHUB_WEB_DEPLOY_KEY:
+        from_secret: GITHUB_WEB_DEPLOY_KEY
+      WEB_REF: master
+    commands:
+    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_WEB_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
+    - git clone $WEB_REPO web
+    - cd web
+    - git checkout $WEB_REF
+  - name: deploy
+    image: docker:git
+    environment:
+      ANSIBLE_HOST_KEY_CHECKING: False
+      WEB_ANSIBLE_SSH_KEY:
+        from_secret: WEB_ANSIBLE_SSH_KEY
+      CLOUDFLARE_API_TOKEN_STAGING:
+        from_secret: CLOUDFLARE_API_TOKEN_STAGING
+      CLOUDFLARE_API_TOKEN_PRODUCTION:
+        from_secret: CLOUDFLARE_API_TOKEN_PRODUCTION
+    commands:
+      - apk add --no-cache make curl rsync ansible
+      - mkdir -m 0700 /root/.ssh && echo "$WEB_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+      - cd web
+      - export ENV=${ENV:-production}
+      - make deploy-docs
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: tag
+
+# This pipeline generates placeholder builds that Drone CI promotions can reference.
+# See https://docs.drone.io/promote/
+#
+# This is useful, because it allows re-running release steps without re-pushing
+# tags to the repo, in case of faulty infrastructure. We don't ever want to overwrite
+# released tags.  It'd be good to verify that the tags are signed and not already
+# present in this build. -- walt 2021-03
+
+trigger:
+  event:
+  - tag
+
+steps:
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: check version
+    image: docker:git
+    commands:
+      - apk add --no-cache make bash
+      - make get-version
+
+---
+kind: pipeline
+type: kubernetes
+name: publish-dependencies
+
+trigger:
+  event:
+  - promote
+  target:
+  - release
+  - publish-dependencies
+
+steps:
+  - name: fetch tags
+    image: docker:git
+    commands:
+      - git fetch --tags
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
+      - make -C e production
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: publish dependencies
+    image: docker:git
+    environment:
+      TELE_COPY_TO_USER:
+        from_secret: QUAY_IO_SCAN_UPLOAD_USER
+      TELE_COPY_TO_PASS:
+        from_secret: QUAY_IO_SCAN_UPLOAD_TOKEN
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RW_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RW_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli
+      - make -C e publish
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: publish-oss
+
+trigger:
+  event:
+  - promote
+  target:
+  - release
+  - publish-oss
+
+clone:
+  disable: true
+
+steps:
+  - name: clone gravity
+    image: docker:git
+    commands:
+    - git clone $DRONE_REPO_LINK gravity
+    - cd gravity
+    - git fetch --tags
+    - git checkout $DRONE_COMMIT
+  - name: clone ops
+    image: docker:git
+    environment:
+      OPS_REPO:
+        from_secret: OPS_REPO
+      GITHUB_OPS_DEPLOY_KEY:
+        from_secret: GITHUB_OPS_DEPLOY_KEY
+      OPS_REF: master
+    commands:
+    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
+    - git clone $OPS_REPO ops
+    - cd ops
+    - git checkout $OPS_REF
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: build
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
+      - cd gravity
+      - make production telekube build-tsh release hub-vars
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: publish
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RW_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RW_SECRET_ACCESS_KEY
+      MAC_ANSIBLE_BUILD_HOST:
+        from_secret: MAC_ANSIBLE_BUILD_HOST
+      MAC_ANSIBLE_SSH_KEY:
+        from_secret: MAC_ANSIBLE_SSH_KEY
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli ansible
+      - mkdir -m 0700 /root/.ssh && echo "$MAC_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+      - ssh-keyscan -H $MAC_ANSIBLE_BUILD_HOST > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
+      - export SSH_KEY_PATH=/root/.ssh/id_ed25519
+      - export WORKSPACE=/drone/src
+      - export GRAVITY_TAG=$DRONE_COMMIT_REF
+      - cd ops/hub
+      - make bucket sync
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+
+---
+kind: pipeline
+type: kubernetes
+name: publish-enterprise
+
+trigger:
+  event:
+  - promote
+  target:
+  - release
+  - publish-enterprise
+
+clone:
+  disable: true
+
+steps:
+  - name: clone gravity
+    image: docker:git
+    commands:
+    - git clone $DRONE_REPO_LINK gravity
+    - cd gravity
+    - git fetch --tags
+    - git checkout $DRONE_COMMIT
+  - name: clone ops
+    image: docker:git
+    environment:
+      OPS_REPO:
+        from_secret: OPS_REPO
+      GITHUB_OPS_DEPLOY_KEY:
+        from_secret: GITHUB_OPS_DEPLOY_KEY
+      OPS_REF: master
+    commands:
+    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
+    - git clone $OPS_REPO ops
+    - cd ops
+    - git checkout $OPS_REF
+  - name: wait for docker
+    image: docker
+    commands:
+      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
+      - docker version
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: publish on linux
+    image: docker:git
+    environment:
+      AWS_ACCESS_KEY_ID:
+        from_secret: AWS_S3_RO_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY:
+        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
+      TELE_KEY:
+        from_secret: DISTRIBUTION_OPSCENTER_TOKEN
+    commands:
+      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
+      - cd gravity
+      - make -C e production
+      - e/build/current/tele login --hub get.gravitational.io --token $TELE_KEY
+      - make -C e telekube opscenter publish-telekube publish-artifacts
+    volumes:
+      - name: dockersock
+        path: /var/run
+  - name: publish on mac
+    image: docker:git
+    environment:
+      TELE_KEY:
+        from_secret: DISTRIBUTION_OPSCENTER_TOKEN
+      MAC_ANSIBLE_BUILD_HOST:
+        from_secret: MAC_ANSIBLE_BUILD_HOST
+      MAC_ANSIBLE_SSH_KEY:
+        from_secret: MAC_ANSIBLE_SSH_KEY
+    commands:
+      - apk add --no-cache make ansible
+      - mkdir -m 0700 /root/.ssh && echo "$MAC_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
+      - ssh-keyscan -H $MAC_ANSIBLE_BUILD_HOST > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
+      - export SSH_KEY_PATH=/root/.ssh/id_ed25519
+      - export TELEKUBE_TAG=$DRONE_COMMIT_REF
+      - cd ops/xcloud
+      - make release-telekube-mac
+
+services:
+  - name: run docker daemon
+    image: docker:20.10.6-dind
+    privileged: true
+    volumes:
+      - name: dockersock
+        path: /var/run
+
+volumes:
+  - name: dockersock
+    temp: {}
+---
+kind: signature
+hmac: fc7bcba6e3cb847ee5f298704dee2c99237afee127ef9eacbb55076bd3ef06fa
+
+...

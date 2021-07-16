@@ -30,7 +30,7 @@ ROBOTEST_CONFIG_SCRIPT = $(TOP)/config/$(ROBOTEST_CONFIG).sh
 # End variables expected to be set outside this Makefile.
 # Everything below is Robotest specific.
 
-ROBOTEST_VERSION ?= 2.2.1
+ROBOTEST_VERSION ?= 3.0.0
 ROBOTEST_DOCKER_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
@@ -77,13 +77,6 @@ ROBOTEST_TELE_CACHE ?= $(ROBOTEST_CACHEDIR)/tele
 ROBOTEST_CACHES = $(ROBOTEST_GRAVITY_PKG_CACHE) $(ROBOTEST_TELE_CACHE)
 
 # Image configuration.
-
-TELE_BUILD_DOCKER_BASE_IMAGE = quay.io/gravitational/debian-grande:buster-20201001
-# TELE_BUILD_DOCKER_IMAGE is the base image with `tele build` prerequisites (such as the docker cli) added to it.
-TELE_BUILD_DOCKER_IMAGE = $(notdir $(TELE_BUILD_DOCKER_BASE_IMAGE))-tele-build
-# TELE_BUILD_DOCKER_IDDFILE is used to prevent make from constantly rebuilding the image.
-# subst because ':' in filenames breaks using them in make targets.
-TELE_BUILD_DOCKER_IIDFILE = $(ROBOTEST_BUILDDIR)/$(subst :,-,$(TELE_BUILD_DOCKER_IMAGE)).iid
 
 # ROBOTEST_IMAGEDIR is a store of robotest images used only for the current
 # robotest run. Expected to be populated on demand from the caches and mounted
@@ -182,14 +175,6 @@ $(ROBOTEST_BUILD_TMP):
 $(ROBOTEST_CACHE_TMP):
 	mkdir -p $(ROBOTEST_CACHE_TMP)
 
-.PHONY: docker-image-tele-build
-docker-image-tele-build: ## Build a docker image suitable to run `tele build`.
-docker-image-tele-build: $(TELE_BUILD_DOCKER_IIDFILE)
-
-$(TELE_BUILD_DOCKER_IIDFILE): $(TOP)/Dockerfile $(ROBOTEST_BUILDDIR)
-	docker build --tag $(TELE_BUILD_DOCKER_IMAGE) --build-arg BASE=$(TELE_BUILD_DOCKER_BASE_IMAGE) $(TOP)
-	touch $(TELE_BUILD_DOCKER_IIDFILE)
-
 .PHONY: images
 images: ## Build all images necessary to run robotest CI tests.
 images: image-telekube image-opscenter image-robotest image-robotest-intermediate image-robotest-upgrade
@@ -213,14 +198,12 @@ image-robotest: ## Build robotest cluster image using the current tele.
 image-robotest: $(ROBOTEST_IMAGE)
 
 $(ROBOTEST_IMAGE): export TARGET = $(ROBOTEST_IMAGE)
-$(ROBOTEST_IMAGE): export IMAGE = $(TELE_BUILD_DOCKER_IMAGE)
 $(ROBOTEST_IMAGE): export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
 $(ROBOTEST_IMAGE): export APP_MANIFEST = $(ROBOTEST_IMAGE_MANIFEST)
-$(ROBOTEST_IMAGE): export APP_SRCDIR = $(ROBOTEST_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGE): export VERSION = $(GRAVITY_VERSION)
 $(ROBOTEST_IMAGE): export TELE = $(TELE_OUT)
 $(ROBOTEST_IMAGE): export STATE_DIR = $(PACKAGES_DIR)
-$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh $(TELE_BUILD_DOCKER_IIDFILE) | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
+$(ROBOTEST_IMAGE): $(TELE_OUT) $(ROBOTEST_IMAGE_SRC) $(TOP)/tele_build.sh | $(ROBOTEST_IMAGEDIR) $(ROBOTEST_BUILD_TMP)
 	$(TOP)/tele_build.sh
 
 .PHONY: image-robotest-intermediate
@@ -287,10 +270,8 @@ endif
 # .PRECIOUS because these need to be present through the run target.
 .PRECIOUS: $(ROBOTEST_IMAGEDIR)/robotest-%.tar
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TARGET = $@
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export IMAGE = $(TELE_BUILD_DOCKER_IMAGE)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export BUILD_TMP = $(ROBOTEST_BUILD_TMP)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_MANIFEST = $(ROBOTEST_UPGRADE_BASE_IMAGE_MANIFEST)
-$(ROBOTEST_IMAGEDIR)/robotest-%.tar: export APP_SRCDIR = $(ROBOTEST_UPGRADE_BASE_IMAGE_SRCDIR)
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export VERSION = $*
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export TELE = $<
 $(ROBOTEST_IMAGEDIR)/robotest-%.tar: export STATE_DIR = $(ROBOTEST_GRAVITY_PKG_CACHE)/$*

@@ -16,7 +16,7 @@ def setRobotestParameters() {
       parameters([
         // WARNING: changing parameters will not affect the next build, only the following one
         // see issue #1315 or https://stackoverflow.com/questions/46680573/ -- 2020-04 walt
-        choice(choices: ["run", "skip"].join("\n"),
+        choice(choices: ["skip", "run"].join("\n"),
           // defaultValue is not applicable to choices. The first choice will be the default.
           description: 'Run or skip robotest system wide tests.',
           name: 'RUN_ROBOTEST'),
