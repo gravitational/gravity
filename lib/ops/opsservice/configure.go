@@ -1440,7 +1440,7 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 		args = append(args,
 			fmt.Sprintf("--feature-gates=%v", strings.Join(features, ",")))
 	}
-	if globalConfig.HighAvailability {
+	if globalConfig.HighAvailability != nil && *globalConfig.HighAvailability {
 		args = append(args, "--high-availability")
 	}
 	return args
