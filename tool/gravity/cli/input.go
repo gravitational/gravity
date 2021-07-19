@@ -72,7 +72,7 @@ func enforceConfirmation(title string, args ...interface{}) error {
 		return trace.Wrap(err)
 	}
 	if !confirmed {
-		return trace.CompareFailed("Operation has been canceled by user.")
+		return trace.CompareFailed("Operation has been cancelled by user.")
 	}
 	return nil
 }
