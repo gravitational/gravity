@@ -55,8 +55,6 @@ const (
 	SiteLabelName = "Name"
 	// SystemRepository is the system package repository
 	SystemRepository = "gravitational.io"
-	// ProviderGeneric is the generic cluster infrastructure provider
-	ProviderGeneric = "generic"
 	// ProgressStateCompleted signifies the operation completed progress value
 	ProgressStateCompleted = "completed"
 	// ProgressStateInProgress signifies the operation in-progress progress value

@@ -682,7 +682,7 @@ func (r configCollection) WriteText(w io.Writer) error {
 	if len(config.FeatureGates) != 0 {
 		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
 	}
-	fmt.Fprintf(t, "High Availability:\t%v\n", config.HighAvailability)
+	fmt.Fprintf(t, "High Availability:\t%v\n", formatBoolPtr(config.HighAvailability))
 	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
 	if displayCloudConfig {
 		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
@@ -737,6 +737,13 @@ func formatFeatureGates(features map[string]bool) string {
 		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
 	}
 	return strings.Join(result, ",")
+}
+
+func formatBoolPtr(ptr *bool) string {
+	if ptr == nil {
+		return "<unset>"
+	}
+	return fmt.Sprint(*ptr)
 }
 
 type operationsCollection struct {
