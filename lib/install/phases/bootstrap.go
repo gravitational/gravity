@@ -98,7 +98,6 @@ func NewBootstrap(p fsm.ExecutorParams, operator ops.Operator, apps app.Applicat
 		ExecutorParams:   p,
 		ServiceUser:      *serviceUser,
 		remote:           remote,
-		dnsConfig:        p.Plan.DNSConfig,
 		mounts:           mounts,
 		stateDir:         p.Phase.Data.Server.StateDir(),
 		seLinux:          p.Phase.Data.Server.SELinux,
@@ -118,8 +117,6 @@ type bootstrapExecutor struct {
 	ServiceUser systeminfo.User
 	// ExecutorParams is common executor params
 	fsm.ExecutorParams
-	// dnsConfig specifies local cluster DNS configuration to set
-	dnsConfig storage.DNSConfig
 	// remote specifies the server remote control interface
 	remote fsm.Remote
 	// mounts lists additional application-specific volume mounts
@@ -342,15 +339,45 @@ func (p *bootstrapExecutor) logIntoCluster() error {
 }
 
 func (p *bootstrapExecutor) configureSystemMetadata() error {
-	err := p.LocalBackend.SetSELinux(p.seLinux)
+	if err := p.LocalBackend.SetSELinux(p.seLinux); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.configureDNS(); err != nil {
+		return trace.Wrap(err)
+	}
+	if err := p.configureNodeAddr(); err != nil {
+		return trace.Wrap(err)
+	}
+	return p.configureServiceUser()
+}
+
+// configureDNS creates local cluster DNS configuration in local state database
+func (p *bootstrapExecutor) configureDNS() error {
+	err := p.LocalBackend.SetDNSConfig(p.Plan.DNSConfig)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.LocalBackend.SetDNSConfig(p.dnsConfig)
+	p.Infof("Created DNS configuration: %v.", p.Plan.DNSConfig)
+	return nil
+}
+
+// configureNodeAddr persists the node advertise IP in local state database
+func (p *bootstrapExecutor) configureNodeAddr() error {
+	err := p.LocalBackend.SetNodeAddr(p.Phase.Data.Server.AdvertiseIP)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	p.Infof("Created DNS configuration: %v.", p.dnsConfig)
+	p.Infof("Set node address: %v.", p.Phase.Data.Server.AdvertiseIP)
+	return nil
+}
+
+// configureServiceUser persists the service user in local state database
+func (p *bootstrapExecutor) configureServiceUser() error {
+	err := p.LocalBackend.SetServiceUser(p.ServiceUser.OSUser())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	p.Infof("Set service user: %v.", p.ServiceUser)
 	return nil
 }
 

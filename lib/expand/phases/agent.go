@@ -130,7 +130,7 @@ func NewAgentStop(p fsm.ExecutorParams, operator ops.Operator, packages pack.Pac
 		Key:      opKey(p.Plan),
 		Operator: operator,
 	}
-	credentials, err := rpc.ClientCredentialsFromPackage(packages, loc.RPCSecrets)
+	credentials, err := rpc.ClientCredentials(packages)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
