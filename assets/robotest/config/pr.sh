@@ -7,8 +7,9 @@ source $(dirname $0)/lib/utils.sh
 
 # UPGRADE_MAP maps gravity version -> space separated list of linux distros to upgrade from
 declare -A UPGRADE_MAP
-UPGRADE_MAP[7.1.0-alpha.5]="ubuntu:20" # this version
-UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="redhat:8.2" # compatible LTS version
+
+UPGRADE_MAP[7.1.0-alpha.5]="ubuntu:20" # Discarded 7.1.0 version -- this is a precursor to the 8.0 line of development
+UPGRADE_MAP[$(recommended_upgrade_tag $(branch 7.0.x))]="redhat:8.4" # compatible LTS version
 UPGRADE_MAP[7.0.13]="centos:7.9" # 7.0.13 + centos is combination that is critical in the field -- 2020-07 walt
 UPGRADE_MAP[7.0.12]="ubuntu:18" # 7.0.12 is the first LTS 7.0 release
 UPGRADE_MAP[7.0.7]="ubuntu:16" # 7.0.7 is the first 7.0 with https://github.com/gravitational/planet/pull/671 included
@@ -56,7 +57,7 @@ EOF
 
 function build_install_suite {
   local suite=''
-  local oses="redhat:8.3 redhat:7.9 centos:8.2 centos:7.9 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
+  local oses="redhat:8.4 redhat:7.9 centos:8.4 centos:7.9 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
   local cluster_size='"flavor":"one","nodes":1,"role":"node"'
   for os in $oses; do
     suite+=$(cat <<EOF
