@@ -14,8 +14,8 @@ Gravity officially supports the following Linux distributions:
 
 | Linux Distribution       | Version             | Docker Storage Drivers                |
 |--------------------------|---------------------|---------------------------------------|
-| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
-| CentOS                   | 7.2-7.9, 8.0-8.3*   | `overlay`, `overlay2`                 |
+| Red Hat Enterprise Linux | 7.4-7.9, 8.0-8.4*   | `overlay`, `overlay2`                 |
+| CentOS                   | 7.2-7.9, 8.0-8.4*   | `overlay`, `overlay2`                 |
 | Debian                   | 9, 10               | `overlay`, `overlay2`                 |
 | Ubuntu                   | 16.04, 18.04, 20.04 | `overlay`, `overlay2`                 |
 | Ubuntu-Core              | 16.04               | `overlay`, `overlay2`                 |
@@ -41,8 +41,8 @@ specified in the manifest:
 
 | Distribution Name        | ID                         | Version             |
 |--------------------------|----------------------------|---------------------|
-| Red Hat Enterprise Linux | rhel                       | 7.4-7.9, 8.0-8.3    |
-| CentOS                   | centos                     | 7.2-7.9, 8.0-8.3    |
+| Red Hat Enterprise Linux | rhel                       | 7.4-7.9, 8.0-8.4    |
+| CentOS                   | centos                     | 7.2-7.9, 8.0-8.4    |
 | Debian                   | debian                     | 9                   |
 | Ubuntu                   | ubuntu                     | 16.04, 18.04, 20.04 |
 | Ubuntu-Core              | ubuntu                     | 16.04               |
@@ -263,8 +263,8 @@ Gravity requires that these modules are loaded prior to installation.
 | Linux Distribution                   | Version             | Modules                                         |
 |--------------------------------------|---------------------|-------------------------------------------------|
 | CentOS                               | 7.2                 | bridge, ebtable_filter, iptables, overlay       |
-| CentOS                               | 7.3-7.9, 8.0-8.3    | br_netfilter, ebtable_filter, iptables, overlay |
-| RedHat Linux                         | 7.3-7.9, 8.0-8.3    | br_netfilter, ebtable_filter, iptables, overlay |
+| CentOS                               | 7.3-7.9, 8.0-8.4    | br_netfilter, ebtable_filter, iptables, overlay |
+| RedHat Linux                         | 7.3-7.9, 8.0-8.4    | br_netfilter, ebtable_filter, iptables, overlay |
 | Debian                               | 9, 10               | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu                               | 16.04, 18.04, 20.04 | br_netfilter, ebtable_filter, iptables, overlay |
 | Ubuntu-Core                          | 16.04               | br_netfilter, ebtable_filter, iptables, overlay |
