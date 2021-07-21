@@ -22,7 +22,8 @@ function build_upgrade_size_suite {
     '"flavor":"six","nodes":6,"role":"node"' \
     '"flavor":"one","nodes":1,"role":"node"')
   local suite=''
-  local from_tarball=$(tag_to_image $(recommended_upgrade_tag $(branch 7.0.x)))
+  # local from_tarball=$(tag_to_image $(recommended_upgrade_tag $(branch 7.0.x)))
+  local from_tarball=$(tag_to_image 9.0.0-beta.2)
   for size in ${cluster_sizes[@]}; do
       suite+=$(build_upgrade_step $from_tarball $to_tarball $os $size)
     suite+=' '
