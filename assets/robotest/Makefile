@@ -30,7 +30,7 @@ ROBOTEST_CONFIG_SCRIPT = $(TOP)/config/$(ROBOTEST_CONFIG).sh
 # End variables expected to be set outside this Makefile.
 # Everything below is Robotest specific.
 
-ROBOTEST_VERSION ?= 3.0.0
+ROBOTEST_VERSION ?= 3.1.0
 ROBOTEST_DOCKER_IMAGE ?= quay.io/gravitational/robotest-suite:$(ROBOTEST_VERSION)
 
 # ROBOTEST_BUILDDIR is the root of all robotest build artifacts for this build
