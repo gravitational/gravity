@@ -9,9 +9,9 @@ source $(dirname $0)/lib/utils.sh
 declare -A UPGRADE_MAP
 
 # Use a fixed tag until we cut our first non-pre-release, as recommended_upgrade_tag skips pre-releases
-# UPGRADE_MAP[$(recommended_upgrade_tag $(branch 9.0.x))]="redhat:8.2 redhat:7.8 centos:8.2 centos:7.8 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
-UPGRADE_MAP[9.0.0-beta.2]="redhat:8.2 redhat:7.9 centos:8.2 centos:7.9 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
-UPGRADE_MAP[8.0.0-beta.1]="redhat:8.2 centos:7.9 ubuntu:18 ubuntu:20"
+# UPGRADE_MAP[$(recommended_upgrade_tag $(branch 9.0.x))]="redhat:8.4 redhat:7.8 centos:8.4 centos:7.8 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
+UPGRADE_MAP[9.0.0-beta.2]="redhat:8.4 redhat:7.9 centos:8.4 centos:7.9 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
+UPGRADE_MAP[8.0.0-beta.1]="redhat:8.4 centos:7.9 ubuntu:18 ubuntu:20"
 UPGRADE_MAP[7.1.0-alpha.6]="ubuntu:20"
 
 function build_upgrade_size_suite {
@@ -80,7 +80,7 @@ EOF
 }
 function build_install_suite {
   local suite=''
-  local oses="redhat:8.2 redhat:7.8 centos:8.2 centos:7.8 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
+  local oses="redhat:8.4 redhat:7.8 centos:8.4 centos:7.8 sles:12-sp5 sles:15-sp2 ubuntu:16 ubuntu:18 ubuntu:20 debian:9 debian:10"
   local cluster_sizes=( \
     '"flavor":"six","nodes":6,"role":"node"')
   for os in $oses; do
