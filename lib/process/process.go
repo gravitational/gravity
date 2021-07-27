@@ -748,7 +748,7 @@ func (p *Process) reconcileNode(ctx context.Context, client *kubernetes.Clientse
 	requiredLabels := server.GetNodeLabels(profile.Labels)
 	needUpdate := false
 	node.Labels, needUpdate = reconcileLabels(p, node.Labels, requiredLabels)
-	if needUpdate {
+	if !needUpdate {
 		return nil
 	}
 	newData, err := json.Marshal(node)
