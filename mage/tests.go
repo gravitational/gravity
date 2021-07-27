@@ -82,13 +82,23 @@ func (Test) Lint(ctx context.Context) (err error) {
 }
 
 // Unit runs unit tests with the race detector enabled.
-func (Test) Unit(ctx context.Context) (err error) {
+func (Test) Unit(ctx context.Context, pkg string) (err error) {
 	mg.CtxDeps(ctx, Build.BuildContainer)
 
 	m := root.Target("test:unit")
 	defer func() { m.Complete(err) }()
 
 	m.Println("Running unit tests")
+
+	var packages = []string{pkg}
+	if pkg == "" {
+		packages = []string{
+			"./lib/...",
+			"./tool/...",
+			"./e/lib/...",
+			"./e/tool/...",
+		}
+	}
 
 	tasks := runtime.NumCPU()
 	if runtime.GOOS == "darwin" {
@@ -100,6 +110,14 @@ func (Test) Unit(ctx context.Context) (err error) {
 	err = m.GolangTest().
 		SetRace(true).
 		SetCacheResults(false).
+		// Enable the use of docker inside the test container
+		AddVolumes(magnet.DockerBindMount{
+			Source:      "/var/run/docker.sock",
+			Destination: "/var/run/docker.sock",
+			Consistency: "cached",
+		}).
+		SetNetwork("host").
+		SetUser(magnet.User{ID: "root"}).
 		SetBuildContainerConfig(magnet.BuildContainer{
 			Name:          buildBoxName(),
 			ContainerPath: "/host",
@@ -108,12 +126,7 @@ func (Test) Unit(ctx context.Context) (err error) {
 		SetEnv("GO111MODULE", "on").
 		SetMod("vendor").
 		SetCoverProfile("coverage.out").
-		Test(ctx,
-			"./lib/...",
-			"./tool/...",
-			"./e/lib/...",
-			"./e/tool/...",
-		)
+		Test(ctx, packages...)
 	return trace.Wrap(err)
 }
 

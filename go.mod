@@ -47,7 +47,7 @@ require (
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
-	github.com/gravitational/magnet v0.2.7-0.20210609203954-0a59f53f530e
+	github.com/gravitational/magnet v0.2.7-0.20210726111722-d6a96ab16324
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d
 	github.com/gravitational/roundtrip v1.0.0
