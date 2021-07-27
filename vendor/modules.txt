@@ -454,7 +454,7 @@ github.com/gravitational/kingpin
 github.com/gravitational/license
 github.com/gravitational/license/authority
 github.com/gravitational/license/constants
-# github.com/gravitational/magnet v0.2.7-0.20210714140929-e73b2b11506a
+# github.com/gravitational/magnet v0.2.7-0.20210726111722-d6a96ab16324
 github.com/gravitational/magnet
 github.com/gravitational/magnet/common
 github.com/gravitational/magnet/pkg/cp

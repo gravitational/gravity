@@ -20,9 +20,7 @@ import (
 )
 
 func DisplaySolveStatus(ctx context.Context, phase string, c console.Console, w io.Writer, ch chan *SolveStatus) error {
-
 	modeConsole := c != nil
-
 	disp := &display{c: c, phase: phase}
 	printer := &textMux{w: w}
 
@@ -42,48 +40,49 @@ func DisplaySolveStatus(ctx context.Context, phase string, c console.Console, w 
 		}
 	}
 
-	var done bool
 	ticker := time.NewTicker(tickerTimeout)
 	defer ticker.Stop()
 
 	displayLimiter := rate.NewLimiter(rate.Every(displayTimeout), 1)
 
-	var height int
-	width, _ := disp.getSize()
+	closePrint := func() {
+		printer.print(t)
+		t.printErrorLogs(w)
+	}
+	print := func() {
+		printer.print(t)
+	}
+	if modeConsole {
+		closePrint = func() {
+			width, height := disp.getSize()
+			disp.print(t.displayInfo(), width, height, true)
+			t.printErrorLogs(c)
+		}
+		print = func() {
+			width, height := disp.getSize()
+			disp.print(t.displayInfo(), width, height, false)
+		}
+
+	}
+	defer closePrint()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
 		case ss, ok := <-ch:
-			if ok {
-				t.update(ss, width)
-			} else {
-				done = true
+			if !ok {
+				return nil
 			}
+			width, _ := disp.getSize()
+			t.update(ss, width)
 		}
 
-		if modeConsole {
-			width, height = disp.getSize()
-			if done {
-				disp.print(t.displayInfo(), width, height, true)
-				t.printErrorLogs(c)
-				return nil
-			} else if displayLimiter.Allow() {
-				ticker.Stop()
-				ticker = time.NewTicker(tickerTimeout)
-				disp.print(t.displayInfo(), width, height, false)
-			}
-		} else {
-			if done || displayLimiter.Allow() {
-				printer.print(t)
-				if done {
-					t.printErrorLogs(w)
-					return nil
-				}
-				ticker.Stop()
-				ticker = time.NewTicker(tickerTimeout)
-			}
+		if displayLimiter.Allow() {
+			ticker.Stop()
+			ticker = time.NewTicker(tickerTimeout)
+			print()
 		}
 	}
 }
@@ -328,7 +327,6 @@ func (t *trace) displayInfo() (d displayInfo) {
 		}
 	}
 
-	//for _, v := range t.vertexes {
 	for _, v := range t.sortedVertexes() {
 		if v.jobCached {
 			d.jobs = append(d.jobs, v.jobs...)
