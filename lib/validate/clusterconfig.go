@@ -89,6 +89,10 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 		return trace.Wrap(err)
 	}
 
+	if !isSupportedBackend(newGlobalConfig.FlannelBackend) {
+		return trace.BadParameter("unsupported flannel backend was specified: %v", newGlobalConfig.FlannelBackend)
+	}
+
 	return nil
 }
 
@@ -103,4 +107,16 @@ func normalizedCloudProvider(provider string) string {
 	default:
 		return provider
 	}
+}
+
+// isSupportedBackend returns true if the specified backend is a supported flannel
+// backend.
+func isSupportedBackend(backend string) bool {
+	supportedBackends := []string{"aws-vpc", "gce", "vxlan"}
+	for _, supportedBackend := range supportedBackends {
+		if supportedBackend == backend {
+			return true
+		}
+	}
+	return false
 }
