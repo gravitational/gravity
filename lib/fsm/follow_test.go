@@ -235,6 +235,7 @@ func assertEventsMostlyCompleted(events []PlanEvent, c *check.C) {
 		switch event := eventPayload.(type) {
 		case *PlanChangedEvent:
 			if event.Change.NewState == storage.OperationPhaseStateCompleted {
+				i := i
 				pivot = &i
 				break
 			}

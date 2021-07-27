@@ -75,7 +75,7 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 		plan, err := getPlan()
 		if err == nil {
 			err = sendPlanChanges(ctx, GetPlanProgress(*plan), *plan, ch)
-			if errors.Is(err, stopUpdates) {
+			if errors.Is(err, errStopUpdates) {
 				// Done
 				return
 			}
@@ -124,7 +124,7 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					continue
 				}
 				err = sendPlanChanges(ctx, changes, *nextPlan, ch)
-				if errors.Is(err, stopUpdates) {
+				if errors.Is(err, errStopUpdates) {
 					// Done
 					return
 				}
@@ -153,15 +153,15 @@ func sendPlanChanges(ctx context.Context, changes []storage.PlanChange, plan sto
 			return trace.Wrap(ctx.Err())
 		}
 		if event.isTerminalEvent() {
-			return stopUpdates
+			return errStopUpdates
 		}
 	}
 	return nil
 }
 
-// stopUpdates is a special error value that signifies that no further
+// errStopUpdates is a special error value that signifies that no further
 // plan updates will be sent
-var stopUpdates = errors.New("stop plan updates")
+var errStopUpdates = errors.New("stop plan updates")
 
 // getPlanEvents returns a list of plan events from the provided list of
 // changes and the current state of the plan.

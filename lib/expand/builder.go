@@ -413,7 +413,7 @@ func fillSteps(plan *storage.OperationPlan, maxSteps int) {
 	var step int
 	fsm.VisitPlanRef(plan, func(phase *storage.OperationPhase) bool {
 		phase.Step = calcStep(maxSteps, numPhases, step)
-		step += 1
+		step++
 		return true
 	})
 }

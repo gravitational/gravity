@@ -223,7 +223,7 @@ func FindPhase(plan storage.OperationPlan, phaseID string) (result *storage.Oper
 // GetNumPhases computes the number of phases in the given plan
 func GetNumPhases(plan storage.OperationPlan) (numPhases int) {
 	VisitPlan(plan, func(storage.OperationPhase) bool {
-		numPhases += 1
+		numPhases++
 		return true
 	})
 	return numPhases
