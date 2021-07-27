@@ -208,8 +208,7 @@ func (p *stateExecutor) createOperation(backend storage.Backend) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	plan := p.Plan
-	fsm.MarkCompleted(&plan)
+	plan := fsm.MarkCompleted(p.Plan)
 	_, err = backend.CreateOperationPlan(plan)
 	if err != nil {
 		return trace.Wrap(err)

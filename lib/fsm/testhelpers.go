@@ -86,7 +86,8 @@ func (t *testEngine) changePhaseStateWithTimestamp(ch StateChange, created time.
 func (t *testEngine) GetPlan() (*storage.OperationPlan, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return ResolvePlan(t.getPlan(), t.changelog), nil
+	plan := ResolvePlan(t.getPlan(), t.changelog)
+	return &plan, nil
 }
 
 // RunCommand is not implemented by the test engine.
@@ -140,8 +141,8 @@ func (e *testExecutor) PostCheck(ctx context.Context) error { return nil }
 // testPlanner knows how to generate plans and changelogs used in fsm tests.
 type testPlanner struct{}
 
-func (p *testPlanner) newPlan(phases ...storage.OperationPhase) *storage.OperationPlan {
-	return &storage.OperationPlan{Phases: phases}
+func (p *testPlanner) newPlan(phases ...storage.OperationPhase) storage.OperationPlan {
+	return storage.OperationPlan{Phases: phases}
 }
 
 func (p *testPlanner) newChangelog(changes ...storage.PlanChange) storage.PlanChangelog {
@@ -162,6 +163,10 @@ func (p *testPlanner) bootstrapPhase(phases ...storage.OperationPhase) storage.O
 
 func (p *testPlanner) bootstrapSubPhase(node, state string) storage.OperationPhase {
 	return storage.OperationPhase{ID: fmt.Sprintf("/bootstrap/%v", node), State: state}
+}
+
+func (p *testPlanner) phase(id int, state string) storage.OperationPhase {
+	return storage.OperationPhase{ID: fmt.Sprint("/phase", id), State: state}
 }
 
 func (p *testPlanner) bootstrapSubChange(node, state string) storage.PlanChange {

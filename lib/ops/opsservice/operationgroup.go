@@ -224,7 +224,7 @@ You can provide --force flag to override this check.`,
 	if trace.IsNotFound(err) {
 		return nil
 	}
-	if !fsm.IsRolledBack(plan) {
+	if !fsm.IsRolledBack(*plan) {
 		return trace.CompareFailed(
 			`The last %v operation (%v) is in a %v state but its operation plan isn't fully rolled back.
 Use "gravity plan" to view the operation plan, and either resume it or roll it back before attempting to start another operation.

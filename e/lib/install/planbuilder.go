@@ -44,7 +44,7 @@ func (b *PlanBuilder) AddInstallerPhase(plan *storage.OperationPlan, opsCluster,
 				Password:     opsToken,
 			},
 		},
-		Requires: fsm.RequireIfPresent(plan, ossphases.ChecksPhase),
+		Requires: fsm.RequireIfPresent(*plan, ossphases.ChecksPhase),
 		Step:     0,
 	})
 }
@@ -58,7 +58,7 @@ func (b *PlanBuilder) AddDecryptPhase(plan *storage.OperationPlan, encryptionKey
 			Package: &b.Application.Package,
 			Data:    encryptionKey,
 		},
-		Requires: fsm.RequireIfPresent(plan, ossphases.ChecksPhase),
+		Requires: fsm.RequireIfPresent(*plan, ossphases.ChecksPhase),
 		Step:     3,
 	})
 }

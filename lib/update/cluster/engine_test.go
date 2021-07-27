@@ -59,7 +59,9 @@ func (s *FSMSuite) SetUpTest(c *check.C) {
 			Spec:     getTestExecutor(),
 		},
 		FieldLogger: logger,
-		reconciler:  &testReconciler{},
+		reconciler: &testReconciler{
+			backend: services.Backend,
+		},
 	}
 	s.fsm = &fsm.FSM{
 		Config:      fsm.Config{Engine: s.engine},
@@ -167,13 +169,13 @@ func (s *FSMSuite) TestFSMExecutePhaseWithSubphases(c *check.C) {
 	})
 }
 
-func (s *FSMSuite) resolvePlan(c *check.C, plan storage.OperationPlan) *storage.OperationPlan {
+func (s *FSMSuite) resolvePlan(c *check.C, plan storage.OperationPlan) storage.OperationPlan {
 	changelog, err := s.engine.LocalBackend.GetOperationPlanChangelog(plan.ClusterName, plan.OperationID)
 	c.Assert(err, check.IsNil)
 	return fsm.ResolvePlan(plan, changelog)
 }
 
-func checkStates(c *check.C, plan *storage.OperationPlan, states map[string]string) {
+func checkStates(c *check.C, plan storage.OperationPlan, states map[string]string) {
 	for name, state := range states {
 		phase, err := fsm.FindPhase(plan, name)
 		c.Assert(err, check.IsNil)
@@ -232,7 +234,14 @@ func (p *testPhase2) Rollback(context.Context) error {
 }
 
 func (r *testReconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPlan) (*storage.OperationPlan, error) {
+	changes, err := r.backend.GetOperationPlanChangelog(plan.ClusterName, plan.OperationID)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	plan = fsm.ResolvePlan(plan, changes)
 	return &plan, nil
 }
 
-type testReconciler struct{}
+type testReconciler struct {
+	backend storage.Backend
+}

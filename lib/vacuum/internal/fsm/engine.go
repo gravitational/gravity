@@ -124,7 +124,7 @@ func (r *engine) UpdateProgress(ctx context.Context, params libfsm.Params) error
 		return trace.Wrap(err)
 	}
 
-	phase, err := libfsm.FindPhase(plan, params.PhaseID)
+	phase, err := libfsm.FindPhase(*plan, params.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -157,7 +157,7 @@ func (r *engine) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	return libfsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
+	return libfsm.CompleteOrFailOperation(ctx, *plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an new changelog entry

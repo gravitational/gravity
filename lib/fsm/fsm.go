@@ -223,7 +223,7 @@ func (f *FSM) ExecutePhase(ctx context.Context, p Params) error {
 		return trace.Wrap(err)
 	}
 	p.OperationID = plan.OperationID
-	phase, err := FindPhase(plan, p.PhaseID)
+	phase, err := FindPhase(*plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -267,7 +267,7 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 	}
 	// No need to verify if phase can be rolled back during dry runs.
 	if !p.DryRun {
-		err = CanRollback(plan, p.PhaseID)
+		err = CanRollback(*plan, p.PhaseID)
 		if err != nil {
 			if !p.Force {
 				return trace.Wrap(err)
@@ -275,7 +275,7 @@ func (f *FSM) RollbackPhase(ctx context.Context, p Params) error {
 			f.WithError(err).Warn("Forcing rollback.")
 		}
 	}
-	phase, err := FindPhase(plan, p.PhaseID)
+	phase, err := FindPhase(*plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -344,7 +344,7 @@ func (f *FSM) ChangePhaseState(ctx context.Context, change StateChange) error {
 		return trace.Wrap(err)
 	}
 	// Make sure the phase exists in the plan.
-	if _, err := FindPhase(plan, change.Phase); err != nil {
+	if _, err := FindPhase(*plan, change.Phase); err != nil {
 		return trace.Wrap(err)
 	}
 	return f.Engine.ChangePhaseState(ctx, change)
@@ -635,18 +635,23 @@ func (f *FSM) prerequisitesComplete(phaseID string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	allPhases := FlattenPlan(plan)
 	for phaseID != path.Dir(phaseID) {
-		phase, err := FindPhase(plan, phaseID)
+		phase, err := FindPhase(*plan, phaseID)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		for _, required := range phase.Requires {
-			for _, p := range allPhases {
+			var incompletePhase *storage.OperationPhase
+			VisitPlan(*plan, func(p storage.OperationPhase) bool {
 				if p.ID == required && !p.IsCompleted() {
-					return trace.BadParameter(
-						"required phase %q is not completed", p.ID)
+					incompletePhase = &p
+					return false
 				}
+				return true
+			})
+			if incompletePhase != nil {
+				return trace.BadParameter(
+					"required phase %q is not completed", incompletePhase.ID)
 			}
 		}
 		phaseID = path.Dir(phaseID)

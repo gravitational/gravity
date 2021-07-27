@@ -209,7 +209,7 @@ func (e *fsmEngine) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	return fsm.CompleteOrFailOperation(ctx, plan, e.Operator, fsmErr.Error())
+	return fsm.CompleteOrFailOperation(ctx, *plan, e.Operator, fsmErr.Error())
 }
 
 // UpdateProgress reports operation progress to the cluster's operator
@@ -218,14 +218,14 @@ func (e *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	phase, err := fsm.FindPhase(plan, p.PhaseID)
+	phase, err := fsm.FindPhase(*plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	entry := ops.ProgressEntry{
 		SiteDomain:  e.OperationKey.SiteDomain,
 		OperationID: e.OperationKey.OperationID,
-		Completion:  100 / len(fsm.FlattenPlan(plan)) * phase.Step,
+		Completion:  100 / fsm.GetNumPhases(*plan) * phase.Step,
 		Step:        phase.Step,
 		State:       ops.ProgressStateInProgress,
 		Message:     phase.Description,

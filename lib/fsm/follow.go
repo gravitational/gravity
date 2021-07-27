@@ -18,6 +18,7 @@ package fsm
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gravitational/gravity/lib/storage"
@@ -60,19 +61,25 @@ func (e *PlanRolledBackEvent) isTerminalEvent() bool { return true }
 
 // FollowOperationPlan returns a channel that will be receiving phase updates
 // for the specified plan.
+// The returned channel must be served to avoid blocking the producer as
+// no events are dropped.
 //
 // The watch will stop upon entering one of the terminal operation states, for
-// example if the obtained plan is completed or fully rolled back.
+// example if the obtained plan is completed or fully rolled back or when the specified
+// context has expired. In any case, the channel will be closed to signal completion
 func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEvent {
-	ch := make(chan PlanEvent, 100)
-	// Send an initial batch of events from the initial state of the plan.
-	plan, err := sendNextPlan(ctx, nil, getPlan, ch)
-	if err == nil && plan == nil {
-		// Done
-		return ch
-	}
-	// Then launch a goroutine that will be monitoring the progress.
+	ch := make(chan PlanEvent)
 	go func() {
+		defer close(ch)
+		// Send an initial batch of events from the initial state of the plan.
+		plan, err := getPlan()
+		if err == nil {
+			err = sendPlanChanges(ctx, GetPlanProgress(*plan), *plan, ch)
+			if errors.Is(err, stopUpdates) {
+				// Done
+				return
+			}
+		}
 		ticker := backoff.NewTicker(getFollowStepPolicy())
 		tickerC := ticker.C
 		var errorTicker *backoff.Ticker
@@ -84,32 +91,52 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 				errorTicker.Stop()
 			}
 		}()
+		resetBackoff := func() {
+			if errorTicker != nil {
+				errorTicker.Stop()
+				errorTicker = nil
+			}
+			ticker = backoff.NewTicker(getFollowStepPolicy())
+			tickerC = ticker.C
+		}
+		startBackoff := func() {
+			if ticker != nil {
+				ticker.Stop()
+				ticker = nil
+			}
+			errorTicker = backoff.NewTicker(getFollowBackoffPolicy())
+			tickerC = errorTicker.C
+		}
 		defer logrus.Info("Operation plan watcher done.")
 		for {
 			select {
 			case <-tickerC:
-				nextPlan, err := sendNextPlan(ctx, plan, getPlan, ch)
-				if err == nil {
-					if nextPlan == nil {
-						// Done
-						return
-					}
-					// Update the current plan for comparison on the next cycle and
-					// reset the backoff so the ticker keeps ticking every second
-					// as long as there are no errors.
-					plan = nextPlan
-					if ticker == nil {
-						errorTicker.Stop()
-						errorTicker = nil
-						ticker = backoff.NewTicker(getFollowStepPolicy())
-						tickerC = ticker.C
-					}
+				nextPlan, err := getPlan()
+				if err != nil {
+					logrus.WithError(err).Error("Failed to diff plans.")
+					startBackoff()
 					continue
 				}
-				ticker.Stop()
-				ticker = nil
-				errorTicker = backoff.NewTicker(getFollowBackoffPolicy())
-				tickerC = errorTicker.C
+				changes, err := diffPlan(plan, *nextPlan)
+				if err != nil {
+					logrus.WithError(err).Error("Failed to diff plans.")
+					startBackoff()
+					continue
+				}
+				err = sendPlanChanges(ctx, changes, *nextPlan, ch)
+				if errors.Is(err, stopUpdates) {
+					// Done
+					return
+				}
+				if err != nil {
+					startBackoff()
+					continue
+				}
+				// Update the current plan for comparison on the next cycle and
+				// reset the backoff so the ticker keeps ticking every second
+				// as long as there are no errors.
+				plan = nextPlan
+				resetBackoff()
 			case <-ctx.Done():
 				return
 			}
@@ -118,39 +145,34 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 	return ch
 }
 
-func sendNextPlan(ctx context.Context, plan *storage.OperationPlan, getter GetPlanFunc, ch chan<- PlanEvent) (*storage.OperationPlan, error) {
-	nextPlan, err := getter()
-	if err != nil {
-		logrus.WithError(err).Error("Failed to reload plan.")
-		return nil, trace.Wrap(err)
-	}
-	changes, err := DiffPlan(plan, *nextPlan)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to diff plans.")
-		return nil, trace.Wrap(err)
-	}
-	for _, event := range getPlanEvents(changes, *nextPlan) {
+func sendPlanChanges(ctx context.Context, changes []storage.PlanChange, plan storage.OperationPlan, ch chan<- PlanEvent) error {
+	for _, event := range getPlanEvents(changes, plan) {
 		select {
 		case ch <- event:
 		case <-ctx.Done():
-			return nil, trace.Wrap(ctx.Err())
+			return trace.Wrap(ctx.Err())
 		}
 		if event.isTerminalEvent() {
-			return nil, nil
+			return stopUpdates
 		}
 	}
-	return nextPlan, nil
+	return nil
 }
+
+// stopUpdates is a special error value that signifies that no further
+// plan updates will be sent
+var stopUpdates = errors.New("stop plan updates")
 
 // getPlanEvents returns a list of plan events from the provided list of
 // changes and the current state of the plan.
 func getPlanEvents(changes []storage.PlanChange, plan storage.OperationPlan) (events []PlanEvent) {
+	events = make([]PlanEvent, 0, len(changes)+1)
 	for _, change := range changes {
 		events = append(events, &PlanChangedEvent{Change: change})
 	}
-	if IsCompleted(&plan) {
+	if IsCompleted(plan) {
 		events = append(events, &PlanCompletedEvent{})
-	} else if IsRolledBack(&plan) {
+	} else if IsRolledBack(plan) {
 		events = append(events, &PlanRolledBackEvent{})
 	}
 	return events
