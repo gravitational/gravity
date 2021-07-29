@@ -81,46 +81,19 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 			}
 		}
 		ticker := backoff.NewTicker(getFollowStepPolicy())
-		tickerC := ticker.C
-		var errorTicker *backoff.Ticker
-		defer func() {
-			if ticker != nil {
-				ticker.Stop()
-			}
-			if errorTicker != nil {
-				errorTicker.Stop()
-			}
-		}()
-		resetBackoff := func() {
-			if errorTicker != nil {
-				errorTicker.Stop()
-				errorTicker = nil
-			}
-			ticker = backoff.NewTicker(getFollowStepPolicy())
-			tickerC = ticker.C
-		}
-		startBackoff := func() {
-			if ticker != nil {
-				ticker.Stop()
-				ticker = nil
-			}
-			errorTicker = backoff.NewTicker(getFollowBackoffPolicy())
-			tickerC = errorTicker.C
-		}
+		defer ticker.Stop()
 		defer logrus.Info("Operation plan watcher done.")
 		for {
 			select {
-			case <-tickerC:
+			case <-ticker.C:
 				nextPlan, err := getPlan()
 				if err != nil {
 					logrus.WithError(err).Error("Failed to diff plans.")
-					startBackoff()
 					continue
 				}
 				changes, err := diffPlan(plan, *nextPlan)
 				if err != nil {
 					logrus.WithError(err).Error("Failed to diff plans.")
-					startBackoff()
 					continue
 				}
 				err = sendPlanChanges(ctx, changes, *nextPlan, ch)
@@ -129,14 +102,12 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					return
 				}
 				if err != nil {
-					startBackoff()
 					continue
 				}
 				// Update the current plan for comparison on the next cycle and
 				// reset the backoff so the ticker keeps ticking every second
 				// as long as there are no errors.
 				plan = nextPlan
-				resetBackoff()
 			case <-ctx.Done():
 				return
 			}
@@ -178,20 +149,8 @@ func getPlanEvents(changes []storage.PlanChange, plan storage.OperationPlan) (ev
 	return events
 }
 
-// getFollowBackoffPolicy returns retry backoff policy for the plan follower.
-//
-// Backoff triggers when plan reload fails.
-func getFollowBackoffPolicy() backoff.BackOff {
-	return &backoff.ExponentialBackOff{
-		InitialInterval: time.Second,
-		Multiplier:      backoff.DefaultMultiplier,
-		MaxInterval:     5 * time.Second,
-		Clock:           backoff.SystemClock,
-	}
-}
-
 // getFollowStepPolicy returns the pacing policy for the plan follower
 // on the happy path
 func getFollowStepPolicy() backoff.BackOff {
-	return &backoff.ConstantBackOff{Interval: time.Second}
+	return &backoff.ConstantBackOff{Interval: 5 * time.Second}
 }
