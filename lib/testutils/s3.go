@@ -94,13 +94,14 @@ func (s *S3) addToIndex(c *check.C, app S3App) {
 		err := yaml.Unmarshal(o.Data, indexFile)
 		c.Assert(err, check.IsNil)
 	}
-	indexFile.Add(&chart.Metadata{
+	err := indexFile.MustAdd(&chart.Metadata{
 		Name:    app.Name,
 		Version: app.Version,
 		Annotations: map[string]string{
 			constants.AnnotationSize: fmt.Sprintf("%v", len(app.Data)),
 		},
 	}, "", "", app.Checksum)
+	c.Assert(err, check.IsNil)
 	bytes, err := yaml.Marshal(indexFile)
 	c.Assert(err, check.IsNil)
 	s.Objects[key] = S3Object{Data: bytes}

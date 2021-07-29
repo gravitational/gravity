@@ -159,7 +159,10 @@ func (r *clusterRepository) AddToIndex(locator loc.Locator, upsert bool) error {
 	}
 	if trace.IsNotFound(err) {
 		indexFile = repo.NewIndexFile()
-		indexFile.Add(chart.Metadata, r.chartURL(chart), "", digest)
+		err = indexFile.MustAdd(chart.Metadata, r.chartURL(chart), "", digest)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		return r.Backend.CompareAndSwapIndexFile(indexFile, nil)
 	}
 	if indexFile.Has(chart.Metadata.Name, chart.Metadata.Version) {
@@ -178,7 +181,10 @@ func (r *clusterRepository) AddToIndex(locator loc.Locator, upsert bool) error {
 		}
 	}
 	prevIndexFile := helmutils.CopyIndexFile(*indexFile)
-	indexFile.Add(chart.Metadata, r.chartURL(chart), "", digest)
+	err = indexFile.MustAdd(chart.Metadata, r.chartURL(chart), "", digest)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	indexFile.SortEntries()
 	return r.Backend.CompareAndSwapIndexFile(indexFile, prevIndexFile)
 }
@@ -243,7 +249,10 @@ func (r *clusterRepository) RebuildIndex() error {
 				return trace.Wrap(err)
 			}
 			r.Debugf("Adding to the index: %v.", e.Locator)
-			indexFile.Add(chart.Metadata, r.chartURL(chart), "", digest)
+			err = indexFile.MustAdd(chart.Metadata, r.chartURL(chart), "", digest)
+			if err != nil {
+				return trace.Wrap(err)
+			}
 			return nil
 		})
 	if err != nil {

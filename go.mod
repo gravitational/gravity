@@ -37,6 +37,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/gokyle/hotp v0.0.0-20160218004637-c180d57d286b
 	github.com/google/certificate-transparency-go v0.0.0-00010101000000-000000000000 // indirect
+	github.com/google/go-cmp v0.5.5
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
 	github.com/gravitational/configure v0.0.0-20191213111049-fce91dea0d0d

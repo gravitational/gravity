@@ -23,13 +23,14 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/trace"
 
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/repo"
 )
 
 // GenerateIndexFile generates a Helm repository index file for the provided apps.
-func GenerateIndexFile(apps []app.Application) *repo.IndexFile {
+func GenerateIndexFile(apps []app.Application) (*repo.IndexFile, error) {
 	indexFile := repo.NewIndexFile()
 	for _, item := range apps {
 		switch item.Manifest.Kind {
@@ -37,14 +38,17 @@ func GenerateIndexFile(apps []app.Application) *repo.IndexFile {
 		default: // Do not include system apps and runtimes.
 			continue
 		}
-		indexFile.Add(
+		err := indexFile.MustAdd(
 			generateChartMetadata(item),
 			fmt.Sprintf("%v-%v-linux-x86_64.tar", item.Manifest.Metadata.Name, item.Manifest.Metadata.ResourceVersion),
 			baseURL(item.Manifest.Metadata.Name, item.Manifest.Metadata.ResourceVersion),
 			fmt.Sprintf("sha512:%v", item.PackageEnvelope.SHA512))
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
 	}
 	indexFile.SortEntries()
-	return indexFile
+	return indexFile, nil
 }
 
 // generateChartMetadata generates chart metadata for the provided application.

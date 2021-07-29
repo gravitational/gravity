@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"path/filepath"
-	"testing"
 
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
@@ -29,8 +28,6 @@ import (
 
 	. "gopkg.in/check.v1"
 )
-
-func TestUtils(t *testing.T) { TestingT(t) }
 
 type S struct{}
 
