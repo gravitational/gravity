@@ -63,6 +63,7 @@ spec:
     highAvailability: true
     # The flannel backend is automatically selected based on the cloud provider,
     # but the selected backend can be overridden if specified in the cluster configuration.
+    # Supports values "vxlan", "aws-vpc", and "gce".
     flannelBackend: "vxlan"
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
