@@ -292,6 +292,9 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 			case *batchv1.Job:
 				log.Infof("Rewriting images in Job %q.", resource.Name)
 				rewrite(&resource.Spec.Template.Spec)
+			case *batchv1.CronJob:
+				log.Infof("Rewriting images in CronJob %q.", resource.Name)
+				rewrite(&resource.Spec.JobTemplate.Spec.Template.Spec)
 			case *batchv1beta1.CronJob:
 				log.Infof("Rewriting images in CronJob %q.", resource.Name)
 				rewrite(&resource.Spec.JobTemplate.Spec.Template.Spec)
@@ -401,6 +404,9 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 		case *appsv1.StatefulSet:
 			containers = append(resource.Spec.Template.Spec.Containers,
 				resource.Spec.Template.Spec.InitContainers...)
+		case *batchv1.CronJob:
+			containers = append(resource.Spec.JobTemplate.Spec.Template.Spec.Containers,
+				resource.Spec.JobTemplate.Spec.Template.Spec.InitContainers...)
 		case *batchv1beta1.CronJob:
 			containers = append(resource.Spec.JobTemplate.Spec.Template.Spec.Containers,
 				resource.Spec.JobTemplate.Spec.Template.Spec.InitContainers...)

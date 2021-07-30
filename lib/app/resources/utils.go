@@ -138,6 +138,8 @@ func renderResourceTemplate(path string, serviceUser systeminfo.User) error {
 			spec = &resource.Spec.Template.Spec
 		case *batchv1.Job:
 			spec = &resource.Spec.Template.Spec
+		case *batchv1.CronJob:
+			spec = &resource.Spec.JobTemplate.Spec.Template.Spec
 		case *batchv1beta1.CronJob:
 			spec = &resource.Spec.JobTemplate.Spec.Template.Spec
 		}

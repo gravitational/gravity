@@ -41,6 +41,7 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 		rFiles = append(rFiles, *rFile)
 	}
 	sourceImages := sorted([]string{
+		"cronjobimage:1.0.0",
 		"dns-install-hook:0.0.1",
 		"image1:1.0.0",
 		"image2:2.0.0",
@@ -50,6 +51,7 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 		"k8s-install-hook:0.0.1",
 	})
 	rewrittenImages := sorted([]string{
+		"apiserver:5000/cronjobimage:1.0.0",
 		"apiserver:5000/dns-install-hook:0.0.1",
 		"apiserver:5000/image1:1.0.0",
 		"apiserver:5000/image2:2.0.0",
@@ -99,6 +101,10 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 		{
 			Kind:       "ConfigMap",
 			APIVersion: "v1",
+		},
+		{
+			Kind:       "CronJob",
+			APIVersion: "batch/v1",
 		},
 		{
 			Kind:       "CronTab",
@@ -167,6 +173,7 @@ func (s *ResourceFilesSuite) TestForEachObjectInFile(c *C) {
 		"ReplicationController",
 		"Secret",
 		"ReplicationController",
+		"CronJob",
 	})
 }
 
@@ -334,7 +341,25 @@ spec:
       volumes:
         - name: data
           hostPath:
-            path: /data`
+            path: /data
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: cronjobimage:1.0.0
+            args:
+            - /bin/echo
+            - Hello world
+          restartPolicy: OnFailure`
 
 const resources2 = `apiVersion: v1
 kind: Pod
