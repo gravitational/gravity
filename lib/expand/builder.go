@@ -97,7 +97,7 @@ func (b *planBuilder) AddChecksPhase(plan *storage.OperationPlan) {
 			Server: &b.JoiningNode,
 			Master: &b.Master,
 		},
-		Requires: fsm.RequireIfPresent(plan,
+		Requires: fsm.RequireIfPresent(*plan,
 			installphases.BootstrapSELinuxPhase,
 			installphases.InitPhase,
 			StartAgentPhase),
@@ -248,7 +248,7 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 			ExecServer: &b.JoiningNode,
 			Master:     &b.Master,
 		},
-		Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdBackupPhase),
+		Requires: fsm.RequireIfPresent(*plan, SystemPhase, EtcdBackupPhase),
 	})
 }
 
@@ -265,7 +265,7 @@ func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 					Server:     &b.JoiningNode,
 					ExecServer: &b.JoiningNode,
 				},
-				Requires: fsm.RequireIfPresent(plan, SystemPhase, EtcdPhase),
+				Requires: fsm.RequireIfPresent(*plan, SystemPhase, EtcdPhase),
 			},
 			{
 				ID:          WaitK8sPhase,
@@ -409,10 +409,13 @@ func (p *Peer) getPlanBuilder(ctx operationContext) (*planBuilder, error) {
 // provided max number) so the plan's phase numbers will be calculated to
 // fit within the specified interval.
 func fillSteps(plan *storage.OperationPlan, maxSteps int) {
-	allPhases := fsm.FlattenPlan(plan)
-	for i, phase := range allPhases {
-		phase.Step = calcStep(maxSteps, len(allPhases), i)
-	}
+	numPhases := fsm.GetNumPhases(*plan)
+	var step int
+	fsm.VisitPlanRef(plan, func(phase *storage.OperationPhase) bool {
+		phase.Step = calcStep(maxSteps, numPhases, step)
+		step++
+		return true
+	})
 }
 
 // calcStep adjusts the provided step number so it does not exceed the specified

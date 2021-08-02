@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitational/gravity/lib/rpc"
@@ -39,9 +40,11 @@ func newTestEngine(getPlan func() storage.OperationPlan) *testEngine {
 
 // testEngine is fsm engine used in tests. Keeps its changelog in memory.
 type testEngine struct {
-	getPlan   func() storage.OperationPlan
+	getPlan func() storage.OperationPlan
+	clock   clockwork.Clock
+	// mu guards the following fields
+	mu        sync.Mutex
 	changelog storage.PlanChangelog
-	clock     clockwork.Clock
 }
 
 // GetExecutor returns one of the test executors depending on the specified phase.
@@ -70,6 +73,8 @@ func (t *testEngine) ChangePhaseState(ctx context.Context, ch StateChange) error
 // changePhaseStateWithTimestamp records the provided phase state change in the
 // test engine with the specified timestamp.
 func (t *testEngine) changePhaseStateWithTimestamp(ch StateChange, created time.Time) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.changelog = append(t.changelog, storage.PlanChange{
 		PhaseID:  ch.Phase,
 		NewState: ch.State,
@@ -79,7 +84,10 @@ func (t *testEngine) changePhaseStateWithTimestamp(ch StateChange, created time.
 
 // GetPlan returns the test plan with the changelog applied.
 func (t *testEngine) GetPlan() (*storage.OperationPlan, error) {
-	return ResolvePlan(t.getPlan(), t.changelog), nil
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	plan := ResolvePlan(t.getPlan(), t.changelog)
+	return &plan, nil
 }
 
 // RunCommand is not implemented by the test engine.
@@ -133,8 +141,8 @@ func (e *testExecutor) PostCheck(ctx context.Context) error { return nil }
 // testPlanner knows how to generate plans and changelogs used in fsm tests.
 type testPlanner struct{}
 
-func (p *testPlanner) newPlan(phases ...storage.OperationPhase) *storage.OperationPlan {
-	return &storage.OperationPlan{Phases: phases}
+func (p *testPlanner) newPlan(phases ...storage.OperationPhase) storage.OperationPlan {
+	return storage.OperationPlan{Phases: phases}
 }
 
 func (p *testPlanner) newChangelog(changes ...storage.PlanChange) storage.PlanChangelog {
@@ -155,6 +163,10 @@ func (p *testPlanner) bootstrapPhase(phases ...storage.OperationPhase) storage.O
 
 func (p *testPlanner) bootstrapSubPhase(node, state string) storage.OperationPhase {
 	return storage.OperationPhase{ID: fmt.Sprintf("/bootstrap/%v", node), State: state}
+}
+
+func (p *testPlanner) phase(id int, state string) storage.OperationPhase {
+	return storage.OperationPhase{ID: fmt.Sprint("/phase", id), State: state}
 }
 
 func (p *testPlanner) bootstrapSubChange(node, state string) storage.PlanChange {

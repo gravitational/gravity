@@ -594,7 +594,7 @@ func completeJoinPlanFromExistingNode(localEnv *localenv.LocalEnvironment, opera
 		return trace.Wrap(err)
 	}
 	if plan != nil {
-		return fsm.CompleteOrFailOperation(context.TODO(), plan, clusterEnv.Operator, manualCompletedError)
+		return fsm.CompleteOrFailOperation(context.TODO(), *plan, clusterEnv.Operator, manualCompletedError)
 	}
 	// No operation plan created for the operation - fail the operation directly
 	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, manualCompletedError)
