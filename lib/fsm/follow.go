@@ -88,7 +88,7 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 			case <-ticker.C:
 				nextPlan, err := getPlan()
 				if err != nil {
-					logrus.WithError(err).Error("Failed to diff plans.")
+					logrus.WithError(err).Error("Failed to reload plan.")
 					continue
 				}
 				changes, err := diffPlan(plan, *nextPlan)
