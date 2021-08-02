@@ -164,7 +164,12 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.Global.FeatureGates[k] = v
 		}
 	}
-	r.Spec.Global.HighAvailability = other.Spec.Global.HighAvailability
+	if other.Spec.Global.HighAvailability != nil {
+		if r.Spec.Global.HighAvailability == nil {
+			r.Spec.Global.HighAvailability = new(bool)
+		}
+		*r.Spec.Global.HighAvailability = *other.Spec.Global.HighAvailability
+	}
 	return r
 }
 
@@ -270,6 +275,7 @@ func (r Global) IsEmpty() bool {
 		r.PodSubnetSize == "" &&
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
+		r.HighAvailability == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -302,7 +308,7 @@ type Global struct {
 	// Targets: all components
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 	// HighAvailability enables high availability mode for Kubernetes.
-	HighAvailability bool `json:"highAvailability,omitempty"`
+	HighAvailability *bool `json:"highAvailability,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource

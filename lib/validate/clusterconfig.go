@@ -19,6 +19,7 @@ package validate
 import (
 	"net"
 
+	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
 	"github.com/gravitational/trace"
@@ -44,7 +45,7 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 			return trace.BadParameter("cannot change cloud configuration: cluster does not have cloud provider configured")
 		}
 	}
-	if newGlobalConfig.CloudProvider != "" && globalConfig.CloudProvider != newGlobalConfig.CloudProvider {
+	if newGlobalConfig.CloudProvider != "" && globalConfig.CloudProvider != normalizedCloudProvider(newGlobalConfig.CloudProvider) {
 		return trace.BadParameter("changing cloud provider is not supported (%q -> %q)",
 			newGlobalConfig.CloudProvider, globalConfig.CloudProvider)
 	}
@@ -93,4 +94,13 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 
 func isCloudConfigEmpty(global clusterconfig.Global) bool {
 	return global.CloudProvider == "" && global.CloudConfig == ""
+}
+
+func normalizedCloudProvider(provider string) string {
+	switch provider {
+	case schema.ProviderGeneric, schema.ProviderOnPrem:
+		return schema.ProviderOnPrem
+	default:
+		return provider
+	}
 }

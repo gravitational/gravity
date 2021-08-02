@@ -1461,7 +1461,7 @@ func (i *InstallConfig) validateOrDetectCloudProvider(cloudProvider string, mani
 				"instance", cloudProvider)
 		}
 		return schema.ProviderGCE, nil
-	case ops.ProviderGeneric, schema.ProvisionerOnPrem:
+	case schema.ProviderGeneric, schema.ProvisionerOnPrem:
 		return schema.ProviderOnPrem, nil
 	case "":
 		log.Info("Will auto-detect provider.")

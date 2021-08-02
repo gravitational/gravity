@@ -185,7 +185,7 @@ spec:
 							"FeatureB": false,
 						},
 						PodSubnetSize:    "26",
-						HighAvailability: true,
+						HighAvailability: newBoolPtr(true),
 					},
 				},
 			},
@@ -243,7 +243,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						HighAvailability: true,
+						HighAvailability: newBoolPtr(true),
 					},
 				},
 			},
@@ -262,7 +262,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						HighAvailability: true,
+						HighAvailability: newBoolPtr(true),
 					},
 				},
 			},
@@ -385,6 +385,10 @@ func validate(expectedConfig kubeletConfiguration) func(obtained, expected *Reso
 		obtained.Spec.ComponentConfigs.Kubelet.Config = configBytes
 		c.Assert(config, compare.DeepEquals, expectedConfig)
 	}
+}
+
+func newBoolPtr(b bool) *bool {
+	return &b
 }
 
 type kubeletConfiguration struct {
