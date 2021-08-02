@@ -25,6 +25,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"helm.sh/helm/v3/internal/experimental/registry"
 	"helm.sh/helm/v3/internal/fileutil"
 	"helm.sh/helm/v3/internal/urlutil"
 	"helm.sh/helm/v3/pkg/getter"
@@ -68,6 +69,7 @@ type ChartDownloader struct {
 	Getters getter.Providers
 	// Options provide parameters to be passed along to the Getter being initialized.
 	Options          []getter.Option
+	RegistryClient   *registry.Client
 	RepositoryConfig string
 	RepositoryCache  string
 }
@@ -100,6 +102,10 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	}
 
 	name := filepath.Base(u.Path)
+	if u.Scheme == "oci" {
+		name = fmt.Sprintf("%s-%s.tgz", name, version)
+	}
+
 	destfile := filepath.Join(dest, name)
 	if err := fileutil.AtomicWriteFile(destfile, data, 0644); err != nil {
 		return destfile, nil, err
@@ -152,7 +158,6 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 	if err != nil {
 		return nil, errors.Errorf("invalid chart URL format: %s", ref)
 	}
-	c.Options = append(c.Options, getter.WithURL(ref))
 
 	rf, err := loadRepoConfig(c.RepositoryConfig)
 	if err != nil {
@@ -171,6 +176,8 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			// If there is no special config, return the default HTTP client and
 			// swallow the error.
 			if err == ErrNoOwnerRepo {
+				// Make sure to add the ref URL as the URL for the getter
+				c.Options = append(c.Options, getter.WithURL(ref))
 				return u, nil
 			}
 			return u, err
@@ -189,6 +196,7 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			c.Options = append(
 				c.Options,
 				getter.WithBasicAuth(rc.Username, rc.Password),
+				getter.WithPassCredentialsAll(rc.PassCredentialsAll),
 			)
 		}
 		return u, nil
@@ -208,6 +216,10 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 		return u, err
 	}
 
+	// Now that we have the chart repository information we can use that URL
+	// to set the URL for the getter.
+	c.Options = append(c.Options, getter.WithURL(rc.URL))
+
 	r, err := repo.NewChartRepository(rc, c.Getters)
 	if err != nil {
 		return u, err
@@ -218,7 +230,10 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			c.Options = append(c.Options, getter.WithTLSClientConfig(r.Config.CertFile, r.Config.KeyFile, r.Config.CAFile))
 		}
 		if r.Config.Username != "" && r.Config.Password != "" {
-			c.Options = append(c.Options, getter.WithBasicAuth(r.Config.Username, r.Config.Password))
+			c.Options = append(c.Options,
+				getter.WithBasicAuth(r.Config.Username, r.Config.Password),
+				getter.WithPassCredentialsAll(r.Config.PassCredentialsAll),
+			)
 		}
 	}
 

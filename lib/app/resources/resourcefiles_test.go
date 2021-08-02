@@ -104,7 +104,7 @@ func (s *ResourceFilesSuite) TestResourceFiles(c *C) {
 		},
 		{
 			Kind:       "CronJob",
-			APIVersion: "batch/v2alpha1",
+			APIVersion: "batch/v1",
 		},
 		{
 			Kind:       "CronTab",
@@ -343,7 +343,7 @@ spec:
           hostPath:
             path: /data
 ---
-apiVersion: batch/v2alpha1
+apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: hello

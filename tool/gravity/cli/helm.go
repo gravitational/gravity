@@ -432,7 +432,10 @@ func appIndex(env *localenv.LocalEnvironment, mergeInto string) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	indexFile := helm.GenerateIndexFile(apps)
+	indexFile, err := helm.GenerateIndexFile(apps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if mergeInto != "" {
 		mergeIndexFile, err := repo.LoadIndexFile(mergeInto)
 		if err != nil {

@@ -35,16 +35,15 @@ import (
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
-	batchv2alpha1 "k8s.io/api/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	rbacv1alpha1 "k8s.io/api/rbac/v1alpha1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
-	settingsv1alpha1 "k8s.io/api/settings/v1alpha1"
 	storagev1 "k8s.io/api/storage/v1"
 	storagev1beta1 "k8s.io/api/storage/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -293,7 +292,7 @@ func (r *ResourceFiles) RewriteImages(rewriteFunc func(string) string) error {
 			case *batchv1.Job:
 				log.Infof("Rewriting images in Job %q.", resource.Name)
 				rewrite(&resource.Spec.Template.Spec)
-			case *batchv2alpha1.CronJob:
+			case *batchv1.CronJob:
 				log.Infof("Rewriting images in CronJob %q.", resource.Name)
 				rewrite(&resource.Spec.JobTemplate.Spec.Template.Spec)
 			case *batchv1beta1.CronJob:
@@ -405,7 +404,7 @@ func extractImages(objects []runtime.Object) (*ExtractedImages, error) {
 		case *appsv1.StatefulSet:
 			containers = append(resource.Spec.Template.Spec.Containers,
 				resource.Spec.Template.Spec.InitContainers...)
-		case *batchv2alpha1.CronJob:
+		case *batchv1.CronJob:
 			containers = append(resource.Spec.JobTemplate.Spec.Template.Spec.Containers,
 				resource.Spec.JobTemplate.Spec.Template.Spec.InitContainers...)
 		case *batchv1beta1.CronJob:
@@ -465,8 +464,8 @@ func isKnownNonPodObject(object runtime.Object) bool {
 		*corev1.PersistentVolume,
 		*corev1.PersistentVolumeClaim,
 		*policyv1beta1.PodDisruptionBudget,
+		*policyv1.PodDisruptionBudget,
 		*policyv1beta1.PodSecurityPolicy,
-		*settingsv1alpha1.PodPreset,
 		*extensions.PodSecurityPolicy,
 		*corev1.ResourceQuota,
 		*corev1.Secret,

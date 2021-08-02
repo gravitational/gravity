@@ -39,7 +39,7 @@ func (d *drainer) drainPods(context.Context) error {
 		Client:                d.client,
 		GracePeriodSeconds:    d.gracePeriodSeconds,
 		IgnoreAllDaemonSets:   true,
-		DeleteLocalData:       true,
+		DeleteEmptyDirData:    true,
 		Out:                   w,
 		ErrOut:                w,
 		OnPodDeletedOrEvicted: onPodDeletedOrEvicted(logger),

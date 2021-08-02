@@ -15,7 +15,6 @@ import (
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
-	batchv2alpha1 "k8s.io/api/batch/v2alpha1"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 )
@@ -139,7 +138,7 @@ func renderResourceTemplate(path string, serviceUser systeminfo.User) error {
 			spec = &resource.Spec.Template.Spec
 		case *batchv1.Job:
 			spec = &resource.Spec.Template.Spec
-		case *batchv2alpha1.CronJob:
+		case *batchv1.CronJob:
 			spec = &resource.Spec.JobTemplate.Spec.Template.Spec
 		case *batchv1beta1.CronJob:
 			spec = &resource.Spec.JobTemplate.Spec.Template.Spec
