@@ -19,16 +19,18 @@ package cli
 import (
 	"context"
 	"fmt"
+	"runtime"
 
 	//nolint:gosec // imported for side-effects
 	_ "net/http/pprof"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
 	"github.com/gravitational/gravity/lib/ops"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
 	libstatus "github.com/gravitational/gravity/lib/status"
 	"github.com/gravitational/gravity/lib/storage"
@@ -88,26 +90,7 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
-	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
-		SrcPack: tarballEnv.Packages,
-		SrcApp:  tarballEnv.Apps,
-		DstPack: clusterPackages,
-		DstApp:  clusterApps,
-		Package: *appPackage,
-	})
-	if err != nil {
-		if !trace.IsAlreadyExists(err) {
-			return trace.Wrap(err)
-		}
-		env.PrintStep("Application already exists in local cluster")
-	}
-
-	var registries []string
-	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() error {
-		registries, err = getRegistries(ctx, cluster.ClusterState.Servers)
-		return trace.Wrap(err)
-	})
+	app, err := tarballEnv.Apps.GetApp(*appPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -117,12 +100,19 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		return trace.Wrap(err)
 	}
 
-	for _, registry := range registries {
-		env.PrintStep("Synchronizing application with Docker registry %v",
-			registry)
+	var registries []string
+	err = utils.Retry(defaults.RetryInterval, defaults.RetryLessAttempts, func() (err error) {
+		registries, err = getRegistries(ctx, cluster.ClusterState.Servers)
+		return trace.Wrap(err)
+	})
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
+	imageServices := make([]docker.ImageService, 0, len(registries))
+	for _, registryAddr := range registries {
 		imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
-			RegistryAddress: registry,
+			RegistryAddress: registryAddr,
 			CertName:        defaults.DockerRegistry,
 			CACertPath:      state.Secret(stateDir, defaults.RootCertFilename),
 			ClientCertPath:  state.Secret(stateDir, "kubelet.cert"),
@@ -131,15 +121,27 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = appservice.SyncApp(ctx, appservice.SyncRequest{
-			PackService:  tarballEnv.Packages,
-			AppService:   tarballEnv.Apps,
-			ImageService: imageService,
-			Package:      *appPackage,
-		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		imageServices = append(imageServices, imageService)
+	}
+
+	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
+
+	puller := libapp.Puller{
+		FieldLogger: log.WithField(trace.Component, "pull"),
+		SrcPack:     tarballEnv.Packages,
+		SrcApp:      tarballEnv.Apps,
+		DstPack:     clusterPackages,
+		DstApp:      clusterApps,
+		Upsert:      true,
+		Parallel:    runtime.NumCPU(),
+	}
+	syncer := libapp.Syncer{
+		PackService: tarballEnv.Packages,
+		AppService:  tarballEnv.Apps,
+		Progress:    env,
+	}
+	if err := uploadApplicationUpdate(ctx, puller, syncer, imageServices, *app); err != nil {
+		return trace.Wrap(err)
 	}
 
 	// Uploading new blobs to the cluster is known to cause stress on disk
@@ -161,6 +163,54 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	}
 
 	env.PrintStep("Application has been uploaded")
+	return nil
+}
+
+func uploadApplicationUpdate(ctx context.Context, puller libapp.Puller, syncer libapp.Syncer, imageServices []docker.ImageService, app libapp.Application) error {
+	deps, err := getUploadDependencies(puller.SrcPack, puller.SrcApp, app)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = puller.Pull(ctx, *deps)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	err = puller.PullAppPackage(ctx, app.Package)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	deps.Apps = append(deps.Apps, app)
+
+	err = syncDependenciesWithCluster(ctx, imageServices, *deps, syncer)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func getUploadDependencies(packages pack.PackageService, apps libapp.Applications, app libapp.Application) (*libapp.Dependencies, error) {
+	deps, err := libapp.GetDependencies(libapp.GetDependenciesRequest{
+		Pack: packages,
+		Apps: apps,
+		App:  app,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return deps, nil
+}
+
+func syncDependenciesWithCluster(ctx context.Context, imageServices []docker.ImageService, deps libapp.Dependencies, syncer libapp.Syncer) error {
+	for _, imageService := range imageServices {
+		syncer.Progress.PrintStep("Synchronizing application with Docker registry %v",
+			imageService.String())
+
+		syncer.ImageService = imageService
+		err := syncer.Sync(ctx, deps)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+	}
 	return nil
 }
 

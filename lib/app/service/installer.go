@@ -37,7 +37,7 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/keyval"
-	fileutils "github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/ghodss/yaml"
 	"github.com/gravitational/license/authority"
@@ -46,23 +46,19 @@ import (
 )
 
 func (r *Applications) getApplicationInstaller(
-	app *appservice.Application,
+	app appservice.Application,
 	apps *Applications,
-) ([]*archive.Item, error) {
+) error {
 	apps.config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
-	err := pullApplications([]loc.Locator{app.Package}, apps, r, r.config.FieldLogger)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return []*archive.Item{}, nil
+	return pullApplications([]appservice.Application{app}, apps, r, r.config.FieldLogger)
 }
 
 func (r *Applications) getClusterInstaller(
 	req appservice.InstallerRequest,
-	app *appservice.Application,
+	app appservice.Application,
 	apps *Applications,
 ) ([]*archive.Item, error) {
-	err := pullDependencies(app, apps, r, r.config.FieldLogger)
+	err := pullDependencies(app, req.AdditionalDependencies, apps, r, r.config.FieldLogger)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -98,8 +94,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	var tempDir string
-	tempDir, err = ioutil.TempDir("", "installer")
+	tempDir, err := ioutil.TempDir("", "installer")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -151,8 +146,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	var app *appservice.Application
-	app, err = r.GetApp(req.Application)
+	app, err := r.GetApp(req.Application)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -165,9 +159,9 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 	var items []*archive.Item
 	switch app.Manifest.Kind {
 	case schema.KindBundle, schema.KindCluster:
-		items, err = r.getClusterInstaller(req, app, localApps)
+		items, err = r.getClusterInstaller(req, *app, localApps)
 	case schema.KindApplication:
-		items, err = r.getApplicationInstaller(app, localApps)
+		err = r.getApplicationInstaller(*app, localApps)
 	default:
 		return nil, trace.BadParameter("unsupported kind %q",
 			app.Manifest.Kind)
@@ -180,7 +174,7 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 	go func() {
 		uploadScript, err := renderUploadScript()
 		if err != nil {
-			r.config.Warnf("Failed to render upload script: %v.", trace.DebugReport(err))
+			r.config.WithError(err).Warn("Failed to render upload script.")
 			if errClose := writer.CloseWithError(err); errClose != nil {
 				r.config.Warnf("Failed to close writer: %v.", errClose)
 			}
@@ -202,12 +196,15 @@ func (r *Applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		// always returns nil
 		writer.CloseWithError(err) //nolint:errcheck
 	}()
-	return &fileutils.CleanupReadCloser{
+	return &utils.CleanupReadCloser{
 		ReadCloser: reader,
 		Cleanup: func() {
 			err := os.RemoveAll(tempDir)
 			if err != nil {
-				r.config.Warnf("Failed to delete %v: %v.", tempDir, trace.DebugReport(err))
+				r.config.WithFields(log.Fields{
+					log.ErrorKey: err,
+					"dir":        tempDir,
+				}).Warn("Failed to delete directory.")
 			}
 		},
 	}, nil
@@ -222,16 +219,13 @@ func renderUploadScript() (uploadScript []byte, err error) {
 	return buf.Bytes(), nil
 }
 
-func (r *Applications) getGravityBinaryForApp(app *appservice.Application) (*archive.Item, error) {
-	var gravityPackage *loc.Locator
+func (r *Applications) getGravityBinaryForApp(app appservice.Application) (*archive.Item, error) {
 	gravityPackage, err := app.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	var envelope *pack.PackageEnvelope
-	var packageBytes io.ReadCloser
-	envelope, packageBytes, err = r.config.Packages.ReadPackage(*gravityPackage)
+	envelope, packageBytes, err := r.config.Packages.ReadPackage(*gravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -240,18 +234,26 @@ func (r *Applications) getGravityBinaryForApp(app *appservice.Application) (*arc
 }
 
 // pullDependencies transitively pulls all dependent packages for app to localApps
-func pullDependencies(app *appservice.Application, localApps, remoteApps *Applications, log log.FieldLogger) error {
-	dependencies, err := appservice.GetDependencies(app, remoteApps)
+func pullDependencies(
+	app appservice.Application,
+	additional appservice.Dependencies,
+	localApps, remoteApps *Applications,
+	log log.FieldLogger,
+) error {
+	dependencies, err := appservice.GetDependencies(appservice.GetDependenciesRequest{
+		App:  app,
+		Apps: remoteApps,
+		Pack: remoteApps.config.Packages,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	if err = pullPackages(dependencies.Packages, localApps.config.Packages, remoteApps.config.Packages, log); err != nil {
+	packages := appservice.UniqPackages(append(dependencies.Packages, additional.Packages...))
+	if err = pullPackages(packages, localApps.config.Packages, remoteApps.config.Packages, log); err != nil {
 		return trace.Wrap(err)
 	}
-
-	apps := dependencies.Apps
-	apps = append(apps, app.Package)
+	apps := append(dependencies.Apps, additional.Apps...)
+	apps = append(appservice.UniqApps(apps), app)
 	localApps.config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
@@ -260,21 +262,19 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *Applic
 }
 
 // pullPackages pulls package locators from remotePackages to localPackages
-func pullPackages(locators []loc.Locator, localPackages pack.PackageService, remotePackages pack.PackageService, log log.FieldLogger) error {
-	log.Infof("Pulling packages %v.", locators)
-
-	for _, locator := range locators {
-		envelope, reader, err := remotePackages.ReadPackage(locator)
+func pullPackages(packages []pack.PackageEnvelope, localPackages, remotePackages pack.PackageService, log log.FieldLogger) error {
+	log.WithField("packages", packages).Info("Pull packages.")
+	for _, pkg := range packages {
+		_, reader, err := remotePackages.ReadPackage(pkg.Locator)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
-
-		err = localPackages.UpsertRepository(locator.Repository, time.Time{})
+		err = localPackages.UpsertRepository(pkg.Locator.Repository, time.Time{})
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = localPackages.CreatePackage(envelope.Locator, reader, pack.WithLabels(envelope.RuntimeLabels))
+		_, err = localPackages.CreatePackage(pkg.Locator, reader, pack.WithLabels(pkg.RuntimeLabels))
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -283,11 +283,10 @@ func pullPackages(locators []loc.Locator, localPackages pack.PackageService, rem
 }
 
 // pullApplications pulls applications specified with locators from remoteApps to localApps
-func pullApplications(locators []loc.Locator, localApps *Applications, remoteApps *Applications, log log.FieldLogger) error {
-	log.Infof("Pulling applications %v.", locators)
-
-	for _, locator := range locators {
-		envelope, reader, err := remoteApps.config.Packages.ReadPackage(locator)
+func pullApplications(apps []appservice.Application, localApps, remoteApps *Applications, log log.FieldLogger) error {
+	log.WithField("applications", apps).Info("Pull applications.")
+	for _, app := range apps {
+		envelope, reader, err := remoteApps.config.Packages.ReadPackage(app.Package)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -304,10 +303,8 @@ func pullApplications(locators []loc.Locator, localApps *Applications, remoteApp
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		envelope.Manifest = manifestBytes
 
-		var labels map[string]string
-		_, err = localApps.CreateAppWithManifest(envelope.Locator, envelope.Manifest, reader, labels)
+		_, err = localApps.CreateAppWithManifest(app.Package, manifestBytes, reader, envelope.RuntimeLabels)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

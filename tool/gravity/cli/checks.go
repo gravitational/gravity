@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -162,20 +162,19 @@ func checkUpgrade(ctx context.Context, env *localenv.LocalEnvironment, config pr
 }
 
 // uploadGravity uploads gravity package from the source to the destination.
-func uploadGravity(_ context.Context, env *localenv.LocalEnvironment, manifest *schema.Manifest, src, dst pack.PackageService) error {
+func uploadGravity(ctx context.Context, env *localenv.LocalEnvironment, manifest *schema.Manifest, src, dst pack.PackageService) error {
 	gravityPackage, err := manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	env.PrintStep("Uploading package %v:%v to the local cluster",
 		gravityPackage.Name, gravityPackage.Version)
-	// TODO(dima): pass context down to PullPackage
-	_, err = service.PullPackage(service.PackagePullRequest{
+	puller := &libapp.Puller{
 		SrcPack: src,
 		DstPack: dst,
 		Upsert:  true,
-		Package: *gravityPackage,
-	})
+	}
+	err = puller.PullPackage(ctx, *gravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}

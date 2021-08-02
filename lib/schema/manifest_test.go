@@ -656,7 +656,7 @@ extensions:
 		},
 	}
 	for _, tc := range testCases {
-		c.Assert(ShouldSkipApp(*m, loc.Locator{Name: tc.name}), Equals, tc.skip,
+		c.Assert(ShouldSkipApp(*m, tc.name), Equals, tc.skip,
 			Commentf("Test case %v failed", tc))
 	}
 }

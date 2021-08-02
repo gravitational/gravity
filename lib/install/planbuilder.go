@@ -663,7 +663,7 @@ func (b *PlanBuilder) skipDependency(dep loc.Locator) bool {
 	if dep.Name == constants.BootstrapConfigPackage {
 		return true // rbac-app is installed separately
 	}
-	return schema.ShouldSkipApp(b.Application.Manifest, dep)
+	return schema.ShouldSkipApp(b.Application.Manifest, dep.Name)
 }
 
 // GetPlanBuilder returns a new plan builder for this installer and provided

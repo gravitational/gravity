@@ -20,10 +20,11 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/install"
 	"github.com/gravitational/gravity/lib/localenv"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/tool/tele/cli"
 
@@ -101,7 +102,7 @@ func push(env *localenv.LocalEnvironment, path string, force, quiet bool) error 
 		if err != nil && !trace.IsNotFound(err) {
 			return trace.Wrap(err)
 		}
-		if existing != nil && !service.IsMetadataPackage(existing.PackageEnvelope) {
+		if existing != nil && !pack.IsMetadataPackage(existing.PackageEnvelope) {
 			return trace.AlreadyExists("image %v already exists in %v, please "+
 				"remove it first or provide --force flag to overwrite it",
 				app, clusterURL)
@@ -112,14 +113,14 @@ func push(env *localenv.LocalEnvironment, path string, force, quiet bool) error 
 	targetCluster, _ := utils.URLHostname(clusterURL)
 	progress.NextStep(fmt.Sprintf("Uploading %v:%v to %v",
 		app.Name, app.Version, targetCluster))
-	_, err = service.PullApp(service.AppPullRequest{
+	puller := libapp.Puller{
 		SrcPack: unpackedEnv.Packages,
 		SrcApp:  unpackedEnv.Apps,
 		DstPack: clusterPackages,
 		DstApp:  clusterApps,
-		Package: *app,
 		Upsert:  force,
-	})
+	}
+	err = puller.PullApp(context.TODO(), *app)
 	if err != nil {
 		return trace.Wrap(err)
 	}

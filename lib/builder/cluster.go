@@ -96,7 +96,7 @@ func (b *ClusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.engine.SyncPackageCache(manifest, runtimeVersion)
+	err = b.engine.SyncPackageCache(ctx, manifest, runtimeVersion)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("base image version %v not found", runtimeVersion)

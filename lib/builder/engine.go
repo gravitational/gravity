@@ -184,14 +184,14 @@ func (b *Engine) SelectRuntime(manifest *schema.Manifest) (*semver.Version, erro
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+func (b *Engine) SyncPackageCache(ctx context.Context, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
 	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{ExcludeDeps: app.AppsToExclude(*manifest)})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
 	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
-	err = app.VerifyDependencies(&app.Application{
+	err = app.VerifyDependencies(app.Application{
 		Manifest: *manifest,
 		Package:  manifest.Locator(),
 	}, apps, b.Env.Packages)
@@ -213,7 +213,7 @@ func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *sem
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return syncer.Sync(b, manifest, runtimeVersion)
+	return syncer.Sync(ctx, b, manifest, runtimeVersion)
 }
 
 // VendorRequest combines vendoring parameters.

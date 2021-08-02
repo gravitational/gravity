@@ -382,7 +382,7 @@ func (m Manifest) DefaultProvider() string {
 // returns only those that are enabled based on the manifest settings.
 func (m Manifest) FilterDependencies(apps []loc.Locator) (result []loc.Locator) {
 	for _, app := range apps {
-		if !ShouldSkipApp(m, app) {
+		if !ShouldSkipApp(m, app.Name) {
 			result = append(result, app)
 		}
 	}
@@ -1277,10 +1277,10 @@ var (
 	devicePermsRegex = regexp.MustCompile("^[rwm]+$")
 )
 
-// ShouldSkipApp returns true if the specified application should not be
+// ShouldSkipApp returns true if the application given with appName should not be
 // installed in the cluster described by the provided manifest.
-func ShouldSkipApp(manifest Manifest, app loc.Locator) bool {
-	switch app.Name {
+func ShouldSkipApp(manifest Manifest, appName string) bool {
+	switch appName {
 	case defaults.BandwagonPackageName:
 		// do not install bandwagon unless the app uses it in its post-install
 		setup := manifest.SetupEndpoint()

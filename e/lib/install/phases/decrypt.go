@@ -67,13 +67,17 @@ type decryptExecutor struct {
 
 // Execute executes the decrypt phase
 func (p *decryptExecutor) Execute(ctx context.Context) error {
-	deps, err := app.GetDependencies(&p.Application, p.Apps)
+	deps, err := app.GetDependencies(app.GetDependenciesRequest{
+		App:  p.Application,
+		Apps: p.Apps,
+		Pack: p.Packages,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// decrypt all application dependencies, the application package
 	// itself and the certificate authority package
-	locators := append(append(deps.Packages, deps.Apps...),
+	locators := append(deps.AsPackages(),
 		p.Application.Package, loc.OpsCenterCertificateAuthority)
 	for _, locator := range locators {
 		p.Progress.NextStep("Decrypting package %v:%v", locator.Name, locator.Version)

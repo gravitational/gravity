@@ -66,7 +66,7 @@ func (r *scanningImageService) Sync(ctx context.Context, dir string, progress ut
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	r.Debugf("Synchronizing local directory %q.", dir)
+	r.log.Debugf("Synchronizing local directory %q.", dir)
 	localStore, err := openLocal(dir)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to open local directory %q as local registry", dir)

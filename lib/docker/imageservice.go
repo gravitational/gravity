@@ -102,6 +102,9 @@ func (r *RegistryConnectionRequest) CheckAndSetDefaults() error {
 	if r.RegistryAddress == "" {
 		return trace.BadParameter("missing RegistryAddress")
 	}
+	if r.Insecure {
+		return nil
+	}
 	certName := r.CertName
 	if certName == "" {
 		certName = r.RegistryAddress
@@ -130,10 +133,10 @@ func (r RegistryConnectionRequest) String() string {
 // NewDefaultImageService returns a new instance of the ImageService using defaults
 func NewDefaultImageService() ImageService {
 	return &imageService{
-		RegistryConnectionRequest: RegistryConnectionRequest{
+		req: RegistryConnectionRequest{
 			RegistryAddress: defaults.DockerRegistry,
 		},
-		FieldLogger: log.WithField("registry", defaults.DockerRegistry),
+		log: log.WithField("registry", defaults.DockerRegistry),
 	}
 }
 
@@ -145,8 +148,8 @@ func NewImageService(req RegistryConnectionRequest) (ImageService, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &imageService{
-		RegistryConnectionRequest: req,
-		FieldLogger:               log.WithField("registry", req.RegistryAddress),
+		req: req,
+		log: log.WithField("registry", req.RegistryAddress),
 	}, nil
 }
 
@@ -168,11 +171,16 @@ func NewClusterImageService(registry string) (ImageService, error) {
 
 // imageService implements ImageService using provided remote registry address
 type imageService struct {
-	ImageService
-	RegistryConnectionRequest
-	log.FieldLogger
-
+	log         log.FieldLogger
+	req         RegistryConnectionRequest
 	remoteStore *RemoteStore
+}
+
+var _ ImageService = (*imageService)(nil)
+
+// String returns the text representation of this service
+func (r *imageService) String() string {
+	return r.req.RegistryAddress
 }
 
 // List fetches a list of all images from the registry
@@ -210,7 +218,7 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	r.Debugf("Synchronizing local directory %q.", dir)
+	r.log.Debugf("Synchronizing local directory %q.", dir)
 	localStore, err := openLocal(dir)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to open local directory %q as local registry", dir)
@@ -237,12 +245,12 @@ func (r *imageService) Sync(ctx context.Context, dir string, progress utils.Prin
 		// to that domain - some registries (such as OpenShift) require a
 		// specific namespace where images should be pushed so an image like
 		// gravitational/debian-tall would become <namespace>/debian-tall.
-		if r.Prefix != "" {
+		if r.req.Prefix != "" {
 			named, err := parseNamed(localRepoName)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			remoteRepoName = fmt.Sprintf("%v/%v", r.Prefix, Path(named))
+			remoteRepoName = fmt.Sprintf("%v/%v", r.req.Prefix, Path(named))
 		}
 		remoteRepo, err := r.remoteStore.Repository(ctx, remoteRepoName)
 		if err != nil {
@@ -310,7 +318,7 @@ func (r *imageService) Wrap(image string) string {
 	if err != nil {
 		return image
 	}
-	parsed.Registry = r.RegistryAddress
+	parsed.Registry = r.req.RegistryAddress
 	return parsed.String()
 }
 
@@ -318,14 +326,14 @@ func (r *imageService) Wrap(image string) string {
 // Its function is the inverse of Wrap.
 func (r *imageService) Unwrap(image string) (unwrapped string) {
 	unwrapped = TagFromString(image).String()
-	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.RegistryAddress))
+	return strings.TrimPrefix(unwrapped, fmt.Sprintf("%v/", r.req.RegistryAddress))
 }
 
 func (r *imageService) connect(ctx context.Context) (err error) {
 	if r.remoteStore == nil {
-		r.remoteStore, err = ConnectRegistry(ctx, r.RegistryConnectionRequest)
+		r.remoteStore, err = ConnectRegistry(ctx, r.req)
 		if err != nil {
-			return trace.Wrap(err, "failed to connect to registry at %q", r.RegistryAddress)
+			return trace.Wrap(err, "failed to connect to registry at %q", r.req.RegistryAddress)
 		}
 	}
 	return nil
@@ -392,7 +400,11 @@ func initTransport(req RegistryConnectionRequest) (http.RoundTripper, string) {
 	// Figure out the registry address scheme (http or https). If the scheme
 	// was specified explicitly, keep it as-is. Otherwise, default to https
 	// unless the insecure flag was provided.
-	registryAddress := utils.EnsureScheme(req.RegistryAddress, "https")
+	defaultScheme := "https"
+	if req.Insecure {
+		defaultScheme = "http"
+	}
+	registryAddress := utils.EnsureScheme(req.RegistryAddress, defaultScheme)
 
 	// If the scheme was set explicitly to https, along with the insecure
 	// flag, ignore the certificate error (this is what Docker does too).
