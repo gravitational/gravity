@@ -101,10 +101,15 @@ func isIPRangeMistmatchError(err error) bool {
 	switch err := err.(type) {
 	case *errors.StatusError:
 		return err.ErrStatus.Status == "Failure" &&
-			statusHasCause(err.ErrStatus, "spec.clusterIP",
+			(statusHasCause(err.ErrStatus, "spec.clusterIP",
 				"provided range does not match the current range",
 				"provided IP is not in the valid range",
-			)
+				// Also support errors for clusterIPs field added for dual stack services
+				// See https://github.com/kubernetes/kubernetes/pull/91824
+			) || statusHasCause(err.ErrStatus, "spec.clusterIPs",
+				"provided range does not match the current range",
+				"provided IP is not in the valid range",
+			))
 	}
 	return false
 }

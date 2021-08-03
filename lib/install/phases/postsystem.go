@@ -43,7 +43,6 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/kubernetes/pkg/master/ports"
 	kubeschedulerconfig "k8s.io/kubernetes/pkg/scheduler/apis/config"
 )
 
@@ -189,7 +188,7 @@ func schedulerHealthz(ctx context.Context, leaderIP string) error {
 // controllerManagerHealthz checks for a healthy status from the controller-manager
 // healthz endpoint for the specified leaderIP.
 func controllerManagerHealthz(ctx context.Context, leaderIP string) error {
-	url := fmt.Sprintf("http://%s:%d/healthz", leaderIP, ports.InsecureKubeControllerManagerPort)
+	url := fmt.Sprintf("https://%s:%d/healthz", leaderIP, defaults.KubeControllerManagerPort)
 	if err := healthzCheck(ctx, url); err != nil {
 		return trace.Wrap(err)
 	}
