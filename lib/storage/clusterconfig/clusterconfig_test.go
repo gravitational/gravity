@@ -170,7 +170,8 @@ spec:
       FeatureA: true
       FeatureB: false
     podSubnetSize: "26"
-    highAvailability: true`,
+    highAvailability: true
+    flannelBackend: "vxlan"`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -186,6 +187,7 @@ spec:
 						},
 						PodSubnetSize:    "26",
 						HighAvailability: newBoolPtr(true),
+						FlannelBackend:   "vxlan",
 					},
 				},
 			},
@@ -244,6 +246,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature2": false,
 						},
 						HighAvailability: newBoolPtr(true),
+						FlannelBackend:   "vxlan",
 					},
 				},
 			},
@@ -263,6 +266,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature2": false,
 						},
 						HighAvailability: newBoolPtr(true),
+						FlannelBackend:   "vxlan",
 					},
 				},
 			},
@@ -290,6 +294,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature2": false,
 						},
+						FlannelBackend: "vxlan",
 					},
 				},
 			},
@@ -336,6 +341,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature3": true,
 						},
+						FlannelBackend: "vxlan",
 					},
 				},
 			},

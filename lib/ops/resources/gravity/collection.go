@@ -664,6 +664,9 @@ func (r configCollection) WriteText(w io.Writer) error {
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
 	config := r.GetGlobalConfig()
+	if len(config.FlannelBackend) != 0 {
+		fmt.Fprintf(t, "Flannel Backend:\t%v\n", config.FlannelBackend)
+	}
 	if len(config.PodCIDR) != 0 {
 		fmt.Fprintf(t, "Pod IP Range:\t%v\n", config.PodCIDR)
 	}

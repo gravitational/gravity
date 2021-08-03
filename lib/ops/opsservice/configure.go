@@ -1443,6 +1443,10 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	if globalConfig.HighAvailability != nil && *globalConfig.HighAvailability {
 		args = append(args, "--high-availability")
 	}
+	if globalConfig.FlannelBackend != "" {
+		args = append(args,
+			fmt.Sprintf("--flannel-backend=%v", globalConfig.FlannelBackend))
+	}
 	return args
 }
 
