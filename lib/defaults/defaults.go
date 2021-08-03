@@ -1342,6 +1342,9 @@ var (
 
 	// GravityAgentBinAlternate defines the gravity binary used during upgrades on Ubuntu Core
 	GravityAgentBinAlternate = AlternateBinPath("gravity-upgrade-agent")
+
+	// KubeControllerManagerPort specifies the default controller manager healthz port
+	KubeControllerManagerPort = 10257
 )
 
 // HookSecurityContext returns default securityContext for hook pods
