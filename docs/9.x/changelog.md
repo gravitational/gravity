@@ -12,9 +12,9 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.1  | No  | pre-release          | June 10, 2021        | Set upon release        | 1.21.0               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.1  | No  | pre-release          | June 23, 2021        | Set upon release        | 1.19.12              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.33        | Yes | April 3, 2020        | June 30, 2021        | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.48        | Yes | August 2, 2019       | March 23, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.2  | No  | pre-release          | August 4, 2021       | Set upon release        | 1.19.12              | 3.2.17-gravity   |
+| [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.50        | Yes | August 2, 2019       | August 5, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -84,6 +84,12 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.2 (August 4, 2021)
+
+#### Bugfixes
+* Fix an issue with label reconciliation ([#2590](https://github.com/gravitational/gravity/pull/2590)).
+* Fixed an issue with cancelling `gravity leave` ([#2572](https://github.com/gravitational/gravity/pull/2572)).
 
 ### 8.0.0-beta.1 (June 23, 2021)
 
@@ -174,6 +180,17 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.34 (August 4, 2021)
+
+#### Improvements
+* Rollback of dns-app, monitoring-app, gravity-site are now re-entrant ([#2588](https://github.com/gravitational/gravity/pull/2588), [rigging#87](https://github.com/gravitational/rigging/pull/87)).
+* Update of dns-app, monitoring-app, gravity-site are now re-entrant ([#2588](https://github.com/gravitational/gravity/pull/2588), [rigging#86](https://github.com/gravitational/rigging/pull/86)).
+
+#### Bugfixes
+* Add missing retry loop when updating taints ([#2580](https://github.com/gravitational/gravity/pull/2580)).
+* Fix an issue with label reconciliation ([#2591](https://github.com/gravitational/gravity/pull/2591)).
+* Fixed an issue with cancelling `gravity leave` ([#2570](https://github.com/gravitational/gravity/pull/2570)).
 
 ### 7.0.33 (June 30, 2021)
 
@@ -881,6 +898,18 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.50 LTS (August 5, 2021)
+
+#### Improvements
+* Expose additional logrange fields in logging-app ([#2589](https://github.com/gravitational/gravity/pull/2589), [logging-app#75](https://github.com/gravitational/logging-app/pull/75)).
+* Rollback of dns-app, monitoring-app, gravity-site are now re-entrant ([#2589](https://github.com/gravitational/gravity/pull/2589), [rigging#87](https://github.com/gravitational/rigging/pull/87)).
+* Update of dns-app, monitoring-app, gravity-site are now re-entrant ([#2589](https://github.com/gravitational/gravity/pull/2589), [rigging#86](https://github.com/gravitational/rigging/pull/86)).
+
+#### Bugfixes
+* Fix a logging-app panic ([#2589](https://github.com/gravitational/gravity/pull/2589), [logging-app#79](https://github.com/gravitational/logging-app/pull/79)).
+* Add missing retry loop when updating taints ([#2581](https://github.com/gravitational/gravity/pull/2581)).
+* Rework the installation and upgrade of the logging-app ([#2589](https://github.com/gravitational/gravity/pull/2589), [logging-app#81](https://github.com/gravitational/logging-app/pull/81)).
 
 ### 6.1.48 LTS (March 23, 2021)
 
