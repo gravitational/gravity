@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-beta.1  | No  | pre-release          | June 10, 2021        | Set upon release        | 1.21.0               | 3.2.17-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.3  | No  | pre-release          | August 5, 2021       | Set upon release        | 1.21.2               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.2  | No  | pre-release          | August 4, 2021       | Set upon release        | 1.19.12              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.50        | Yes | August 2, 2019       | August 5, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
@@ -55,6 +55,32 @@ extend updates past End of Support through customer agreements if required.
 ## 9.0 Releases
 
 9.0 is currently pre-release.
+
+### 9.0.0-beta.3 (August 5, 2021)
+
+#### Improvements
+
+* Allows flannel backend override through cluster configuration ([#2592](https://github.com/gravitational/gravity/pull/2592), [planet#856](https://github.com/gravitational/planet/pull/856)).
+
+#### Bugfixes
+
+* Fix an issue regarding failure to export image layers ([#2558](https://github.com/gravitational/gravity/pull/2558)).
+* Add missing short format output to tele ls ([#2443](https://github.com/gravitational/gravity/pull/2443)).
+* Add missing retry loop when updating taints ([#2578](https://github.com/gravitational/gravity/pull/2578)).
+* Fix an issue with label reconciliation ([#2584](https://github.com/gravitational/gravity/pull/2584)).
+* Fix HA config updates on an existing cluster ([#2573](https://github.com/gravitational/gravity/pull/2573), [planet#855](https://github.com/gravitational/planet/pull/855), [coordinate#15](https://github.com/gravitational/coordinate/pull/15)).
+
+### 9.0.0-beta.2 (June 23, 2021)
+
+#### Improvements
+
+* Add ability to cache docker images ([#2540](https://github.com/gravitational/gravity/pull/2540)).
+* Upgrade to Kubernetes v1.21.2 ([#2548](https://github.com/gravitational/gravity/pull/2548), [planet#853](https://github.com/gravitational/planet/pull/853)).
+* Allow gravity workers to install into separate regions ([#2551](https://github.com/gravitational/gravity/pull/2551)).
+
+#### Bugfixes
+
+* Fix unsupported upgrades from current major version (i.e., 9.0.0-alpha.0 -> 9.0.0-beta.2) ([#2544](https://github.com/gravitational/gravity/pull/2544)).
 
 ### 9.0.0-beta.1 (June 10, 2021)
 
