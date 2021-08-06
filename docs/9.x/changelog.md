@@ -66,9 +66,15 @@ extend updates past End of Support through customer agreements if required.
 
 * Fix an issue regarding failure to export image layers ([#2558](https://github.com/gravitational/gravity/pull/2558)).
 * Add missing short format output to tele ls ([#2443](https://github.com/gravitational/gravity/pull/2443)).
-* Add missing retry loop when updating taints ([#2578](https://github.com/gravitational/gravity/pull/2578)).
 * Fix an issue with label reconciliation ([#2584](https://github.com/gravitational/gravity/pull/2584)).
 * Fix HA config updates on an existing cluster ([#2573](https://github.com/gravitational/gravity/pull/2573), [planet#855](https://github.com/gravitational/planet/pull/855), [coordinate#15](https://github.com/gravitational/coordinate/pull/15)).
+
+#### Internal Changes
+
+* Replace ComponentStatus API call ([#2562](https://github.com/gravitational/gravity/pull/2562), [#2568](https://github.com/gravitational/gravity/pull/2568), [planet#854](https://github.com/gravitational/planet/pull/854), [satellite#301](https://github.com/gravitational/satellite/pull/301)).
+* Update k8s dependencies to v1.21.2 to reflect the supported k8s version ([#2594](https://github.com/gravitational/gravity/pull/2594)).
+* Fix a data race in fsm plan follow tests ([#2587](https://github.com/gravitational/gravity/pull/2587)).
+* And other minor code cleanup and build improvements.
 
 ### 9.0.0-beta.2 (June 23, 2021)
 
@@ -81,6 +87,11 @@ extend updates past End of Support through customer agreements if required.
 #### Bugfixes
 
 * Fix unsupported upgrades from current major version (i.e., 9.0.0-alpha.0 -> 9.0.0-beta.2) ([#2544](https://github.com/gravitational/gravity/pull/2544)).
+
+#### Internal Changes
+
+* Fix lint warnings ([#2518](https://github.com/gravitational/gravity/pull/2518), [#2519](https://github.com/gravitational/gravity/pull/2519), [#2520](https://github.com/gravitational/gravity/pull/2520), [#2529](https://github.com/gravitational/gravity/pull/2529), [#2530](https://github.com/gravitational/gravity/pull/2530), [#2531](https://github.com/gravitational/gravity/pull/2531), [#2532](https://github.com/gravitational/gravity/pull/2532), [#2533](https://github.com/gravitational/gravity/pull/2533)).
+* And other minor code cleanup and build improvements.
 
 ### 9.0.0-beta.1 (June 10, 2021)
 
