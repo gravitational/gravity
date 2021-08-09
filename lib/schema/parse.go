@@ -164,7 +164,7 @@ func CheckAndSetDefaults(manifest *Manifest) error {
 
 	if manifest.SystemOptions != nil {
 		if manifest.SystemOptions.Runtime == nil {
-			errors = append(errors, trace.NotFound("no runtime application defined"))
+			errors = append(errors, trace.NotFound("no runtime application defined for %s", manifest.Metadata.Locator()))
 		}
 	}
 
@@ -237,7 +237,8 @@ func checkMetadata(metadata Metadata) error {
 	// repository must be set to gravitational.io, otherwise things don't work
 	if metadata.Repository != defaults.SystemAccountOrg {
 		errors = append(errors, trace.BadParameter(
-			"repository must be equal to %q", defaults.SystemAccountOrg))
+			"unexpected repository name %q, expected %q for %v",
+			metadata.Repository, defaults.SystemAccountOrg, metadata.Locator()))
 	}
 
 	return trace.NewAggregate(errors...)

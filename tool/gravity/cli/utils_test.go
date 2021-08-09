@@ -25,7 +25,7 @@ import (
 	"gopkg.in/check.v1"
 )
 
-func TestUtils(t *testing.T) { check.TestingT(t) }
+func TestCLI(t *testing.T) { check.TestingT(t) }
 
 type UtilsSuite struct{}
 

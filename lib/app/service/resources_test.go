@@ -26,11 +26,12 @@ func (r *ResourceSuite) SetUpTest(c *C) {
 }
 
 func (r *ResourceSuite) TestTranslatesResources(c *C) {
-	appPackage := loc.MustParseLocator("example.com/app:1.0.0")
-	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
-	apptest.CreatePackage(r.pack, runtimePackage, nil, c)
-	apptest.CreateRuntimeApplication(r.apps, c)
-	apptest.CreateDummyApplication(appPackage, c, r.apps)
+	appPackage := loc.MustParseLocator("gravitational.io/app:1.0.0")
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      apptest.DefaultClusterApplication(appPackage).Build(),
+		Packages: r.pack,
+		Apps:     r.apps,
+	}, c)
 
 	_, reader, err := r.pack.ReadPackage(appPackage)
 	c.Assert(err, IsNil)

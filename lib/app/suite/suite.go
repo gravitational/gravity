@@ -301,59 +301,20 @@ func (r *AppsSuite) ExportsApplication(c *C) {
 }
 
 func (r *AppsSuite) CreatesApplicationInstaller(c *C) {
-	const manifestBytesMain = `
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
-metadata:
-  name: sample
-  resourceVersion: "0.0.1"
-systemOptions:
-  runtime:
-    name: app-dep
-    version: 0.0.1
-dependencies:
-  packages:
-  - gravitational.io/gravity:0.0.1
-  apps:
-  - gravitational.io/app-dep:0.0.1`
-
-	const manifestBytesDependency = `
-apiVersion: bundle.gravitational.io/v2
-kind: Runtime
-metadata:
-  name: sample-dependency
-  resourceVersion: "0.0.1"
-systemOptions:
-  dependencies:
-    runtimePackage: gravitational.io/planet:0.0.1
-`
-
+	// setup
 	apps := r.NewService(c, nil, nil)
-	mainApp := loc.MustParseLocator("gravitational.io/app-main:0.0.1")
-	dependencyApp := loc.MustParseLocator("gravitational.io/app-dep:0.0.1")
-	dependencyPackage := loc.MustParseLocator("gravitational.io/gravity:0.0.1")
-	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
-
-	var emptyResources string
-	mainFiles := []*archive.Item{
-		archive.DirItem("resources"),
-		archive.ItemFromString("resources/app.yaml", manifestBytesMain),
-		archive.ItemFromString("resources/resources.yaml", emptyResources),
-	}
-	dependencyFiles := []*archive.Item{
-		archive.DirItem("resources"),
-		archive.ItemFromString("resources/app.yaml", manifestBytesDependency),
-		archive.ItemFromString("resources/resources.yaml", emptyResources),
-	}
-	packageFiles := []*archive.Item{archive.ItemFromString("./data", "hello")}
-
-	apptest.CreatePackage(r.Packages, dependencyPackage, packageFiles, c)
-	apptest.CreatePackage(r.Packages, runtimePackage, packageFiles, c)
-	apptest.CreateApplicationFromData(apps, dependencyApp, dependencyFiles, c)
-	apptest.CreateApplicationFromData(apps, mainApp, mainFiles, c)
-
+	mainAppLoc := loc.MustParseLocator("gravitational.io/app-main:0.0.1")
+	mainApp := apptest.DefaultClusterApplication(mainAppLoc).
+		WithSchemaPackageDependencies(loc.MustParseLocator("gravitational.io/gravity:0.0.1")).
+		Build()
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      mainApp,
+		Apps:     apps,
+		Packages: r.Packages,
+	}, c)
+	// exercise
 	req := app.InstallerRequest{
-		Application: mainApp,
+		Application: mainAppLoc,
 		Account: storage.Account{
 			ID:  "12345",
 			Org: "acme",
@@ -374,6 +335,7 @@ systemOptions:
 	c.Assert(err, IsNil)
 	c.Assert(n, Not(Equals), 0)
 	c.Logf("%d bytes transferred", n)
+	// TODO(dima): validate the resulting installer
 }
 
 func (r *AppsSuite) CreatesApplicationWithManifest(c *C) {
@@ -407,100 +369,75 @@ metadata:
 
 func (r *AppsSuite) CreatesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
-	apptest.CreateRuntimeApplication(apps, c)
-	app := loc.MustParseLocator("example.com/example-app:0.0.1")
-	apptest.CreateDummyApplication(app, c, apps)
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      apptest.DefaultClusterApplication(loc.MustParseLocator("gravitational.io/example-app:0.0.1")).Build(),
+		Packages: r.Packages,
+		Apps:     apps,
+	}, c)
 }
 
 func (r *AppsSuite) DeletesApplication(c *C) {
 	apps := r.NewService(c, nil, nil)
-	apptest.CreateRuntimeApplication(apps, c)
-	loc := loc.MustParseLocator("example.com/example-app:0.0.1")
-	application := apptest.CreateDummyApplication(loc, c, apps)
+	loc := loc.MustParseLocator("gravitational.io/example-app:0.0.1")
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      apptest.DefaultClusterApplication(loc).Build(),
+		Packages: r.Packages,
+		Apps:     apps,
+	}, c)
 
-	c.Assert(apps.DeleteApp(app.DeleteRequest{Package: application.Package}), IsNil)
+	c.Assert(apps.DeleteApp(app.DeleteRequest{Package: loc}), IsNil)
 
 	// make sure both package and application records are gone
-	_, err := r.Packages.ReadPackageEnvelope(application.Package)
+	_, err := r.Packages.ReadPackageEnvelope(loc)
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
 
-	_, err = apps.GetAppManifest(application.Package)
+	_, err = apps.GetAppManifest(loc)
 	c.Assert(trace.IsNotFound(err), Equals, true, Commentf("%T", err))
 }
 
 func (r *AppsSuite) ResolvesManifest(c *C) {
-	const manifestBytesTemplate = `
-apiVersion: bundle.gravitational.io/v2
-kind: Runtime
-metadata:
-  name: template-app
-  resourceVersion: "0.0.1"
-systemOptions:
-  dependencies:
-    runtimePackage: gravitational.io/planet:0.0.1
-dependencies:
-  packages:
-    - gravitational.io/package:0.0.1`
-
-	const manifestBytesApp = `
-apiVersion: bundle.gravitational.io/v2
-kind: Bundle
-metadata:
-  name: sample
-  resourceVersion: "0.0.1"
-systemOptions:
-  runtime:
-    name: app-template
-    version: 0.0.1
-installer:
-  flavors:
-    prompt: Test flavors
-    items:
-      - name: flavor1
-        nodes:
-          - profile: worker
-            count: 1
-nodeProfiles:
-  - name: worker
-    description: "worker node"
-    labels:
-      node-role.kubernetes.io/master: "true"
-      role: worker`
-
 	apps := r.NewService(c, nil, nil)
-
-	mainAppPackage := loc.MustParseLocator("gravitational.io/sample:0.0.1")
-	templateAppPackage := loc.MustParseLocator("gravitational.io/app-template:0.0.1")
-	dependencyPackage := loc.MustParseLocator("gravitational.io/package:0.0.1")
-	runtimePackage := loc.MustParseLocator("gravitational.io/planet:0.0.1")
-
-	packageFiles := []*archive.Item{archive.ItemFromString("./data", "hello")}
-	apptest.CreatePackage(r.Packages, dependencyPackage, packageFiles, c)
-	apptest.CreatePackage(r.Packages, runtimePackage, packageFiles, c)
-
-	var emptyResources string
-	mainFiles := []*archive.Item{
-		archive.DirItem("resources"),
-		archive.ItemFromString("resources/app.yaml", manifestBytesApp),
-		archive.ItemFromString("resources/resources.yaml", emptyResources),
-	}
-	templateFiles := []*archive.Item{
-		archive.DirItem("resources"),
-		archive.ItemFromString("resources/app.yaml", manifestBytesTemplate),
-		archive.ItemFromString("resources/resources.yaml", emptyResources),
-	}
-
-	apptest.CreateApplicationFromData(apps, templateAppPackage, templateFiles, c)
-	mainApp := apptest.CreateApplicationFromData(apps, mainAppPackage, mainFiles, c)
-
-	c.Assert(mainApp.Manifest.NodeProfiles, HasLen, 1)
-	c.Assert(mainApp.Manifest.Dependencies, DeepEquals, schema.Dependencies{
-		Packages: []schema.Dependency{
-			{Locator: dependencyPackage},
+	runtimeAppLoc := loc.MustParseLocator("gravitational.io/app-template:0.0.1")
+	dependencies := schema.Dependencies{Packages: []schema.Dependency{apptest.NewDependency("gravitational.io/package:0.0.1")}}
+	runtimeApp := apptest.RuntimeApplication(runtimeAppLoc, apptest.RuntimePackageLoc).
+		WithSchemaDependencies(dependencies).
+		Build()
+	mainAppLoc := loc.MustParseLocator("gravitational.io/sample:0.0.1")
+	mainApp := apptest.ClusterApplication(mainAppLoc, runtimeApp).Build()
+	mainApp.Manifest.Installer.Flavors = schema.Flavors{
+		Prompt: "Test flavors",
+		Items: []schema.Flavor{
+			{
+				Name: "flavor1",
+				Nodes: []schema.FlavorNode{
+					{
+						Profile: "worker",
+						Count:   1,
+					},
+				},
+			},
 		},
-	})
+	}
+	mainApp.Manifest.NodeProfiles = []schema.NodeProfile{
+		{
+			Name:        "worker",
+			Description: "worker node",
+			Labels: map[string]string{
+				"node-role.kubernetes.io/master": "true",
+				"role":                           "worker",
+			},
+		},
+	}
+	app := apptest.CreateApplication(apptest.AppRequest{
+		App:      mainApp,
+		Packages: r.Packages,
+		Apps:     apps,
+	}, c)
 
-	worker, err := mainApp.Manifest.NodeProfiles.ByName("worker")
+	c.Assert(app.Manifest.NodeProfiles, HasLen, 1)
+	c.Assert(app.Manifest.Dependencies, DeepEquals, dependencies)
+
+	worker, err := app.Manifest.NodeProfiles.ByName("worker")
 	c.Assert(err, IsNil)
 	c.Assert(worker.ServiceRole, Equals, schema.ServiceRoleMaster)
 	c.Assert(worker.Labels, DeepEquals, map[string]string{

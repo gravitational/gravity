@@ -18,37 +18,22 @@ package opsservice
 
 import (
 	"net"
-	"path/filepath"
-	"time"
 
-	"github.com/gravitational/gravity/lib/app"
 	appservice "github.com/gravitational/gravity/lib/app/service"
-	"github.com/gravitational/gravity/lib/blob/fs"
-	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/ops/suite"
-	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/pack/localpack"
 	rpcserver "github.com/gravitational/gravity/lib/rpc/server"
-	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/storage/keyval"
 	"github.com/gravitational/gravity/lib/users"
 	"github.com/gravitational/gravity/lib/users/usersservice"
 
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/jonboulle/clockwork"
-	"github.com/mailgun/timetools"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/check.v1"
 )
 
 // TestServices contains a set of services that are used in tests
 type TestServices struct {
-	// Backend is the local backend
-	Backend storage.Backend
-	// Packages is the local pack service
-	Packages pack.PackageService
-	// Apps is the local apps service
-	Apps app.Applications
+	appservice.TestServices
 	// Agents is the RPC agents service
 	Agents *AgentService
 	// AgentServer is the RPC agent server
@@ -68,32 +53,10 @@ type TestServices struct {
 func SetupTestServices(c *check.C) TestServices {
 	dir := c.MkDir()
 
-	backend, err := keyval.NewBolt(keyval.BoltConfig{Path: filepath.Join(dir, "bolt.db")})
-	c.Assert(err, check.IsNil)
-
-	objects, err := fs.New(dir)
-	c.Assert(err, check.IsNil)
-
-	packService, err := localpack.New(localpack.Config{
-		Backend:     backend,
-		UnpackedDir: filepath.Join(dir, defaults.UnpackedDir),
-		Objects:     objects,
-		Clock: &timetools.FreezedTime{
-			CurrentTime: time.Date(2015, 11, 16, 1, 2, 3, 0, time.UTC),
-		},
-		DownloadURL: "https://ops.example.com",
-	})
-	c.Assert(err, check.IsNil)
-
-	appService, err := appservice.New(appservice.Config{
-		Backend:  backend,
-		StateDir: filepath.Join(dir, defaults.ImportDir),
-		Packages: packService,
-	})
-	c.Assert(err, check.IsNil)
+	testServices := appservice.NewTestServices(dir, c)
 
 	usersService, err := usersservice.New(usersservice.Config{
-		Backend: backend,
+		Backend: testServices.Backend,
 	})
 	c.Assert(err, check.IsNil)
 
@@ -102,7 +65,7 @@ func SetupTestServices(c *check.C) TestServices {
 
 	proxy := &suite.TestProxy{}
 	log := log.WithField("from", "test")
-	peerStore := NewAgentPeerStore(backend, usersService, proxy, log)
+	peerStore := NewAgentPeerStore(testServices.Backend, usersService, proxy, log)
 	agentServer, err := rpcserver.New(rpcserver.Config{
 		FieldLogger: log,
 		Listener:    listener,
@@ -118,27 +81,25 @@ func SetupTestServices(c *check.C) TestServices {
 
 	opsService, err := New(Config{
 		StateDir:      dir,
-		Backend:       backend,
+		Backend:       testServices.Backend,
 		Agents:        agentService,
-		Packages:      packService,
+		Packages:      testServices.Packages,
 		TeleportProxy: proxy,
 		AuthClient:    &auth.Client{},
 		Proxy:         &suite.TestOpsProxy{},
 		Users:         usersService,
-		Apps:          appService,
+		Apps:          testServices.Apps,
 		ProcessID:     "p1",
 	})
 	c.Assert(err, check.IsNil)
 
 	return TestServices{
-		Backend:     backend,
-		Packages:    packService,
-		Apps:        appService,
-		Agents:      agentService,
-		AgentServer: agentServer,
-		Operator:    opsService,
-		Users:       usersService,
-		Dir:         dir,
-		Clock:       clockwork.NewFakeClock(),
+		TestServices: testServices,
+		Agents:       agentService,
+		AgentServer:  agentServer,
+		Operator:     opsService,
+		Users:        usersService,
+		Dir:          dir,
+		Clock:        clockwork.NewFakeClock(),
 	}
 }

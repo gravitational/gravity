@@ -53,9 +53,7 @@ var _ = Suite(&StateCheckerSuite{
 
 func (s *StateCheckerSuite) SetUpSuite(c *C) {
 	s.localServices = opsservice.SetupTestServices(c)
-	apptest.CreateRuntimeApplication(s.localServices.Apps, c)
 	s.remoteServices = opsservice.SetupTestServices(c)
-	apptest.CreateRuntimeApplication(s.remoteServices.Apps, c)
 	s.stateChecker = stateChecker{
 		conf: StateCheckerConfig{
 			Backend:  s.localServices.Backend,
@@ -73,8 +71,13 @@ func (s *StateCheckerSuite) TearDownSuite(c *C) {
 }
 
 func (s *StateCheckerSuite) TestStateChecker(c *C) {
-	locApp1 := loc.MustParseLocator("local.com/app:1.0.0")
-	app1 := apptest.CreateDummyApplication(locApp1, c, s.localServices.Apps)
+	runtimeApp1 := apptest.RuntimeApplication(loc.MustParseLocator("gravitational.io/runtime:0.0.1"),
+		loc.MustParseLocator("gravitational.io/planet:0.0.1")).Build()
+	app1 := apptest.CreateApplication(apptest.AppRequest{
+		App:      apptest.ClusterApplication(loc.MustParseLocator("gravitational.io/app:1.0.0"), runtimeApp1).Build(),
+		Packages: s.localServices.Packages,
+		Apps:     s.localServices.Apps,
+	}, c)
 
 	site, err := s.localServices.Backend.CreateSite(storage.Site{
 		AccountID: "account123",
@@ -103,8 +106,20 @@ func (s *StateCheckerSuite) TestStateChecker(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(site.State, Equals, ops.SiteStateOffline)
 
-	locApp2 := loc.MustParseLocator("local.com/app:1.0.2")
-	apptest.CreateDummyApplication(locApp2, c, s.localServices.Apps, s.remoteServices.Apps)
+	locApp2 := loc.MustParseLocator("gravitational.io/app:1.0.2")
+	runtimeApp2 := apptest.RuntimeApplication(loc.MustParseLocator("gravitational.io/runtime:0.0.2"),
+		loc.MustParseLocator("gravitational.io/planet:0.0.2")).Build()
+	clusterApp2 := apptest.ClusterApplication(locApp2, runtimeApp2).Build()
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      clusterApp2,
+		Packages: s.localServices.Packages,
+		Apps:     s.localServices.Apps,
+	}, c)
+	apptest.CreateApplication(apptest.AppRequest{
+		App:      clusterApp2,
+		Packages: s.remoteServices.Packages,
+		Apps:     s.remoteServices.Apps,
+	}, c)
 	app2, err := s.localServices.Apps.GetApp(locApp2)
 	c.Assert(err, IsNil)
 

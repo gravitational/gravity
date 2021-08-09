@@ -60,7 +60,7 @@ func mergeRuntime(target *schema.Manifest, source schema.Manifest) error {
 		_, err := source.Dependencies.ByName(loc.LegacyPlanetMaster.Name,
 			loc.LegacyPlanetNode.Name)
 		if err != nil {
-			return trace.NotFound("no runtime package specified in manifest")
+			return trace.NotFound("no runtime package specified in manifest for %s", source.Locator())
 		}
 		// TODO: ideally now, that the manifest requires a runtime package, the version of
 		// the manifest schema needs to be bumped to account for this.
