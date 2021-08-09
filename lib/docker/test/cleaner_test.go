@@ -33,8 +33,8 @@ var _ = check.Suite(&CleanerSuite{})
 
 type CleanerSuite struct {
 	client      *dockerapi.Client
-	sync        *docker.Synchronizer
-	registry    *Registry
+	sync        *Synchronizer
+	registry    *TestRegistry
 	registryDir string
 }
 
@@ -44,7 +44,7 @@ func (s *CleanerSuite) SetUpTest(c *check.C) {
 	c.Assert(err, check.IsNil)
 	s.sync = docker.NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
 	s.registryDir = c.MkDir()
-	s.registry = NewRegistry(s.registryDir, s.sync, c)
+	s.registry = NewTestRegistry(s.registryDir, s.sync, c)
 }
 
 func (s *CleanerSuite) TearDownTest(*check.C) {
@@ -59,9 +59,9 @@ func (s *CleanerSuite) removeImages(images []loc.DockerImage) {
 }
 
 func (s *CleanerSuite) generateImages(c *check.C) ([]loc.DockerImage, []loc.DockerImage, []loc.DockerImage) {
-	cleanImages := GenerateDockerImages(s.client, "test/clean", 5, c)
-	validImages := GenerateDockerImages(s.client, "test/valid", 5, c)
-	invalidImages := GenerateDockerImages(s.client, "test/invalid", 6, c)
+	cleanImages := GenerateTestDockerImages(s.client, "test/clean", 5, c)
+	validImages := GenerateTestDockerImages(s.client, "test/valid", 5, c)
+	invalidImages := GenerateTestDockerImages(s.client, "test/invalid", 6, c)
 
 	allImages := make([]loc.DockerImage, 0)
 	allImages = append(allImages, cleanImages...)
@@ -113,7 +113,7 @@ func (s *CleanerSuite) TestCleanRegistry(c *check.C) {
 	c.Assert(err, check.IsNil)
 
 	// restart the registry http server to make sure all the required images are there
-	s.registry = NewRegistry(s.registryDir, s.sync, c)
+	s.registry = NewTestRegistry(s.registryDir, s.sync, c)
 
 	for _, image := range requiredImages {
 		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image.Repository, image.Tag)

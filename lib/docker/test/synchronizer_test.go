@@ -22,13 +22,11 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
 )
 
 func TestDocker(t *testing.T) { TestingT(t) }
@@ -38,54 +36,56 @@ var _ = Suite(&DockerSuite{})
 // Set up a separate Suite for this test so we can use SetUp/TearDown phases
 type DockerSuite struct {
 	client   *dockerapi.Client
-	helper   *docker.Synchronizer
-	src, dst *Registry
+	helper   *Synchronizer
+	src, dst *TestRegistry
 }
 
-func (s *DockerSuite) SetUpTest(c *C) {
+func (s *DockerSuite) SetUpTest(c *check.C) {
 	var err error
-	s.client, err = docker.NewClientFromEnv()
-	c.Assert(err, IsNil)
-	s.helper = docker.NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
+	s.client, err = NewClientFromEnv()
+	c.Assert(err, check.IsNil)
+	s.helper = NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
 	// Set up source and destination registries
-	s.src = NewRegistry(c.MkDir(), s.helper, c)
-	s.dst = NewRegistry(c.MkDir(), s.helper, c)
+	s.src = NewTestRegistry(c.MkDir(), s.helper, c)
+	s.dst = NewTestRegistry(c.MkDir(), s.helper, c)
 }
 
-func (s *DockerSuite) TearDownTest(*C) {
-	s.src.r.Close()
-	s.dst.r.Close()
+func (s *DockerSuite) TearDownTest(*check.C) {
+	s.src.Close()
+	s.dst.Close()
 }
 
-func (s *DockerSuite) listTags(repository string, c *C) (tags map[string]bool) {
+func (s *DockerSuite) listTags(repository string, c *check.C) (tags map[string]bool) {
 	opts := dockerapi.ListImagesOptions{Filters: map[string][]string{
 		"reference": {repository},
 	}}
 	images, err := s.client.ListImages(opts)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 	tags = make(map[string]bool)
 	for _, image := range images {
 		for _, imageName := range image.RepoTags {
 			dockerImage, err := loc.ParseDockerImage(imageName)
-			c.Assert(err, IsNil)
+			c.Assert(err, check.IsNil)
 			tags[dockerImage.Tag] = true
 		}
 	}
 	return tags
 }
 
-func (s *DockerSuite) removeImages(images []loc.DockerImage) {
-	for _, image := range images {
-		// Error is ignored since this is a best-effort cleanup
-		_ = s.client.RemoveImage(image.String())
-	}
-}
-
-func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.DockerImage) {
-	for _, image := range images {
-		// Error is ignored since this is a best-effort cleanup
-		image.Registry = registryAddr
-		_ = s.client.RemoveImage(image.String())
+// NewTestRegistry returns a new started docker registry
+func NewTestRegistry(dir string, s *Synchronizer, c *check.C) *TestRegistry {
+	config := BasicConfiguration("127.0.0.1:0", dir)
+	r, err := NewRegistry(config)
+	c.Assert(err, check.IsNil)
+	c.Assert(r.Start(), check.IsNil)
+	return &TestRegistry{
+		r:   r,
+		dir: dir,
+		info: RegistryInfo{
+			Address:  r.Addr(),
+			Protocol: "http",
+		},
+		helper: s,
 	}
 }
 
@@ -103,13 +103,13 @@ func splitAsTagsAndImages(images []loc.DockerImage, regAddr string) (tags, expor
 
 const imageRepository = "test/image"
 
-var _ = Suite(&DockerSuite{})
+var _ = check.Suite(&DockerSuite{})
 
-func (s *DockerSuite) TestPullAndPushImages(c *C) {
+func (s *DockerSuite) TestPullAndPushImages(c *check.C) {
 	// Setup
 	const dockerImageSize = 6
 
-	dockerImages := GenerateDockerImages(s.client, imageRepository, dockerImageSize, c)
+	dockerImages := GenerateTestDockerImages(s.client, imageRepository, dockerImageSize, c)
 	defer s.removeImages(dockerImages)
 	defer s.removeTaggedImages(s.src.info.Address, dockerImages)
 
@@ -142,19 +142,19 @@ func (s *DockerSuite) TestPullAndPushImages(c *C) {
 
 	// all docker images should be in the source docker registry
 	srcTags, err := s.helper.ImageTags(context.Background(), s.src.info.GetURL(), imageRepository)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 	sort.Strings(srcTags)
-	c.Assert(srcTags, DeepEquals, allDockerTags)
+	c.Assert(srcTags, check.DeepEquals, allDockerTags)
 
 	// only pushed docker images should be in the target docker registry
 	dstTags, err := s.helper.ImageTags(context.Background(), s.dst.info.GetURL(), imageRepository)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 	sort.Strings(dstTags)
-	c.Assert(dstTags, DeepEquals, pushedDockerTags)
+	c.Assert(dstTags, check.DeepEquals, pushedDockerTags)
 
 	// export images
 	err = s.helper.PullAndExportImages(context.Background(), exportedImages, s.dst.info, false, dockerImageSize)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 
 	// Validate: this is where actual validation starts
 	// relist tags
@@ -174,7 +174,22 @@ func (s *DockerSuite) TestPullAndPushImages(c *C) {
 
 	// all docker images should be in the target docker registry
 	dstTags, err = s.helper.ImageTags(context.Background(), s.dst.info.GetURL(), imageRepository)
-	c.Assert(err, IsNil)
+	c.Assert(err, check.IsNil)
 	sort.Strings(dstTags)
-	c.Assert(dstTags, DeepEquals, allDockerTags)
+	c.Assert(dstTags, check.DeepEquals, allDockerTags)
+}
+
+func (s *DockerSuite) removeImages(images []loc.DockerImage) {
+	for _, image := range images {
+		// Error is ignored since this is a best-effort cleanup
+		_ = s.client.RemoveImage(image.String())
+	}
+}
+
+func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.DockerImage) {
+	for _, image := range images {
+		// Error is ignored since this is a best-effort cleanup
+		image.Registry = registryAddr
+		_ = s.client.RemoveImage(image.String())
+	}
 }
