@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+package docker
 
 import (
 	"context"
 	"sort"
 
-	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
@@ -40,9 +39,9 @@ type CleanerSuite struct {
 
 func (s *CleanerSuite) SetUpTest(c *check.C) {
 	var err error
-	s.client, err = docker.NewClientFromEnv()
+	s.client, err = NewClientFromEnv()
 	c.Assert(err, check.IsNil)
-	s.sync = docker.NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
+	s.sync = NewSynchronizer(logrus.New(), s.client, utils.DiscardProgress)
 	s.registryDir = c.MkDir()
 	s.registry = NewTestRegistry(s.registryDir, s.sync, c)
 }
@@ -109,7 +108,7 @@ func (s *CleanerSuite) TestCleanRegistry(c *check.C) {
 	ctx := context.Background()
 
 	// delete unnecessary images
-	err := docker.CleanRegistry(ctx, s.registryDir, requiredImageReferences)
+	err := CleanRegistry(ctx, s.registryDir, requiredImageReferences)
 	c.Assert(err, check.IsNil)
 
 	// restart the registry http server to make sure all the required images are there

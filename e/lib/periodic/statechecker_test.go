@@ -15,14 +15,15 @@
 package periodic
 
 import (
-	"os"
 	"testing"
 	"time"
 
+	"github.com/gravitational/gravity/lib/app"
 	apptest "github.com/gravitational/gravity/lib/app/service/test"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/ops/opsservice"
+	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/testutils"
 
@@ -37,7 +38,6 @@ func TestPeriodic(t *testing.T) { TestingT(t) }
 
 type StateCheckerSuite struct {
 	stateChecker stateChecker
-	dir          string
 
 	clock *timetools.FreezedTime
 
@@ -51,7 +51,7 @@ var _ = Suite(&StateCheckerSuite{
 	},
 })
 
-func (s *StateCheckerSuite) SetUpSuite(c *C) {
+func (s *StateCheckerSuite) SetUpTest(c *C) {
 	s.localServices = opsservice.SetupTestServices(c)
 	s.remoteServices = opsservice.SetupTestServices(c)
 	s.stateChecker = stateChecker{
@@ -63,11 +63,6 @@ func (s *StateCheckerSuite) SetUpSuite(c *C) {
 		},
 		FieldLogger: logrus.WithField(trace.Component, "state-checker"),
 	}
-	s.dir = s.localServices.Dir
-}
-
-func (s *StateCheckerSuite) TearDownSuite(c *C) {
-	os.RemoveAll(s.dir)
 }
 
 func (s *StateCheckerSuite) TestStateChecker(c *C) {
@@ -111,14 +106,9 @@ func (s *StateCheckerSuite) TestStateChecker(c *C) {
 		loc.MustParseLocator("gravitational.io/planet:0.0.2")).Build()
 	clusterApp2 := apptest.ClusterApplication(locApp2, runtimeApp2).Build()
 	apptest.CreateApplication(apptest.AppRequest{
-		App:      clusterApp2,
-		Packages: s.localServices.Packages,
-		Apps:     s.localServices.Apps,
-	}, c)
-	apptest.CreateApplication(apptest.AppRequest{
-		App:      clusterApp2,
-		Packages: s.remoteServices.Packages,
-		Apps:     s.remoteServices.Apps,
+		App:         clusterApp2,
+		PackageSets: []pack.PackageService{s.localServices.Packages, s.remoteServices.Packages},
+		AppSets:     []app.Applications{s.localServices.Apps, s.remoteServices.Apps},
 	}, c)
 	app2, err := s.localServices.Apps.GetApp(locApp2)
 	c.Assert(err, IsNil)

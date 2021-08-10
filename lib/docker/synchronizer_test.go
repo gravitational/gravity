@@ -14,24 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package test
+package docker
 
 import (
 	"context"
 	"fmt"
 	"sort"
-	"testing"
 
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/check.v1"
 )
-
-func TestDocker(t *testing.T) { TestingT(t) }
-
-var _ = Suite(&DockerSuite{})
 
 // Set up a separate Suite for this test so we can use SetUp/TearDown phases
 type DockerSuite struct {
@@ -72,20 +68,18 @@ func (s *DockerSuite) listTags(repository string, c *check.C) (tags map[string]b
 	return tags
 }
 
-// NewTestRegistry returns a new started docker registry
-func NewTestRegistry(dir string, s *Synchronizer, c *check.C) *TestRegistry {
-	config := BasicConfiguration("127.0.0.1:0", dir)
-	r, err := NewRegistry(config)
-	c.Assert(err, check.IsNil)
-	c.Assert(r.Start(), check.IsNil)
-	return &TestRegistry{
-		r:   r,
-		dir: dir,
-		info: RegistryInfo{
-			Address:  r.Addr(),
-			Protocol: "http",
-		},
-		helper: s,
+func (s *DockerSuite) removeImages(images []loc.DockerImage) {
+	for _, image := range images {
+		// Error is ignored since this is a best-effort cleanup
+		_ = s.client.RemoveImage(image.String())
+	}
+}
+
+func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.DockerImage) {
+	for _, image := range images {
+		// Error is ignored since this is a best-effort cleanup
+		image.Registry = registryAddr
+		_ = s.client.RemoveImage(image.String())
 	}
 }
 
@@ -177,19 +171,4 @@ func (s *DockerSuite) TestPullAndPushImages(c *check.C) {
 	c.Assert(err, check.IsNil)
 	sort.Strings(dstTags)
 	c.Assert(dstTags, check.DeepEquals, allDockerTags)
-}
-
-func (s *DockerSuite) removeImages(images []loc.DockerImage) {
-	for _, image := range images {
-		// Error is ignored since this is a best-effort cleanup
-		_ = s.client.RemoveImage(image.String())
-	}
-}
-
-func (s *DockerSuite) removeTaggedImages(registryAddr string, images []loc.DockerImage) {
-	for _, image := range images {
-		// Error is ignored since this is a best-effort cleanup
-		image.Registry = registryAddr
-		_ = s.client.RemoveImage(image.String())
-	}
 }

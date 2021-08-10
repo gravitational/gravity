@@ -35,6 +35,9 @@ import (
 type PackageRequest struct {
 	// Packages specifies the package service where the package is to be created
 	Packages pack.PackageService
+	// PackageSets optionally specifies a set of package services to create package in.
+	// Each service will receive the same copy of the package contents
+	PackageSets []pack.PackageService
 	// Package describes the package to create
 	Package Package
 }
@@ -43,8 +46,14 @@ type PackageRequest struct {
 type AppRequest struct {
 	// Packages specifies the package service where packages will be created
 	Packages pack.PackageService
+	// PackageSets optionally specifies a set of package services to create package in.
+	// Each service will receive the same copy of the package contents
+	PackageSets []pack.PackageService
 	// Apps specifies the application service where the package is to be created.
 	Apps app.Applications
+	// AppSets optionally specifies a set of application services to create application in.
+	// Each service will receive the same copy of the application package contents
+	AppSets []app.Applications
 	// App defines the application package to create
 	App App
 }
@@ -156,37 +165,55 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 		collectBaseDependencies(*req.App.Base, pkgDeps, appDeps, c)
 	}
 	collectDependencies(req.App, pkgDeps, appDeps)
+	packServices := req.PackageSets
+	if len(packServices) == 0 {
+		packServices = append(packServices, req.Packages)
+	}
 	for _, pkg := range pkgDeps {
 		CreatePackage(PackageRequest{
-			Package:  pkg,
-			Packages: req.Packages,
+			Package:     pkg,
+			PackageSets: packServices,
 		}, c)
+	}
+	appServices := req.AppSets
+	if len(appServices) == 0 {
+		appServices = append(appServices, req.Apps)
 	}
 	for _, app := range appDeps {
 		data := CreatePackageData(ApplicationLayout(app, c), c)
-		_, err := req.Apps.CreateApp(app.Manifest.Locator(), &data, app.Labels)
-		c.Assert(err, check.IsNil)
+		for _, apps := range appServices {
+			_, err := apps.CreateApp(app.Manifest.Locator(), bytes.NewReader(data.Bytes()), app.Labels)
+			c.Assert(err, check.IsNil)
+		}
 	}
 	data := CreatePackageData(ApplicationLayout(req.App, c), c)
-	app, err := req.Apps.CreateApp(req.App.Manifest.Locator(), &data, req.App.Labels)
-	c.Assert(err, check.IsNil)
+	for _, apps := range appServices {
+		var err error
+		app, err = apps.CreateApp(req.App.Manifest.Locator(), bytes.NewReader(data.Bytes()), req.App.Labels)
+		c.Assert(err, check.IsNil)
+	}
 	return app
 }
 
 // CreatePackage creates a new test package as described by the given request
-func CreatePackage(req PackageRequest, c *check.C) *pack.PackageEnvelope {
+func CreatePackage(req PackageRequest, c *check.C) (pkg *pack.PackageEnvelope) {
 	items := req.Package.Items
 	if len(items) == 0 {
 		// Create a package with a test payload
 		items = append(items, archive.ItemFromString("data", req.Package.Loc.String()))
 	}
+	packServices := req.PackageSets
+	if len(packServices) == 0 {
+		packServices = append(packServices, req.Packages)
+	}
 	input := CreatePackageData(items, c)
-	c.Assert(req.Packages.UpsertRepository(req.Package.Loc.Repository, time.Time{}), check.IsNil)
-
-	pkg, err := req.Packages.CreatePackage(req.Package.Loc, &input, pack.WithLabels(req.Package.Labels))
-	c.Assert(err, check.IsNil)
-	c.Assert(pkg, check.NotNil)
-
+	for _, packService := range packServices {
+		c.Assert(packService.UpsertRepository(req.Package.Loc.Repository, time.Time{}), check.IsNil)
+		var err error
+		pkg, err = packService.CreatePackage(req.Package.Loc, bytes.NewReader(input.Bytes()), pack.WithLabels(req.Package.Labels))
+		c.Assert(err, check.IsNil)
+		c.Assert(pkg, check.NotNil)
+	}
 	return pkg
 }
 

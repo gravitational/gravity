@@ -62,6 +62,23 @@ func GenerateTestDockerImages(client *dockerapi.Client, repoName string, size in
 	return images
 }
 
+// NewTestRegistry returns a new started docker registry
+func NewTestRegistry(dir string, s *Synchronizer, c *check.C) *TestRegistry {
+	config := BasicConfiguration("127.0.0.1:0", dir)
+	r, err := NewRegistry(config)
+	c.Assert(err, check.IsNil)
+	c.Assert(r.Start(), check.IsNil)
+	return &TestRegistry{
+		r:   r,
+		dir: dir,
+		info: RegistryInfo{
+			Address:  r.Addr(),
+			Protocol: "http",
+		},
+		helper: s,
+	}
+}
+
 // Close stops this registry instance and removes its resources
 func (r *TestRegistry) Close() error {
 	return r.r.Close()
