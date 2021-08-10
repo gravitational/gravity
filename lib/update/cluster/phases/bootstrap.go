@@ -161,7 +161,7 @@ func (p *updatePhaseBootstrap) Execute(ctx context.Context) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = p.pullSystemUpdates(ctx)
+	err = p.pullSystemUpdates()
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -236,7 +236,7 @@ func (p *updatePhaseBootstrap) updateServiceUser() error {
 	return p.HostLocalBackend.SetServiceUser(p.ServiceUser.OSUser())
 }
 
-func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
+func (p *updatePhaseBootstrap) pullSystemUpdates() error {
 	p.Info("Pull system updates.")
 	updates := []loc.Locator{p.GravityPackage}
 	if p.Server.Runtime.SecretsPackage != nil {

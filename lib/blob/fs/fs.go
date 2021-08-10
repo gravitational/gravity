@@ -34,7 +34,7 @@ import (
 )
 
 // New creates a new instance of the local fs blob service
-// rooted as the given path
+// rooted at the given path
 func New(root string) (blob.Objects, error) {
 	return NewWithConfig(Config{Path: root})
 }
