@@ -29,8 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops/opsservice"
 	"github.com/gravitational/gravity/lib/storage"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	check "gopkg.in/check.v1"
 )
 
@@ -132,8 +130,5 @@ func (s *catalogSuite) TestDownload(c *check.C) {
 	// Exclude "created" timestamp from comparison b/c apps are in
 	// different package services so it will be different for them.
 	alpine.PackageEnvelope.Created = s.alpine.PackageEnvelope.Created
-	if !cmp.Equal(alpine, s.alpine, cmpopts.EquateEmpty()) {
-		c.Error("Mismatched: ", cmp.Diff(alpine, s.alpine))
-	}
-
+	c.Assert(alpine, compare.DeepEquals, s.alpine)
 }
