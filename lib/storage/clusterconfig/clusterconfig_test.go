@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -187,7 +188,7 @@ spec:
 						},
 						PodSubnetSize:    "26",
 						HighAvailability: newBoolPtr(true),
-						FlannelBackend:   "vxlan",
+						FlannelBackend:   utils.StringPtr("vxlan"),
 					},
 				},
 			},
@@ -246,7 +247,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature2": false,
 						},
 						HighAvailability: newBoolPtr(true),
-						FlannelBackend:   "vxlan",
+						FlannelBackend:   utils.StringPtr("vxlan"),
 					},
 				},
 			},
@@ -266,7 +267,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature2": false,
 						},
 						HighAvailability: newBoolPtr(true),
-						FlannelBackend:   "vxlan",
+						FlannelBackend:   utils.StringPtr("vxlan"),
 					},
 				},
 			},
@@ -294,7 +295,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature2": false,
 						},
-						FlannelBackend: "vxlan",
+						FlannelBackend: utils.StringPtr("vxlan"),
 					},
 				},
 			},
@@ -341,7 +342,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature3": true,
 						},
-						FlannelBackend: "vxlan",
+						FlannelBackend: utils.StringPtr("vxlan"),
 					},
 				},
 			},

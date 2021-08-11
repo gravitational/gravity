@@ -1345,6 +1345,9 @@ var (
 
 	// KubeControllerManagerPort specifies the default controller manager healthz port
 	KubeControllerManagerPort = 10257
+
+	// FlannelBackend specifies the default flannel backend
+	FlannelBackend = "vxlan"
 )
 
 // HookSecurityContext returns default securityContext for hook pods

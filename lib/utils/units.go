@@ -146,13 +146,38 @@ func BoolPtr(v bool) *bool {
 	return &v
 }
 
+// FormatBoolPtr formats the bool pointer value for output
+func FormatBoolPtr(v *bool) string {
+	if v == nil {
+		return "<unset>"
+	}
+	return fmt.Sprint(*v)
+}
+
 // DurationPtr returns a pointer to the provided duration value
 func DurationPtr(v time.Duration) *teleservices.Duration {
 	d := teleservices.NewDuration(v)
 	return &d
 }
 
+// StringValue returns the string value in v or an empty string if it's nil
+func StringValue(v *string) string {
+	if v != nil {
+		return *v
+	}
+	return ""
+}
+
 // StringPtr returns a pointer to the provided string
 func StringPtr(s string) *string {
 	return &s
+}
+
+// FormatStringPtrWithDefault formats the string pointer value for output.
+// If the pointer value is nil, the specified default is used
+func FormatStringPtrWithDefault(v *string, def string) string {
+	if v == nil {
+		return def
+	}
+	return *v
 }

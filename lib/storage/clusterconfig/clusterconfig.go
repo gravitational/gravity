@@ -140,8 +140,11 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 	}
 	// Changing cloud provider is not supported
-	if other.Spec.Global.FlannelBackend != "" {
-		r.Spec.Global.FlannelBackend = other.Spec.Global.FlannelBackend
+	if other.Spec.Global.FlannelBackend != nil {
+		if r.Spec.Global.FlannelBackend == nil {
+			r.Spec.Global.FlannelBackend = new(string)
+		}
+		*r.Spec.Global.FlannelBackend = *other.Spec.Global.FlannelBackend
 	}
 	if other.Spec.Global.PodCIDR != "" {
 		r.Spec.Global.PodCIDR = other.Spec.Global.PodCIDR
@@ -279,7 +282,7 @@ func (r Global) IsEmpty() bool {
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
 		r.HighAvailability == nil &&
-		r.FlannelBackend == "" &&
+		r.FlannelBackend == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -313,8 +316,8 @@ type Global struct {
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 	// HighAvailability enables high availability mode for Kubernetes.
 	HighAvailability *bool `json:"highAvailability,omitempty"`
-	// FlannelBackend specifies the backend to pair with flannel.
-	FlannelBackend string `json:"flannelBackend,omitempty"`
+	// FlannelBackend optionally specifies the backend to pair with flannel.
+	FlannelBackend *string `json:"flannelBackend,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource

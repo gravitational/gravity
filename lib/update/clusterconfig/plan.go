@@ -197,7 +197,7 @@ func shouldUpdateNodes(clusterConfig clusterconfig.Interface, numWorkerNodes int
 	config := clusterConfig.GetGlobalConfig()
 	hasComponentUpdate := len(config.FeatureGates) != 0
 	hasCIDRUpdate := len(config.PodCIDR) != 0 || len(config.ServiceCIDR) != 0 || config.PodSubnetSize != ""
-	hasFlannelUpdate := config.FlannelBackend != ""
+	hasFlannelUpdate := config.FlannelBackend != nil
 	return !clusterConfig.GetKubeletConfig().IsEmpty() || hasComponentUpdate || hasCIDRUpdate || hasFlannelUpdate
 }
 
