@@ -48,7 +48,7 @@ type FSMConfig struct {
 	// Packages is package service of the cluster the node is joining to
 	Packages pack.PackageService
 	// LocalBackend is local backend of the joining node
-	LocalBackend storage.Backend
+	LocalBackend storage.LocalBackend
 	// LocalApps is local apps service of the joining node
 	LocalApps app.Applications
 	// LocalPackages is local package service of the joining node

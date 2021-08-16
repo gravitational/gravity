@@ -60,7 +60,7 @@ type updatePhaseBootstrap struct {
 	LocalBackend storage.Backend
 	// HostLocalBackend is the host-local state backend used to persist global settings
 	// like DNS configuration, logins etc.
-	HostLocalBackend storage.Backend
+	HostLocalBackend storage.LocalBackend
 	// GravityPath is the path to the new gravity binary
 	GravityPath string
 	// GravityPackage specifies the new gravity package
@@ -80,7 +80,7 @@ type updatePhaseBootstrap struct {
 func NewUpdatePhaseBootstrap(
 	p fsm.ExecutorParams,
 	operator ops.Operator,
-	backend, localBackend, hostLocalBackend storage.Backend,
+	backend, localBackend storage.Backend, hostLocalBackend storage.LocalBackend,
 	localPackages, packages pack.PackageService,
 	remote fsm.Remote,
 	logger log.FieldLogger,

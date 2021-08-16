@@ -1538,8 +1538,14 @@ type Backend interface {
 	Links
 	ClusterImport
 	LegacyRoles
-	SystemMetadata
 	Charts
+}
+
+// LocalBackend represents the node-local backend
+type LocalBackend interface {
+	Backend
+	// SystemMetadata manages node-local system metadata
+	SystemMetadata
 }
 
 const (

@@ -66,7 +66,7 @@ func (b *backend) SetNodeAddr(addr string) error {
 	return b.upsertVal(b.key(systemP, nodeAddrP), addr, forever)
 }
 
-// GetServiceUser returns the current serviceo user
+// GetServiceUser returns the current service user
 func (b *backend) GetServiceUser() (*storage.OSUser, error) {
 	var user storage.OSUser
 	err := b.getVal(b.key(systemP, serviceUserP), &user)

@@ -139,7 +139,7 @@ type InstallConfig struct {
 	// LocalApps is the machine-local apps service
 	LocalApps appservice.Applications
 	// LocalBackend is the machine-local backend
-	LocalBackend storage.Backend
+	LocalBackend storage.LocalBackend
 	// GCENodeTags defines the VM instance tags on GCE
 	GCENodeTags []string
 	// LocalClusterClient is a factory for creating client to the installed cluster

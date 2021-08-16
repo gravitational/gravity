@@ -115,7 +115,7 @@ type DNSConfig storage.DNSConfig
 type LocalEnvironment struct {
 	LocalEnvironmentArgs
 	// Backend is the local backend client
-	Backend storage.Backend
+	Backend storage.LocalBackend
 	// Objects is the local objects storage client
 	Objects blob.Objects
 	// Packages is the local package service
@@ -424,7 +424,7 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		}
 	}
 
-	backend := env.Backend
+	var backend storage.Backend = env.Backend
 	if config.Backend != nil {
 		backend = config.Backend
 	}

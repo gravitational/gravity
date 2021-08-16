@@ -121,7 +121,7 @@ type Config struct {
 	// LocalApps is the machine-local application service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
-	LocalBackend storage.Backend
+	LocalBackend storage.LocalBackend
 	// ServiceUser specifies the user to use as a service user in planet
 	// and for unprivileged kubernetes services
 	ServiceUser systeminfo.User
