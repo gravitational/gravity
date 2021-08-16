@@ -48,11 +48,13 @@ type AppRequest struct {
 	Packages pack.PackageService
 	// PackageSets optionally specifies a set of package services to create package in.
 	// Each service will receive the same copy of the package contents
+	// Either Packages or PackageSets is expected to be set but not both
 	PackageSets []pack.PackageService
 	// Apps specifies the application service where the package is to be created.
 	Apps app.Applications
 	// AppSets optionally specifies a set of application services to create application in.
-	// Each service will receive the same copy of the application package contents
+	// Each service will receive the same copy of the application package contents.
+	// Either Apps or AppSets is expected to be set but not both
 	AppSets []app.Applications
 	// App defines the application package to create
 	App App
@@ -60,8 +62,10 @@ type AppRequest struct {
 
 // Dependencies groups package/application dependencies
 type Dependencies struct {
+	// Packages lists package dependencies.
 	Packages []Package
-	Apps     []App
+	// Apps lists application package dependencies.
+	Apps []App
 }
 
 // Package describes a test package
@@ -131,15 +135,25 @@ func (r *App) WithPackageDependencies(deps ...Package) *App {
 	return r
 }
 
+// WithItems sets the content items for this application
 func (r *App) WithItems(items ...*archive.Item) *App {
 	r.Items = items
 	return r
 }
 
+// Locator returns the application package locator
 func (r App) Locator() loc.Locator {
 	return r.Manifest.Locator()
 }
 
+// Build returns this application value.
+// This is usually the last call in the sequence of build APIs before passing
+// to CreateApplication:
+//
+// app := CreateApplication(AppRequest{
+//	App: ClusterApplication(...).WithItems(...).WithDependencies(...).Build(),
+//	Apps: ...,
+// })
 func (r App) Build() App { return r }
 
 // App describes a test application package
