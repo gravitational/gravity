@@ -597,12 +597,12 @@ const (
 	LogForwardersConfigMap = "log-forwarders"
 
 	// GrafanaServiceName is the name of Grafana service
-	GrafanaServiceName = "grafana"
+	GrafanaServiceName = "monitoring-grafana"
 	// GrafanaServicePort is the port Grafana service is listening on
-	GrafanaServicePort = 3000
+	GrafanaServicePort = 80
 
 	// PrometheusServiceAddr is the Prometheus HTTP API service address.
-	PrometheusServiceAddr = "prometheus-k8s.monitoring.svc.cluster.local:9090"
+	PrometheusServiceAddr = "monitoring-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
 
 	// LograngeAggregatorServiceName is the name of the Logrange aggregator service.
 	LograngeAggregatorServiceName = "lr-aggregator"
@@ -1323,7 +1323,7 @@ var (
 
 	// AlertmanagerServiceAddr returns the Prometheus Alertmanager HTTP API service address.
 	AlertmanagerServiceAddr = fmt.Sprintf(
-		"alertmanager-main.monitoring.svc.cluster.local:%v",
+		"monitoring-kube-prometheus-alertmanager.monitoring.svc.cluster.local:%v",
 		AlertmanagerServicePort)
 
 	// HelmRegistryVar is the Helm variable that gets passed via --set flag and
