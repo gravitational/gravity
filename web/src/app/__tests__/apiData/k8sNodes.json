@@ -157,8 +157,8 @@
           },
           {
             "names": [
-              "apiserver:5000/kubernetes-helm/tiller@sha256:6520882517f1d6cc54b63e5208cae0cb1f6f2f60f55f512a60527bc893fc22ac",
-              "apiserver:5000/kubernetes-helm/tiller:v2.3.0"
+              "apiserver:5000/helm/tiller@sha256:6520882517f1d6cc54b63e5208cae0cb1f6f2f60f55f512a60527bc893fc22ac",
+              "apiserver:5000/helm/tiller:v2.3.0"
             ],
             "sizeBytes": 55998274
           },
