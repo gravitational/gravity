@@ -30,7 +30,7 @@ spec:
         runAsUser: -1
       containers:
         - name: tiller
-          image: gcr.io/kubernetes-helm/tiller:canary
+          image: ghcr.io/helm/tiller:canary
           imagePullPolicy: IfNotPresent
           command: ["/tiller"]
           args: ["--listen=127.0.0.1:44134"]
