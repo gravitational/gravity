@@ -113,11 +113,6 @@ var (
 	//planetTag = fmt.Sprintf("7.1.4-%v", k8sVersionToPlanetFormat(k8sVersion))
 	planetTag = ""
 
-	planetBranch = env.E(magnet.EnvVar{
-		Key:     "PLANET_BRANCH",
-		Default: planetTag,
-		Short:   "Alternate branch to build planet",
-	})
 	planetVersion = env.E(magnet.EnvVar{
 		Key:     "PLANET_TAG",
 		Default: planetTag,
