@@ -6,7 +6,7 @@ OPS_URL ?= https://opscenter.localhost.localdomain:33009
 GRAVITY ?= gravity
 UPDATE_METADATA_OPTS := --repository=$(REPOSITORY) --name=$(NAME) --version=$(VERSION)
 
-TILLER_IMAGE ?= gcr.io/kubernetes-helm/tiller:v$(TILLER_VERSION)
+TILLER_IMAGE ?= ghcr.io/helm/tiller:v$(TILLER_VERSION)
 
 .PHONY: import
 import:
