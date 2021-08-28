@@ -38,7 +38,7 @@ const deployments = [
       "metadata": {
         "annotations": {
           "deployment.kubernetes.io/revision": "1",
-          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"extensions/v1beta1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"labels\":{\"app\":\"helm\",\"name\":\"tiller\"},\"name\":\"tiller-deploy\",\"namespace\":\"kube-system\"},\"spec\":{\"replicas\":1,\"strategy\":{},\"template\":{\"metadata\":{\"annotations\":{\"seccomp.security.alpha.kubernetes.io/pod\":\"docker/default\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"helm\",\"name\":\"tiller\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"TILLER_NAMESPACE\",\"value\":\"kube-system\"}],\"image\":\"leader.telekube.local:5000/kubernetes-helm/tiller:v2.8.1\",\"imagePullPolicy\":\"IfNotPresent\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/liveness\",\"port\":44135},\"initialDelaySeconds\":1,\"timeoutSeconds\":1},\"name\":\"tiller\",\"ports\":[{\"containerPort\":44134,\"name\":\"tiller\",\"protocol\":\"TCP\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/readiness\",\"port\":44135},\"initialDelaySeconds\":1,\"timeoutSeconds\":1},\"resources\":{},\"securityContext\":{\"runAsUser\":1000}}],\"securityContext\":{\"runAsUser\":1000},\"tolerations\":[{\"key\":\"gravitational.io/runlevel\",\"operator\":\"Equal\",\"value\":\"system\"},{\"effect\":\"NoSchedule\",\"key\":\"node-role.kubernetes.io/master\",\"operator\":\"Exists\"}]}}},\"status\":{}}\n"
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"extensions/v1beta1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"creationTimestamp\":null,\"labels\":{\"app\":\"helm\",\"name\":\"tiller\"},\"name\":\"tiller-deploy\",\"namespace\":\"kube-system\"},\"spec\":{\"replicas\":1,\"strategy\":{},\"template\":{\"metadata\":{\"annotations\":{\"seccomp.security.alpha.kubernetes.io/pod\":\"docker/default\"},\"creationTimestamp\":null,\"labels\":{\"app\":\"helm\",\"name\":\"tiller\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"TILLER_NAMESPACE\",\"value\":\"kube-system\"}],\"image\":\"leader.telekube.local:5000/helm/tiller:v2.8.1\",\"imagePullPolicy\":\"IfNotPresent\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/liveness\",\"port\":44135},\"initialDelaySeconds\":1,\"timeoutSeconds\":1},\"name\":\"tiller\",\"ports\":[{\"containerPort\":44134,\"name\":\"tiller\",\"protocol\":\"TCP\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/readiness\",\"port\":44135},\"initialDelaySeconds\":1,\"timeoutSeconds\":1},\"resources\":{},\"securityContext\":{\"runAsUser\":1000}}],\"securityContext\":{\"runAsUser\":1000},\"tolerations\":[{\"key\":\"gravitational.io/runlevel\",\"operator\":\"Equal\",\"value\":\"system\"},{\"effect\":\"NoSchedule\",\"key\":\"node-role.kubernetes.io/master\",\"operator\":\"Exists\"}]}}},\"status\":{}}\n"
         },
         "selfLink": "/apis/extensions/v1beta1/namespaces/kube-system/deployments/tiller-deploy",
         "resourceVersion": "891",
@@ -119,7 +119,7 @@ const deployments = [
                 ],
                 "imagePullPolicy": "IfNotPresent",
                 "terminationMessagePolicy": "File",
-                "image": "leader.telekube.local:5000/kubernetes-helm/tiller:v2.8.1"
+                "image": "leader.telekube.local:5000/helm/tiller:v2.8.1"
               }
             ],
             "restartPolicy": "Always",
