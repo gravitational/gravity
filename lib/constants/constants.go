@@ -284,6 +284,8 @@ const (
 	LograngeCollectorKeyPair = "logrange-collector"
 	// LograngeForwarderKeyPair is a cert/key used by logrange forwarder component
 	LograngeForwarderKeyPair = "logrange-forwarder"
+	// PrometheusKeyPair is a cert/key used by prometheus-operator
+	PrometheusKeyPair = "prometheus-operator"
 
 	// ClusterAdminGroup is a group name for Kubernetes cluster amdin
 	ClusterAdminGroup = "system:masters"

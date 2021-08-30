@@ -614,6 +614,7 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 		constants.LograngeAggregatorKeyPair:     {},
 		constants.LograngeCollectorKeyPair:      {},
 		constants.LograngeForwarderKeyPair:      {},
+		constants.PrometheusKeyPair:             {group: constants.ClusterAdminGroup},
 	}
 
 	for name, config := range keyPairTypes {
