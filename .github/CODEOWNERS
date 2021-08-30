@@ -4,5 +4,5 @@
 # Global Owners
 *  @gravitational/codeowners-gravity-code
 
-# Web UI
-/web/ @gravitational/codeowners-gravity-web
+# This file
+/.github/CODEOWNERS @gravitational/admins
