@@ -775,7 +775,7 @@ const podInfos = [
               }
             ],
             "terminationMessagePolicy": "File",
-            "image": "leader.telekube.local:5000/kubernetes-helm/tiller:v2.8.1"
+            "image": "leader.telekube.local:5000/helm/tiller:v2.8.1"
           }
         ],
         "serviceAccount": "default",
@@ -844,8 +844,8 @@ const podInfos = [
             "lastState": {},
             "ready": true,
             "restartCount": 0,
-            "image": "leader.telekube.local:5000/kubernetes-helm/tiller:v2.8.1",
-            "imageID": "docker-pullable://leader.telekube.local:5000/kubernetes-helm/tiller@sha256:f0af436a310c8c906b7f261fc9d5625596a9791f06ca36b88d556d23a0cecf4e",
+            "image": "leader.telekube.local:5000/helm/tiller:v2.8.1",
+            "imageID": "docker-pullable://leader.telekube.local:5000/helm/tiller@sha256:f0af436a310c8c906b7f261fc9d5625596a9791f06ca36b88d556d23a0cecf4e",
             "containerID": "docker://d8c1fd7f1720911846ac4d0d826b681d0b1a95a4f39aa54a6a2c8b38c4949b56"
           }
         ],
