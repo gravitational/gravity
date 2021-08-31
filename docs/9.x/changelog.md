@@ -61,15 +61,11 @@ extend updates past End of Support through customer agreements if required.
 #### Improvements
 
 * Generate prometheus-operator key pair to be used for metrics collection ([#2612](https://github.com/gravitational/gravity/pull/2612), [planet#858](https://github.com/gravitational/planet/pull/858)).
+* And other minor code cleanup and build improvements.
 
 #### Bugfixes
 
 * Fix a regression caused by the removal of tiller images from the gcr.io/kubernetes registry ([#2624](https://github.com/gravitational/gravity/pull/2624)).
-
-#### Internal Changes
-
-* Update CODEOWNERS ([#2625](https://github.com/gravitational/gravity/pull/2625)).
-* And other minor code cleanup and build improvements.
 
 ### 9.0.0-beta.3 (August 5, 2021)
 
