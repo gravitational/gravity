@@ -664,9 +664,7 @@ func (r configCollection) WriteText(w io.Writer) error {
 		fmt.Fprintf(t, "%v\n", string(config.Config))
 	}
 	config := r.GetGlobalConfig()
-	if len(config.FlannelBackend) != 0 {
-		fmt.Fprintf(t, "Flannel Backend:\t%v\n", config.FlannelBackend)
-	}
+	fmt.Fprintf(t, "Flannel Backend:\t%v\n", utils.FormatStringPtrWithDefault(config.FlannelBackend, defaults.FlannelBackend))
 	if len(config.PodCIDR) != 0 {
 		fmt.Fprintf(t, "Pod IP Range:\t%v\n", config.PodCIDR)
 	}
@@ -685,7 +683,7 @@ func (r configCollection) WriteText(w io.Writer) error {
 	if len(config.FeatureGates) != 0 {
 		fmt.Fprintf(t, "Feature Gates:\t%v\n", formatFeatureGates(config.FeatureGates))
 	}
-	fmt.Fprintf(t, "High Availability:\t%v\n", formatBoolPtr(config.HighAvailability))
+	fmt.Fprintf(t, "High Availability:\t%v\n", utils.FormatBoolPtr(config.HighAvailability))
 	displayCloudConfig := config.CloudProvider != "" || config.CloudConfig != ""
 	if displayCloudConfig {
 		common.PrintCustomTableHeader(t, []string{"Cloud"}, "-")
@@ -740,13 +738,6 @@ func formatFeatureGates(features map[string]bool) string {
 		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
 	}
 	return strings.Join(result, ",")
-}
-
-func formatBoolPtr(ptr *bool) string {
-	if ptr == nil {
-		return "<unset>"
-	}
-	return fmt.Sprint(*ptr)
 }
 
 type operationsCollection struct {

@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"gopkg.in/check.v1"
 )
@@ -77,7 +78,7 @@ spec:
 				ServiceCIDR:    "100.200.0.0/16",
 				PodCIDR:        "100.96.0.0/16",
 				PodSubnetSize:  "26",
-				FlannelBackend: "vxlan",
+				FlannelBackend: utils.StringPtr("vxlan"),
 				CloudConfig: `[global]
 node-tags=example-cluster
 multizone="true"
