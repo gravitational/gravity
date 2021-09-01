@@ -967,7 +967,7 @@ func (h *WebHandler) wrap(fn func(w http.ResponseWriter, r *http.Request, p http
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		if err := fn(w, r, p); err != nil {
 			log.WithFields(fields.FromRequest(r)).WithError(err).Info("Handler error.")
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 		}
 	}
 }
@@ -979,7 +979,7 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 		authResult, err := h.Authenticator.Authenticate(w, r)
 		if err != nil {
 			logger.WithError(err).Warn("Authentication error.")
-			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
+			httplib.WriteError(w, trace.AccessDenied("bad username or password"), r.Header) // Hide the actual error.
 			return
 		}
 
@@ -995,7 +995,7 @@ func (h *WebHandler) needsAuth(fn serviceHandler) httprouter.Handle {
 			} else {
 				logger.WithError(err).Debug("Handler error.")
 			}
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 		}
 	}
 }

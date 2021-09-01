@@ -205,3 +205,19 @@ var Methods = []string{
 	http.MethodPatch,
 	http.MethodHead,
 }
+
+// WriteError serializes the given error into the provided response writer.
+// The amount of serialized information depends on the HTTP headers.
+func WriteError(w http.ResponseWriter, err error, hdr http.Header) {
+	if hdr.Get(clientIDHeader) != gravityCLIClientID {
+		// Remove stack traces if this is not a gravity client
+		trace.WriteError(w, trace.Unwrap(err))
+		return
+	}
+	trace.WriteError(w, err)
+}
+
+const (
+	clientIDHeader     = "X-Gravity-Client-ID"
+	gravityCLIClientID = "gravity"
+)

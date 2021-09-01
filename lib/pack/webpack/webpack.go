@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gravitational/gravity/lib/httplib"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
@@ -320,7 +321,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 		authResult, err := s.cfg.Authenticator.Authenticate(w, r)
 		if err != nil {
 			logger.WithError(err).Warn("Authentication error.")
-			trace.WriteError(w, trace.Unwrap(trace.AccessDenied("bad username or password"))) // Hide the actual error.
+			httplib.WriteError(w, trace.AccessDenied("bad username or password"), r.Header) // Hide the actual error.
 			return
 		}
 
@@ -334,7 +335,7 @@ func (s *Server) needsAuth(fn authHandle) httprouter.Handle {
 			} else if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				logger.WithError(err).Error("Handler error.")
 			}
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 		}
 	}
 }

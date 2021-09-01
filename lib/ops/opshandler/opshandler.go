@@ -359,7 +359,7 @@ func (h *WebHandler) getSiteInstructions(w http.ResponseWriter, r *http.Request,
 	instructions, err := h.cfg.Operator.GetSiteInstructions(token, serverProfile, r.URL.Query())
 	if err != nil {
 		log.WithError(err).Warn("Failed to query cluster install instructions.")
-		trace.WriteError(w, trace.Unwrap(err))
+		httplib.WriteError(w, err, r.Header)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
@@ -2441,7 +2441,7 @@ func NeedsAuth(devmode bool, backend storage.Backend, operator ops.Operator, aut
 			if trace.IsAccessDenied(err) {
 				log.WithFields(fields.FromRequest(r)).WithError(err).Warn("Access denied.")
 			}
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 		}
 	}
 }

@@ -92,20 +92,20 @@ func GetRemoteClient(remoteSite rt.RemoteSite, remoteURL *url.URL) *http.Client 
 }
 
 // ClientOption sets custom HTTP client option
-type ClientOption func(*http.Client)
+type ClientOption func(*httpClient)
 
 // WithLocalResolver sets up client to use local DNS resolver
 func WithLocalResolver(dnsAddr string) ClientOption {
-	return func(c *http.Client) {
-		c.Transport.(*http.Transport).DialContext = DialFromEnviron(dnsAddr)
+	return func(c *httpClient) {
+		c.transport.DialContext = DialFromEnviron(dnsAddr)
 	}
 }
 
 // WithInsecure sets insecure TLS config
 func WithInsecure() ClientOption {
-	return func(c *http.Client) {
+	return func(c *httpClient) {
 		// Make sure not to override existing TLS configuration.
-		tlsConfig := c.Transport.(*http.Transport).TLSClientConfig
+		tlsConfig := c.transport.TLSClientConfig
 		if tlsConfig == nil {
 			//nolint:gosec	// TODO: set MinVersion
 			tlsConfig = &tls.Config{}
@@ -116,14 +116,14 @@ func WithInsecure() ClientOption {
 
 // WithTLSClientConfig sets TLS client configuration.
 func WithTLSClientConfig(tlsConfig *tls.Config) ClientOption {
-	return func(c *http.Client) {
-		c.Transport.(*http.Transport).TLSClientConfig = tlsConfig
+	return func(c *httpClient) {
+		c.transport.TLSClientConfig = tlsConfig
 		// Note, GetClientCertificate is required to enforce the client to
 		// always send the certificate along, otherwise it may choose not
 		// send it in specific cases. Source:
 		// https://github.com/golang/go/issues/23924#issuecomment-367472052
 		if len(tlsConfig.Certificates) != 0 {
-			c.Transport.(*http.Transport).TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			c.transport.TLSClientConfig.GetClientCertificate = func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 				return &tlsConfig.Certificates[0], nil
 			}
 		}
@@ -132,43 +132,40 @@ func WithTLSClientConfig(tlsConfig *tls.Config) ClientOption {
 
 // WithTimeout sets timeout
 func WithTimeout(t time.Duration) ClientOption {
-	return func(c *http.Client) {
-		c.Timeout = t
+	return func(c *httpClient) {
+		c.timeout = t
 	}
 }
 
 // WithDialTimeout sets dial timeout
 func WithDialTimeout(t time.Duration) ClientOption {
-	return func(c *http.Client) {
-		c.Transport.(*http.Transport).DialContext = (&net.Dialer{Timeout: t}).DialContext
+	return func(c *httpClient) {
+		c.transport.DialContext = (&net.Dialer{Timeout: t}).DialContext
 	}
 }
 
 // WithClientCert sets a certificate for mTLS client authentication
 func WithClientCert(cert tls.Certificate) ClientOption {
-	return func(c *http.Client) {
-		transport := c.Transport.(*http.Transport)
-		transport.TLSClientConfig.Certificates = append(transport.TLSClientConfig.Certificates, cert)
+	return func(c *httpClient) {
+		c.transport.TLSClientConfig.Certificates = append(c.transport.TLSClientConfig.Certificates, cert)
 	}
 }
 
 // WithCA to use a custom certificate authority for server validation
 func WithCA(cert []byte) ClientOption {
-	return func(c *http.Client) {
-		transport := c.Transport.(*http.Transport)
-		if transport.TLSClientConfig.RootCAs == nil {
-			transport.TLSClientConfig.RootCAs = x509.NewCertPool()
+	return func(c *httpClient) {
+		if c.transport.TLSClientConfig.RootCAs == nil {
+			c.transport.TLSClientConfig.RootCAs = x509.NewCertPool()
 		}
 
-		transport.TLSClientConfig.RootCAs.AppendCertsFromPEM(cert)
+		c.transport.TLSClientConfig.RootCAs.AppendCertsFromPEM(cert)
 	}
 }
 
 // WithIdleConnTimeout overrides the transport connection idle timeout
 func WithIdleConnTimeout(timeout time.Duration) ClientOption {
-	return func(c *http.Client) {
-		transport := c.Transport.(*http.Transport)
-		transport.IdleConnTimeout = timeout
+	return func(c *httpClient) {
+		c.transport.IdleConnTimeout = timeout
 	}
 }
 
@@ -188,17 +185,39 @@ func NewClient(options ...ClientOption) *http.Client {
 		TLSClientConfig: &tls.Config{},
 		DialContext:     (&net.Dialer{Timeout: defaults.DialTimeout}).DialContext,
 	}
-	client := &http.Client{Transport: transport}
-	for _, o := range options {
-		o(client)
-	}
 	if transport.IdleConnTimeout == 0 {
 		transport.IdleConnTimeout = defaults.ConnectionIdleTimeout
 	}
 	if transport.MaxIdleConnsPerHost == 0 {
 		transport.MaxIdleConnsPerHost = defaults.MaxIdleConnsPerHost
 	}
-	return client
+	client := &httpClient{transport: transport}
+	for _, o := range options {
+		o(client)
+	}
+	return &http.Client{
+		Transport: &roundTripper{tr: client.transport},
+		Timeout:   client.timeout,
+	}
+}
+
+// httpClient is a configuration stub to collect external configuration
+// for the HTTP client before the actual value is built
+type httpClient struct {
+	transport *http.Transport
+	// See http.Client.Timeout
+	timeout time.Duration
+}
+
+// RoundTrip sets a custom client header before delegating to the underlying round tripper
+func (r *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set(clientIDHeader, gravityCLIClientID)
+	return r.tr.RoundTrip(req)
+}
+
+// roundTripper is an http.RoundTripper to set custom headers
+type roundTripper struct {
+	tr *http.Transport
 }
 
 func GetPlanetClient(options ...ClientOption) (*http.Client, error) {

@@ -93,7 +93,7 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 		"method":     r.Method,
 		"url":        r.URL.String(),
 	}).Warn("Invalid request.")
-	trace.WriteError(w, trace.Unwrap(err))
+	httplib.WriteError(w, err, r.Header)
 }
 
 func (s *Server) getBLOBs(w http.ResponseWriter, r *http.Request, p httprouter.Params, objects blob.Objects) error {
@@ -177,7 +177,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 		authCreds, err := httplib.ParseAuthHeaders(r)
 		if err != nil {
 			log.WithError(err).Warn("Invalid auth headers.")
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 			return
 		}
 
@@ -185,8 +185,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 		if err != nil {
 			log.WithError(err).Info("Authentication error.")
 			// we hide the error from the remote user to avoid giving any hints
-			trace.WriteError(
-				w, trace.Unwrap(trace.AccessDenied("bad username or password")))
+			httplib.WriteError(w, trace.AccessDenied("bad username or password"), r.Header)
 			return
 		}
 
@@ -195,7 +194,7 @@ func (s *Server) needsAuth(fn authHandle, objects blob.Objects) httprouter.Handl
 			if !trace.IsNotFound(err) && !trace.IsAlreadyExists(err) {
 				log.Errorf("handler error: %v", trace.DebugReport(err))
 			}
-			trace.WriteError(w, trace.Unwrap(err))
+			httplib.WriteError(w, err, r.Header)
 		}
 	}
 }

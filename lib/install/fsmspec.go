@@ -119,10 +119,6 @@ func DefaultFSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.OperationKey)
 
-		case phases.ConfigurePhase:
-			return phases.NewConfigure(p,
-				config.Operator)
-
 		case phases.WaitPhase:
 			client, err := getKubeClient(p)
 			if err != nil {
