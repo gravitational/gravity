@@ -145,11 +145,7 @@ func (m Manifest) Base() *loc.Locator {
 
 // Locator returns locator for this manifest's app
 func (m Manifest) Locator() loc.Locator {
-	return loc.Locator{
-		Repository: m.Metadata.Repository,
-		Name:       m.Metadata.Name,
-		Version:    m.Metadata.ResourceVersion,
-	}
+	return m.Metadata.Locator()
 }
 
 // SetBase sets a runtime application to the provided locator
@@ -479,6 +475,15 @@ type Metadata struct {
 // GetName returns an application name
 func (m Metadata) GetName() string {
 	return m.Name
+}
+
+// Locator formats this metadata as a package locator
+func (m Metadata) Locator() loc.Locator {
+	return loc.Locator{
+		Repository: m.Repository,
+		Name:       m.Name,
+		Version:    m.ResourceVersion,
+	}
 }
 
 // Endpoint describes an application endpoint

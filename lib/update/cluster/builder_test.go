@@ -151,16 +151,21 @@ func (s *PlanSuite) TestPlanWithoutRuntimeUpdate(c *check.C) {
 
 func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
-	}
 	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
-	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
+	apptest.CreatePackage(apptest.PackageRequest{
+		Package: apptest.Package{
+			Loc: runtimePackage,
+			Items: []*archive.Item{
+				archive.ItemFromString("orbit.manifest.json", `{"version": "0.0.1"}`),
+			}},
+		Packages: services.Packages,
+	}, c)
+	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	apptest.CreatePackage(apptest.PackageRequest{
+		Package: apptest.Package{
+			Loc: updateRuntimePackage,
+			Items: []*archive.Item{
+				archive.ItemFromString("orbit.manifest.json", `{
 	"version": "0.0.1",
 	"labels": [
 		{
@@ -169,12 +174,9 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 		}
 	]
 }`),
-	}
-	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
+			}},
+		Packages: services.Packages,
+	}, c)
 	p := planConfig{
 		packageService: services.Packages,
 		installedRuntime: app.Application{Manifest: schema.Manifest{
@@ -201,8 +203,12 @@ func (s *PlanSuite) TestUpdatesEtcdFromManifestWithoutLabels(c *check.C) {
 
 func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 	services := opsservice.SetupTestServices(c)
-	files := []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
+	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
+	apptest.CreatePackage(apptest.PackageRequest{
+		Package: apptest.Package{
+			Loc: runtimePackage,
+			Items: []*archive.Item{
+				archive.ItemFromString("orbit.manifest.json", `{
 	"version": "0.0.1",
 	"labels": [
 		{
@@ -211,14 +217,15 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 		}
 	]
 }`),
-	}
-	runtimePackage := loc.MustParseLocator("example.com/runtime:1.0.0")
-	apptest.CreateDummyPackageWithContents(
-		runtimePackage,
-		files,
-		services.Packages, c)
-	files = []*archive.Item{
-		archive.ItemFromString("orbit.manifest.json", `{
+			}},
+		Packages: services.Packages,
+	}, c)
+	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
+	apptest.CreatePackage(apptest.PackageRequest{
+		Package: apptest.Package{
+			Loc: updateRuntimePackage,
+			Items: []*archive.Item{
+				archive.ItemFromString("orbit.manifest.json", `{
 	"version": "0.0.1",
 	"labels": [
 		{
@@ -227,12 +234,9 @@ func (s *PlanSuite) TestCorrectlyDeterminesWhetherToUpdateEtcd(c *check.C) {
 		}
 	]
 }`),
-	}
-	updateRuntimePackage := loc.MustParseLocator("example.com/runtime:1.0.1")
-	apptest.CreateDummyPackageWithContents(
-		updateRuntimePackage,
-		files,
-		services.Packages, c)
+			}},
+		Packages: services.Packages,
+	}, c)
 	p := planConfig{
 		packageService: services.Packages,
 		installedRuntime: app.Application{Manifest: schema.Manifest{
