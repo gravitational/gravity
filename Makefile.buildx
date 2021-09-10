@@ -1,0 +1,84 @@
+MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+CURRENT_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
+
+BUILDDIR ?= $(CURRENT_DIR)/_build
+
+include versions.mk
+GOLANG_VER := 1.13.8-stretch
+
+# Set to non-empty value to trigger streaming builder progress
+CI ?=
+
+BUILDER := $(BUILDDIR)/builder
+DOCKER ?= docker
+DOCKER_BUILD_ENV := DOCKER_BUILDKIT=1
+ifneq ($(CI),)
+	DOCKER_BUILD_ENV := BUILDKIT_PROGRESS=plain DOCKER_BUILDKIT=1
+endif
+
+$(BUILDER): | $(BUILDDIR)
+ifneq ($(CI),)
+	 $(DOCKER_BUILD_ENV) $(DOCKER) build -f mage.dockerfile --output=type=local,dest=$(BUILDDIR) .
+else
+	@ln -s $(CURRENT_DIR)/hack/mage $@
+endif
+
+.PHONY: all
+# TODO(dima): add robotest target(s)
+all: $(BUILDER) tarball
+
+.PHONY: binaries
+binaries: $(BUILDER)
+	$(BUILDER) build:go
+
+.PHONY: tarball
+tarball: $(BUILDER)
+	$(BUILDER) cluster:gravity
+
+.PHONY: hub-tarball
+hub-tarball: $(BUILDER)
+	$(BUILDER) cluster:hub
+
+.PHONY: test
+test: $(BUILDER)
+	$(BUILDER) test:unit test:cover
+
+.PHONY: lint
+lint: $(BUILDER)
+	$(BUILDER) test:lint
+
+$(BUILDDIR):
+	mkdir -p $@
+
+.PHONY: clean
+clean:
+	@rm -rf $(BUILDDIR)
+
+.PHONY: magnet-vars
+magnet-vars: | $(BUILDDIR)
+	@echo MAGNET_GOLANG_VER=$(GOLANG_VER)
+	@echo MAGNET_FIO_VER=$(FIO_VER)
+	@echo MAGNET_TELEPORT_TAG=$(TELEPORT_TAG)
+	@echo MAGNET_GRPC_PROTOC_VER=$(PROTOC_VER)
+	@echo MAGNET_GOGO_PROTO_TAG=$(GOGO_PROTO_TAG)
+	@echo MAGNET_GRPC_GATEWAY_TAG=$(GRPC_GATEWAY_TAG)
+	@echo MAGNET_K8S_VER=$(K8S_VER)
+	@echo MAGNET_PLANET_TAG=$(PLANET_TAG)
+	@echo MAGNET_PLANET_BRANCH=$(PLANET_BRANCH)
+	@echo MAGNET_INGRESS_APP_VERSION=$(INGRESS_APP_TAG)
+	@echo MAGNET_STORAGE_APP_VERSION=$(STORAGE_APP_TAG)
+	@echo MAGNET_LOGGING_APP_VERSION=$(LOGGING_APP_TAG)
+	@echo MAGNET_MONITORING_APP_VERSION=$(MONITORING_APP_TAG)
+	@echo MAGNET_BANDWAGON_APP_TAG=$(BANDWAGON_TAG)
+	@echo MAGNET_DNS_APP_VERSION=$(DNS_APP_TAG)
+	@echo MAGNET_TILLER_APP_TAG=$(TILLER_APP_TAG)
+	@echo MAGNET_TILLER_VERSION=$(TILLER_VERSION)
+	@echo MAGNET_SELINUX_VERSION=$(SELINUX_VERSION)
+	@echo MAGNET_SELINUX_REPO=$(SELINUX_REPO)
+	@echo MAGNET_SELINUX_BRANCH=$(SELINUX_BRANCH)
+	@echo MAGNET_WORMHOLE_IMG=$(WORMHOLE_IMG)
+	@echo MAGNET_BUILD_VERSION=$(GRAVITY_VERSION)
+	@echo MAGNET_GOLANGCI_LINT_VER=$(GOLANGCI_LINT_VER)
+	@echo MAGNET_CI=$(CI)
+	@echo MAGNET_BUILDDIR=$(BUILDDIR)
+
