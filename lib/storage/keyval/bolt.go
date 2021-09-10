@@ -36,7 +36,7 @@ import (
 )
 
 // NewBolt returns new BoltDB-backed engine
-func NewBolt(cfg BoltConfig) (storage.Backend, error) {
+func NewBolt(cfg BoltConfig) (storage.LocalBackend, error) {
 	err := cfg.CheckAndSetDefaults()
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -68,7 +68,7 @@ type Config struct {
 	update.Config
 	// HostLocalBackend is the host-local backend that stores bootstrap configuration
 	// like DNS, logins etc.
-	HostLocalBackend storage.Backend
+	HostLocalBackend storage.LocalBackend
 	// Packages is the local package service
 	Packages pack.PackageService
 	// ClusterPackages is the package service that talks to cluster API

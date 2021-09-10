@@ -325,7 +325,7 @@ func DisableAccess(backend Backend, name string, delay time.Duration) error {
 
 // GetDNSConfig returns the DNS configuration from the backend using fallback
 // if no configuration is available
-func GetDNSConfig(backend Backend, fallback DNSConfig) (config *DNSConfig, err error) {
+func GetDNSConfig(backend LocalBackend, fallback DNSConfig) (config *DNSConfig, err error) {
 	config, err = backend.GetDNSConfig()
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)

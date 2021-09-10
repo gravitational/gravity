@@ -72,6 +72,8 @@ const (
 	systemP                     = "system"
 	dnsP                        = "dns"
 	seLinuxP                    = "seLinux"
+	nodeAddrP                   = "nodeaddress"
+	serviceUserP                = "serviceuser"
 	chartsP                     = "charts"
 	indexP                      = "index"
 

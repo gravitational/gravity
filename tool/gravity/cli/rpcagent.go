@@ -126,7 +126,7 @@ func newAgent() (rpcserver.Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serverCreds, clientCreds, err := rpc.Credentials(secretsDir)
+	serverCreds, clientCreds, err := rpc.CredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

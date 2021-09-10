@@ -65,7 +65,7 @@ type FSMConfig struct {
 	// LocalApps is the machine-local apps service
 	LocalApps app.Applications
 	// LocalBackend is the machine-local backend
-	LocalBackend storage.Backend
+	LocalBackend storage.LocalBackend
 	// Spec is the FSM spec
 	Spec fsm.FSMSpecFunc
 	// Credentials is the credentials for gRPC agents
