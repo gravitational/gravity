@@ -211,6 +211,12 @@ type UpdateOperationData struct {
 	Servers []UpdateServer `json:"updates,omitempty"`
 	// ClusterConfig optionally specifies data specific to cluster configuration operation
 	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
+	// ClusterConfigBytes optionally specifies the existing cluster configuration for the cluster
+	// upgrade operation to roll back to
+	ClusterConfigBytes []byte `json:"cluster_config_bytes,omitempty"`
+	// UpdatedClusterConfigBytes optionally specifies the new cluster configuration for the cluster
+	// upgrade operation
+	UpdatedClusterConfigBytes []byte `json:"updated_cluster_config_bytes,omitempty"`
 }
 
 // ClusterConfigData describes the configuration specific to cluster configuration update operation

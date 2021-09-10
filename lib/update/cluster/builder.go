@@ -56,7 +56,9 @@ func (r phaseBuilder) init(leadMaster storage.Server) *update.Phase {
 			ExecServer:       &leadMaster,
 			InstalledPackage: &r.installedApp.Package,
 			Update: &storage.UpdateOperationData{
-				Servers: r.servers,
+				Servers:                   r.servers,
+				ClusterConfigBytes:        r.clusterConfigBytes,
+				UpdatedClusterConfigBytes: r.updatedClusterConfigBytes,
 			},
 		},
 	})

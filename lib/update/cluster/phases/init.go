@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/users"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
@@ -78,6 +79,7 @@ type updatePhaseInit struct {
 	existingDNS                storage.DNSConfig
 	existingEnviron            map[string]string
 	existingClusterConfigBytes []byte
+	updatedClusterConfigBytes  []byte
 	existingClusterConfig      clusterconfig.Interface
 }
 
@@ -125,11 +127,8 @@ func NewUpdatePhaseInit(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	clusterConfig, err := operator.GetClusterConfiguration(operation.ClusterKey())
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	configBytes, err := clusterconfig.Marshal(clusterConfig)
+
+	clusterConfig, err := clusterconfig.Unmarshal(p.Phase.Data.Update.ClusterConfigBytes)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -152,7 +151,8 @@ func NewUpdatePhaseInit(
 		installedApp:               *installedApp,
 		existingDocker:             existingDocker,
 		existingDNS:                p.Plan.DNSConfig,
-		existingClusterConfigBytes: configBytes,
+		existingClusterConfigBytes: p.Phase.Data.Update.ClusterConfigBytes,
+		updatedClusterConfigBytes:  p.Phase.Data.Update.UpdatedClusterConfigBytes,
 		existingClusterConfig:      clusterConfig,
 		existingEnviron:            env.GetKeyValues(),
 	}, nil
@@ -197,6 +197,9 @@ func (p *updatePhaseInit) Execute(context.Context) error {
 	}
 	if err := p.updateDockerConfig(); err != nil {
 		return trace.Wrap(err, "failed to update Docker configuration")
+	}
+	if err := p.updateClusterConfig(); err != nil {
+		return trace.Wrap(err, "failed to update cluster configuration")
 	}
 	for _, server := range p.Servers {
 		if server.Runtime.Update != nil {
@@ -366,6 +369,28 @@ func (p *updatePhaseInit) updateDockerConfig() error {
 	return nil
 }
 
+func (p *updatePhaseInit) updateClusterConfig() error {
+	p.Info("Update cluster configuration.")
+	if err := p.Operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
+		ClusterKey: p.Operation.ClusterKey(),
+		Config:     p.updatedClusterConfigBytes,
+	}); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
+func (p *updatePhaseInit) revertClusterConfig() error {
+	p.Info("Revert cluster configuration.")
+	if err := p.Operator.UpdateClusterConfiguration(ops.UpdateClusterConfigRequest{
+		ClusterKey: p.Operation.ClusterKey(),
+		Config:     p.existingClusterConfigBytes,
+	}); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
+}
+
 func (p *updatePhaseInit) upsertServiceUser() error {
 	cluster, err := p.Backend.GetLocalSite(defaults.SystemAccountID)
 	if err != nil {
@@ -438,7 +463,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 		Manifest:       p.updateManifest,
 		RuntimePackage: server.Runtime.Update.Package,
 		Package:        &server.Runtime.Update.ConfigPackage,
-		Config:         p.existingClusterConfigBytes,
+		Config:         p.updatedClusterConfigBytes,
 		Env:            p.existingEnviron,
 	})
 	if err != nil {
@@ -511,11 +536,15 @@ func removeLegacyUpdateDirectory(log log.FieldLogger) error {
 }
 
 // Rollback rolls back the init phase
-func (p *updatePhaseInit) Rollback(context.Context) error {
-	if err := p.removeConfiguredPackages(); err != nil {
+func (p *updatePhaseInit) Rollback(ctx context.Context) error {
+	if err := p.revertClusterConfig(); err != nil {
 		return trace.Wrap(err)
 	}
-	return nil
+
+	b := utils.NewExponentialBackOff(defaults.ShutdownTimeout)
+	return utils.RetryTransient(ctx, b, func() error {
+		return p.removeConfiguredPackages()
+	})
 }
 
 // removeConfiguredPackages removes packages configured during init phase
