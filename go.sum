@@ -488,7 +488,7 @@ github.com/golangplus/testing v0.0.0-20180327235837-af21d9c3145e/go.mod h1:0AA//
 github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
 github.com/google/btree v1.0.0 h1:0udJVsspx3VBr5FwtLhQQtuAsVc79tTq0ocGIPAU6qo=
 github.com/google/btree v1.0.0/go.mod h1:lNA+9X1NB3Zf8V7Ke586lFgjr2dZNuvo3lPJSGZ5JPQ=
-github.com/google/cadvisor v0.37.4/go.mod h1:BalYQhwl2UV8lpB3oFssiaW8Uj6sqfFDxw5nEs9sBgU=
+github.com/google/cadvisor v0.37.5/go.mod h1:BalYQhwl2UV8lpB3oFssiaW8Uj6sqfFDxw5nEs9sBgU=
 github.com/google/flatbuffers v1.11.0/go.mod h1:1AeVuKshWv4vARoZatz6mlQ0JxURH0Kv5+zNeJKJCa8=
 github.com/google/go-cmp v0.2.0/go.mod h1:oXzfMopK8JAjlY9xF4vHSVASa0yLyX7SntLO5aqRK0M=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
@@ -1378,7 +1378,6 @@ golang.org/x/tools v0.0.0-20200331025713-a30bf2db82d4/go.mod h1:Sl4aGygMT6LrqrWc
 golang.org/x/tools v0.0.0-20200422205258-72e4a01eba43/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20200505023115-26f46d2f7ef8/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20200603131246-cc40288be839/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
-golang.org/x/tools v0.0.0-20200616133436-c1934b75d054/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20200619180055-7c47624df98f/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20210106214847-113979e3529a/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/tools v0.1.0 h1:po9/4sTYwZU9lPhi1tOrb4hCv3qrhiQ77LZfGa2OjwY=
@@ -1524,8 +1523,8 @@ k8s.io/kube-scheduler v0.21.2/go.mod h1:uMnMNvgw2EAoujObL1tuJ5+tvj2Pnv3k7i3X069c
 k8s.io/kubectl v0.21.2 h1:9XPCetvOMDqrIZZXb1Ei+g8t6KrIp9ENJaysQjUuLiE=
 k8s.io/kubectl v0.21.2/go.mod h1:PgeUclpG8VVmmQIl8zpLar3IQEpFc9mrmvlwY3CK1xo=
 k8s.io/kubelet v0.21.2/go.mod h1:1EqOUgp3BqvMXuZZRIlPDNkpgT5MfbJrpEnS4Gxn/mo=
-k8s.io/kubernetes v1.19.8 h1:tE/DyH5Dtn3RDfKAgvyTypIbInWFLeWET4yQdS85+tI=
-k8s.io/kubernetes v1.19.8/go.mod h1:6R5K7prywmLDOVGBGd50Ig6lKkgGYaiUT7/r3GZXhsM=
+k8s.io/kubernetes v1.19.11 h1:5EjBuGr2Lg6dDMHkhsfaE4G7axq+0JnK19jcoSWdER4=
+k8s.io/kubernetes v1.19.11/go.mod h1:f09eWYx+kAUzGrdf+qSQElQ1+HgCsN/ezDXq/XWyaOM=
 k8s.io/legacy-cloud-providers v0.21.2/go.mod h1:9dFEf/WGCqPhOIGQiAwcPfgAYWRot6txrCshWCg225c=
 k8s.io/metrics v0.21.2/go.mod h1:wzlOINZMCtWq8dR9gHlyaOemmYlOpAoldEIXE82gAhI=
 k8s.io/sample-apiserver v0.21.2/go.mod h1:NXFq8jUrB3UyYhoGstFMXdHFSxfHZSHX6cUdVBVZKFM=

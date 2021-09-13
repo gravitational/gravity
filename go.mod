@@ -107,7 +107,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.19.8
 	k8s.io/kubectl v0.21.0
-	k8s.io/kubernetes v1.19.8
+	k8s.io/kubernetes v1.19.11
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.2.0
