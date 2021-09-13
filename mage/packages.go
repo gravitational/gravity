@@ -79,7 +79,7 @@ var (
 		repository: "gravitational.io",
 		name:       "planet",
 		version:    planetVersion,
-		gitBranch:  planetBranch,
+		gitBranch:  planetVersion,
 		gitRepo:    "https://github.com/gravitational/planet",
 		env: map[string]string{
 			"PLANET_BUILD_TAG": planetVersion,
