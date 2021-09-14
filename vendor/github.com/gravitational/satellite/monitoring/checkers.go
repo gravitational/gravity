@@ -22,36 +22,21 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	"github.com/gravitational/trace"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
-// healthzChecker is secure healthz checker
-type healthzChecker struct {
-	*KubeChecker
-}
-
-// KubeAPIServerHealth creates a checker for the kubernetes API server
-func KubeAPIServerHealth(config KubeConfig) health.Checker {
-	checker := &healthzChecker{}
-	kubeChecker := &KubeChecker{
-		name:    "kube-apiserver",
-		checker: checker.testHealthz,
-		client:  config.Client,
-	}
-	checker.KubeChecker = kubeChecker
-	return kubeChecker
-}
-
-// testHealthz executes a test by using k8s API
-func (h *healthzChecker) testHealthz(ctx context.Context, client *kube.Clientset) error {
-	_, err := client.CoreV1().ComponentStatuses().Get(ctx, "scheduler", metav1.GetOptions{})
-	return err
+// KubeComponentsHealth creates a composite checker for kubernetes control plane components
+func KubeComponentsHealth(config ComponentHealthzConfig) health.Checker {
+	return NewCompositeChecker("kube-components",
+		[]health.Checker{
+			NewHTTPHealthzChecker("kube-scheduler", config.SchedulerAddr, kubeHealthz),
+			NewHTTPHealthzChecker("kube-controller-manager", config.ControllerManagerAddr, kubeHealthz),
+		},
+	)
 }
 
 // KubeletHealth creates a checker for the kubernetes kubelet component
 func KubeletHealth(addr string) health.Checker {
-	return NewHTTPHealthzChecker("kubelet", fmt.Sprintf("%v/healthz", addr), kubeHealthz)
+	return NewHTTPHealthzChecker("kubelet", addr, kubeHealthz)
 }
 
 // NodesStatusHealth creates a checker that reports a number of ready kubernetes nodes
@@ -111,6 +96,14 @@ func SystemdHealth() health.Checker {
 // by scheduling pods and verifying the communication
 func InterPodCommunication(config KubeConfig, nettestImage string) health.Checker {
 	return NewInterPodChecker(config, nettestImage)
+}
+
+func localSecureHealthzAddr(port int) string {
+	return fmt.Sprintf("https://127.0.0.1:%d/healthz", port)
+}
+
+func localHealthzAddr(port int) string {
+	return fmt.Sprintf("http://127.0.0.1:%d/healthz", port)
 }
 
 func (_ noopChecker) Name() string                           { return "noop" }
