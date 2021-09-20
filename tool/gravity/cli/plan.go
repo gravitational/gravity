@@ -28,13 +28,11 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	libenviron "github.com/gravitational/gravity/lib/system/environ"
-	"github.com/gravitational/gravity/lib/update"
 	clusterupdate "github.com/gravitational/gravity/lib/update/cluster"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/fatih/color"
 	"github.com/gravitational/trace"
-	"github.com/sirupsen/logrus"
 )
 
 func initUpdateOperationPlan(localEnv, updateEnv *localenv.LocalEnvironment, config clusterupdate.UserConfig) error {
@@ -132,28 +130,29 @@ func displayClusterOperationPlan(localEnv *localenv.LocalEnvironment, opKey ops.
 	return outputOrFollowPlan(localEnv, getClusterOperationPlanFunc(localEnv, opKey), opts)
 }
 
-func getUpdateOperationPlanFunc(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey) fsm.GetPlanFunc {
+func getUpdateOperationPlanFunc(environ LocalEnvironmentFactory, opKey ops.SiteOperationKey) (fsm.GetPlanFunc, error) {
+	updateEnv, err := environ.NewUpdateEnv()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	return func() (*storage.OperationPlan, error) {
-		updateEnv, err := environ.NewUpdateEnv()
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		plan, err := fsm.GetOperationPlan(updateEnv.Backend, opKey)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		reconciledPlan, err := tryReconcilePlan(context.TODO(), localEnv, updateEnv, *plan)
-		if err != nil {
-			logrus.WithError(err).Warn("Failed to reconcile plan.")
-		} else {
-			plan = reconciledPlan
-		}
+
 		return plan, nil
-	}
+	}, nil
 }
 
 func displayUpdateOperationPlan(localEnv *localenv.LocalEnvironment, environ LocalEnvironmentFactory, opKey ops.SiteOperationKey, opts displayPlanOptions) error {
-	return outputOrFollowPlan(localEnv, getUpdateOperationPlanFunc(localEnv, environ, opKey), opts)
+	f, err := getUpdateOperationPlanFunc(environ, opKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return outputOrFollowPlan(localEnv, f, opts)
 }
 
 func getInstallOperationPlanFunc(opKey ops.SiteOperationKey) fsm.GetPlanFunc {
@@ -292,20 +291,6 @@ func outputPhaseError(phase storage.OperationPhase) error {
 		fmt.Print(color.RedString("\n\t%v\n", phaseErr.Err))
 	}
 	return nil
-}
-
-func tryReconcilePlan(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, plan storage.OperationPlan) (*storage.OperationPlan, error) {
-	clusterEnv, err := localEnv.NewClusterEnvironment(localenv.WithEtcdTimeout(1 * time.Second))
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	reconciler := update.NewDefaultReconciler(clusterEnv.Backend, updateEnv.Backend,
-		plan.ClusterName, plan.OperationID, logrus.WithField("operation-id", plan.OperationID))
-	reconciledPlan, err := reconciler.ReconcilePlan(ctx, plan)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return reconciledPlan, nil
 }
 
 func getPlanFromWizardBackend(opKey ops.SiteOperationKey) (*storage.OperationPlan, error) {
