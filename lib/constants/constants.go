@@ -222,7 +222,7 @@ const (
 	Localhost = "127.0.0.1"
 
 	// DockerEngineURL is the address of the local docker engine API
-	DockerEngineURL = "unix://var/run/docker.sock"
+	DockerEngineURL = "unix:///var/run/docker.sock"
 
 	// SiteInitLock is a name of a distributed site lock that is used for one time
 	// import procedure

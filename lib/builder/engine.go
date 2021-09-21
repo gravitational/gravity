@@ -244,7 +244,7 @@ func (b *Engine) Vendor(ctx context.Context, req VendorRequest) (io.ReadCloser, 
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	dockerClient, err := docker.NewDefaultClient()
+	dockerClient, err := docker.NewClientFromEnv()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
