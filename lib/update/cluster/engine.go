@@ -259,6 +259,8 @@ func (f *engine) commitClusterChanges(cluster *storage.Site, op ops.SiteOperatio
 	}
 
 	cluster.App = updateApp.PackageEnvelope.ToPackage()
+	// TODO: reset/remove in 9
+	cluster.ClusterState.UpgradeFrom7 = op.Update.UpgradeFrom7
 	if updateBaseApp != nil {
 		cluster.App.Base = updateBaseApp.PackageEnvelope.ToPackagePtr()
 	}

@@ -38,6 +38,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -72,8 +73,6 @@ type updatePhaseInit struct {
 	log.FieldLogger
 	// updateManifest specifies the manifest of the update application
 	updateManifest schema.Manifest
-	// installedApp references the installed application instance
-	installedApp app.Application
 	// existingDocker describes the existing Docker configuration
 	existingDocker             storage.DockerConfig
 	existingDNS                storage.DNSConfig
@@ -148,7 +147,6 @@ func NewUpdatePhaseInit(
 		Servers:                    p.Phase.Data.Update.Servers,
 		FieldLogger:                logger,
 		updateManifest:             app.Manifest,
-		installedApp:               *installedApp,
 		existingDocker:             existingDocker,
 		existingDNS:                p.Plan.DNSConfig,
 		existingClusterConfigBytes: p.Phase.Data.Update.ClusterConfigBytes,
@@ -465,6 +463,7 @@ func (p *updatePhaseInit) rotatePlanetConfig(server storage.UpdateServer) error 
 		Package:        &server.Runtime.Update.ConfigPackage,
 		Config:         p.updatedClusterConfigBytes,
 		Env:            p.existingEnviron,
+		UpgradeFrom7:   p.Operation.Update.UpgradeFrom7,
 	})
 	if err != nil {
 		return trace.Wrap(err)

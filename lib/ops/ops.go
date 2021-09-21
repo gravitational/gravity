@@ -1182,6 +1182,8 @@ type RotatePlanetConfigRequest struct {
 	Package *loc.Locator `json:"package,omitempty"`
 	// DryRun specifies whether only the package locator is generated
 	DryRun bool `json:"dry_run"`
+	// UpgradeFrom7 optionally specifies whether the upgrade from 7.x is in progress
+	UpgradeFrom7 bool `json:"upgrade_from7,omitempty"`
 }
 
 // Check validates this request
