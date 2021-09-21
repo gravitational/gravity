@@ -34,6 +34,7 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/rigging"
@@ -201,6 +202,23 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	clusterConfig, err := config.Operator.GetClusterConfiguration((*ops.SiteOperation)(config.Operation).ClusterKey())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configBytes, err := clusterconfig.Marshal(clusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updatedClusterConfig, err := updateClusterConfig(configBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updatedConfigBytes, err := clusterconfig.Marshal(updatedClusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	plan, err := newOperationPlan(planConfig{
 		plan: storage.OperationPlan{
 			OperationID:    config.Operation.ID,
@@ -211,22 +229,24 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
-		servers:           updates,
-		installedRuntime:  *installedRuntime,
-		installedApp:      *installedApp,
-		updateRuntime:     *updateRuntime,
-		updateApp:         *updateApp,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packageService:    config.Packages,
-		shouldUpdateEtcd:  shouldUpdateEtcd,
-		updateCoreDNS:     updateCoreDNS,
-		updateDNSAppEarly: updateDNSAppEarly,
-		roles:             roles,
-		leadMaster:        *leader,
-		userConfig:        config.UserConfig,
+		operator:                  config.Operator,
+		operation:                 *config.Operation,
+		servers:                   updates,
+		installedRuntime:          *installedRuntime,
+		installedApp:              *installedApp,
+		updateRuntime:             *updateRuntime,
+		updateApp:                 *updateApp,
+		links:                     links,
+		trustedClusters:           trustedClusters,
+		packageService:            config.Packages,
+		shouldUpdateEtcd:          shouldUpdateEtcd,
+		updateCoreDNS:             updateCoreDNS,
+		updateDNSAppEarly:         updateDNSAppEarly,
+		roles:                     roles,
+		leadMaster:                *leader,
+		userConfig:                config.UserConfig,
+		clusterConfigBytes:        configBytes,
+		updatedClusterConfigBytes: updatedConfigBytes,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -310,6 +330,11 @@ type planConfig struct {
 	leadMaster storage.UpdateServer
 	// userConfig is user provided configuration to tune the upgrade
 	userConfig UserConfig
+	// clusterConfigBytes is the existing cluster configuration to restore
+	// in case of rollback
+	clusterConfigBytes []byte
+	// updatedClusterConfigBytes is the cluster configuration to apply during upgrade
+	updatedClusterConfigBytes []byte
 }
 
 func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
@@ -731,6 +756,24 @@ func filterServer(servers []storage.UpdateServer, server storage.UpdateServer) (
 		result = append(result, s)
 	}
 	return result
+}
+
+func updateClusterConfig(configBytes []byte) (clusterconfig.Interface, error) {
+	result, err := clusterconfig.Unmarshal(configBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	globalConfig := result.GetGlobalConfig()
+	// Remove the EndpointSlice feature gate if it had been explicitly turned off.
+	// The flag had been in Beta since k8s 1.18 and stabilized in 1.20.
+	// See https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+	if flag, exists := globalConfig.FeatureGates["EndpointSlice"]; exists && !flag {
+		delete(globalConfig.FeatureGates, "EndpointSlice")
+	}
+	result.SetGlobalConfig(globalConfig)
+
+	return result, nil
 }
 
 type runtimeConfig struct {
