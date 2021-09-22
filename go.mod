@@ -47,6 +47,7 @@ require (
 	github.com/gravitational/go-vhost v0.0.0-20171024163855-94d0c42e3263
 	github.com/gravitational/kingpin v2.1.11-0.20160205192003-785686550a08+incompatible // indirect
 	github.com/gravitational/license v0.0.0-20171013193735-f3111b1818ce
+	github.com/gravitational/magnet v0.2.7-0.20210726111722-d6a96ab16324
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d
 	github.com/gravitational/roundtrip v1.0.0
@@ -62,6 +63,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
+	github.com/magefile/mage v1.9.0
 	github.com/mailgun/lemma v0.0.0-20160211003854-e8b0cd607f58
 	github.com/mailgun/metrics v0.0.0-20150124003306-2b3c4565aafd // indirect
 	github.com/mailgun/minheap v0.0.0-20131208021033-7c28d80e2ada // indirect
@@ -73,7 +75,7 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mreiferson/go-httpclient v0.0.0-20160630210159-31f0106b4474 // indirect
 	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e // indirect
-	github.com/olekukonko/tablewriter v0.0.2
+	github.com/olekukonko/tablewriter v0.0.4
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.5.2
 	github.com/pborman/uuid v1.2.0
@@ -145,17 +147,18 @@ replace (
 	github.com/gophercloud/gophercloud => github.com/gophercloud/gophercloud v0.0.0-20181207171349-d3bcea3cf97e
 	github.com/gorilla/mux => github.com/gorilla/mux v1.7.0
 	github.com/imdario/mergo => github.com/imdario/mergo v0.0.0-20160517064435-50d4dbd4eb0e
+	github.com/jaguilar/vt100 => github.com/tonistiigi/vt100 v0.0.0-20190402012908-ad4c4a574305
 	github.com/json-iterator/go => github.com/json-iterator/go v1.1.5
 	github.com/julienschmidt/httprouter => github.com/julienschmidt/httprouter v1.1.0
 	github.com/kr/pty => github.com/kr/pty v1.0.0
 	github.com/kylelemons/godebug => github.com/kylelemons/godebug v0.0.0-20160406211939-eadb3ce320cb
+	github.com/magefile/mage => github.com/knisbet/mage v1.9.1-0.20210609142646-749a704341ac
 	github.com/mattn/go-isatty => github.com/mattn/go-isatty v0.0.3
 	github.com/mattn/go-runewidth => github.com/mattn/go-runewidth v0.0.2-0.20161012013512-737072b4e32b
 	github.com/miekg/dns => github.com/miekg/dns v1.0.4
 	github.com/mitchellh/go-homedir => github.com/mitchellh/go-homedir v1.0.0
 	github.com/mitchellh/mapstructure => github.com/mitchellh/mapstructure v1.0.0
 	github.com/modern-go/reflect2 => github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
-	github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.0-20160923125401-bdcc175572fd
 	github.com/pborman/uuid => github.com/pborman/uuid v0.0.0-20170612153648-e790cca94e6c
 	github.com/prometheus/client_golang => github.com/prometheus/client_golang v0.9.2
 	github.com/russross/blackfriday => github.com/russross/blackfriday v0.0.0-20151117072312-300106c228d5
