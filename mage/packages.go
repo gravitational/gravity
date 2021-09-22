@@ -221,8 +221,9 @@ func (Package) K8s(ctx context.Context) (err error) {
 	mg.CtxDeps(ctx, Mkdir(consistentStateDir()),
 		Build.Go, Package.Gravity, Package.Teleport,
 		Package.Fio, Package.Planet, Package.Web,
-		Package.Monitoring, Package.Logging, Package.Ingress, Package.Storage, Package.Tiller,
-		Package.Rbac, Package.DNS, Package.Bandwagon, Package.Site)
+		Package.Site, Package.Monitoring, Package.Logging,
+		Package.Ingress, Package.Storage, Package.Tiller,
+		Package.Rbac, Package.DNS, Package.Bandwagon)
 
 	m := root.Target("package:k8s")
 	defer func() { m.Complete(err) }()
