@@ -149,7 +149,7 @@ func (c *timeDriftChecker) check(ctx context.Context, r health.Reporter) (err er
 
 				if isDriftHigh(drift) {
 					mutex.Lock()
-					r.Add(failureProbeTimeDrift(c.NodeName, node.Name, drift))
+					r.Add(failureProbeTimeDrift(c.NodeName, node.NodeName, drift))
 					mutex.Unlock()
 				}
 			}
@@ -208,7 +208,7 @@ func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node *pb.MemberStat
 		// it may not support Time() method yet. This can happen, e.g.,
 		// during a rolling upgrade. In this case fallback to success.
 		if trace.IsNotImplemented(err) {
-			c.WithField("node", node.Name).Warnf(trace.UserMessage(err))
+			c.WithField("node", node.NodeName).Warnf(trace.UserMessage(err))
 			return 0, nil
 		}
 		return 0, trace.Wrap(err)
@@ -227,8 +227,9 @@ func (c *timeDriftChecker) getTimeDrift(ctx context.Context, node *pb.MemberStat
 	// if peer time > node time, return a positive duration
 	// if peer time < node time, return a negative duration
 	drift := adjustedPeerTime.Sub(queryEnd)
-	c.WithField("node", node.Name).Debugf("queryStart: %v; queryEnd: %v; peerTime: %v; adjustedPeerTime: %v drift: %v.",
-		queryStart, queryEnd, peerResponse.GetTimestamp().ToTime(), adjustedPeerTime, drift)
+	c.WithField("node", node.NodeName).
+		Debugf("queryStart: %v; queryEnd: %v; peerTime: %v; adjustedPeerTime: %v drift: %v.",
+			queryStart, queryEnd, peerResponse.GetTimestamp().ToTime(), adjustedPeerTime, drift)
 	return drift, nil
 }
 
@@ -250,7 +251,7 @@ func (c *timeDriftChecker) nodesToCheck() (result []*pb.MemberStatus, err error)
 // shouldCheckNode returns true if the check should be run against specified
 // member.
 func (c *timeDriftChecker) shouldCheckNode(node *pb.MemberStatus) bool {
-	return node.Status == pb.MemberStatus_Alive && c.NodeName != node.Name
+	return node.Status == pb.MemberStatus_Alive && c.NodeName != node.NodeName
 }
 
 // getAgentClient returns Satellite agent client for the provided node.

@@ -18,10 +18,13 @@ package monitoring
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
@@ -80,8 +83,26 @@ func (r *HTTPHealthzChecker) Check(ctx context.Context, reporter health.Reporter
 // NewHTTPHealthzChecker creates a health.Checker for an HTTP health endpoint
 // using the specified URL and a custom response checker
 func NewHTTPHealthzChecker(name, URL string, checker HTTPResponseChecker) health.Checker {
-	defaultTransport := http.RoundTripper(nil)
-	return NewHTTPHealthzCheckerWithTransport(name, URL, defaultTransport, checker)
+	transport := &http.Transport{
+		// Copy from net/http.DefaultTransport
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if strings.HasPrefix(URL, "https") {
+		transport.TLSClientConfig = &tls.Config{
+			//nolint:gosec
+			InsecureSkipVerify: true,
+		}
+	}
+	return NewHTTPHealthzCheckerWithTransport(name, URL, transport, checker)
 }
 
 // NewUnixSocketHealthzChecker returns a new Checker that tests

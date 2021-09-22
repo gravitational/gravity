@@ -35,6 +35,34 @@ type KubeConfig struct {
 	Client *kube.Clientset
 }
 
+// ComponentHealthzConfig describes control plane component healthz access details
+type ComponentHealthzConfig struct {
+	// SchedulerAddr defines the healthz address of the kube-scheduler
+	SchedulerAddr string
+	// ControllerManagerPort defines the healthz address of the kube-controller-manager
+	ControllerManagerAddr string
+}
+
+// DefaultLocalComponentHealthzConfig defines the default component healthz configuration on localhsot
+var DefaultLocalComponentHealthzConfig = ComponentHealthzConfig{
+	SchedulerAddr:         localSecureHealthzAddr(DefaultKubeSchedulerHealthzPort),
+	ControllerManagerAddr: localSecureHealthzAddr(DefaultKubeControllerManagerHealthzPort),
+}
+
+// DefaultLocalKubeletHealthzAddr is the default kubelet healthz address on localhost
+var DefaultLocalKubeletHealthzAddr = localHealthzAddr(DefaultKubeletHealthzPort)
+
+const (
+	// DefaultKubeletHealthzPort specifies the default kubelet healthz endpoint port
+	DefaultKubeletHealthzPort = 10248
+
+	// DefaultKubeSchedulerHealthzPort specifies the default scheduler healthz endpoint port
+	DefaultKubeSchedulerHealthzPort = 10259
+
+	// DefaultKubeControllerManagerHealthzPort specifies the default controller manager healthz endpoint port
+	DefaultKubeControllerManagerHealthzPort = 10257
+)
+
 // kubeHealthz is httpResponseChecker that interprets health status of common kubernetes services.
 func kubeHealthz(response io.Reader) error {
 	payload, err := ioutil.ReadAll(response)
