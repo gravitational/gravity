@@ -468,7 +468,7 @@ github.com/gravitational/oxy/utils
 github.com/gravitational/rigging
 # github.com/gravitational/roundtrip v1.0.0
 github.com/gravitational/roundtrip
-# github.com/gravitational/satellite v0.0.9-0.20210518231730-758163e22217 => github.com/a-palchikov/satellite v0.0.9-0.20210914152750-65d63644230b
+# github.com/gravitational/satellite v0.0.9-0.20210921221923-7afcf687510e
 github.com/gravitational/satellite/agent
 github.com/gravitational/satellite/agent/cache
 github.com/gravitational/satellite/agent/health
