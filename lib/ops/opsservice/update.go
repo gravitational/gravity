@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -32,8 +33,9 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/utils"
-
 	"github.com/gravitational/trace"
+
+	"github.com/coreos/go-semver/semver"
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -172,6 +174,7 @@ func (o *Operator) getNodeProfile(operation ops.SiteOperation, node storage.Serv
 
 // RotatePlanetConfig rotates planet configuration package for the server specified in the request
 func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error) {
+	log.WithField("req", fmt.Sprintf("%#v", req)).Info("New runtime configuration.")
 	if err := req.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -268,6 +271,7 @@ func (o *Operator) RotatePlanetConfig(req ops.RotatePlanetConfigRequest) (*ops.R
 		planetPackage: req.RuntimePackage,
 		configPackage: configPackage,
 		env:           req.Env,
+		upgradeFrom7:  req.UpgradeFrom7,
 	}
 
 	if len(req.Config) != 0 {
@@ -352,6 +356,11 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		return nil, trace.Wrap(err)
 	}
 
+	installedRuntimeVersion, err := s.getInstalledRuntimeVersion()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	op := ops.SiteOperation{
 		ID:          uuid.New(),
 		AccountID:   s.key.AccountID,
@@ -365,6 +374,7 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 		Update: &storage.UpdateOperationState{
 			UpdatePackage: req.App,
 			Vars:          req.Vars,
+			UpgradeFrom7:  installedRuntimeVersion.Major == 7,
 		},
 	}
 
@@ -642,4 +652,24 @@ The storage driver can only be updated to one of %q.
 `, docker.StorageDriver, constants.DockerSupportedTargetDrivers)
 	}
 	return nil
+}
+
+func (s *site) getInstalledRuntimeVersion() (*semver.Version, error) {
+	installedPackage, err := loc.NewLocator(s.backendSite.App.Repository, s.backendSite.App.Name, s.backendSite.App.Version)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installedApp, err := s.apps().GetApp(*installedPackage)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installedRuntime, err := s.apps().GetApp(*(installedApp.Manifest.Base()))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installedRuntimeVersion, err := installedRuntime.Package.SemVer()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return installedRuntimeVersion, nil
 }
