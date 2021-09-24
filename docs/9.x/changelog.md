@@ -158,13 +158,13 @@ extend updates past End of Support through customer agreements if required.
 #### Bugfixes
 * Fix high CPU load when using `gravity plan --tail` ([#2646](https://github.com/gravitational/gravity/pull/2646)).
 * Fix cluster locking as unhealthy when using hidden upgrade mode that skips workers ([#2638](https://github.com/gravitational/gravity/pull/2638), [planet#860](https://github.com/gravitational/planet/pull/860), [satellite#302](https://github.com/gravitational/satellite/pull/302)).
+* Fix an issue with upgrades with the `EndpointSlice` feature gate is turned off ([#2637](https://github.com/gravitational/gravity/pull/2637)).
 
 ### 8.0.0-beta.3 (September 20, 2021)
 
 #### Bugfixes
 * Fix a regression caused by the removal of tiller images from the gcr.io/kubernetes registry ([#2623](https://github.com/gravitational/gravity/pull/2623)).
 * Update Kubernetes to 1.19.15 (CVE-2020-8561) ([#2644](https://github.com/gravitational/gravity/pull/2644), [planet#863](https://github.com/gravitational/planet/pull/863)).
-* Fix an issue with upgrades with the `EndpointSlice` feature gate is turned off ([#2637](https://github.com/gravitational/gravity/pull/2637)).
 
 !!! warning
     This release fixes a security vulnerability in Kubernetes. Please see
