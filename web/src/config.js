@@ -242,7 +242,7 @@ const cfg = {
     k8sSecretsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/namespaces/:namespace/secrets/:name?`,
     k8sServicesPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/api/v1/services`,
     k8sJobsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/batch/v1/jobs`,
-    k8sDelploymentsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/apps/v1/deployments`,
+    k8sDeploymentsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/apps/v1/deployments`,
     k8sDaemonSetsPath: `/sites/v1/${accountId}/:siteId/proxy/master/k8s/apis/apps/v1/daemonsets`,
   },
 

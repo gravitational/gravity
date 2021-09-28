@@ -97,7 +97,7 @@ const k8s = {
 
   getDeployments() {
     const siteId = cfg.defaultSiteId;
-    const url = generatePath(cfg.api.k8sDelploymentsPath, { siteId });
+    const url = generatePath(cfg.api.k8sDeploymentsPath, { siteId });
     return api.get(url).then(onlyItems);
   },
 
