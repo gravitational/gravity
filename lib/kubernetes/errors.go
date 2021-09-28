@@ -18,19 +18,26 @@ package kubernetes
 
 import (
 	"github.com/cenkalti/backoff"
+	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	"k8s.io/apimachinery/pkg/api/errors"
 )
 
-// RetryOnUpdateConflict retries on update conflict errors
+// RetryOnUpdateConflict retries on update conflict errors (and temporary failures).
 func RetryOnUpdateConflict(err error) error {
 	if err == nil {
 		return nil
 	}
 	origErr := trace.Unwrap(err)
 	switch {
-	case errors.IsConflict(origErr):
+	case errors.IsConflict(origErr),
+		errors.IsServiceUnavailable(origErr),
+		errors.IsServerTimeout(origErr),
+		errors.IsTimeout(origErr),
+		errors.IsInternalError(origErr),
+		errors.IsTooManyRequests(origErr),
+		utils.IsTransientClusterError(origErr):
 		return rigging.ConvertError(origErr)
 	default:
 		return &backoff.PermanentError{Err: err}
