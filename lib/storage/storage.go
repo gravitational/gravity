@@ -625,6 +625,10 @@ type ClusterState struct {
 	Servers Servers `json:"servers"`
 	// Docker specifies current cluster Docker configuration
 	Docker DockerConfig `json:"docker"`
+	// UpgradeFrom7 optionally specifies whether the cluster had been upgraded from 7.x.
+	// The flag is used to indicate to the joining nodes to keep running in serf compatibility
+	// mode.
+	UpgradeFrom7 bool `json:"upgrade_from7,omitempty"`
 }
 
 type nodeKey struct {
@@ -2147,6 +2151,8 @@ type UpdateOperationState struct {
 	Manual bool `json:"manual"`
 	// Vars are variables specific to this operation
 	Vars OperationVariables `json:"vars"`
+	// UpgradeFrom7 optionally specifies whether the upgrade is from 7.x
+	UpgradeFrom7 bool `json:"upgrade_from7,omitempty"`
 }
 
 // UpdateEnvarsOperationState describes the state of the operation to update cluster environment variables.

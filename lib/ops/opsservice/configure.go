@@ -900,6 +900,11 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 		fmt.Sprintf("--service-uid=%v", s.uid()),
 		fmt.Sprintf("--service-gid=%v", s.gid()),
 	}
+
+	if config.upgradeFrom7 || s.backendSite.ClusterState.UpgradeFrom7 {
+		args = append(args, "--upgrade-from7")
+	}
+
 	overrideArgs := map[string]string{
 		"service-subnet": config.serviceSubnet(),
 		"pod-subnet":     config.podSubnet(),
@@ -1065,6 +1070,8 @@ type planetConfig struct {
 	env map[string]string
 	// config specifies optional cluster configuration
 	config clusterconfig.Interface
+	// upgradeFrom7 optionally specifies whether the upgrade from 7.x is in progress
+	upgradeFrom7 bool
 }
 
 // getPrincipals returns a list of SANs (x509's Subject Alternative Names)

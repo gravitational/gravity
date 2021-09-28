@@ -69,16 +69,28 @@ message MemberStatus {
     Left = 3;
     Failed = 4;
   }
+  // Name identifies this agent to the cluster.
+  // Obsolete: use NodeName instead
   string name = 1;
+  // Addr specifies the agent RPC endpoint address.
   string addr = 2;
+  // Status describes the agent's status.
+  // Status values mimick the status value set as defined by serf nodes
+  // See https://github.com/hashicorp/serf/blob/7faa1b06262f70780c3c35ac25a4c96d754f06f3/serf/serf.go#L160-L163 for details.
   Type status = 3;
+  // Tags represents arbitrary metadata as key=value pairs in free form.
   map<string, string> tags = 4;
+  // NodeName identifies this agent to the cluster.
+  string node_name = 5;
 }
 
 // NodeStatus represents a result of a health check for a single node.
 message NodeStatus {
+  // Name identifies this agent to the cluster.
+  // Obsolete: use NodeName instead
   string name = 1;
 
+  // MemberStatus describes the status of the node.
   MemberStatus member_status = 2;
 
   enum Type {
@@ -86,10 +98,29 @@ message NodeStatus {
     Running = 1;
     Degraded = 2;
   }
+  // Status is a short status code of the current node's status.
   Type status = 3;
 
   // Probes lists all the health probes collected during the health check.
   repeated Probe probes = 4;
+
+  // Version specifies the agent version.
+  Version version = 5;
+
+  // NodeName identifies this agent to the cluster.
+  string node_name = 6;
+}
+
+// Version describes the version of the agent
+message Version {
+    // Major specifies the major version component. E.g. 7 for 7.0.34
+    int32 major = 1;
+    // Minor specifies the minor version component. E.g. 0 for 7.0.34
+    int32 minor = 2;
+    // Patch specifies the patch version component. E.g. 34 for 7.0.34
+    int32 patch = 3;
+    // Prerelease specifies the pre-prelease metadata in free form
+    string prerelease = 4;
 }
 
 // Probe represents the outcome of a single check

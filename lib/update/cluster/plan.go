@@ -34,16 +34,16 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 	"github.com/gravitational/gravity/lib/update"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/rigging"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
+
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -87,7 +87,7 @@ func InitOperationPlan(
 
 	dnsConfig := cluster.DNSConfig
 	if dnsConfig.IsEmpty() {
-		log.Info("Detecting DNS configuration.")
+		logrus.Info("Detecting DNS configuration.")
 		existingDNS, err := getExistingDNSConfig(localEnv.Packages)
 		if err != nil {
 			return nil, trace.Wrap(err, "failed to determine existing cluster DNS configuration")
@@ -186,7 +186,8 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 
 	updates, err := configUpdates(
 		installedApp.Manifest, updateApp.Manifest,
-		config.Operator, (*ops.SiteOperation)(config.Operation).Key(), servers)
+		config.Operator,
+		(ops.SiteOperation)(*config.Operation), servers)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -201,6 +202,23 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 		return nil, trace.Wrap(err)
 	}
 
+	clusterConfig, err := config.Operator.GetClusterConfiguration((*ops.SiteOperation)(config.Operation).ClusterKey())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	configBytes, err := clusterconfig.Marshal(clusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updatedClusterConfig, err := updateClusterConfig(configBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updatedConfigBytes, err := clusterconfig.Marshal(updatedClusterConfig)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
 	plan, err := newOperationPlan(planConfig{
 		plan: storage.OperationPlan{
 			OperationID:    config.Operation.ID,
@@ -211,22 +229,24 @@ func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
 			DNSConfig:      config.DNSConfig,
 			GravityPackage: *gravityPackage,
 		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
-		servers:           updates,
-		installedRuntime:  *installedRuntime,
-		installedApp:      *installedApp,
-		updateRuntime:     *updateRuntime,
-		updateApp:         *updateApp,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packageService:    config.Packages,
-		shouldUpdateEtcd:  shouldUpdateEtcd,
-		updateCoreDNS:     updateCoreDNS,
-		updateDNSAppEarly: updateDNSAppEarly,
-		roles:             roles,
-		leadMaster:        *leader,
-		userConfig:        config.UserConfig,
+		operator:                  config.Operator,
+		operation:                 *config.Operation,
+		servers:                   updates,
+		installedRuntime:          *installedRuntime,
+		installedApp:              *installedApp,
+		updateRuntime:             *updateRuntime,
+		updateApp:                 *updateApp,
+		links:                     links,
+		trustedClusters:           trustedClusters,
+		packageService:            config.Packages,
+		shouldUpdateEtcd:          shouldUpdateEtcd,
+		updateCoreDNS:             updateCoreDNS,
+		updateDNSAppEarly:         updateDNSAppEarly,
+		roles:                     roles,
+		leadMaster:                *leader,
+		userConfig:                config.UserConfig,
+		clusterConfigBytes:        configBytes,
+		updatedClusterConfigBytes: updatedConfigBytes,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -310,6 +330,11 @@ type planConfig struct {
 	leadMaster storage.UpdateServer
 	// userConfig is user provided configuration to tune the upgrade
 	userConfig UserConfig
+	// clusterConfigBytes is the existing cluster configuration to restore
+	// in case of rollback
+	clusterConfigBytes []byte
+	// updatedClusterConfigBytes is the cluster configuration to apply during upgrade
+	updatedClusterConfigBytes []byte
 }
 
 func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
@@ -343,10 +368,10 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 	}
 	supportsTaints, err := supportsTaints(*installedGravityPackage)
 	if err != nil {
-		log.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
+		logrus.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
 	}
 	if !supportsTaints {
-		log.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
+		logrus.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
 	}
 
 	mastersPhase := *builder.masters(p.leadMaster, otherMasters, supportsTaints).
@@ -448,7 +473,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 func configUpdates(
 	installed, update schema.Manifest,
 	operator packageRotator,
-	operation ops.SiteOperationKey,
+	operation ops.SiteOperation,
 	servers []storage.Server,
 ) (updates []storage.UpdateServer, err error) {
 	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
@@ -485,7 +510,7 @@ func configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-				Key:            operation.SiteKey(),
+				Key:            operation.ClusterKey(),
 				Server:         server,
 				RuntimePackage: *updateRuntime,
 				DryRun:         true,
@@ -494,11 +519,12 @@ func configUpdates(
 				return nil, trace.Wrap(err)
 			}
 			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-				Key:            operation,
+				Key:            operation.Key(),
 				Server:         server,
 				Manifest:       update,
 				RuntimePackage: *updateRuntime,
 				DryRun:         true,
+				UpgradeFrom7:   operation.Update.UpgradeFrom7,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)
@@ -511,7 +537,7 @@ func configUpdates(
 		}
 		if needsTeleportUpdate {
 			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:             operation,
+				Key:             operation.Key(),
 				Server:          server,
 				TeleportPackage: *updateTeleport,
 				DryRun:          true,
@@ -731,6 +757,24 @@ func filterServer(servers []storage.UpdateServer, server storage.UpdateServer) (
 		result = append(result, s)
 	}
 	return result
+}
+
+func updateClusterConfig(configBytes []byte) (clusterconfig.Interface, error) {
+	result, err := clusterconfig.Unmarshal(configBytes)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	globalConfig := result.GetGlobalConfig()
+	// Remove the EndpointSlice feature gate if it had been explicitly turned off.
+	// The flag had been in Beta since k8s 1.18 and stabilized in 1.20.
+	// See https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/
+	if flag, exists := globalConfig.FeatureGates["EndpointSlice"]; exists && !flag {
+		delete(globalConfig.FeatureGates, "EndpointSlice")
+	}
+	result.SetGlobalConfig(globalConfig)
+
+	return result, nil
 }
 
 type runtimeConfig struct {
