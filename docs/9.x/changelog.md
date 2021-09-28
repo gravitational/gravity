@@ -14,7 +14,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | [9.0](#90-releases) | 9.0.0-beta.5  | No  | pre-release          | September 20, 2021   | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.4  | No  | pre-release          | September 24, 2021   | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.50        | Yes | August 2, 2019       | August 5, 2021       | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.52        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -987,6 +987,13 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.51 LTS (September 28, 2021)
+
+#### Bugfixes
+* Fix upgrade retry logic considering temporary failures as permanent failures ([#2655](https://github.com/gravitational/gravity/pull/2655)).
+* Fix high cpu usage when running `gravity plan --tail` ([#2642](https://github.com/gravitational/gravity/pull/2642)).
+
 
 ### 6.1.50 LTS (August 5, 2021)
 
