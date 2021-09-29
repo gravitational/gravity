@@ -743,13 +743,12 @@ func formatFeatureGates(features map[string]bool) string {
 
 func formatEncryptionProvider(w io.Writer, ep *clusterconfig.EncryptionProvider) {
 	if ep == nil || ep.Disabled || ep.AWS == nil {
-		fmt.Fprintf(w, "Encryption Provider:\t<unset>\n")
+		fmt.Fprint(w, "Encryption Provider:\t<unset>\n")
 		return
 	}
-	fmt.Fprintf(w, "Encryption Provider:\n")
-	fmt.Fprintf(w, "\tAWS:\n")
-	fmt.Fprintf(w, fmt.Sprintf("\t\tARN:\t%v\n", ep.AWS.ARN()))
-	return
+	fmt.Fprint(w, "Encryption Provider:\n")
+	fmt.Fprint(w, "\tAWS:\n")
+	fmt.Fprintf(w, "\t\tARN:\t%v\n", ep.AWS.ARN())
 }
 
 type operationsCollection struct {

@@ -148,7 +148,7 @@ func (r Resource) Merge(other Resource) Resource {
 		r.Spec.Global.EncryptionProvider.Disabled = other.Spec.Global.EncryptionProvider.Disabled
 		if other.Spec.Global.EncryptionProvider.AWS != nil {
 			if r.Spec.Global.EncryptionProvider.AWS == nil {
-				r.Spec.Global.EncryptionProvider.AWS = &AWSEncrytpionProvider{}
+				r.Spec.Global.EncryptionProvider.AWS = &AWSEncryptionProvider{}
 			}
 			r.Spec.Global.EncryptionProvider.AWS.AccountID = other.Spec.Global.EncryptionProvider.AWS.AccountID
 			r.Spec.Global.EncryptionProvider.AWS.KeyID = other.Spec.Global.EncryptionProvider.AWS.KeyID
@@ -293,12 +293,12 @@ type EncryptionProvider struct {
 	// Disabled disables resource encryption if set to true.
 	Disabled bool `json:"disabled,omitempty"`
 	// AWS specifies AWS encryption provider configuration.
-	AWS *AWSEncrytpionProvider `json:"aws,omitempty"`
+	AWS *AWSEncryptionProvider `json:"aws,omitempty"`
 }
 
 // AWSEncryptionProvider defines AWS encryption provider configuration. The
 // configured fields will be used to construct KMS key ARN.
-type AWSEncrytpionProvider struct {
+type AWSEncryptionProvider struct {
 	// AccountID specifies AWS account ID used to construct the KMS key ARN.
 	AccountID string `json:"accountID,omitempty"`
 	// KeyID specifies the KMS key ID used to construct the KMS key ARN.
@@ -309,7 +309,7 @@ type AWSEncrytpionProvider struct {
 
 // ARN returns the key ARN.
 // Format: `arn:aws:kms:${Region}:${AccountID}:key/${KeyID}`
-func (r *AWSEncrytpionProvider) ARN() string {
+func (r *AWSEncryptionProvider) ARN() string {
 	return fmt.Sprintf("arn:aws:kms:%v:%v:key/%v", r.Region, r.AccountID, r.KeyID)
 }
 

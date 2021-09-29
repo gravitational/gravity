@@ -86,7 +86,7 @@ spec:
 				FlannelBackend: utils.StringPtr("vxlan"),
 				EncryptionProvider: &clusterconfig.EncryptionProvider{
 					Disabled: false,
-					AWS: &clusterconfig.AWSEncrytpionProvider{
+					AWS: &clusterconfig.AWSEncryptionProvider{
 						AccountID: "12345",
 						KeyID:     "12345",
 						Region:    "us-east-1",

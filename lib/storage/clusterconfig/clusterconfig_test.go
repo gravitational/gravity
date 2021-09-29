@@ -196,7 +196,7 @@ spec:
 						FlannelBackend:   utils.StringPtr("vxlan"),
 						EncryptionProvider: &EncryptionProvider{
 							Disabled: false,
-							AWS: &AWSEncrytpionProvider{
+							AWS: &AWSEncryptionProvider{
 								AccountID: "12345",
 								KeyID:     "12345",
 								Region:    "us-east-1",
@@ -263,7 +263,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						FlannelBackend:   utils.StringPtr("vxlan"),
 						EncryptionProvider: &EncryptionProvider{
 							Disabled: false,
-							AWS: &AWSEncrytpionProvider{
+							AWS: &AWSEncryptionProvider{
 								AccountID: "12345",
 								KeyID:     "12345",
 								Region:    "us-east-1",
@@ -291,7 +291,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						FlannelBackend:   utils.StringPtr("vxlan"),
 						EncryptionProvider: &EncryptionProvider{
 							Disabled: false,
-							AWS: &AWSEncrytpionProvider{
+							AWS: &AWSEncryptionProvider{
 								AccountID: "12345",
 								KeyID:     "12345",
 								Region:    "us-east-1",
@@ -327,7 +327,7 @@ address: 10.0.0.1
 						FlannelBackend: utils.StringPtr("vxlan"),
 						EncryptionProvider: &EncryptionProvider{
 							Disabled: false,
-							AWS: &AWSEncrytpionProvider{
+							AWS: &AWSEncryptionProvider{
 								AccountID: "12345",
 								KeyID:     "12345",
 								Region:    "us-east-1",
@@ -382,7 +382,7 @@ address: 10.0.0.1
 						FlannelBackend: utils.StringPtr("vxlan"),
 						EncryptionProvider: &EncryptionProvider{
 							Disabled: false,
-							AWS: &AWSEncrytpionProvider{
+							AWS: &AWSEncryptionProvider{
 								AccountID: "12345",
 								KeyID:     "12345",
 								Region:    "us-east-1",
