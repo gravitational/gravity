@@ -19,6 +19,7 @@ package validate
 import (
 	"net"
 
+	"github.com/gravitational/gravity/lib/cloudprovider/aws"
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
 
@@ -95,6 +96,26 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 		}
 		if !isSupportedBackend(*newGlobalConfig.FlannelBackend) {
 			return trace.BadParameter("unsupported flannel backend was specified: %v", *newGlobalConfig.FlannelBackend)
+		}
+	}
+
+	if newGlobalConfig.EncryptionProvider != nil && !newGlobalConfig.EncryptionProvider.Disabled {
+		if newGlobalConfig.EncryptionProvider.AWS == nil {
+			return trace.BadParameter("an encryption provider must be provided")
+		}
+		if newGlobalConfig.EncryptionProvider.AWS.AccountID == "" {
+			return trace.BadParameter("AWS account ID must provided for the encryption provider")
+		}
+		if newGlobalConfig.EncryptionProvider.AWS.KeyID == "" {
+			return trace.BadParameter("AWS KMS key ID must be provided for the encryption provider")
+		}
+		if newGlobalConfig.EncryptionProvider.AWS.Region == "" {
+			// If a region is unspecified, query the region from the aws instance metadata.
+			instance, err := aws.NewLocalInstance()
+			if err != nil {
+				return trace.BadParameter("AWS KMS key region must be provided")
+			}
+			newGlobalConfig.EncryptionProvider.AWS.Region = instance.Region
 		}
 	}
 

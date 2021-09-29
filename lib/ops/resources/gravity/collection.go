@@ -692,6 +692,7 @@ func (r configCollection) WriteText(w io.Writer) error {
 		}
 		formatCloudConfig(t, config.CloudConfig)
 	}
+	formatEncryptionProvider(t, config.EncryptionProvider)
 	_, err := io.WriteString(w, t.String())
 	return trace.Wrap(err)
 }
@@ -738,6 +739,17 @@ func formatFeatureGates(features map[string]bool) string {
 		result = append(result, fmt.Sprintf("%v=%v", feature, enabled))
 	}
 	return strings.Join(result, ",")
+}
+
+func formatEncryptionProvider(w io.Writer, ep *clusterconfig.EncryptionProvider) {
+	if ep == nil || ep.Disabled || ep.AWS == nil {
+		fmt.Fprintf(w, "Encryption Provider:\t<unset>\n")
+		return
+	}
+	fmt.Fprintf(w, "Encryption Provider:\n")
+	fmt.Fprintf(w, "\tAWS:\n")
+	fmt.Fprintf(w, fmt.Sprintf("\t\tARN:\t%v\n", ep.AWS.ARN()))
+	return
 }
 
 type operationsCollection struct {

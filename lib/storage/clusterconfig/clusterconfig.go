@@ -140,6 +140,21 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 	}
 	// Changing cloud provider is not supported
+
+	if other.Spec.Global.EncryptionProvider != nil {
+		if r.Spec.Global.EncryptionProvider == nil {
+			r.Spec.Global.EncryptionProvider = &EncryptionProvider{}
+		}
+		r.Spec.Global.EncryptionProvider.Disabled = other.Spec.Global.EncryptionProvider.Disabled
+		if other.Spec.Global.EncryptionProvider.AWS != nil {
+			if r.Spec.Global.EncryptionProvider.AWS == nil {
+				r.Spec.Global.EncryptionProvider.AWS = &AWSEncrytpionProvider{}
+			}
+			r.Spec.Global.EncryptionProvider.AWS.AccountID = other.Spec.Global.EncryptionProvider.AWS.AccountID
+			r.Spec.Global.EncryptionProvider.AWS.KeyID = other.Spec.Global.EncryptionProvider.AWS.KeyID
+			r.Spec.Global.EncryptionProvider.AWS.Region = other.Spec.Global.EncryptionProvider.AWS.Region
+		}
+	}
 	if other.Spec.Global.FlannelBackend != nil {
 		if r.Spec.Global.FlannelBackend == nil {
 			r.Spec.Global.FlannelBackend = new(string)
@@ -273,6 +288,31 @@ type ControlPlaneComponent struct {
 	json.RawMessage
 }
 
+// EncryptionProvider specifies configuration for an encryption provider.
+type EncryptionProvider struct {
+	// Disabled disables resource encryption if set to true.
+	Disabled bool `json:"disabled,omitempty"`
+	// AWS specifies AWS encryption provider configuration.
+	AWS *AWSEncrytpionProvider `json:"aws,omitempty"`
+}
+
+// AWSEncryptionProvider defines AWS encryption provider configuration. The
+// configured fields will be used to construct KMS key ARN.
+type AWSEncrytpionProvider struct {
+	// AccountID specifies AWS account ID used to construct the KMS key ARN.
+	AccountID string `json:"accountID,omitempty"`
+	// KeyID specifies the KMS key ID used to construct the KMS key ARN.
+	KeyID string `json:"keyID,omitempty"`
+	// Region specifies the AWS region of the KMS key.
+	Region string `json:"region,omitempty"`
+}
+
+// ARN returns the key ARN.
+// Format: `arn:aws:kms:${Region}:${AccountID}:key/${KeyID}`
+func (r *AWSEncrytpionProvider) ARN() string {
+	return fmt.Sprintf("arn:aws:kms:%v:%v:key/%v", r.Region, r.AccountID, r.KeyID)
+}
+
 // IsEmpty determines whether this global configuration is empty.
 func (r Global) IsEmpty() bool {
 	return r.CloudConfig == "" &&
@@ -283,6 +323,7 @@ func (r Global) IsEmpty() bool {
 		r.ProxyPortRange == "" &&
 		r.HighAvailability == nil &&
 		r.FlannelBackend == nil &&
+		r.EncryptionProvider == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -318,6 +359,8 @@ type Global struct {
 	HighAvailability *bool `json:"highAvailability,omitempty"`
 	// FlannelBackend optionally specifies the backend to pair with flannel.
 	FlannelBackend *string `json:"flannelBackend,omitempty"`
+	// EncryptionProvider optionally specifies a Kubernetes encryption provider.
+	EncryptionProvider *EncryptionProvider `json:"encryptionProvider,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -367,7 +410,24 @@ const specSchemaTemplate = `{
               }
             },
             "highAvailability": {"type": "boolean"},
-            "flannelBackend": {"type": "string"}
+            "flannelBackend": {"type": "string"},
+            "encryptionProvider": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "disabled": {"type": "boolean"},
+                "aws": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["accountID", "keyID"],
+                  "properties": {
+                    "accountID": {"type": "string"},
+                    "keyID": {"type": "string"},
+                    "region": {"type": "string"}
+                  }
+                }
+              }
+            }
           }
         },
         "kubelet": {

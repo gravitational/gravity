@@ -172,7 +172,12 @@ spec:
       FeatureB: false
     podSubnetSize: "26"
     highAvailability: true
-    flannelBackend: "vxlan"`,
+    flannelBackend: "vxlan"
+    encryptionProvider:
+      aws:
+        accountID: "12345"
+        keyID: "12345"
+        region: "us-east-1"`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -189,6 +194,14 @@ spec:
 						PodSubnetSize:    "26",
 						HighAvailability: newBoolPtr(true),
 						FlannelBackend:   utils.StringPtr("vxlan"),
+						EncryptionProvider: &EncryptionProvider{
+							Disabled: false,
+							AWS: &AWSEncrytpionProvider{
+								AccountID: "12345",
+								KeyID:     "12345",
+								Region:    "us-east-1",
+							},
+						},
 					},
 				},
 			},
@@ -248,6 +261,14 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 						HighAvailability: newBoolPtr(true),
 						FlannelBackend:   utils.StringPtr("vxlan"),
+						EncryptionProvider: &EncryptionProvider{
+							Disabled: false,
+							AWS: &AWSEncrytpionProvider{
+								AccountID: "12345",
+								KeyID:     "12345",
+								Region:    "us-east-1",
+							},
+						},
 					},
 				},
 			},
@@ -268,6 +289,14 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 						HighAvailability: newBoolPtr(true),
 						FlannelBackend:   utils.StringPtr("vxlan"),
+						EncryptionProvider: &EncryptionProvider{
+							Disabled: false,
+							AWS: &AWSEncrytpionProvider{
+								AccountID: "12345",
+								KeyID:     "12345",
+								Region:    "us-east-1",
+							},
+						},
 					},
 				},
 			},
@@ -296,6 +325,14 @@ address: 10.0.0.1
 							"feature2": false,
 						},
 						FlannelBackend: utils.StringPtr("vxlan"),
+						EncryptionProvider: &EncryptionProvider{
+							Disabled: false,
+							AWS: &AWSEncrytpionProvider{
+								AccountID: "12345",
+								KeyID:     "12345",
+								Region:    "us-east-1",
+							},
+						},
 					},
 				},
 			},
@@ -343,6 +380,14 @@ address: 10.0.0.1
 							"feature3": true,
 						},
 						FlannelBackend: utils.StringPtr("vxlan"),
+						EncryptionProvider: &EncryptionProvider{
+							Disabled: false,
+							AWS: &AWSEncrytpionProvider{
+								AccountID: "12345",
+								KeyID:     "12345",
+								Region:    "us-east-1",
+							},
+						},
 					},
 				},
 			},
