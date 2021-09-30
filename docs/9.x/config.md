@@ -67,7 +67,8 @@ spec:
     flannelBackend: "vxlan"
     # Enables Kubernetes resource encryption at rest.
     # Rotating keys or disabling encryption requires manual configuration changes.
-    # See https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/ for more details.
+    # See https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/ and
+    # https://github.com/kubernetes-sigs/aws-encryption-provider for more details.
     encryptionProvider:
       disabled: false
       aws:
