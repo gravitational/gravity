@@ -145,7 +145,6 @@ func (r Resource) Merge(other Resource) Resource {
 		if r.Spec.Global.EncryptionProvider == nil {
 			r.Spec.Global.EncryptionProvider = &EncryptionProvider{}
 		}
-		r.Spec.Global.EncryptionProvider.Disabled = other.Spec.Global.EncryptionProvider.Disabled
 		if other.Spec.Global.EncryptionProvider.AWS != nil {
 			if r.Spec.Global.EncryptionProvider.AWS == nil {
 				r.Spec.Global.EncryptionProvider.AWS = &AWSEncryptionProvider{}
@@ -153,6 +152,10 @@ func (r Resource) Merge(other Resource) Resource {
 			r.Spec.Global.EncryptionProvider.AWS.AccountID = other.Spec.Global.EncryptionProvider.AWS.AccountID
 			r.Spec.Global.EncryptionProvider.AWS.KeyID = other.Spec.Global.EncryptionProvider.AWS.KeyID
 			r.Spec.Global.EncryptionProvider.AWS.Region = other.Spec.Global.EncryptionProvider.AWS.Region
+		}
+		r.Spec.Global.EncryptionProvider.Disabled = other.Spec.Global.EncryptionProvider.Disabled
+		if other.Spec.Global.EncryptionProvider.Disabled {
+			r.Spec.Global.EncryptionProvider.AWS = &AWSEncryptionProvider{}
 		}
 	}
 	if other.Spec.Global.FlannelBackend != nil {
