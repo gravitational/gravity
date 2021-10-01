@@ -44,7 +44,7 @@ import (
 
 // Config defines satellite configuration.
 type Config struct {
-	// Name is the name assigned to this node my Kubernetes.
+	// Name is the name assigned to this node by Kubernetes.
 	Name string
 
 	// RPCAddrs is a list of addresses agent binds to for RPC traffic.
@@ -182,6 +182,7 @@ type agent struct {
 }
 
 // New creates an instance of an agent based on configuration options given in config.
+//nolint:funlen
 func New(config *Config) (*agent, error) {
 	if err := config.CheckAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
@@ -375,17 +376,23 @@ func (r *agent) runChecks(ctx context.Context) *pb.NodeStatus {
 		case <-ctx.Done():
 			log.Warnf("Timed out collecting test results: %v.", ctx.Err())
 			return &pb.NodeStatus{
-				Name:   r.Name,
-				Status: pb.NodeStatus_Degraded,
-				Probes: probes.GetProbes(),
+				//nolint:godox
+				// TODO: remove in 10
+				Name:     r.Name,
+				NodeName: r.Name,
+				Status:   pb.NodeStatus_Degraded,
+				Probes:   probes.GetProbes(),
 			}
 		}
 	}
 
 	return &pb.NodeStatus{
-		Name:   r.Name,
-		Status: probes.Status(),
-		Probes: probes.GetProbes(),
+		//nolint:godox
+		// TODO: remove in 10
+		Name:     r.Name,
+		NodeName: r.Name,
+		Status:   probes.Status(),
+		Probes:   probes.GetProbes(),
 	}
 }
 
@@ -514,9 +521,15 @@ func (r *agent) updateStatus(ctx context.Context) error {
 
 func (r *agent) defaultUnknownStatus() *pb.NodeStatus {
 	return &pb.NodeStatus{
-		Name: r.Name,
+		//nolint:godox
+		// TODO: remove in 10
+		Name:     r.Name,
+		NodeName: r.Name,
 		MemberStatus: &pb.MemberStatus{
-			Name: r.Name,
+			//nolint:godox
+			// TODO: remove in 10
+			Name:     r.Name,
+			NodeName: r.Name,
 		},
 	}
 }
@@ -547,7 +560,7 @@ func (r *agent) collectStatus(ctx context.Context) *pb.SystemStatus {
 
 	statusCh := make(chan *statusResponse, len(members))
 	for _, member := range members {
-		if r.Name == member.Name {
+		if r.Name == member.NodeName {
 			go func() {
 				ctxNode, cancelNode := context.WithTimeout(ctx, nodeStatusTimeoutLocal)
 				defer cancelNode()
@@ -572,7 +585,7 @@ L:
 			nodeStatus := status.NodeStatus
 			if status.err != nil {
 				log.Debugf("Failed to query node %s(%v) status: %v.",
-					status.member.Name, status.member.Addr, status.err)
+					status.member.NodeName, status.member.Addr, status.err)
 				nodeStatus = unknownNodeStatus(status.member)
 			}
 			systemStatus.Nodes = append(systemStatus.Nodes, nodeStatus)
@@ -656,7 +669,7 @@ func (r *agent) notifyMasters(ctx context.Context) error {
 			continue
 		}
 		if err := r.notifyMaster(ctx, member, events); err != nil {
-			log.WithError(err).Debugf("Failed to notify %s of new timeline events.", member.Name)
+			log.WithError(err).Debugf("Failed to notify %s of new timeline events.", member.NodeName)
 		}
 	}
 

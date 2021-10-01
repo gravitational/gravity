@@ -27,10 +27,13 @@ func EmptyStatus() *SystemStatus {
 // NewMemberStatus constructs a new MemberStatus.
 func NewMemberStatus(name, addr string, tags map[string]string) *MemberStatus {
 	return &MemberStatus{
-		Name:   name,
-		Addr:   addr,
-		Status: MemberStatus_Alive,
-		Tags:   tags,
+		//nolint:godox
+		// TODO: remove in 10
+		Name:     name,
+		NodeName: name,
+		Addr:     addr,
+		Status:   MemberStatus_Alive,
+		Tags:     tags,
 	}
 }
 
@@ -176,11 +179,3 @@ func (s *MemberStatus_Type) UnmarshalText(text []byte) error {
 	}
 	return nil
 }
-
-// ByName implements sort.Interface.
-// Enables MemberStatus to be sorted by name.
-type ByName []*MemberStatus
-
-func (r ByName) Len() int           { return len(r) }
-func (r ByName) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-func (r ByName) Less(i, j int) bool { return r[i].Name < r[j].Name }

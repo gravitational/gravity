@@ -50,7 +50,7 @@ require (
 	github.com/gravitational/oxy v0.0.0-20180629203109-e4a7e35311e6 // indirect
 	github.com/gravitational/rigging v0.0.0-20210330165731-4602e892394d
 	github.com/gravitational/roundtrip v1.0.0
-	github.com/gravitational/satellite v0.0.9-0.20210518231730-758163e22217
+	github.com/gravitational/satellite v0.0.9-0.20211001145055-fae4abf39d92
 	github.com/gravitational/tail v1.0.1
 	github.com/gravitational/teleport v3.2.17+incompatible
 	github.com/gravitational/trace v1.1.14
