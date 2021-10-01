@@ -155,7 +155,7 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 		r.Spec.Global.EncryptionProvider.Disabled = other.Spec.Global.EncryptionProvider.Disabled
 		if other.Spec.Global.EncryptionProvider.Disabled {
-			r.Spec.Global.EncryptionProvider.AWS = &AWSEncryptionProvider{}
+			r.Spec.Global.EncryptionProvider.AWS = nil
 		}
 	}
 	if other.Spec.Global.FlannelBackend != nil {
