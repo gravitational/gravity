@@ -265,7 +265,7 @@ func pullDependencies(
 func pullPackages(packages []pack.PackageEnvelope, localPackages, remotePackages pack.PackageService, log log.FieldLogger) error {
 	log.WithField("packages", packages).Info("Pull packages.")
 	for _, pkg := range packages {
-		_, reader, err := remotePackages.ReadPackage(pkg.Locator)
+		env, reader, err := remotePackages.ReadPackage(pkg.Locator)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -274,7 +274,7 @@ func pullPackages(packages []pack.PackageEnvelope, localPackages, remotePackages
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = localPackages.CreatePackage(pkg.Locator, reader, pack.WithLabels(pkg.RuntimeLabels))
+		_, err = localPackages.CreatePackage(pkg.Locator, reader, pack.WithLabels(env.RuntimeLabels))
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -286,13 +286,13 @@ func pullPackages(packages []pack.PackageEnvelope, localPackages, remotePackages
 func pullApplications(apps []appservice.Application, localApps, remoteApps *Applications, log log.FieldLogger) error {
 	log.WithField("applications", apps).Info("Pull applications.")
 	for _, app := range apps {
-		envelope, reader, err := remoteApps.config.Packages.ReadPackage(app.Package)
+		env, reader, err := remoteApps.config.Packages.ReadPackage(app.Package)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
 
-		m, err := schema.ParseManifestYAMLNoValidate(envelope.Manifest)
+		m, err := schema.ParseManifestYAMLNoValidate(env.Manifest)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -304,7 +304,7 @@ func pullApplications(apps []appservice.Application, localApps, remoteApps *Appl
 			return trace.Wrap(err)
 		}
 
-		_, err = localApps.CreateAppWithManifest(app.Package, manifestBytes, reader, envelope.RuntimeLabels)
+		_, err = localApps.CreateAppWithManifest(app.Package, manifestBytes, reader, env.RuntimeLabels)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

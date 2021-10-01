@@ -16,7 +16,6 @@ limitations under the License.
 
 package cli
 
-/*
 import (
 	"bytes"
 	"context"
@@ -33,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/compare"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
-	dockertest "github.com/gravitational/gravity/lib/docker/test"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/localenv"
 	packtest "github.com/gravitational/gravity/lib/pack/test"
@@ -76,7 +74,7 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 
 	logger := logrus.WithField("test", "TestUploadsUpdate")
 	synchronizer := docker.NewSynchronizer(logger, client, utils.DiscardProgress)
-	registry := dockertest.NewRegistry(c.MkDir(), synchronizer, c)
+	registry := docker.NewTestRegistry(c.MkDir(), synchronizer, c)
 	imageService, err := docker.NewImageService(docker.RegistryConnectionRequest{
 		RegistryAddress: registry.Addr(),
 		Insecure:        true,
@@ -124,11 +122,11 @@ func verifyRegistry(ctx context.Context, c *check.C, service docker.ImageService
 
 func generateDockerImage(client *dockerapi.Client, image loc.DockerImage, c *check.C) []*archive.Item {
 	synchronizer := docker.NewSynchronizer(logrus.New(), client, utils.DiscardProgress)
-	dockerImage := dockertest.GenerateDockerImage(client, image.Repository, image.Tag, c)
+	dockerImage := docker.GenerateTestDockerImage(client, image.Repository, image.Tag, c)
 	dir := filepath.Join(c.MkDir(), defaults.RegistryDir)
 	err := os.MkdirAll(dir, defaults.SharedDirMask)
 	c.Assert(err, check.IsNil)
-	registry := dockertest.NewRegistry(dir, synchronizer, c)
+	registry := docker.NewTestRegistry(dir, synchronizer, c)
 	registry.Push(c, dockerImage)
 	return snapshotRegistryDirectory(dir, c)
 }
@@ -156,4 +154,3 @@ func snapshotRegistryDirectory(root string, c *check.C) (result []*archive.Item)
 	c.Assert(err, check.IsNil)
 	return result
 }
-*/

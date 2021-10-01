@@ -84,6 +84,11 @@ func (r *TestRegistry) Close() error {
 	return r.r.Close()
 }
 
+// Addr returns the address the regostry is serving on
+func (r *TestRegistry) Addr() string {
+	return r.info.Address
+}
+
 // Push pushes the specified images to the underlying registry
 func (r *TestRegistry) Push(c *check.C, images ...loc.DockerImage) {
 	for _, image := range images {
