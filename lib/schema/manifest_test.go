@@ -25,6 +25,8 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/utils"
 
+	"github.com/coreos/go-semver/semver"
+	"github.com/google/go-cmp/cmp"
 	"github.com/gravitational/trace"
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
@@ -151,197 +153,239 @@ systemOptions:
     args: ["--system-reserved=memory=500Mi"]
   dependencies:
     runtimePackage: gravitational.io/planet:0.0.1
+    intermediateVersions:
+    - version: "7.0.0"
+      packages:
+      - gravitational.io/planet:1.0.0
+      - gravitational.io/teleport:1.0.0
+      apps:
+      - gravitational.io/dns-app:1.0.0
+    - version: "8.0.0"
+      packages:
+      - gravitational.io/planet:1.1.0
+      - gravitational.io/teleport:1.1.0
+      apps:
+      - gravitational.io/dns-app:1.1.0
 `)
 
 	m, err := ParseManifestYAML(bytes)
 	c.Assert(err, IsNil)
 
-	compare.DeepCompare(c, m.Header, Header{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: APIVersionV2,
-			Kind:       KindBundle,
-		},
-		Metadata: Metadata{
-			Name:            "telekube",
-			ResourceVersion: "0.0.1",
-			Namespace:       "default",
-			Repository:      defaults.SystemAccountOrg,
-		},
-	})
-	c.Assert(m.Logo, Equals, "file://logo.svg")
-	c.Assert(m.ReleaseNotes, Equals, "This version is nothing but a pure awesomeness!\n")
-	compare.DeepCompare(c, m.Endpoints, []Endpoint{
-		{
-			Name:        "Gravity site",
-			Description: "Admin control panel",
-			Selector:    map[string]string{"app": "gravity-site"},
-			Protocol:    "https",
-			Hidden:      false,
-		},
-	})
-	compare.DeepCompare(c, m.Providers, &Providers{
-		AWS: AWS{
-			Networking: Networking{
-				Type: "aws-vpc",
+	expectedManifest := &Manifest{
+		Header: Header{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: APIVersionV2,
+				Kind:       KindBundle,
 			},
-			IAMPolicy: IAMPolicy{
-				Version: "2012-10-17",
-				Actions: []string{
-					"ec2:CreateVpc",
-					"ec2:DeleteVpc",
+			Metadata: Metadata{
+				Name:            "telekube",
+				ResourceVersion: "0.0.1",
+				Namespace:       "default",
+				Repository:      defaults.SystemAccountOrg,
+			},
+		},
+		Logo:         "file://logo.svg",
+		ReleaseNotes: "This version is nothing but a pure awesomeness!\n",
+		Endpoints: []Endpoint{
+			{
+				Name:        "Gravity site",
+				Description: "Admin control panel",
+				Selector:    map[string]string{"app": "gravity-site"},
+				Protocol:    "https",
+			},
+		},
+		Providers: &Providers{
+			AWS: AWS{
+				Networking: Networking{
+					Type: "aws-vpc",
 				},
-			},
-			Disabled: false,
-		},
-		Generic: Generic{
-			Networking: Networking{
-				Type: "calico",
-			},
-			Disabled: false,
-		},
-	})
-	compare.DeepCompare(c, m.Installer, &Installer{
-		SetupEndpoints: []string{"Bandwagon"},
-		Flavors: Flavors{
-			Prompt:  "Select a flavor",
-			Default: "one",
-			Items: []Flavor{
-				{
-					Name:        "one",
-					Description: "1 node",
-					Nodes: []FlavorNode{
-						{
-							Profile: "node",
-							Count:   1,
-						},
-					},
-				},
-				{
-					Name:        "two",
-					Description: "2 nodes",
-					Nodes: []FlavorNode{
-						{
-							Profile: "node",
-							Count:   2,
-						},
+				IAMPolicy: IAMPolicy{
+					Version: "2012-10-17",
+					Actions: []string{
+						"ec2:CreateVpc",
+						"ec2:DeleteVpc",
 					},
 				},
 			},
-		},
-	})
-	compare.DeepCompare(c, m.NodeProfiles, NodeProfiles{
-		{
-			Name:        "node",
-			Description: "Telekube Node",
-			Labels:      map[string]string{"role": "node"},
-			Taints: []v1.Taint{
-				{
-					Key:    "node-role.kubernetes.io/master",
-					Effect: v1.TaintEffectNoSchedule,
-				},
-				{
-					Key:    "custom-taint",
-					Value:  "custom-value",
-					Effect: v1.TaintEffectNoExecute,
+			Generic: Generic{
+				Networking: Networking{
+					Type: "calico",
 				},
 			},
-			Requirements: Requirements{
-				CPU: CPU{Min: 1},
-				RAM: RAM{Min: utils.MustParseCapacity("2GB")},
-				OS: []OS{
+		},
+		Installer: &Installer{
+			SetupEndpoints: []string{"Bandwagon"},
+			Flavors: Flavors{
+				Prompt:  "Select a flavor",
+				Default: "one",
+				Items: []Flavor{
 					{
-						Name:     "rhel",
-						Versions: []string{"7.2", "7.3"},
+						Name:        "one",
+						Description: "1 node",
+						Nodes: []FlavorNode{
+							{
+								Profile: "node",
+								Count:   1,
+							},
+						},
 					},
-				},
-				Network: Network{
-					MinTransferRate: utils.MustParseTransferRate("50MB/s"),
-					Ports: []Port{
-						{
-							Protocol: "tcp",
-							Ranges:   []string{"6443", "8080", "10248-10255"},
+					{
+						Name:        "two",
+						Description: "2 nodes",
+						Nodes: []FlavorNode{
+							{
+								Profile: "node",
+								Count:   2,
+							},
 						},
 					},
 				},
-				Volumes: []Volume{
+			},
+		},
+		NodeProfiles: NodeProfiles{
+			{
+				Name:        "node",
+				Description: "Telekube Node",
+				Labels:      map[string]string{"role": "node"},
+				Taints: []v1.Taint{
 					{
-						Path:            "/var/lib/gravity",
-						Capacity:        utils.MustParseCapacity("10GB"),
-						Filesystems:     []string{"xfs", "ext4"},
-						CreateIfMissing: utils.BoolPtr(true),
-						SkipIfMissing:   utils.BoolPtr(false),
-						UID:             utils.IntPtr(1000),
-						GID:             utils.IntPtr(1000),
-						Mode:            "0755",
+						Key:    "node-role.kubernetes.io/master",
+						Effect: v1.TaintEffectNoSchedule,
+					},
+					{
+						Key:    "custom-taint",
+						Value:  "custom-value",
+						Effect: v1.TaintEffectNoExecute,
+					},
+				},
+				Requirements: Requirements{
+					CPU: CPU{Min: 1},
+					RAM: RAM{Min: utils.MustParseCapacity("2GB")},
+					OS: []OS{
+						{
+							Name:     "rhel",
+							Versions: []string{"7.2", "7.3"},
+						},
+					},
+					Network: Network{
+						MinTransferRate: utils.MustParseTransferRate("50MB/s"),
+						Ports: []Port{
+							{
+								Protocol: "tcp",
+								Ranges:   []string{"6443", "8080", "10248-10255"},
+							},
+						},
+					},
+					Volumes: []Volume{
+						{
+							Path:            "/var/lib/gravity",
+							Capacity:        utils.MustParseCapacity("10GB"),
+							Filesystems:     []string{"xfs", "ext4"},
+							CreateIfMissing: utils.BoolPtr(true),
+							SkipIfMissing:   utils.BoolPtr(false),
+							UID:             utils.IntPtr(1000),
+							GID:             utils.IntPtr(1000),
+							Mode:            "0755",
+						},
+					},
+				},
+				Providers: NodeProviders{
+					AWS: NodeProviderAWS{
+						InstanceTypes: []string{"m3.xlarge", "c3.xlarge"},
 					},
 				},
 			},
-			Providers: NodeProviders{
-				AWS: NodeProviderAWS{
-					InstanceTypes: []string{"m3.xlarge", "c3.xlarge"},
+			{
+				Name:        "stateless",
+				Description: "Telekube Stateless Node",
+				Labels: map[string]string{
+					constants.NodeLabel: constants.True,
+				},
+				ServiceRole: ServiceRoleNode,
+			},
+		},
+		Dependencies: Dependencies{
+			Packages: []Dependency{
+				{Locator: loc.MustParseLocator("gravitational.io/gravity:0.0.1")},
+			},
+			Apps: []Dependency{
+				{Locator: loc.MustParseLocator("gravitational.io/dns-app:0.0.3")},
+			},
+		},
+		SystemOptions: &SystemOptions{
+			Runtime: &Runtime{
+				Locator: loc.MustCreateLocator(defaults.SystemAccountOrg, defaults.Runtime, "1.4.6"),
+			},
+			Docker: &Docker{
+				StorageDriver: "overlay",
+				ExternalService: ExternalService{
+					Args: []string{"--log-level=DEBUG"},
+				},
+			},
+			Etcd: &Etcd{
+				ExternalService: ExternalService{
+					Args: []string{"-debug"},
+				},
+			},
+			Kubelet: &Kubelet{
+				ExternalService: ExternalService{
+					Args: []string{"--system-reserved=memory=500Mi"},
+				},
+			},
+			Dependencies: SystemDependencies{
+				Runtime: &Dependency{
+					Locator: loc.MustParseLocator("gravitational.io/planet:0.0.1"),
+				},
+				IntermediateVersions: []IntermediateVersion{
+					{
+						Version: newVer("7.0.0"),
+						Dependencies: Dependencies{
+							Packages: []Dependency{
+								{Locator: loc.MustParseLocator("gravitational.io/planet:1.0.0")},
+								{Locator: loc.MustParseLocator("gravitational.io/teleport:1.0.0")},
+							},
+							Apps: []Dependency{
+								{Locator: loc.MustParseLocator("gravitational.io/dns-app:1.0.0")},
+							},
+						},
+					},
+					{
+						Version: newVer("8.0.0"),
+						Dependencies: Dependencies{
+							Packages: []Dependency{
+								{Locator: loc.MustParseLocator("gravitational.io/planet:1.1.0")},
+								{Locator: loc.MustParseLocator("gravitational.io/teleport:1.1.0")},
+							},
+							Apps: []Dependency{
+								{Locator: loc.MustParseLocator("gravitational.io/dns-app:1.1.0")},
+							},
+						},
+					},
 				},
 			},
 		},
-		{
-			Name:        "stateless",
-			Description: "Telekube Stateless Node",
-			Labels: map[string]string{
-				constants.NodeLabel: constants.True,
+		Extensions: &Extensions{
+			Logs: &LogsExtension{
+				Disabled: true,
 			},
-			ServiceRole: ServiceRoleNode,
-		},
-	})
-	compare.DeepCompare(c, m.Dependencies, Dependencies{
-		Packages: []Dependency{
-			{Locator: loc.MustParseLocator("gravitational.io/gravity:0.0.1")},
-		},
-		Apps: []Dependency{
-			{Locator: loc.MustParseLocator("gravitational.io/dns-app:0.0.3")},
-		},
-	})
-	compare.DeepCompare(c, m.SystemOptions, &SystemOptions{
-		Runtime: &Runtime{
-			Locator: loc.MustCreateLocator(defaults.SystemAccountOrg, defaults.Runtime, "1.4.6"),
-		},
-		Docker: &Docker{
-			StorageDriver: "overlay",
-			ExternalService: ExternalService{
-				Args: []string{"--log-level=DEBUG"},
+			Monitoring: &MonitoringExtension{
+				Disabled: true,
+			},
+			Kubernetes: &KubernetesExtension{
+				Disabled: true,
+			},
+			Configuration: &ConfigurationExtension{
+				Disabled: true,
+			},
+			OpsCenter: &OpsCenterExtension{
+				Disabled: true,
 			},
 		},
-		Etcd: &Etcd{
-			ExternalService: ExternalService{
-				Args: []string{"-debug"},
-			},
-		},
-		Kubelet: &Kubelet{
-			ExternalService: ExternalService{
-				Args: []string{"--system-reserved=memory=500Mi"},
-			},
-		},
-		Dependencies: SystemDependencies{
-			Runtime: &Dependency{
-				Locator: loc.MustParseLocator("gravitational.io/planet:0.0.1"),
-			},
-		},
-	})
-	compare.DeepCompare(c, m.Extensions, &Extensions{
-		Logs: &LogsExtension{
-			Disabled: true,
-		},
-		Monitoring: &MonitoringExtension{
-			Disabled: true,
-		},
-		Kubernetes: &KubernetesExtension{
-			Disabled: true,
-		},
-		Configuration: &ConfigurationExtension{
-			Disabled: true,
-		},
-		OpsCenter: &OpsCenterExtension{
-			Disabled: true,
-		},
-	})
+	}
+
+	if !cmp.Equal(m, expectedManifest) {
+		c.Error("Manifests differ:", cmp.Diff(m, expectedManifest))
+	}
 }
 
 func (s *ManifestSuite) TestInvalidRepository(c *C) {
@@ -659,4 +703,73 @@ extensions:
 		c.Assert(ShouldSkipApp(*m, tc.name), Equals, tc.skip,
 			Commentf("Test case %v failed", tc))
 	}
+}
+
+func (s *ManifestSuite) TestWithBaseCopiesAndDoesnotMutate(c *C) {
+	bytes := []byte(`apiVersion: cluster.gravitational.io/v2
+kind: Cluster
+metadata:
+  name: app
+  resourceVersion: 0.0.1
+systemOptions:
+  runtime:
+    version: 0.0.1
+  docker:
+    storageDriver: overlay2
+  baseImage: quay.io/gravitational/planet:0.0.3
+`)
+	m, err := ParseManifestYAMLNoValidate(bytes)
+	c.Assert(err, IsNil)
+
+	c.Assert(m, compare.DeepEquals, &Manifest{
+		Header: Header{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       KindCluster,
+				APIVersion: ClusterGroupVersion.String(),
+			},
+			Metadata: Metadata{
+				Name:            "app",
+				ResourceVersion: "0.0.1",
+				Repository:      defaults.SystemAccountOrg,
+				Namespace:       "default",
+			},
+		},
+		SystemOptions: &SystemOptions{
+			Docker: &Docker{
+				StorageDriver: "overlay2",
+			},
+			Runtime: &Runtime{
+				Locator: loc.Runtime.WithLiteralVersion("0.0.1"),
+			},
+			BaseImage: "quay.io/gravitational/planet:0.0.3",
+		},
+	})
+	m2 := m.WithBase(loc.Runtime.WithLiteralVersion("0.0.2"))
+	c.Assert(m2, compare.DeepEquals, Manifest{
+		Header: Header{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       KindCluster,
+				APIVersion: ClusterGroupVersion.String(),
+			},
+			Metadata: Metadata{
+				Name:            "app",
+				ResourceVersion: "0.0.1",
+				Repository:      defaults.SystemAccountOrg,
+				Namespace:       "default",
+			},
+		},
+		SystemOptions: &SystemOptions{
+			Docker: &Docker{
+				StorageDriver: "overlay2",
+			},
+			BaseImage: "quay.io/gravitational/planet:0.0.3",
+			Runtime: &Runtime{
+				Locator: loc.Runtime.WithLiteralVersion("0.0.2"),
+			},
+		},
+	})
+}
+
+func newVer(v string) semver.Version {
+	return *semver.New(v)
 }

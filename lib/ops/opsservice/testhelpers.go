@@ -103,3 +103,8 @@ func SetupTestServices(c *check.C) TestServices {
 		Clock:        clockwork.NewFakeClock(),
 	}
 }
+
+// Close releases the internal resources
+func (r TestServices) Close() error {
+	return r.TestServices.Close()
+}

@@ -66,7 +66,7 @@ func (*OpsSuite) TestUploadsUpdate(c *check.C) {
 		WithAppDependencies(depApp).
 		WithItems(generateDockerImage(client, loc.DockerImage{Repository: "testimage", Tag: "1.0.0"}, c)...).
 		Build()
-	app := apptest.CreateApplication(apptest.AppRequest{
+	app, _ := apptest.CreateApplication(apptest.AppRequest{
 		App:      clusterApp,
 		Apps:     from.Apps,
 		Packages: from.Packages,

@@ -254,7 +254,8 @@ func InitAndCheck(g *Application, cmd string) error {
 
 	// following commands must be run inside the planet container
 	switch cmd {
-	case g.SystemGCJournalCmd.FullCommand():
+	case g.SystemGCJournalCmd.FullCommand(),
+		g.SystemEtcdMigrateCmd.FullCommand():
 		if !utils.CheckInPlanet() {
 			return trace.BadParameter("this command must be run inside planet container")
 		}
@@ -960,6 +961,8 @@ func Execute(g *Application, cmd string, extraArgs []string) (err error) {
 		return removeUnusedImages(localEnv,
 			*g.SystemGCRegistryCmd.DryRun,
 			*g.SystemGCRegistryCmd.Confirm)
+	case g.SystemEtcdMigrateCmd.FullCommand():
+		return etcdMigrate(*g.SystemEtcdMigrateCmd.From, *g.SystemEtcdMigrateCmd.To)
 	case g.PlanetEnterCmd.FullCommand(), g.EnterCmd.FullCommand():
 		return planetEnter(localEnv, extraArgs)
 	case g.ExecCmd.FullCommand():

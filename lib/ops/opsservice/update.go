@@ -31,6 +31,7 @@ import (
 	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/update/cluster/versions"
 	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
@@ -441,12 +442,8 @@ func (s *site) createUpdateOperation(context context.Context, req ops.CreateSite
 	return key, nil
 }
 
-func (s *site) getRuntimeApplication(locator loc.Locator) (*app.Application, error) {
-	application, err := s.apps().GetApp(locator)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	runtimeApplication, err := s.apps().GetApp(*(application.Manifest.Base()))
+func (s *site) getRuntimeApplication(app app.Application) (*app.Application, error) {
+	runtimeApplication, err := s.apps().GetApp(*(app.Manifest.Base()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -466,19 +463,31 @@ func (s *site) validateUpdateOperationRequest(req ops.CreateSiteAppUpdateOperati
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	currentRuntime, err := s.getRuntimeApplication(*currentPackage)
+	currentRuntime, err := s.getRuntimeApplication(*s.app)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	updateRuntime, err := s.getRuntimeApplication(*updatePackage)
+	updateClusterApp, err := s.apps().GetApp(*updatePackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = checkRuntimeUpgradePath(checkRuntimeUpgradePathRequest{
-		fromRuntime: currentRuntime.Package,
-		toRuntime:   updateRuntime.Package,
-		packages:    s.packages(),
-	})
+	updateRuntime, err := s.getRuntimeApplication(*updateClusterApp)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	currentRuntimeVersion, err := currentRuntime.Package.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	updateRuntimeVersion, err := updateRuntime.Package.SemVer()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	path := versions.RuntimeUpgradePath{
+		From: currentRuntimeVersion,
+		To:   updateRuntimeVersion,
+	}
+	err = path.Verify(updateClusterApp.Manifest)
 	if err != nil {
 		return trace.Wrap(err)
 	}

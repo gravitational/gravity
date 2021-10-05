@@ -26,6 +26,7 @@ import (
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/trace"
 
 	check "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,7 +173,7 @@ type App struct {
 }
 
 // CreateApplication creates a new test application as described by the given request
-func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
+func CreateApplication(req AppRequest, c *check.C) (app, baseApp *app.Application) {
 	pkgDeps := make(map[loc.Locator]Package)
 	appDeps := make(map[loc.Locator]App)
 	if req.App.Base != nil {
@@ -194,19 +195,28 @@ func CreateApplication(req AppRequest, c *check.C) (app *app.Application) {
 		appServices = append(appServices, req.Apps)
 	}
 	for _, app := range appDeps {
-		data := CreatePackageData(ApplicationLayout(app, c), c)
-		for _, apps := range appServices {
-			_, err := apps.CreateApp(app.Manifest.Locator(), bytes.NewReader(data.Bytes()), app.Labels)
-			c.Assert(err, check.IsNil)
-		}
+		createApp(app, appServices, c)
 	}
-	data := CreatePackageData(ApplicationLayout(req.App, c), c)
+	if req.App.Base != nil {
+		baseApp = createApp(*req.App.Base, appServices, c)
+	}
+	app = createApp(req.App, appServices, c)
+	return app, baseApp
+}
+
+func createApp(app App, appServices []app.Applications, c *check.C) (result *app.Application) {
+	data := CreatePackageData(ApplicationLayout(app, c), c)
 	for _, apps := range appServices {
 		var err error
-		app, err = apps.CreateApp(req.App.Manifest.Locator(), bytes.NewReader(data.Bytes()), req.App.Labels)
+		result, err = apps.CreateApp(app.Manifest.Locator(), bytes.NewReader(data.Bytes()), app.Labels)
+		if trace.IsAlreadyExists(err) {
+			result, err = apps.GetApp(app.Manifest.Locator())
+			c.Assert(err, check.IsNil)
+			continue
+		}
 		c.Assert(err, check.IsNil)
 	}
-	return app
+	return result
 }
 
 // CreatePackage creates a new test package as described by the given request
@@ -225,6 +235,9 @@ func CreatePackage(req PackageRequest, c *check.C) (pkg *pack.PackageEnvelope) {
 		c.Assert(packService.UpsertRepository(req.Package.Loc.Repository, time.Time{}), check.IsNil)
 		var err error
 		pkg, err = packService.CreatePackage(req.Package.Loc, bytes.NewReader(input.Bytes()), pack.WithLabels(req.Package.Labels))
+		if trace.IsAlreadyExists(err) {
+			pkg, err = packService.ReadPackageEnvelope(req.Package.Loc)
+		}
 		c.Assert(err, check.IsNil)
 		c.Assert(pkg, check.NotNil)
 	}
@@ -497,7 +510,6 @@ func createApplicationFromBinaryData(apps app.Applications, locator loc.Locator,
 }
 
 func collectBaseDependencies(base App, pkgDeps map[loc.Locator]Package, appDeps map[loc.Locator]App, c *check.C) {
-	appDeps[base.Manifest.Locator()] = base
 	// Add runtime package to dependencies
 	runtimePackage, err := base.Manifest.DefaultRuntimePackage()
 	c.Assert(err, check.IsNil)

@@ -90,20 +90,7 @@ const manifestSchema = `
             }
           }
         },
-        "dependencies": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "packages": {
-              "type": "array",
-              "items": {"type": "string"}
-            },
-            "apps": {
-              "type": "array",
-              "items": {"type": "string"}
-            }
-          }
-        },
+        "dependencies": {"$ref": "#/definitions/dependencies"},
         "installer": {
           "type": "object",
           "additionalProperties": false,
@@ -709,7 +696,17 @@ const manifestSchema = `
         "dependencies": {
           "type": "object",
           "properties": {
-            "runtimePackage": {"type": "string"}
+            "runtimePackage": {"type": "string"},
+            "intermediateVersion": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "version": {"type": "string"},
+                  "dependencies": {"$ref": "#/definitions/dependencies"}
+                }
+              }
+            }
           }
         }
       }
@@ -729,6 +726,20 @@ const manifestSchema = `
       "additionalProperties": false,
       "properties": {
         "disabled": {"type": "boolean"}
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packages": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "apps": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
       }
     }
   }

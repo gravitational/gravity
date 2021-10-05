@@ -40,8 +40,8 @@ import (
 
 // updatePhaseSystem is the executor for the update master/node update phase
 type updatePhaseSystem struct {
-	// OperationID is the id of the current update operation
-	OperationID string
+	// ChangesetID specifies the ID of the system update step
+	ChangesetID string
 	// Server is the server currently being updated
 	Server storage.UpdateServer
 	// Backend specifies the backend used for the update operation
@@ -71,10 +71,16 @@ func NewUpdatePhaseSystem(
 	if p.Phase.Data.Update == nil || len(p.Phase.Data.Update.Servers) == 0 {
 		return nil, trace.NotFound("no server specified for phase %q", p.Phase.ID)
 	}
+	if p.Phase.Data.Update.ChangesetID == "" {
+		return nil, trace.BadParameter("no changeset ID specified for phase %q", p.Phase.ID)
+	}
+	if p.Phase.Data.Update.GravityPackage == nil {
+		return nil, trace.BadParameter("no gravity package specified for phase %q", p.Phase.ID)
+	}
 	return &updatePhaseSystem{
-		OperationID:       p.Plan.OperationID,
+		ChangesetID:       p.Phase.Data.Update.ChangesetID,
 		Server:            p.Phase.Data.Update.Servers[0],
-		GravityPackage:    p.Plan.GravityPackage,
+		GravityPackage:    *p.Phase.Data.Update.GravityPackage,
 		Backend:           backend,
 		Packages:          packages,
 		HostLocalPackages: localPackages,
@@ -105,7 +111,7 @@ func (p *updatePhaseSystem) Execute(ctx context.Context) error {
 		return trace.Wrap(err, "failed to locate teleport configuration package")
 	}
 	config := system.Config{
-		ChangesetID: p.OperationID,
+		ChangesetID: p.ChangesetID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
 		ClusterRole: p.Server.ClusterRole,
@@ -183,7 +189,7 @@ func (p *updatePhaseSystem) getInstalledConfigPackage(loc loc.Locator) (*loc.Loc
 // Rollback runs rolls back the system upgrade on the node
 func (p *updatePhaseSystem) Rollback(ctx context.Context) error {
 	updater, err := system.New(system.Config{
-		ChangesetID: p.OperationID,
+		ChangesetID: p.ChangesetID,
 		Backend:     p.Backend,
 		Packages:    p.HostLocalPackages,
 		SELinux:     p.seLinux,

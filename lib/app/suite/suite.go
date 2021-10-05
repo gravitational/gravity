@@ -428,7 +428,7 @@ func (r *AppsSuite) ResolvesManifest(c *C) {
 			},
 		},
 	}
-	app := apptest.CreateApplication(apptest.AppRequest{
+	app, _ := apptest.CreateApplication(apptest.AppRequest{
 		App:      mainApp,
 		Packages: r.Packages,
 		Apps:     apps,

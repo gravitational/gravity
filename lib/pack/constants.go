@@ -44,8 +44,6 @@ const (
 	PurposePlanetConfig = "planet-config"
 	// PurposeRuntime marks a package as a runtime container package
 	PurposeRuntime = "runtime"
-	// PurposeRuntimeUpgrade marks a package as part of an intermediate upgrade step
-	PurposeRuntimeUpgrade = "intermediate-upgrade"
 	// PurposeTeleportMasterConfig marks package with teleport master config
 	PurposeTeleportMasterConfig = "teleport-master-config"
 	// PurposeTeleportNodeConfig marks package with teleport node config
@@ -99,11 +97,3 @@ var (
 		InstalledLabel: InstalledLabel,
 	}
 )
-
-// RuntimeUpgradeLabels returns the labels to mark a package as part of an upgrade step
-// for the specified runtime version
-func RuntimeUpgradeLabels(version string) Labels {
-	return Labels{
-		PurposeRuntimeUpgrade: version,
-	}
-}

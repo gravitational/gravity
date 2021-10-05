@@ -76,8 +76,6 @@ func manifestFromDir(dir string) (manifest []byte, err error) {
 // The resulting cleanup handler is guaranteed to be non-nil so it's always safe to call
 func unpackedSource(source io.Reader) (dir string, cleanup cleanup, err error) {
 	dir, err = ioutil.TempDir("", "gravity")
-	logger := log.WithField("dir", dir)
-	logger.Info("Create temporary directory.")
 	if err != nil {
 		return "", emptyCleanup, trace.Wrap(trace.ConvertSystemError(err),
 			"failed to create directory %q", dir)
@@ -85,7 +83,7 @@ func unpackedSource(source io.Reader) (dir string, cleanup cleanup, err error) {
 	cleanup = func() {
 		err := os.RemoveAll(dir)
 		if err != nil {
-			logger.WithError(err).Warn("Failed to remove directory.")
+			log.WithField("dir", dir).WithError(err).Warn("Failed to remove directory.")
 		}
 	}
 	if err = dockerarchive.Untar(source, dir, archive.DefaultOptions()); err != nil {

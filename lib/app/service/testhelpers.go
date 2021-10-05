@@ -79,3 +79,8 @@ func NewTestServices(dir string, c *check.C) TestServices {
 		Apps:     apps,
 	}
 }
+
+// Close releases the internal resources
+func (r TestServices) Close() error {
+	return r.Backend.Close()
+}

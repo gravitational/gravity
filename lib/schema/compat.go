@@ -18,7 +18,11 @@ limitations under the License.
 // mismatch and as such is discouraged for future use.
 package schema
 
-import "github.com/gravitational/trace"
+import (
+	"github.com/gravitational/gravity/lib/loc"
+
+	"github.com/gravitational/trace"
+)
 
 // IsAWSProvider determines if specified provider string refers to AWS provider
 func IsAWSProvider(provider string) bool {
@@ -58,4 +62,48 @@ func GetProvisionerFromProvider(provider string) (string, error) {
 	default:
 		return "", trace.BadParameter("unknown provider %q", provider)
 	}
+}
+
+// GetRuntimePackage returns the runtime package for the specified node profile
+// and cluster role
+func GetRuntimePackage(manifest Manifest, profileName string, clusterRole ServiceRole) (*loc.Locator, error) {
+	profile, err := manifest.NodeProfiles.ByName(profileName)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	runtimePackage, err := manifest.RuntimePackage(*profile)
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		return runtimePackage, nil
+	}
+	// Look for legacy package
+	packageName := loc.LegacyPlanetMaster.Name
+	if clusterRole == ServiceRoleNode {
+		packageName = loc.LegacyPlanetNode.Name
+	}
+	runtimePackage, err = manifest.Dependencies.ByName(packageName)
+	if err != nil {
+		return nil, trace.NotFound("runtime package for profile %v "+
+			"(cluster role %v) not found in manifest",
+			profile.Name, clusterRole)
+	}
+	return runtimePackage, nil
+}
+
+// GetDefaultRuntimePackage returns the default runtime package for the specified manifest
+func GetDefaultRuntimePackage(m Manifest) (*loc.Locator, error) {
+	runtimePackage, err := m.DefaultRuntimePackage()
+	if err != nil && !trace.IsNotFound(err) {
+		return nil, trace.Wrap(err)
+	}
+	if err == nil {
+		return runtimePackage, nil
+	}
+	runtimePackage, err = m.Dependencies.ByName(loc.LegacyPlanetMaster.Name)
+	if err != nil {
+		return nil, trace.NotFound("runtime package not found")
+	}
+	return runtimePackage, nil
 }

@@ -561,7 +561,7 @@ func (b *PlanBuilder) AddExportPhase(plan *storage.OperationPlan) {
 
 // AddRuntimePhase appends system applications installation phase to the provided plan
 func (b *PlanBuilder) AddRuntimePhase(plan *storage.OperationPlan) error {
-	runtimeLocators, err := app.GetDirectDeps(b.Runtime)
+	runtimeLocators, err := app.GetDirectApplicationDependencies(b.Runtime)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -595,7 +595,7 @@ func (b *PlanBuilder) AddRuntimePhase(plan *storage.OperationPlan) error {
 
 // AddApplicationPhase appends user application installation phase to the provided plan
 func (b *PlanBuilder) AddApplicationPhase(plan *storage.OperationPlan) error {
-	applicationLocators, err := app.GetDirectDeps(b.Application)
+	applicationLocators, err := app.GetDirectApplicationDependencies(b.Application)
 	if err != nil {
 		return trace.Wrap(err)
 	}

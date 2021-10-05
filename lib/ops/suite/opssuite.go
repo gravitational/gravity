@@ -51,7 +51,7 @@ type OpsSuite struct {
 }
 
 func SetUpTestPackage(c *C, apps app.Applications, packages pack.PackageService) loc.Locator {
-	return apptest.CreateApplication(apptest.AppRequest{
+	clusterApp, _ := apptest.CreateApplication(apptest.AppRequest{
 		App: apptest.DefaultClusterApplication(loc.MustParseLocator("gravitational.io/app:0.0.1")).
 			WithSchemaDependencies(schema.Dependencies{
 				Packages: []schema.Dependency{
@@ -70,7 +70,8 @@ func SetUpTestPackage(c *C, apps app.Applications, packages pack.PackageService)
 			}).Build(),
 		Packages: packages,
 		Apps:     apps,
-	}, c).Package
+	}, c)
+	return clusterApp.Package
 }
 
 func (s *OpsSuite) SetUpTestPackage(apps app.Applications, packages pack.PackageService, c *C) (*loc.Locator, error) {

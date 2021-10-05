@@ -175,11 +175,7 @@ func (l Locator) String() string {
 
 // WithVersion returns a copy of this locator with version set to the specified one
 func (l Locator) WithVersion(version *semver.Version) Locator {
-	return Locator{
-		Repository: l.Repository,
-		Name:       l.Name,
-		Version:    version.String(),
-	}
+	return l.WithLiteralVersion(version.String())
 }
 
 // WithLiteralVersion returns a copy of this locator with version set to the specified one
@@ -262,6 +258,29 @@ func Filter(locators []Locator, filters []Locator, message string) (result []Loc
 	}
 
 	return result
+}
+
+// GetUpdatedDependencies compares installedDeps against the updateDeps
+// and returns only locators from updateDeps that are updates of those given with installedDeps
+func GetUpdatedDependencies(installedDeps, updateDeps []Locator) ([]Locator, error) {
+	var updates []Locator
+	for _, dep := range updateDeps {
+		isUpdate, err := IsUpdate(dep, installedDeps)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		if !isUpdate {
+			continue
+		}
+		updates = append(updates, dep)
+	}
+
+	return updates, nil
+}
+
+// IsPlanetPackage determines whether the specified package refers to a planet package
+func IsPlanetPackage(loc Locator) bool {
+	return Planet.IsEqualTo(loc.ZeroVersion())
 }
 
 var (

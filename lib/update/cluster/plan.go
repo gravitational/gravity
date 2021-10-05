@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"sort"
 	"strconv"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -33,16 +34,17 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/schema"
+	"github.com/gravitational/gravity/lib/state"
 	"github.com/gravitational/gravity/lib/storage"
-	"github.com/gravitational/gravity/lib/update"
+	"github.com/gravitational/gravity/lib/update/cluster/phases"
+	"github.com/gravitational/gravity/lib/update/cluster/versions"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/teleport/lib/services"
 
-	"github.com/gravitational/rigging"
-	teleservices "github.com/gravitational/teleport/lib/services"
+	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -94,16 +96,63 @@ func InitOperationPlan(
 		dnsConfig = *existingDNS
 	}
 
-	plan, err = NewOperationPlan(PlanConfig{
-		Backend:    clusterEnv.Backend,
-		Apps:       clusterEnv.Apps,
-		Packages:   clusterEnv.ClusterPackages,
-		Client:     clusterEnv.Client,
-		DNSConfig:  dnsConfig,
-		Operator:   clusterEnv.Operator,
-		Operation:  operation,
-		Leader:     leader,
-		UserConfig: userConfig,
+	stateDir, err := state.GetStateDir()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	currentEtcdVersion, err := getCurrentEtcdVersion(ctx, stateDir)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	logrus.WithField("version", currentEtcdVersion.String()).Info("Current etcd version.")
+
+	servers, err := storage.GetLocalServers(clusterEnv.Backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	servers, err = checkAndSetServerDefaults(servers, clusterEnv.Client.CoreV1().Nodes())
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	links, err := clusterEnv.Backend.GetOpsCenterLinks(operation.SiteDomain)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	roles, err := clusterEnv.Backend.GetRoles()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	installedApp, err := storage.GetLocalPackage(clusterEnv.Backend)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	trustedClusters, err := clusterEnv.Backend.GetTrustedClusters()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	plan, err = newOperationPlan(ctx, planConfig{
+		apps:               clusterEnv.Apps,
+		packages:           clusterEnv.ClusterPackages,
+		dnsConfig:          dnsConfig,
+		operator:           clusterEnv.Operator,
+		operation:          operation,
+		leadMaster:         leader,
+		userConfig:         userConfig,
+		serviceUser:        &cluster.ServiceUser,
+		currentEtcdVersion: *currentEtcdVersion,
+		servers:            servers,
+		links:              links,
+		roles:              roles,
+		trustedClusters:    trustedClusters,
+		installedApp:       *installedApp,
+		numParallel:        NumParallel(),
+		newID:              newUUID,
 	})
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -117,348 +166,171 @@ func InitOperationPlan(
 	return plan, nil
 }
 
-// NewOperationPlan generates a new plan for the provided operation
-func NewOperationPlan(config PlanConfig) (*storage.OperationPlan, error) {
+// newOperationPlan generates a new plan for the provided operation
+func newOperationPlan(ctx context.Context, config planConfig) (*storage.OperationPlan, error) {
 	if err := config.checkAndSetDefaults(); err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	servers, err := storage.GetLocalServers(config.Backend)
+	installedApp, err := config.apps.GetApp(config.installedApp)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	servers, err = checkAndSetServerDefaults(servers, config.Client.CoreV1().Nodes())
+	installedRuntimeApp, err := config.apps.GetApp(*(installedApp.Manifest.Base()))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installedRuntimeAppVersion, err := installedRuntimeApp.Package.SemVer()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	updateCoreDNS, err := shouldUpdateCoreDNS(config.Client)
+	updatePackage, err := config.operation.Update.Package()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	updateDNSAppEarly, err := shouldUpdateDNSAppEarly(config.Client)
+	updateApp, err := config.apps.GetApp(*updatePackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	installedPackage, err := storage.GetLocalPackage(config.Backend)
+	updateRuntimeApp, err := config.apps.GetApp(*(updateApp.Manifest.Base()))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	installedApp, err := config.Apps.GetApp(*installedPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	installedRuntime, err := config.Apps.GetApp(*(installedApp.Manifest.Base()))
+	updateRuntimeAppVersion, err := updateRuntimeApp.Package.SemVer()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	updatePackage, err := config.Operation.Update.Package()
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateApp, err := config.Apps.GetApp(*updatePackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateRuntime, err := config.Apps.GetApp(*(updateApp.Manifest.Base()))
+	installedTeleport, err := installedApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	links, err := config.Backend.GetOpsCenterLinks(config.Operation.SiteDomain)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	trustedClusters, err := config.Backend.GetTrustedClusters()
+	updateTeleport, err := updateApp.Manifest.Dependencies.ByName(constants.TeleportPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	roles, err := config.Backend.GetRoles()
+	gravityPackage, err := updateRuntimeApp.Manifest.Dependencies.ByName(constants.GravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	updates, err := configUpdates(
-		installedApp.Manifest, updateApp.Manifest,
-		config.Operator, (*ops.SiteOperation)(config.Operation).Key(), servers)
+	installedDeps, err := app.GetDirectApplicationDependencies(*installedApp)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	updateDeps, err := app.GetDirectApplicationDependencies(*updateApp)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	leader, err := findServer(*config.Leader, updates)
+	appUpdates, err := loc.GetUpdatedDependencies(
+		installedDeps,
+		updateDeps)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	gravityPackage, err := updateRuntime.Manifest.Dependencies.ByName(constants.GravityPackage)
+	builder := phaseBuilder{
+		planConfig:                 config,
+		gravityPackage:             *gravityPackage,
+		appUpdates:                 appUpdates,
+		installedApp:               *installedApp,
+		updateApp:                  *updateApp,
+		installedRuntimeApp:        *installedRuntimeApp,
+		installedRuntimeAppVersion: *installedRuntimeAppVersion,
+		updateRuntimeApp:           *updateRuntimeApp,
+		updateRuntimeAppVersion:    *updateRuntimeAppVersion,
+		installedTeleport:          *installedTeleport,
+		updateTeleport:             *updateTeleport,
+	}
+
+	err = builder.initSteps(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 
-	plan, err := newOperationPlan(planConfig{
-		plan: storage.OperationPlan{
-			OperationID:    config.Operation.ID,
-			OperationType:  config.Operation.Type,
-			AccountID:      config.Operation.AccountID,
-			ClusterName:    config.Operation.SiteDomain,
-			Servers:        servers,
-			DNSConfig:      config.DNSConfig,
-			GravityPackage: *gravityPackage,
-		},
-		operator:          config.Operator,
-		operation:         *config.Operation,
-		servers:           updates,
-		installedRuntime:  *installedRuntime,
-		installedApp:      *installedApp,
-		updateRuntime:     *updateRuntime,
-		updateApp:         *updateApp,
-		links:             links,
-		trustedClusters:   trustedClusters,
-		packageService:    config.Packages,
-		shouldUpdateEtcd:  shouldUpdateEtcd,
-		updateCoreDNS:     updateCoreDNS,
-		updateDNSAppEarly: updateDNSAppEarly,
-		roles:             roles,
-		leadMaster:        *leader,
-		userConfig:        config.UserConfig,
-	})
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	return plan, nil
+	return builder.newPlan(), nil
 }
 
-func (r *PlanConfig) checkAndSetDefaults() error {
-	if r.Client == nil {
-		return trace.BadParameter("Kubernetes client is required")
-	}
-	if r.Apps == nil {
+func (r *planConfig) checkAndSetDefaults() error {
+	if r.apps == nil {
 		return trace.BadParameter("application service is required")
 	}
-	if r.Packages == nil {
+	if r.packages == nil {
 		return trace.BadParameter("package service is required")
 	}
-	if r.Backend == nil {
-		return trace.BadParameter("backend is required")
-	}
-	if r.Operator == nil {
+	if r.operator == nil {
 		return trace.BadParameter("cluster operator is required")
 	}
-	if r.Operation == nil {
+	if r.operation == nil {
 		return trace.BadParameter("cluster operation is required")
 	}
-	if r.Leader == nil {
+	if r.leadMaster == nil {
 		return trace.BadParameter("operation leader node is required")
+	}
+	if r.serviceUser == nil {
+		return trace.BadParameter("cluster service user is required")
 	}
 	return nil
 }
 
-// PlanConfig defines the configuration for creating a new operation plan
-type PlanConfig struct {
-	Backend    storage.Backend
-	Packages   pack.PackageService
-	Apps       app.Applications
-	DNSConfig  storage.DNSConfig
-	Operator   ops.Operator
-	Operation  *storage.SiteOperation
-	Client     *kubernetes.Clientset
-	Leader     *storage.Server
-	UserConfig UserConfig
-}
-
-// planConfig collects parameters needed to generate an update operation plan
+// planConfig defines the configuration for creating a new operation plan
 type planConfig struct {
-	operator packageRotator
-	// plan specifies the initial plan configuration
-	// this will be updated with the list of operational phases
-	plan storage.OperationPlan
-	// operation is the operation to generate the plan for
-	operation storage.SiteOperation
-	// servers is a list of servers from cluster state
-	servers []storage.UpdateServer
-	// installedRuntime is the runtime of the installed app
-	installedRuntime app.Application
-	// installedApp is the installed app
-	installedApp app.Application
-	// updateRuntime is the runtime of the update app
-	updateRuntime app.Application
-	// updateApp is the update app
-	updateApp app.Application
-	// links is a list of configured remote Ops Center links
-	links []storage.OpsCenterLink
-	// trustedClusters is a list of configured trusted clusters
-	trustedClusters []teleservices.TrustedCluster
-	// packageService is a reference to the clusters package service
-	packageService pack.PackageService
-	// shouldUpdateEtcd returns whether we should update etcd and the versions of etcd in use
-	shouldUpdateEtcd func(planConfig) (bool, string, string, error)
-	// updateCoreDNS indicates whether we need to run coreDNS phase
-	updateCoreDNS bool
-	// updateDNSAppEarly indicates whether we need to update the DNS app earlier than normal
-	//	Only applicable for 5.3.0 -> 5.3.2
-	updateDNSAppEarly bool
-	// roles is the existing cluster roles
-	roles []teleservices.Role
-	// leader refers to the master server running the update operation
-	leadMaster storage.UpdateServer
-	// userConfig is user provided configuration to tune the upgrade
+	// packages specifies the cluster package service
+	packages pack.PackageService
+	// apps specifies the cluster application service
+	apps app.Applications
+	// operator specifies the cluster service operator
+	operator phases.PackageRotator
+	// dnsConfig specifies the cluster DNS configuration
+	dnsConfig storage.DNSConfig
+	// operation specifies the operation to generate the plan for
+	operation *storage.SiteOperation
+	// leadMaster specifies the server to execute the upgrade operation on
+	leadMaster *storage.Server
+	// serviceUser specifies the cluster's service user
+	serviceUser *storage.OSUser
+	// userConfig combines operation-specific custom configuration
 	userConfig UserConfig
-}
-
-func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
-	masters, nodes := update.SplitServers(p.servers)
-	if len(masters) == 0 {
-		return nil, trace.NotFound("no master servers found")
-	}
-	otherMasters := filterServer(masters, p.leadMaster)
-
-	if p.userConfig.SkipWorkers {
-		p.servers = masters
-		nodes = nil
-	}
-
-	builder := phaseBuilder{planConfig: p}
-	initPhase := *builder.init(p.leadMaster.Server)
-	checkDeps := []update.PhaseIder{initPhase}
-	var seLinuxPhase *update.Phase
-	if builder.hasSELinuxPhase() {
-		seLinuxPhase = builder.bootstrapSELinux().Require(initPhase)
-		checkDeps = append(checkDeps, *seLinuxPhase)
-	}
-	checksPhase := *builder.checks().Require(checkDeps...)
-	preUpdatePhase := *builder.preUpdate().Require(initPhase)
-	bootstrapPhase := *builder.bootstrap().Require(initPhase)
-
-	installedGravityPackage, err := p.installedRuntime.Manifest.Dependencies.ByName(
-		constants.GravityPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	supportsTaints, err := supportsTaints(*installedGravityPackage)
-	if err != nil {
-		logrus.WithError(err).Warn("Failed to query support for taints/tolerations in installed runtime.")
-	}
-	if !supportsTaints {
-		logrus.Debugf("No support for taints/tolerations for %v.", installedGravityPackage)
-	}
-
-	mastersPhase := *builder.masters(p.leadMaster, otherMasters, supportsTaints).
-		Require(checksPhase, bootstrapPhase, preUpdatePhase)
-	nodesPhase := *builder.nodes(p.leadMaster, nodes, supportsTaints).
-		Require(mastersPhase)
-
-	runtimeUpdates, err := app.GetUpdatedDependencies(p.installedRuntime, p.updateRuntime, p.installedApp.Manifest, p.updateApp.Manifest)
-	if err != nil && !trace.IsNotFound(err) {
-		return nil, trace.Wrap(err)
-	}
-
-	appUpdates, err := app.GetUpdatedDependencies(p.installedApp, p.updateApp, p.installedApp.Manifest, p.updateApp.Manifest)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// check whether etcd upgrade is required
-	updateEtcd, currentVersion, desiredVersion, err := p.shouldUpdateEtcd(p)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-
-	// check if we should enable OpenEBS integration
-	enableOpenEBS := !p.installedApp.Manifest.OpenEBSEnabled() && p.updateApp.Manifest.OpenEBSEnabled()
-
-	var root update.Phase
-	root.Add(initPhase)
-	if seLinuxPhase != nil {
-		root.Add(*seLinuxPhase)
-	}
-	root.Add(checksPhase, preUpdatePhase)
-	if len(runtimeUpdates) > 0 {
-		if p.updateCoreDNS {
-			corednsPhase := *builder.corednsPhase(p.leadMaster.Server)
-			mastersPhase = *mastersPhase.Require(corednsPhase)
-			root.Add(corednsPhase)
-		}
-
-		if p.updateDNSAppEarly {
-			for _, update := range runtimeUpdates {
-				if update.Name == constants.DNSAppPackage {
-					earlyDNSAppPhase := *builder.earlyDNSApp(update)
-					mastersPhase = *mastersPhase.Require(earlyDNSAppPhase)
-					root.Add(earlyDNSAppPhase)
-				}
-			}
-		}
-
-		root.Add(bootstrapPhase, mastersPhase)
-		if len(nodesPhase.Phases) > 0 {
-			root.Add(nodesPhase)
-		}
-
-		if updateEtcd {
-			p.plan.OfflineCoordinator = &p.leadMaster.Server
-			etcdPhase := *builder.etcdPlan(p.leadMaster.Server,
-				serversToStorage(otherMasters...),
-				currentVersion, desiredVersion)
-			// This does not depend on previous on purpose - when the etcd block is executed,
-			// remote agents might be able to sync the plan before the shutdown of etcd instances
-			// has begun
-			root.Add(etcdPhase)
-		}
-
-		if migrationPhase := builder.migration(p.leadMaster.Server); migrationPhase != nil {
-			root.AddSequential(*migrationPhase)
-		}
-
-		// the "config" phase pulls new teleport master config packages used
-		// by gravity-sites on master nodes: it needs to run *after* system
-		// upgrade phase to make sure that old gravity-sites start up fine
-		// in case new configuration is incompatible, but *before* runtime
-		// phase so new gravity-sites can find it after they start
-		configPhase := *builder.config(serversToStorage(masters...)).Require(mastersPhase)
-		root.Add(configPhase)
-
-		// if OpenEBS has been just enabled, create its configuration before
-		// the runtime phase runs and installs it
-		if enableOpenEBS {
-			openEBSPhase := *builder.openEBS(p.leadMaster)
-			root.Add(openEBSPhase)
-		}
-
-		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
-		root.Add(runtimePhase)
-	}
-
-	root.AddSequential(*builder.app(appUpdates), *builder.cleanup())
-	plan := p.plan
-	plan.Phases = root.Phases
-	update.ResolvePlan(&plan)
-
-	return &plan, nil
+	// currentEtcdVersion specifies the current version of etcd
+	currentEtcdVersion semver.Version
+	// servers lists the cluster servers
+	servers []storage.Server
+	// links optionally lists additional remote hub references
+	links []storage.OpsCenterLink
+	// roles lists cluster roles and permissions to migrate
+	roles []services.Role
+	// trustedClusters lists trusted clusters connected to this cluster
+	trustedClusters []services.TrustedCluster
+	// installedApp identifies the installed cluster application
+	installedApp loc.Locator
+	// directUpgradeVersions optionally specifies custom list of versions
+	// we can upgrade directly. If unset, versions.DirectUpgradeVersions
+	// is used.
+	directUpgradeVersions versions.Versions
+	// upgradeViaVersions optionally specifies custom version mapping in case
+	// no direct upgrade is possible. If unset, versions.UpgradeViaVersions
+	// is used.
+	upgradeViaVersions map[semver.Version]versions.Versions
+	// numParallel limits the number of concurrent sub-phase invocations
+	numParallel int
+	// newID generates new changeset IDs
+	newID idGen
 }
 
 // configUpdates computes the configuration updates for the specified list of servers
-func configUpdates(
-	installed, update schema.Manifest,
-	operator packageRotator,
-	operation ops.SiteOperationKey,
-	servers []storage.Server,
+func (r phaseBuilder) configUpdates(
+	installedTeleport loc.Locator,
+	installedRuntimeFunc, updateRuntimeFunc runtimePackageGetterFunc,
 ) (updates []storage.UpdateServer, err error) {
-	installedTeleport, err := installed.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	updateTeleport, err := update.Dependencies.ByName(constants.TeleportPackage)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	for _, server := range servers {
-		installedRuntime, err := getRuntimePackage(installed, server.Role, schema.ServiceRole(server.ClusterRole))
+	for _, server := range r.planConfig.servers {
+		installedRuntime, err := installedRuntimeFunc(server)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -468,22 +340,23 @@ func configUpdates(
 				Installed: *installedRuntime,
 			},
 			Teleport: storage.TeleportPackage{
-				Installed: *installedTeleport,
+				Installed: installedTeleport,
 			},
 		}
 		needsPlanetUpdate, needsTeleportUpdate, err := systemNeedsUpdate(
 			server.Role, server.ClusterRole,
-			installed, update, *installedTeleport, *updateTeleport)
+			r.installedApp.Manifest, r.updateApp.Manifest,
+			installedTeleport, r.updateTeleport)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		if needsPlanetUpdate {
-			updateRuntime, err := update.RuntimePackageForProfile(server.Role)
+			updateRuntime, err := updateRuntimeFunc(server)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			secretsUpdate, err := operator.RotateSecrets(ops.RotateSecretsRequest{
-				Key:            operation.SiteKey(),
+			secretsUpdate, err := r.operator.RotateSecrets(ops.RotateSecretsRequest{
+				Key:            (ops.SiteOperation)(*r.operation).ClusterKey(),
 				Server:         server,
 				RuntimePackage: *updateRuntime,
 				DryRun:         true,
@@ -491,10 +364,10 @@ func configUpdates(
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
-			configUpdate, err := operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
-				Key:            operation,
+			configUpdate, err := r.operator.RotatePlanetConfig(ops.RotatePlanetConfigRequest{
+				Key:            (ops.SiteOperation)(*r.operation).Key(),
 				Server:         server,
-				Manifest:       update,
+				Manifest:       r.updateApp.Manifest,
 				RuntimePackage: *updateRuntime,
 				DryRun:         true,
 			})
@@ -508,18 +381,20 @@ func configUpdates(
 			}
 		}
 		if needsTeleportUpdate {
-			_, nodeConfig, err := operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
-				Key:             operation,
+			_, nodeConfig, err := r.operator.RotateTeleportConfig(ops.RotateTeleportConfigRequest{
+				Key:             (ops.SiteOperation)(*r.operation).Key(),
 				Server:          server,
-				TeleportPackage: *updateTeleport,
+				TeleportPackage: r.updateTeleport,
 				DryRun:          true,
 			})
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}
 			updateServer.Teleport.Update = &storage.TeleportUpdate{
-				Package:           *updateTeleport,
-				NodeConfigPackage: &nodeConfig.Locator,
+				Package: r.updateTeleport,
+			}
+			if nodeConfig != nil {
+				updateServer.Teleport.Update.NodeConfigPackage = &nodeConfig.Locator
 			}
 		}
 		updates = append(updates, updateServer)
@@ -561,8 +436,7 @@ L:
 				server.AdvertiseIP,
 				defaults.KubernetesAdvertiseIPLabel)
 		}
-		// Overwrite the Server Nodename with the name of the kubernetes node,
-		// to fix any internal consistency issues that may occur in our internal data
+		// Store the name of the kubernetes node in case it has been left unspecified
 		servers[i].Nodename = node.Name
 	}
 	return servers, nil
@@ -619,23 +493,6 @@ func getExistingDNSConfig(packages pack.PackageService) (*storage.DNSConfig, err
 	return dnsConfig, nil
 }
 
-// Only applicable for 5.3.0 -> 5.3.2
-// We need to update the CoreDNS app before doing rolling restarts, because the new planet will not have embedded
-// coredns, and will instead point to the kube-dns service on startup. Updating the app will deploy coredns as pods.
-// TODO(knisbet) remove when 5.3.2 is no longer supported as an upgrade path
-func shouldUpdateDNSAppEarly(client *kubernetes.Clientset) (bool, error) {
-	_, err := client.CoreV1().Services(constants.KubeSystemNamespace).
-		Get(context.TODO(), "kube-dns", metav1.GetOptions{})
-	err = rigging.ConvertError(err)
-	if err != nil {
-		if trace.IsNotFound(err) {
-			return true, nil
-		}
-		return true, trace.Wrap(err)
-	}
-	return false, nil
-}
-
 // systemNeedsUpdate determines whether planet or teleport services need
 // to be updated by comparing versions of respective packages in the
 // installed and update application manifest
@@ -658,7 +515,7 @@ func systemNeedsUpdate(
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
-	installedRuntimePackage, err := getRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
+	installedRuntimePackage, err := schema.GetRuntimePackage(installed, profile, schema.ServiceRole(clusterRole))
 	if err != nil {
 		return false, false, trace.Wrap(err)
 	}
@@ -684,51 +541,36 @@ func systemNeedsUpdate(
 		installedTeleportVersion.LessThan(*updateTeleportVersion), nil
 }
 
-func getRuntimePackage(manifest schema.Manifest, profileName string, clusterRole schema.ServiceRole) (*loc.Locator, error) {
-	profile, err := manifest.NodeProfiles.ByName(profileName)
+func reorderServers(servers []storage.UpdateServer, server storage.Server) (result []storage.UpdateServer) {
+	result = make([]storage.UpdateServer, len(servers))
+	copy(result, servers)
+	sort.Slice(result, func(i, j int) bool {
+		// Push server to the front
+		return result[i].AdvertiseIP == server.AdvertiseIP
+	})
+	return result
+}
+
+func runtimeUpdates(installedRuntime, updateRuntime, updateApp app.Application) ([]loc.Locator, error) {
+	installedDeps, err := app.GetDirectApplicationDependencies(installedRuntime)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	runtimePackage, err := manifest.RuntimePackage(*profile)
+	updateDeps, err := app.GetDirectApplicationDependencies(updateRuntime)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	installedDeps = updateApp.Manifest.FilterDisabledDependencies(installedDeps)
+	updateDeps = updateApp.Manifest.FilterDisabledDependencies(updateDeps)
+	runtimeUpdates, err := loc.GetUpdatedDependencies(installedDeps, updateDeps)
 	if err != nil && !trace.IsNotFound(err) {
 		return nil, trace.Wrap(err)
 	}
-	if err == nil {
-		return runtimePackage, nil
-	}
-	// Look for legacy package
-	packageName := loc.LegacyPlanetMaster.Name
-	if clusterRole == schema.ServiceRoleNode {
-		packageName = loc.LegacyPlanetNode.Name
-	}
-	runtimePackage, err = manifest.Dependencies.ByName(packageName)
-	if err != nil {
-		logrus.Warnf("Failed to find the legacy runtime package in manifest "+
-			"for profile %v and cluster role %v: %v.", profile.Name, clusterRole, err)
-		return nil, trace.NotFound("runtime package for profile %v "+
-			"(cluster role %v) not found in manifest",
-			profile.Name, clusterRole)
-	}
-	return runtimePackage, nil
-}
-
-func findServer(input storage.Server, servers []storage.UpdateServer) (*storage.UpdateServer, error) {
-	for _, server := range servers {
-		if server.AdvertiseIP == input.AdvertiseIP {
-			return &server, nil
-		}
-	}
-	return nil, trace.NotFound("no server found with address %v", input.AdvertiseIP)
-}
-
-func filterServer(servers []storage.UpdateServer, server storage.UpdateServer) (result []storage.UpdateServer) {
-	for _, s := range servers {
-		if s.AdvertiseIP == server.AdvertiseIP {
-			continue
-		}
-		result = append(result, s)
-	}
-	return result
+	sort.Slice(runtimeUpdates, func(i, j int) bool {
+		// Push RBAC package update to front
+		return runtimeUpdates[i].Name == constants.BootstrapConfigPackage
+	})
+	return runtimeUpdates, nil
 }
 
 type runtimeConfig struct {
@@ -738,8 +580,9 @@ type runtimeConfig struct {
 	DNSPort string `json:"PLANET_DNS_PORT"`
 }
 
-type packageRotator interface {
-	RotateSecrets(ops.RotateSecretsRequest) (*ops.RotatePackageResponse, error)
-	RotatePlanetConfig(ops.RotatePlanetConfigRequest) (*ops.RotatePackageResponse, error)
-	RotateTeleportConfig(ops.RotateTeleportConfigRequest) (*ops.RotatePackageResponse, *ops.RotatePackageResponse, error)
+func newUUID() string {
+	return uuid.New()
 }
+
+// idGen generates new unique IDs
+type idGen func() string

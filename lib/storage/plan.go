@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gravitational/gravity/lib/loc"
@@ -128,7 +130,7 @@ type OperationPhase struct {
 	// completed before this phase can be executed
 	Requires []string `json:"requires,omitempty" yaml:"requires,omitempty"`
 	// LimitParallel enables x parallel executions of sub phases.
-	LimitParallel int `json:"num_parallel"`
+	LimitParallel int `json:"num_parallel,omitempty"`
 	// Updated is the last phase update time
 	Updated time.Time `json:"updated,omitempty" yaml:"updated,omitempty"`
 	// Data is optional phase-specific data attached to the phase
@@ -211,6 +213,17 @@ type UpdateOperationData struct {
 	Servers []UpdateServer `json:"updates,omitempty"`
 	// ClusterConfig optionally specifies data specific to cluster configuration operation
 	ClusterConfig *ClusterConfigData `json:"cluster_config,omitempty"`
+	// ChangesetID specifies the optional ID of the system update step.
+	// The ID should be unique within a given update operation as there might be
+	// multiple system update steps necessary
+	ChangesetID string `json:"changeset_id,omitempty"`
+	// RuntimeAppVersion specifies the version of the runtime application
+	// this step applies to
+	RuntimeAppVersion string `json:"version,omitempty"`
+	// GravityPackage specifies the optional gravity package for this phase
+	GravityPackage *loc.Locator `json:"gravity_package,omitempty"`
+	// Etcd optionally specifies the etcd upgrade path
+	Etcd *EtcdUpgrade `json:"etcd_upgrade,omitempty"`
 }
 
 // ClusterConfigData describes the configuration specific to cluster configuration update operation
@@ -225,6 +238,18 @@ type ClusterConfigData struct {
 	Services []v1.Service `json:"services,omitempty"`
 }
 
+// String returns the text description of this server update value
+func (s UpdateServer) String() string {
+	return fmt.Sprintf("node(addr=%v,hostname=%v,role=%v,cluster_role=%v,%v,%v)",
+		s.AdvertiseIP,
+		s.Hostname,
+		s.Role,
+		s.ClusterRole,
+		s.Runtime,
+		s.Teleport,
+	)
+}
+
 // UpdateServer describes an intent to update runtime/teleport configuration
 // packages on a specific cluster node
 type UpdateServer struct {
@@ -234,6 +259,20 @@ type UpdateServer struct {
 	Runtime RuntimePackage `json:"runtime"`
 	// Teleport defines the optional teleport update
 	Teleport TeleportPackage `json:"teleport"`
+}
+
+// String returns the text description of this package update value
+func (r RuntimePackage) String() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "runtime(installed=%v", r.Installed.String())
+	if r.SecretsPackage != nil {
+		fmt.Fprintf(&buf, ",secrets=%v", r.SecretsPackage.String())
+	}
+	if r.Update != nil {
+		fmt.Fprint(&buf, ",", r.Update.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 // RuntimePackage describes the state of the runtime package during update
@@ -246,6 +285,11 @@ type RuntimePackage struct {
 	Update *RuntimeUpdate `json:"update,omitempty"`
 }
 
+// String returns the text description of this package update value
+func (r RuntimeUpdate) String() string {
+	return fmt.Sprintf("update(package=%v,config-package=%v)", r.Package, r.ConfigPackage)
+}
+
 // RuntimeUpdate describes an update to the runtime package
 type RuntimeUpdate struct {
 	// Package identifies the package to update to.
@@ -255,21 +299,43 @@ type RuntimeUpdate struct {
 	ConfigPackage loc.Locator `json:"config_package"`
 }
 
+// String returns the text description of this package update value
+func (r TeleportPackage) String() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "teleport(installed=%v", r.Installed.String())
+	if r.Update != nil {
+		fmt.Fprint(&buf, ",", r.Update.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
+}
+
 // TeleportPackage describes the state of the teleport package during update
 type TeleportPackage struct {
 	// Installed identifies the installed version of the teleport package
 	Installed loc.Locator `json:"installed"`
-	// Update describes an update to the runtime package
+	// Update describes an update to the teleport package
 	Update *TeleportUpdate `json:"update,omitempty"`
+}
+
+// String returns the text description of this package update value
+func (r TeleportUpdate) String() string {
+	var buf strings.Builder
+	fmt.Fprintf(&buf, "update(package=%v", r.Package.String())
+	if r.NodeConfigPackage != nil {
+		fmt.Fprintf(&buf, ",config-package=%v", r.NodeConfigPackage.String())
+	}
+	fmt.Fprint(&buf, ")")
+	return buf.String()
 }
 
 // Package returns either the updated teleport package locator if it's not
 // empty, or the installed one.
-func (p TeleportPackage) Package() loc.Locator {
-	if p.Update != nil {
-		return p.Update.Package
+func (r TeleportPackage) Package() loc.Locator {
+	if r.Update != nil {
+		return r.Update.Package
 	}
-	return p.Installed
+	return r.Installed
 }
 
 // TeleportUpdate describes an update to the teleport package
@@ -280,6 +346,14 @@ type TeleportUpdate struct {
 	// NodeConfigPackage identifies the new host teleport configuration package.
 	// If nil, no changes to configuration package required
 	NodeConfigPackage *loc.Locator `json:"node_config_package,omitempty"`
+}
+
+// EtcdUpgrade describes the etcd upgrade step
+type EtcdUpgrade struct {
+	// From specifies the installed version of etcd
+	From string `json:"from"`
+	// To specifies the version of etcd to upgrade to
+	To string `json:"to"`
 }
 
 // InstallOperationData describes configuration for the install operation

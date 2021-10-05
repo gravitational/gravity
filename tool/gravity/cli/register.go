@@ -752,6 +752,12 @@ func RegisterCommands(app *kingpin.Application) *Application {
 	g.SystemSelinuxBootstrapCmd.Path = g.SystemSelinuxBootstrapCmd.Flag("output", "Path to output file for bootstrap script").String()
 	g.SystemSelinuxBootstrapCmd.VxlanPort = g.SystemSelinuxBootstrapCmd.Flag("vxlan-port", "Custom vxlan port").Int()
 
+	g.SystemEtcdCmd.CmdClause = g.SystemCmd.Command("etcd", "Commands to manipulate etcd cluster")
+
+	g.SystemEtcdMigrateCmd.CmdClause = g.SystemEtcdCmd.Command("migrate", "Migrate etcd data directory between from one version to another")
+	g.SystemEtcdMigrateCmd.From = g.SystemEtcdMigrateCmd.Flag("from", "Source version").String()
+	g.SystemEtcdMigrateCmd.To = g.SystemEtcdMigrateCmd.Flag("to", "Destination version").String()
+
 	// pruning cluster resources
 	g.GarbageCollectCmd.CmdClause = g.Command("gc", "Prune cluster resources")
 	g.GarbageCollectCmd.Manual = g.GarbageCollectCmd.Flag("manual", "Do not start the operation automatically").Short('m').Bool()
