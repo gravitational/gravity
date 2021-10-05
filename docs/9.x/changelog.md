@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.5  | No  | pre-release          | September 20, 2021   | Set upon release        | 1.21.5               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.4  | No  | pre-release          | September 24, 2021   | Set upon release        | 1.19.15              | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.5  | No  | pre-release          | October 5,2021       | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
@@ -152,6 +152,14 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.5 (October 5, 2021)
+
+#### Bugfixes
+* Fix upgrade retry logic considering temporary failures as permanent failures ([#2653](https://github.com/gravitational/gravity/pull/2653)).
+
+#### Internal Changes
+* Monitoring-app now uses helm 3 to manage its kubernetes resources ([#2610](https://github.com/gravitational/gravity/pull/2610), [monitoring-app#215](https://github.com/gravitational/monitoring-app/pull/215)).
 
 ### 8.0.0-beta.4 (September 24, 2021)
 
