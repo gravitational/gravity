@@ -342,13 +342,9 @@ func (c *UsersService) GetAccessChecker(user storage.User) (teleservices.AccessC
 // is checked against stored hash for AdminUser and token is compared as is
 // for AgentUser (treated as API key)
 func (c *UsersService) AuthenticateUserBasicAuth(username, password string) (storage.User, error) {
-	i, err := c.backend.GetUser(username)
+	user, err := c.backend.GetUser(username)
 	if err != nil {
 		return nil, trace.Wrap(err)
-	}
-	user, ok := i.(storage.User)
-	if !ok {
-		return nil, trace.BadParameter("unexpected user type %T", i)
 	}
 
 	if err = c.checkCanUseBasicAuth(user); err != nil {

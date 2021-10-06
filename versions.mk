@@ -25,7 +25,7 @@ PROTOC_VER ?= 3.10.0
 PROTOC_PLATFORM ?= linux-x86_64
 GOGO_PROTO_TAG ?= v1.3.0
 GRPC_GATEWAY_TAG ?= v1.11.3
-GOLANGCI_LINT_VER ?= 1.40.1
+GOLANGCI_LINT_VER ?= 1.42.1
 # wormhole container URI for default install
 WORMHOLE_IMG ?= quay.io/gravitational/wormhole:0.3.3
 SELINUX_VERSION ?= 6.0.0

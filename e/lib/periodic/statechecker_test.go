@@ -59,7 +59,7 @@ func (s *StateCheckerSuite) SetUpTest(c *C) {
 			Backend:  s.localServices.Backend,
 			Operator: s.remoteServices.Operator,
 			Packages: s.localServices.Packages,
-			Tunnel:   testutils.FakeReverseTunnel{},
+			Tunnel:   &testutils.FakeReverseTunnel{},
 		},
 		FieldLogger: logrus.WithField(trace.Component, "state-checker"),
 	}
@@ -84,7 +84,7 @@ func (s *StateCheckerSuite) TestStateChecker(c *C) {
 	c.Assert(err, IsNil)
 
 	// make sure remote tunnel says the site is offline
-	s.stateChecker.conf.Tunnel = testutils.FakeReverseTunnel{
+	s.stateChecker.conf.Tunnel = &testutils.FakeReverseTunnel{
 		Sites: []testutils.FakeRemoteSite{
 			{
 				Name:   "local.com",
@@ -134,7 +134,7 @@ func (s *StateCheckerSuite) TestStateChecker(c *C) {
 	c.Assert(err, IsNil)
 
 	// add the site to the reverse tunnel now
-	s.stateChecker.conf.Tunnel = testutils.FakeReverseTunnel{
+	s.stateChecker.conf.Tunnel = &testutils.FakeReverseTunnel{
 		Sites: []testutils.FakeRemoteSite{
 			{
 				Name:   "local.com",

@@ -4,6 +4,7 @@
 //
 // This is a verbatim copy of src/net/pipe.go
 //
+//go:build go1.8
 // +build go1.8
 
 package inprocess
