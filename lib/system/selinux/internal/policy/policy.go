@@ -1,3 +1,4 @@
+//go:build !selinux_embed
 // +build !selinux_embed
 
 /*

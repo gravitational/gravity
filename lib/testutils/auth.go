@@ -59,7 +59,7 @@ type FakeReverseTunnel struct {
 	Sites []FakeRemoteSite
 }
 
-func (s FakeReverseTunnel) GetSites() []teletunnel.RemoteSite {
+func (s *FakeReverseTunnel) GetSites() []teletunnel.RemoteSite {
 	var sites []teletunnel.RemoteSite
 	for _, site := range s.Sites {
 		sites = append(sites, site)
@@ -67,7 +67,7 @@ func (s FakeReverseTunnel) GetSites() []teletunnel.RemoteSite {
 	return sites
 }
 
-func (s FakeReverseTunnel) GetSite(name string) (teletunnel.RemoteSite, error) {
+func (s *FakeReverseTunnel) GetSite(name string) (teletunnel.RemoteSite, error) {
 	for _, site := range s.Sites {
 		if site.GetName() == name {
 			return site, nil
@@ -76,7 +76,7 @@ func (s FakeReverseTunnel) GetSite(name string) (teletunnel.RemoteSite, error) {
 	return nil, trace.NotFound("site %v not found", name)
 }
 
-func (s FakeReverseTunnel) RemoveSite(name string) error {
+func (s *FakeReverseTunnel) RemoveSite(name string) error {
 	for i, site := range s.Sites {
 		if site.GetName() == name {
 			s.Sites = append(s.Sites[:i], s.Sites[i+1:]...)
@@ -86,18 +86,17 @@ func (s FakeReverseTunnel) RemoveSite(name string) error {
 	return trace.NotFound("site %v not found", name)
 }
 
-func (s FakeReverseTunnel) Start() error {
+func (*FakeReverseTunnel) Start() error {
 	return nil
 }
 
-func (s FakeReverseTunnel) Close() error {
+func (*FakeReverseTunnel) Close() error {
 	return nil
 }
 
-func (s FakeReverseTunnel) Wait() {
-}
+func (*FakeReverseTunnel) Wait() {}
 
-func (s FakeReverseTunnel) Shutdown(context.Context) error {
+func (*FakeReverseTunnel) Shutdown(context.Context) error {
 	return nil
 }
 
