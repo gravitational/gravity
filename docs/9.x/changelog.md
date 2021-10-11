@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-beta.5  | No  | pre-release          | September 20, 2021   | Set upon release        | 1.21.5               | 3.2.17-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.6  | No  | pre-release          | October 11, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.5  | No  | pre-release          | October 5,2021       | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
@@ -55,6 +55,22 @@ extend updates past End of Support through customer agreements if required.
 ## 9.0 Releases
 
 9.0 is currently pre-release.
+
+### 9.0.0-beta.6 (October 11, 2021)
+
+#### Improvements
+
+* Allow encryption of Kubernetes secrets at rest ([#2658](https://github.com/gravitational/gravity/pull/2658), [planet#865](https://github.com/gravitational/planet/pull/865)).
+
+#### Bugfixes
+
+* Fix an issue with excessive CPU usage when using `gravity plan --tail` ([#2647](https://github.com/gravitational/gravity/pull/2647)).
+* Gravity will now retry upgrades on temporary failures ([#2651](https://github.com/gravitational/gravity/pull/2651)).
+
+#### Internal Changes
+
+* Serf deprecation mode. These changes allow a smooth transition during upgrades ([#2649](https://github.com/gravitational/gravity/pull/2649), [planet#864](https://github.com/gravitational/planet/pull/864), [satellite#303](https://github.com/gravitational/satellite/pull/303)).
+* And other minor code cleanup and build improvements.
 
 ### 9.0.0-beta.5 (September 20, 2021)
 
