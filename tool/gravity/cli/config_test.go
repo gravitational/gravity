@@ -48,6 +48,11 @@ spec:
     serviceCIDR: "100.200.0.0/16"
     podSubnetSize: "26"
     flannelBackend: "vxlan"
+    encryptionProvider:
+      aws:
+        accountID: "12345"
+        keyID: "12345"
+        region: us-east-1
     cloudConfig: |
       [global]
       node-tags=example-cluster
@@ -79,6 +84,14 @@ spec:
 				PodCIDR:        "100.96.0.0/16",
 				PodSubnetSize:  "26",
 				FlannelBackend: utils.StringPtr("vxlan"),
+				EncryptionProvider: &clusterconfig.EncryptionProvider{
+					Disabled: false,
+					AWS: &clusterconfig.AWSEncryptionProvider{
+						AccountID: "12345",
+						KeyID:     "12345",
+						Region:    "us-east-1",
+					},
+				},
 				CloudConfig: `[global]
 node-tags=example-cluster
 multizone="true"

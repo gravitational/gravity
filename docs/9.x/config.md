@@ -65,6 +65,18 @@ spec:
     # but the selected backend can be overridden if specified in the cluster configuration.
     # Supports values "vxlan", "aws-vpc", and "gce".
     flannelBackend: "vxlan"
+    # Enables Kubernetes resource encryption at rest.
+    # Rotating keys or disabling encryption requires manual configuration changes.
+    # See https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/ and
+    # https://github.com/kubernetes-sigs/aws-encryption-provider for more details.
+    encryptionProvider:
+      disabled: false
+      aws:
+        accountID: "1234567890"
+        keyID: "mrk-1234567890"
+        # region should be left unspecified when using a multi-region key. The region
+        # will be automatically selected from ec2 instance metadata.
+        region: "us-west-2"
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
       AllAlpha: true

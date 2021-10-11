@@ -98,6 +98,18 @@ func ClusterConfiguration(existing, update clusterconfig.Interface) error {
 		}
 	}
 
+	if newGlobalConfig.EncryptionProvider != nil && !newGlobalConfig.EncryptionProvider.Disabled {
+		if newGlobalConfig.EncryptionProvider.AWS == nil {
+			return trace.BadParameter("an encryption provider must be provided")
+		}
+		if newGlobalConfig.EncryptionProvider.AWS.AccountID == "" {
+			return trace.BadParameter("AWS account ID must provided for the encryption provider")
+		}
+		if newGlobalConfig.EncryptionProvider.AWS.KeyID == "" {
+			return trace.BadParameter("AWS KMS key ID must be provided for the encryption provider")
+		}
+	}
+
 	return nil
 }
 

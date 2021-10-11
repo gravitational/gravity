@@ -1448,6 +1448,14 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 		args = append(args,
 			fmt.Sprintf("--flannel-backend=%v", *globalConfig.FlannelBackend))
 	}
+	if ep := globalConfig.EncryptionProvider; ep != nil && !ep.Disabled {
+		if ep.AWS != nil {
+			args = append(args, "--encryption-provider=aws")
+			args = append(args, fmt.Sprintf("--aws-account-id=%v", ep.AWS.AccountID))
+			args = append(args, fmt.Sprintf("--aws-key-id=%v", ep.AWS.KeyID))
+			args = append(args, fmt.Sprintf("--aws-key-region=%v", ep.AWS.Region))
+		}
+	}
 	return args
 }
 
