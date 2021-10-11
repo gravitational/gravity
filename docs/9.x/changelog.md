@@ -70,7 +70,7 @@ extend updates past End of Support through customer agreements if required.
 #### Internal Changes
 
 * Serf deprecation mode. These changes allow a smooth transition during upgrades ([#2649](https://github.com/gravitational/gravity/pull/2649), [planet#864](https://github.com/gravitational/planet/pull/864), [satellite#303](https://github.com/gravitational/satellite/pull/303)).
-* Bump golangci-lint to 1.42.1 ([#2661](https://github.com/gravitational/gravity/pull/2661)).
+* And other minor code cleanup and build improvements.
 
 ### 9.0.0-beta.5 (September 20, 2021)
 
