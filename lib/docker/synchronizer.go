@@ -74,6 +74,7 @@ func (h *Synchronizer) Push(image, registryAddr string) error {
 		Registry:   registryAddr,
 		Repository: parsedImage.Repository,
 		Tag:        parsedImage.Tag,
+		Digest:     parsedImage.Digest,
 	}
 	if err = h.tagCmd(image, dstDockerImage); err != nil {
 		return trace.Wrap(err)
@@ -92,7 +93,7 @@ func (h *Synchronizer) Push(image, registryAddr string) error {
 func (h *Synchronizer) tagCmd(image string, tag loc.DockerImage) error {
 	opts := dockerapi.TagImageOptions{
 		Repo:  fmt.Sprintf("%v/%v", tag.Registry, tag.Repository),
-		Tag:   tag.Tag,
+		Tag:   tag.GetTag(),
 		Force: true,
 	}
 	h.log.Infof("Tagging %v with opts=%v.", image, opts)
@@ -102,7 +103,7 @@ func (h *Synchronizer) tagCmd(image string, tag loc.DockerImage) error {
 func (h *Synchronizer) pushCmd(image loc.DockerImage) error {
 	opts := dockerapi.PushImageOptions{
 		Name: fmt.Sprintf("%v/%v", image.Registry, image.Repository),
-		Tag:  image.Tag,
+		Tag:  image.GetTag(),
 	}
 	h.log.Infof("Pushing %v.", opts)
 	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
@@ -178,7 +179,7 @@ func (h *Synchronizer) checkImageInRegistry(ctx context.Context, image string, r
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
-	exists, err := h.ImageExists(ctx, reg.GetURL(), parsedImage.Repository, parsedImage.Tag)
+	exists, err := h.ImageExists(ctx, reg.GetURL(), parsedImage.Repository, parsedImage.GetTag())
 	if err != nil {
 		return false, trace.Wrap(err)
 	}

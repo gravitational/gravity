@@ -146,7 +146,7 @@ func tagImageWithoutRegistry(image string, docker docker.Interface, log log.Fiel
 
 	tagOpts := dockerapi.TagImageOptions{
 		Repo:  parsed.Repository,
-		Tag:   parsed.Tag,
+		Tag:   parsed.GetTag(),
 		Force: true,
 	}
 	log.Infof("Tagging image %q: %#v.", image, tagOpts)
