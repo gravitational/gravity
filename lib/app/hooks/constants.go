@@ -54,6 +54,9 @@ const (
 	// HelmPath is where helm binary gets mounted inside hook containers
 	HelmPath = "/usr/local/bin/helm"
 
+	// Helm3Path is where helm3 binary gets mounted inside hook containers
+	Helm3Path = "/usr/local/bin/helm3"
+
 	// HelmValuesFile is the name of the file with helm values
 	HelmValuesFile = "values.yaml"
 
@@ -65,6 +68,9 @@ const (
 
 	// VolumeHelmBin is the name of the volume with helm binary
 	VolumeHelmBin = "helm-bin"
+
+	// VolumeHelm3Bin is the name of the volume with helm3 binary
+	VolumeHelm3Bin = "helm-3-bin"
 
 	// VolumeHelm is the name of the volume with helm values file
 	VolumeHelm = "helm"
