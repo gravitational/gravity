@@ -108,6 +108,8 @@ func parseDigest(image string) string {
 	return parts[1]
 }
 
+// isRegistry returns true if the provided str string is a registry.
+// Ex: localhost.localdomain:5000, k8s.gcr.io, quay.io
 func isRegistry(str string) bool {
 	return strings.Contains(str, ".") ||
 		strings.Contains(str, ":") ||
