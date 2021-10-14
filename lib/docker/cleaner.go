@@ -192,7 +192,7 @@ func imagesToRepoIndex(images []string) (*repoIndex, error) {
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
-		index.ensureTagIndex(parsedImage.Repository).add(parsedImage.GetTag())
+		index.ensureTagIndex(parsedImage.Repository).add(parsedImage.Tag)
 	}
 	return index, nil
 }

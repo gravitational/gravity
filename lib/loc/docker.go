@@ -44,14 +44,6 @@ func (d *DockerImage) String() string {
 	return out
 }
 
-// GetTag returns the tag or digest if tag is unspecified.
-func (d *DockerImage) GetTag() string {
-	if d.Tag != "" {
-		return d.Tag
-	}
-	return d.Digest
-}
-
 func ParseDockerImage(image string) (*DockerImage, error) {
 	if image == "" {
 		return nil, trace.BadParameter("image name can not be empty")

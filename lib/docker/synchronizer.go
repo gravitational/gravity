@@ -30,6 +30,7 @@ import (
 	regclient "github.com/docker/distribution/registry/client"
 	dockerapi "github.com/fsouza/go-dockerclient"
 	"github.com/gravitational/trace"
+	digest "github.com/opencontainers/go-digest"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -74,7 +75,6 @@ func (h *Synchronizer) Push(image, registryAddr string) error {
 		Registry:   registryAddr,
 		Repository: parsedImage.Repository,
 		Tag:        parsedImage.Tag,
-		Digest:     parsedImage.Digest,
 	}
 	if err = h.tagCmd(image, dstDockerImage); err != nil {
 		return trace.Wrap(err)
@@ -93,7 +93,7 @@ func (h *Synchronizer) Push(image, registryAddr string) error {
 func (h *Synchronizer) tagCmd(image string, tag loc.DockerImage) error {
 	opts := dockerapi.TagImageOptions{
 		Repo:  fmt.Sprintf("%v/%v", tag.Registry, tag.Repository),
-		Tag:   tag.GetTag(),
+		Tag:   tag.Tag,
 		Force: true,
 	}
 	h.log.Infof("Tagging %v with opts=%v.", image, opts)
@@ -103,7 +103,7 @@ func (h *Synchronizer) tagCmd(image string, tag loc.DockerImage) error {
 func (h *Synchronizer) pushCmd(image loc.DockerImage) error {
 	opts := dockerapi.PushImageOptions{
 		Name: fmt.Sprintf("%v/%v", image.Registry, image.Repository),
-		Tag:  image.GetTag(),
+		Tag:  image.Tag,
 	}
 	h.log.Infof("Pushing %v.", opts)
 	// Workaround a registry issue after updating go-dockerclient, set the password field to an invalid value so the
@@ -115,8 +115,8 @@ func (h *Synchronizer) pushCmd(image loc.DockerImage) error {
 }
 
 // ImageExists checks if the image exists in the registry
-func (h *Synchronizer) ImageExists(ctx context.Context, registryURL, repository, tag string) (bool, error) {
-	refName, err := dockerref.WithName(repository)
+func (h *Synchronizer) ImageExists(ctx context.Context, registryURL string, img loc.DockerImage) (bool, error) {
+	refName, err := dockerref.WithName(img.Repository)
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
@@ -130,7 +130,7 @@ func (h *Synchronizer) ImageExists(ctx context.Context, registryURL, repository,
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
-	_, err = manifestService.Get(ctx, "", distribution.WithTag(tag))
+	_, err = manifestService.Get(ctx, digest.Digest(img.Digest), distribution.WithTag(img.Tag))
 	if err != nil {
 		if strings.Contains(err.Error(), "manifest unknown") {
 			return false, nil
@@ -179,9 +179,9 @@ func (h *Synchronizer) checkImageInRegistry(ctx context.Context, image string, r
 	if err != nil {
 		return false, trace.Wrap(err)
 	}
-	exists, err := h.ImageExists(ctx, reg.GetURL(), parsedImage.Repository, parsedImage.GetTag())
+	exists, err := h.ImageExists(ctx, reg.GetURL(), *parsedImage)
 	if err != nil {
-		return false, trace.Wrap(err)
+		return false, trace.Wrap(err, "image %s does not exist in registry %s", image, reg.GetURL())
 	}
 	return exists, nil
 }
