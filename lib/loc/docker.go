@@ -30,6 +30,8 @@ type DockerImage struct {
 	Digest     string `json:"digest"`
 }
 
+// String returns the string representation of the DockerImage.
+// Format: [Registry/]Repository[:Tag][@Digest]
 func (d *DockerImage) String() string {
 	out := d.Repository
 	if d.Registry != "" {
