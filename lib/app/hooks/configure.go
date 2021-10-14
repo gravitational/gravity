@@ -160,6 +160,14 @@ func configureVolumes(job *batchv1.Job, p Params) {
 			},
 		},
 		{
+			Name: VolumeHelm3Bin,
+			VolumeSource: v1.VolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: defaults.Helm3Bin,
+				},
+			},
+		},
+		{
 			Name: VolumeCerts,
 			VolumeSource: v1.VolumeSource{
 				HostPath: &v1.HostPathVolumeSource{
@@ -214,6 +222,10 @@ func configureVolumeMounts(job *batchv1.Job, p Params) {
 		{
 			Name:      VolumeHelmBin,
 			MountPath: HelmPath,
+		},
+		{
+			Name:      VolumeHelm3Bin,
+			MountPath: Helm3Path,
 		},
 		{
 			Name:      VolumeCerts,
