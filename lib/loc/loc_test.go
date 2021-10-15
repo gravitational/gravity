@@ -95,9 +95,12 @@ func (s *LocatorSuite) TestParseDockerImage(c *C) {
 	}{
 		{input: "", expected: DockerImage{Repository: "test"}, error: true},
 		{input: "test", expected: DockerImage{Repository: "test"}},
+		{input: "test/test:v0.0.1", expected: DockerImage{Repository: "test/test", Tag: "v0.0.1"}},
+		{input: "test/test@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", expected: DockerImage{Repository: "test/test", Digest: "sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"}},
 		{input: "apiserver:5000/test", expected: DockerImage{Registry: "apiserver:5000", Repository: "test"}},
 		{input: "apiserver:5000/test:v0.0.1", expected: DockerImage{Registry: "apiserver:5000", Repository: "test", Tag: "v0.0.1"}},
-		{input: "apiserver:5000/test@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", expected: DockerImage{Registry: "apiserver:5000", Repository: "test", Tag: "sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"}},
+		{input: "apiserver:5000/test@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", expected: DockerImage{Registry: "apiserver:5000", Repository: "test", Digest: "sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"}},
+		{input: "apiserver:5000/test/test:v0.0.1@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb", expected: DockerImage{Registry: "apiserver:5000", Repository: "test/test", Tag: "v0.0.1", Digest: "sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb"}},
 	}
 	for i, tc := range tcs {
 		comment := Commentf("test case %v", i+1)
