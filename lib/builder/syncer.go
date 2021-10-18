@@ -111,7 +111,7 @@ func (s *s3Syncer) Sync(ctx context.Context, engine *Engine, manifest *schema.Ma
 		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
-		OnConflict:  libapp.GetDependencyConflictHandler(false),
+		OnConflict:  libapp.OnConflictSkip,
 	}
 	return puller.PullAppDeps(ctx, libapp.Application{
 		Package:  manifest.Locator(),
@@ -148,7 +148,7 @@ func (s *PackSyncer) Sync(ctx context.Context, engine *Engine, manifest *schema.
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
 		FieldLogger: log,
-		OnConflict:  libapp.GetDependencyConflictHandler(false),
+		OnConflict:  libapp.OnConflictSkip,
 	}
 	err = puller.PullAppDeps(ctx, libapp.Application{
 		Package:  manifest.Locator(),

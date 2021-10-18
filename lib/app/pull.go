@@ -55,26 +55,27 @@ func (r Puller) PullApp(ctx context.Context, loc loc.Locator) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	r.OnConflict = GetDependencyConflictHandler(r.Upsert)
+	r.OnConflict = getDependencyConflictHandler(r.Upsert)
 	err = r.pull(ctx, *deps)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// Pull the application
-	r.OnConflict = GetConflictHandler(r.Upsert)
-	return r.pullAppWithRetries(ctx, app.Package)
+	r.OnConflict = getConflictHandler(r.Upsert)
+	return r.pullApp(ctx, app.Package)
 }
 
 // PullPackage pulls the package specified with loc
 func (r Puller) PullPackage(ctx context.Context, loc loc.Locator) error {
 	r.setDefaults()
-	return r.pullPackageWithRetries(ctx, loc)
+	return r.pullPackage(ctx, loc)
 }
 
-// PullAppPackage pulls the application package specified with loc
-func (r Puller) PullAppPackage(ctx context.Context, loc loc.Locator) error {
+// PullAppOnly pulls just the application package specified with loc.
+// No dependencies are pulled
+func (r Puller) PullAppOnly(ctx context.Context, loc loc.Locator) error {
 	r.setDefaults()
-	return r.pullAppWithRetries(ctx, loc)
+	return r.pullApp(ctx, loc)
 }
 
 // PullAppDeps pulls only dependencies of the specified application
@@ -107,7 +108,10 @@ func (r Puller) pull(ctx context.Context, deps Dependencies) error {
 func (r Puller) pullPackages(ctx context.Context, packages []pack.PackageEnvelope) error {
 	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
 	for _, env := range packages {
-		group.Go(ctx, r.pullPackageHandler(ctx, env.Locator))
+		env := env
+		group.Go(ctx, func() error {
+			return r.pullPackage(ctx, env.Locator)
+		})
 	}
 	return group.Wait()
 }
@@ -115,7 +119,10 @@ func (r Puller) pullPackages(ctx context.Context, packages []pack.PackageEnvelop
 func (r Puller) pullApps(ctx context.Context, apps []Application) error {
 	group, ctx := run.WithContext(ctx, run.WithParallel(r.Parallel))
 	for _, app := range apps {
-		group.Go(ctx, r.pullAppHandler(ctx, app.Package))
+		app := app
+		group.Go(ctx, func() error {
+			return r.pullApp(ctx, app.Package)
+		})
 	}
 	return group.Wait()
 }
@@ -155,22 +162,16 @@ func (r *Puller) setDefaults() {
 		r.FieldLogger = logrus.WithField(trace.Component, "pull")
 	}
 	if r.OnConflict == nil {
-		r.OnConflict = GetConflictHandler(r.Upsert)
+		r.OnConflict = getConflictHandler(r.Upsert)
 	}
 }
 
-func (r Puller) pullPackageHandler(ctx context.Context, loc loc.Locator) func() error {
-	return func() error {
-		return r.pullPackageWithRetries(ctx, loc)
-	}
-}
-
-func (r Puller) pullPackageWithRetries(ctx context.Context, loc loc.Locator) error {
+func (r Puller) pullPackage(ctx context.Context, loc loc.Locator) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
 
 	return utils.RetryWithInterval(ctx, backoff.NewConstantBackOff(defaults.RetryInterval), func() error {
-		err := r.pullPackage(loc)
+		err := r.pullPackageOnce(loc)
 		if err == nil {
 			return nil
 		}
@@ -190,8 +191,7 @@ func (r Puller) pullPackageWithRetries(ctx context.Context, loc loc.Locator) err
 	})
 }
 
-func (r Puller) pullPackage(loc loc.Locator) error {
-	logger := r.WithField("package", loc)
+func (r Puller) pullPackageOnce(loc loc.Locator) error {
 	_, err := r.DstPack.ReadPackageEnvelope(loc)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -205,7 +205,6 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 			return trace.Wrap(err)
 		}
 	}
-	logger.Info("Pull package.")
 	reader := ioutil.NopCloser(utils.NewNopReader())
 	var env *pack.PackageEnvelope
 	if r.MetadataOnly {
@@ -237,26 +236,21 @@ func (r Puller) pullPackage(loc loc.Locator) error {
 		_, err = r.DstPack.CreatePackage(
 			loc, reader, pack.WithLabels(labels))
 	}
+	r.WithField("package", loc).Debug("Pulled package.")
 	return trace.Wrap(err)
 }
 
-func (r Puller) pullAppHandler(ctx context.Context, loc loc.Locator) func() error {
-	return func() error {
-		return r.pullAppWithRetries(ctx, loc)
-	}
-}
-
-func (r Puller) pullAppWithRetries(ctx context.Context, loc loc.Locator) error {
+func (r Puller) pullApp(ctx context.Context, loc loc.Locator) error {
 	ctx, cancel := context.WithTimeout(ctx, defaults.TransientErrorTimeout)
 	defer cancel()
 	return utils.RetryTransient(ctx,
 		backoff.NewConstantBackOff(defaults.RetryInterval),
 		func() error {
-			return r.pullApp(loc)
+			return r.pullAppOnce(loc)
 		})
 }
 
-func (r Puller) pullApp(loc loc.Locator) error {
+func (r Puller) pullAppOnce(loc loc.Locator) error {
 	app, err := r.DstApp.GetApp(loc)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
@@ -267,7 +261,6 @@ func (r Puller) pullApp(loc loc.Locator) error {
 		// i.e. package that describes an application on a remote cluster
 		upsert = true
 	}
-	logger := r.WithField("app", loc)
 	if app != nil && !upsert {
 		err = r.OnConflict(loc)
 		if utils.IsAbortError(err) {
@@ -277,7 +270,6 @@ func (r Puller) pullApp(loc loc.Locator) error {
 			return trace.Wrap(err)
 		}
 	}
-	logger.Info("Pull application.")
 	var env *pack.PackageEnvelope
 	reader := ioutil.NopCloser(utils.NewNopReader())
 	if r.MetadataOnly {
@@ -306,42 +298,43 @@ func (r Puller) pullApp(loc loc.Locator) error {
 		_, err = r.DstApp.CreateAppWithManifest(
 			env.Locator, env.Manifest, reader, labels)
 	}
+	r.WithField("app", loc).Info("Pulled application.")
 	return trace.Wrap(err)
 }
 
-// GetDependencyConflictHandler returns the conflict handler that ignores package
+// getDependencyConflictHandler returns the conflict handler that ignores package
 // conflicts (subject to specified upsert flag)
-func GetDependencyConflictHandler(upsert bool) ConflictHandler {
+func getDependencyConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
-		return onConflictContinue
+		return OnConflictContinue
 	}
-	return onConflictSkip
+	return OnConflictSkip
 }
 
-// GetConflictHandler returns the conflict handler that fails for package
+// getConflictHandler returns the conflict handler that fails for package
 // conflicts (subject to specified upsert flag)
-func GetConflictHandler(upsert bool) ConflictHandler {
+func getConflictHandler(upsert bool) ConflictHandler {
 	if upsert {
-		return onConflictContinue
+		return OnConflictContinue
 	}
-	return onConflictAbort
+	return OnConflictAbort
 }
 
-// onConflictAbort is a conflict handler that aborts the pull operation
+// OnConflictAbort is a conflict handler that aborts the pull operation
 // with an error
-func onConflictAbort(loc loc.Locator) error {
+func OnConflictAbort(loc loc.Locator) error {
 	return trace.AlreadyExists("package %v already exists", loc)
 }
 
-// onConflictContinue is a conflict handler that continues the pull operation
+// OnConflictContinue is a conflict handler that continues the pull operation
 // if a package already exists in the destination package service
-func onConflictContinue(loc loc.Locator) error {
+func OnConflictContinue(loc loc.Locator) error {
 	return nil
 }
 
-// onConflictSkip is a conflict handler that aborts the pull operation
+// OnConflictSkip is a conflict handler that aborts the pull operation
 // w/o error
-func onConflictSkip(loc loc.Locator) error {
+func OnConflictSkip(loc loc.Locator) error {
 	return utils.Abort(nil)
 }
 

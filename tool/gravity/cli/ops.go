@@ -175,7 +175,7 @@ func uploadApplicationUpdate(ctx context.Context, puller libapp.Puller, syncer l
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = puller.PullAppPackage(ctx, app.Package)
+	err = puller.PullAppOnly(ctx, app.Package)
 	if err != nil {
 		return trace.Wrap(err)
 	}
