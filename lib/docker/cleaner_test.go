@@ -115,12 +115,12 @@ func (s *CleanerSuite) TestCleanRegistry(c *check.C) {
 	s.registry = newRegistry(s.registryDir, s.sync, c)
 
 	for _, image := range requiredImages {
-		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image.Repository, image.Tag)
+		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image)
 		c.Assert(err, check.IsNil)
 		c.Assert(exists, check.Equals, true)
 	}
 	for _, image := range expectedDeletedImages {
-		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image.Repository, image.Tag)
+		exists, err := s.sync.ImageExists(ctx, s.registry.info.GetURL(), image)
 		c.Assert(err, check.IsNil)
 		c.Assert(exists, check.Equals, false)
 	}
