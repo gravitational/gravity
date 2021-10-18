@@ -12,7 +12,7 @@ K8S_VER ?= 1.21.5
 K8S_VER_SUFFIX ?= $(shell printf "%d%02d%02d" $(shell echo $(K8S_VER) | sed "s/\./ /g"))
 PLANET_TAG ?= 9.0.10-$(K8S_VER_SUFFIX)
 # system applications
-INGRESS_APP_TAG ?= 0.0.1
+INGRESS_APP_TAG ?= 0.0.2
 STORAGE_APP_TAG ?= 0.0.4
 LOGGING_APP_TAG ?= 7.1.2
 MONITORING_APP_TAG ?= 7.1.4
