@@ -202,5 +202,6 @@ var certNames = []string{
 	constants.KubeletKeyPair,
 	constants.ProxyKeyPair,
 	constants.SchedulerKeyPair,
+	constants.ControllerManagerKeyPair,
 	constants.KubectlKeyPair,
 }

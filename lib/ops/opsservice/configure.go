@@ -597,11 +597,12 @@ func (s *site) getPlanetMasterSecretsPackage(ctx *operationContext, p planetMast
 	}
 
 	keyPairTypes := map[string]rbacConfig{
-		constants.APIServerKeyPair: {},
-		constants.ETCDKeyPair:      {},
-		constants.SchedulerKeyPair: {group: constants.ClusterAdminGroup},
-		constants.KubectlKeyPair:   {group: constants.ClusterAdminGroup},
-		constants.ProxyKeyPair:     {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
+		constants.APIServerKeyPair:         {},
+		constants.ETCDKeyPair:              {},
+		constants.SchedulerKeyPair:         {group: constants.ClusterAdminGroup},
+		constants.ControllerManagerKeyPair: {group: constants.ClusterAdminGroup},
+		constants.KubectlKeyPair:           {group: constants.ClusterAdminGroup},
+		constants.ProxyKeyPair:             {userName: constants.ClusterKubeProxyUser, group: constants.ClusterNodeGroup},
 		constants.KubeletKeyPair: {
 			userName: constants.ClusterNodeNamePrefix + ":" + p.master.KubeNodeID(),
 			group:    constants.ClusterNodeGroup,
