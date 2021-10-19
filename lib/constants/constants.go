@@ -263,6 +263,8 @@ const (
 	ProxyKeyPair = "proxy"
 	// SchedulerKeyPair is a name of the K8s scheduler client key pair
 	SchedulerKeyPair = "scheduler"
+	// ControllerManagerKeyPair is a name of the K8s controller-manager client key pair
+	ControllerManagerKeyPair = "controller-manager"
 	// KubectlKeyPair is a name of the kubectl client key pair
 	KubectlKeyPair = "kubectl"
 	// ETCDKeyPair is a name of the etcd key pair

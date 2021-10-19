@@ -273,3 +273,29 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: gravity:coredns
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: system:kube-controller-manager:auth-delegate
+subjects:
+- kind: User
+  name: system:kube-controller-manager
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: system:auth-delegator
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: system:kube-scheduler:auth-delegate
+subjects:
+- kind: User
+  name: system:kube-scheduler
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: system:auth-delegator
+  apiGroup: rbac.authorization.k8s.io
