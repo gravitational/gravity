@@ -1391,9 +1391,9 @@ var ServiceAddr = fmt.Sprintf("%%v.%%v%v", ServiceAddrSuffix)
 // BaseUpdateVersion sets the minimum version that this binary
 // can update.
 // TODO(dima): remove this once upgrade-via support has been fully merged.
-// It cannot be a known 7.x version since upgrading from that far back
+// It cannot be a known 7.0.x version since upgrading from that far back
 // without the upgrade-via support is not possible.
-var BaseUpdateVersion = semver.Must(semver.NewVersion("7.999.999"))
+var BaseUpdateVersion = semver.Must(semver.NewVersion("7.0.999"))
 
 // DockerRegistryAddr returns the address of docker registry running on server
 func DockerRegistryAddr(server string) string {
