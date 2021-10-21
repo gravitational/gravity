@@ -62,6 +62,10 @@ extend updates past End of Support through customer agreements if required.
 
 * Update ingress-nginx to v0.49.3 (CVE-2021-25742) ([#2667](https://github.com/gravitational/gravity/pull/2667), [ingress-app#2](https://github.com/gravitational/ingress-app/pull/2)).
 
+!!! warning
+    This release fixes a security vulnerability in ingress-nginx. Please see
+    [Kubernetes Announcement for CVE-2021-25742](https://groups.google.com/g/kubernetes-announce/c/6EZsyjpgRXk)
+
 #### Internal Changes
 
 * Update container image parsing implementation ([#2664](https://github.com/gravitational/gravity/pull/2664)).
