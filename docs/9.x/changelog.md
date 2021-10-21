@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.7  | No  | pre-release          | October 19, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.5  | No  | pre-release          | October 5,2021       | Set upon release        | 1.19.15              | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.6  | No  | pre-release          | October 21,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
@@ -183,6 +183,22 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.6 (October 21, 2021)
+
+#### Bugfixes
+
+* Update ingress-nginx to v0.49.3 (CVE-2021-25742) ([#2670](https://github.com/gravitational/gravity/pull/2670), [ingress-app#2](https://github.com/gravitational/ingress-app/pull/2)).
+
+#### Internal Changes
+
+* Update container image parsing implementation ([#2669](https://github.com/gravitational/gravity/pull/2669)).
+* Mount Helm3 to init containers ([#2668](https://github.com/gravitational/gravity/pull/2668)).
+* Generate TLS key pair for controller-manager ([#2666](https://github.com/gravitational/gravity/pull/2666), [planet#867](https://github.com/gravitational/planet/pull/867)).
+
+!!! warning
+    This release fixes a security vulnerability in ingress-nginx. Please see
+    [Kubernetes Announcement for CVE-2021-25742](https://groups.google.com/g/kubernetes-announce/c/6EZsyjpgRXk)
 
 ### 8.0.0-beta.5 (October 5, 2021)
 
