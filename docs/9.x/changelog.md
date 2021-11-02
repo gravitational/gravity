@@ -12,7 +12,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.7  | No  | pre-release          | October 19, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.6  | No  | pre-release          | October 21,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.7  | No  | pre-release          | November 2,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
@@ -183,6 +183,16 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.7 (November 2, 2021)
+
+#### Improvements
+
+* Scrape all servicemonitors by default ([#2674](https://github.com/gravitational/gravity/pull/2674), [monitoring-app#219](https://github.com/gravitational/monitoring-app/pull/219)).
+
+#### Bugfixes
+
+* Fix the metrics collection of scheduler and controller-manager ([#2674](https://github.com/gravitational/gravity/pull/2674), [monitoring-app#217](https://github.com/gravitational/monitoring-app/pull/217)).
 
 ### 8.0.0-beta.6 (October 21, 2021)
 
