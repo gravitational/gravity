@@ -218,6 +218,7 @@ func (s *PlanSuite) TestPlan(c *check.C) {
 		{EtcdBackupPhase, s.verifyEtcdBackupPhase},
 		{EtcdPhase, s.verifyEtcdPhase},
 		{installphases.WaitPhase, s.verifyWaitPhase},
+		{PushAppToRegistry, s.verifyPushToRegistry},
 		{StopAgentPhase, s.verifyStopAgentPhase},
 		{PostHookPhase, s.verifyPostHookPhase},
 		{ElectPhase, s.verifyElectPhase},
@@ -373,6 +374,17 @@ func (s PlanSuite) verifyEtcdPhase(c *check.C, phase storage.OperationPhase) {
 			Master:     &s.masterNode,
 		},
 		Requires: []string{SystemPhase, EtcdBackupPhase},
+	}, phase)
+}
+
+func (s PlanSuite) verifyPushToRegistry(c *check.C, phase storage.OperationPhase) {
+	storage.DeepComparePhases(c, storage.OperationPhase{
+		ID: PushAppToRegistry,
+		Data: &storage.OperationPhaseData{
+			Server:     &s.joiningNode,
+			ExecServer: &s.joiningNode,
+		},
+		Requires: []string{installphases.WaitPhase},
 	}, phase)
 }
 

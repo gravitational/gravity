@@ -253,6 +253,21 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddPushAppToRegistryPhase appends the phase to push current application
+// images to this node's registry to the plan
+func (b *planBuilder) AddPushAppToRegistryPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID: PushAppToRegistry,
+		Description: fmt.Sprintf("Push cluster application images to the local registry on the master node %v",
+			b.Master.AdvertiseIP),
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+		},
+		Requires: []string{installphases.WaitPhase},
+	})
+}
+
 // AddWaitPhase appends planet startup wait phase to the plan
 func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
