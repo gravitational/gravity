@@ -218,9 +218,7 @@ func taint(ctx context.Context, client corev1.NodeInterface, node string, add ad
 		taintsToRemove = append(taintsToRemove, taint)
 	}
 
-	err := retry(ctx, func() error {
-		return trace.Wrap(kubernetes.UpdateTaints(ctx, client, node, taintsToAdd, taintsToRemove))
-	})
+	err := kubernetes.UpdateTaints(ctx, client, node, taintsToAdd, taintsToRemove)
 	if err != nil {
 		if add {
 			return trace.Wrap(err, "failed to add taint %v to node %q", taint, node)
