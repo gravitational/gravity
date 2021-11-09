@@ -114,7 +114,7 @@ func (s *s3Syncer) Sync(engine *Engine, manifest schema.Manifest) error {
 	}
 	return puller.PullAppDeps(context.TODO(), app.Application{
 		Package:  manifest.Locator(),
-		Manifest: *manifest,
+		Manifest: manifest,
 	})
 }
 
@@ -151,7 +151,7 @@ func (s *packSyncer) Sync(engine *Engine, manifest schema.Manifest) error {
 	}
 	err = puller.PullAppDeps(context.TODO(), app.Application{
 		Package:  manifest.Locator(),
-		Manifest: *manifest,
+		Manifest: manifest,
 	})
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
