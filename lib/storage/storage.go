@@ -1091,6 +1091,14 @@ type SystemMetadata interface {
 	GetSELinux() (enabled bool, err error)
 	// SetSELinux sets SELinux support
 	SetSELinux(enabled bool) error
+	// GetNodeAddr returns the current node advertise IP
+	GetNodeAddr() (addr string, err error)
+	// SetNodeAddr sets current node advertise IP
+	SetNodeAddr(addr string) error
+	// GetServiceUser returns the current service user
+	GetServiceUser() (*OSUser, error)
+	// SetServiceUser sets current service user
+	SetServiceUser(OSUser) error
 }
 
 // DefaultDNSConfig defines the default cluster local DNS configuration

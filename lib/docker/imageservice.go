@@ -152,13 +152,13 @@ func NewImageService(req RegistryConnectionRequest) (ImageService, error) {
 
 // NewClusterImageService returns an in-cluster image service for the
 // specified registry address.
-func NewClusterImageService(registry string) (ImageService, error) {
+func NewClusterImageService(registryAddr string) (ImageService, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
 	return NewImageService(RegistryConnectionRequest{
-		RegistryAddress: registry,
+		RegistryAddress: registryAddr,
 		CertName:        defaults.DockerRegistry,
 		CACertPath:      state.Secret(stateDir, defaults.RegistryCAFilename),
 		ClientCertPath:  state.Secret(stateDir, defaults.RegistryCertFilename),

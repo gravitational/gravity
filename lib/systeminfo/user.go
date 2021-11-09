@@ -197,6 +197,15 @@ func DefaultServiceUser() *User {
 	}
 }
 
+// OSUser returns a new storage user from this user
+func (r User) OSUser() storage.OSUser {
+	return storage.OSUser{
+		Name: r.Name,
+		UID:  strconv.Itoa(r.UID),
+		GID:  strconv.Itoa(r.GID),
+	}
+}
+
 // UserFromOSUser returns a new user from the specified storage user
 func UserFromOSUser(user storage.OSUser) (*User, error) {
 	uid, err := strconv.Atoi(user.UID)

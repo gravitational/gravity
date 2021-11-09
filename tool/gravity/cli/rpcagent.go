@@ -126,7 +126,7 @@ func newAgent() (rpcserver.Server, error) {
 		return nil, trace.Wrap(err)
 	}
 
-	serverCreds, clientCreds, err := rpc.Credentials(secretsDir)
+	serverCreds, clientCreds, err := rpc.CredentialsFromDir(secretsDir)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -149,7 +149,7 @@ func newAgent() (rpcserver.Server, error) {
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	log.Infof("Starting RPC agent on %v.", listener.Addr().String())
+	log.WithField("addr", listener.Addr().String()).Info("Starting RPC agent.")
 
 	return server, nil
 }
