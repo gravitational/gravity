@@ -31,7 +31,6 @@ import (
 	"github.com/gravitational/gravity/lib/schema"
 	"github.com/gravitational/gravity/lib/utils"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/gravitational/trace"
 )
 
@@ -39,7 +38,7 @@ import (
 type Syncer interface {
 	// Sync makes sure that local cache has all required dependencies for the
 	// selected runtime
-	Sync(*Engine, *schema.Manifest, *semver.Version) error
+	Sync(*Engine, schema.Manifest) error
 }
 
 // NewSyncerFunc defines function that creates syncer for a builder
@@ -71,11 +70,11 @@ func newS3Syncer() (*s3Syncer, error) {
 
 // Sync makes sure that local cache has all required dependencies for the
 // selected runtime
-func (s *s3Syncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+func (s *s3Syncer) Sync(engine *Engine, manifest schema.Manifest) error {
 	tarball, err := s.hub.Get(loc.Locator{
 		Repository: defaults.SystemAccountOrg,
 		Name:       defaults.TelekubePackage,
-		Version:    runtimeVersion.String(),
+		Version:    manifest.Base().String(),
 	})
 	if err != nil {
 		return trace.Wrap(err)
@@ -136,7 +135,7 @@ func NewPackSyncer(pack pack.PackageService, apps app.Applications, repo string)
 }
 
 // Sync pulls dependencies from the package/app service not available locally
-func (s *packSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersion *semver.Version) error {
+func (s *packSyncer) Sync(engine *Engine, manifest schema.Manifest) error {
 	cacheApps, err := engine.Env.AppServiceLocal(localenv.AppConfig{})
 	if err != nil {
 		return trace.Wrap(err)
