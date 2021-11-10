@@ -24,10 +24,10 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
+	installphases "github.com/gravitational/gravity/lib/install/phases"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 
 	"github.com/sirupsen/logrus"
@@ -37,7 +37,7 @@ import (
 // into the local node's registry
 func NewExport(ctx context.Context, p fsm.ExecutorParams, operator ops.Operator,
 	clusterPackages, localPackages pack.PackageService,
-	clusterApps, localApps libapp.Applications,
+	clusterApps, localApps libapp.Applications, remote fsm.Remote,
 ) (fsm.PhaseExecutor, error) {
 	logger := &fsm.Logger{
 		FieldLogger: logrus.WithFields(logrus.Fields{
@@ -50,8 +50,13 @@ func NewExport(ctx context.Context, p fsm.ExecutorParams, operator ops.Operator,
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
+	exec, err := installphases.NewExport(p, operator, localPackages, localApps, remote)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	return &exportExecutor{
 		FieldLogger:     logger,
+		exec:            exec,
 		clusterPackages: clusterPackages,
 		clusterApps:     clusterApps,
 		localPackages:   localPackages,
@@ -64,7 +69,6 @@ func NewExport(ctx context.Context, p fsm.ExecutorParams, operator ops.Operator,
 func (p *exportExecutor) Execute(ctx context.Context) error {
 	ctx, cancel := defaults.WithTimeout(ctx)
 	defer cancel()
-
 	_, err := appservice.PullApp(appservice.AppPullRequest{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.clusterPackages,
@@ -72,19 +76,12 @@ func (p *exportExecutor) Execute(ctx context.Context) error {
 		SrcApp:      p.clusterApps,
 		DstApp:      p.localApps,
 		Package:     p.clusterApp,
+		Upsert:      true,
 	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	err = utils.RetryTransient(ctx, utils.NewUnlimitedExponentialBackOff(), func() error {
-		return p.localApps.ExportApp(libapp.ExportAppRequest{
-			Package:         p.clusterApp,
-			RegistryAddress: defaults.LocalRegistryAddr,
-			CertName:        defaults.DockerRegistry,
-		})
-	})
-	if err != nil {
+	if err := p.exec.Execute(ctx); err != nil {
 		return trace.Wrap(err)
 	}
 	return p.localPackages.DeletePackage(p.clusterApp)
@@ -102,9 +99,10 @@ func (*exportExecutor) Rollback(ctx context.Context) error { return nil }
 type exportExecutor struct {
 	logrus.FieldLogger
 
+	exec            *installphases.ExportExecutor
 	clusterPackages pack.PackageService
 	clusterApps     libapp.Applications
 	localPackages   pack.PackageService
-	localApps       libapp.Applications
 	clusterApp      loc.Locator
+	localApps       libapp.Applications
 }

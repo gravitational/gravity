@@ -37,9 +37,16 @@ import (
 // Printer describes a capability to output to standard output
 type Printer interface {
 	io.Writer
+	StepPrinter
+
 	Printf(format string, args ...interface{})
 	Print(args ...interface{})
 	Println(args ...interface{})
+}
+
+// StepPrinter provides step by step progress
+type StepPrinter interface {
+	// PrintStep outputs the specified step progress
 	PrintStep(format string, args ...interface{})
 }
 
@@ -90,6 +97,8 @@ type entry struct {
 
 // Progress is a progress reporter
 type Progress interface {
+	StepPrinter
+
 	// UpdateCurrentStep updates message printed for current step that is in progress
 	UpdateCurrentStep(message string, args ...interface{})
 	// NextStep prints information about next step. It also prints
@@ -163,7 +172,7 @@ func (r *ProgressConfig) setDefaults() {
 		r.Output = &consoleOutput{}
 	}
 	if r.StepPrinter == nil {
-		r.StepPrinter = DefaultStepPrinter
+		r.StepPrinter = defaultStepPrinter
 	}
 }
 
@@ -181,7 +190,7 @@ type ProgressConfig struct {
 	// Level defines the reporting level.
 	Level ProgressLevel
 	// StepPrinter allows to override printer that prints a single step.
-	StepPrinter StepPrinter
+	StepPrinter stepPrinterFunc
 }
 
 // ProgressLevel represents a level at which reporter reports progress.
@@ -209,7 +218,15 @@ type progressPrinter struct {
 	context      context.Context
 	start        time.Time
 	level        ProgressLevel
-	printStep    StepPrinter
+	printStep    stepPrinterFunc
+}
+
+// PrintStep updates message printed for current step that is in progress.
+// This is equivalent to PrintCurrentStep.
+// Implements StepPrinter
+func (p *progressPrinter) PrintStep(message string, args ...interface{}) {
+	entry := p.updateCurrentEntry(message, args...)
+	p.printStep(p.w, entry.current, p.steps, entry.message)
 }
 
 // PrintCurrentStep updates message printed for current step that is in progress
@@ -361,11 +378,11 @@ func (p *progressPrinter) Stop() {
 	p.currentEntry = nil
 }
 
-// StepPrinter prints a single step message.
-type StepPrinter func(out io.Writer, current, target int, message string)
+// stepPrinterFunc prints a single step message.
+type stepPrinterFunc func(out io.Writer, current, target int, message string)
 
-// DefaultStepPrinter outputs the message to out as it is.
-func DefaultStepPrinter(out io.Writer, current, target int, message string) {
+// defaultStepPrinter outputs the message to out as it is.
+func defaultStepPrinter(out io.Writer, current, target int, message string) {
 	if target > 0 {
 		fmt.Fprintf(out, "* [%v/%v] %v\n", current, target, message)
 	} else {
@@ -397,6 +414,9 @@ func (*nopProgress) Stop() {}
 
 // PrintCurrentStep updates and prints current step
 func (*nopProgress) PrintCurrentStep(message string, args ...interface{}) {}
+
+// PrintStep updates and prints current step
+func (*nopProgress) PrintStep(message string, args ...interface{}) {}
 
 // PrintSubStep outputs the message as a sub-step of the current step
 func (*nopProgress) PrintSubStep(message string, args ...interface{}) {}

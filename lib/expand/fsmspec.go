@@ -99,7 +99,8 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Packages,
 				config.LocalPackages,
 				config.Apps,
-				config.LocalApps)
+				config.LocalApps,
+				remote)
 
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,
@@ -150,9 +151,6 @@ const (
 	WaitPlanetPhase = "/wait/planet"
 	// WaitK8sPhase waits for joining node to register with Kubernetes
 	WaitK8sPhase = "/wait/k8s"
-	// PushAppToRegistry pushes the current application images to the local
-	// registry
-	PushAppToRegistry = "/pushToRegistry"
 	// WaitTeleportPhase waits for Teleport on the joining node to join the cluster
 	WaitTeleportPhase = "/wait/teleport"
 	// PostHookPhase runs post-expand application hook

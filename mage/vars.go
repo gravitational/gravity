@@ -291,7 +291,7 @@ func buildFlags() []string {
 }
 
 func importEnvFromMakefile() (env map[string]string) {
-	cmd := exec.Command("make", "-f", "Makefile.buildx", "magnet-vars")
+	cmd := exec.Command("make", "--quiet", "-f", "Makefile.buildx", "magnet-vars")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		panic(fmt.Sprint("failed to import environ from makefile:", err))

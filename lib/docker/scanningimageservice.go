@@ -62,7 +62,7 @@ type scanningImageService struct {
 // image tag rewritten to help identify the image.
 // Example of gravity 7.0.0:
 //   quay.io/gravitational/debian-tall:0.0.1 -> quay.io/gravitational/gravity-scan:7.0.0_gravitational_debian-tall_0.0.1
-func (r *scanningImageService) Sync(ctx context.Context, dir string, progress utils.Printer) (installedTags []TagSpec, err error) {
+func (r *scanningImageService) Sync(ctx context.Context, dir string, progress utils.StepPrinter) (installedTags []TagSpec, err error) {
 	if err = r.connect(ctx); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -120,7 +120,7 @@ func (r *scanningImageService) Sync(ctx context.Context, dir string, progress ut
 				return nil, trace.Wrap(err)
 			}
 
-			progress.Printf("Pushing image %s:%s -> %s\n", localRepoName, tag, tagSpec)
+			progress.PrintStep("Pushing image %s:%s -> %s", localRepoName, tag, tagSpec)
 			if r.remoteStore.tokenHandler != nil {
 				r.remoteStore.tokenHandler.AddScope(registryauth.RepositoryScope{
 					Repository: tagSpec.Name,
