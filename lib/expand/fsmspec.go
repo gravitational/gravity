@@ -93,10 +93,13 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.Runner)
 
-		case strings.HasPrefix(p.Phase.ID, PushAppToRegistry):
-			return phases.NewPushAppToRegistry(context.TODO(), p,
+		case p.Phase.ID == installphases.ExportPhase:
+			return phases.NewExport(context.TODO(), p,
 				config.Operator,
-				config.Apps)
+				config.Packages,
+				config.LocalPackages,
+				config.Apps,
+				config.LocalApps)
 
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,

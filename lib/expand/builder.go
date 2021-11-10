@@ -253,16 +253,17 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 	})
 }
 
-// AddPushAppToRegistryPhase appends the phase to push current application
+// AddExportPhase appends the phase to push current application
 // images to this node's registry to the plan
-func (b *planBuilder) AddPushAppToRegistryPhase(plan *storage.OperationPlan) {
+func (b *planBuilder) AddExportPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
-		ID: PushAppToRegistry,
-		Description: fmt.Sprintf("Push cluster application images to the local registry on the master node %v",
-			b.Master.AdvertiseIP),
+		ID: installphases.ExportPhase,
+		Description: fmt.Sprintf("Populate Docker registry on master node %v",
+			b.JoiningNode.AdvertiseIP),
 		Data: &storage.OperationPhaseData{
 			Server:     &b.JoiningNode,
 			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
 		},
 		Requires: []string{installphases.WaitPhase},
 	})

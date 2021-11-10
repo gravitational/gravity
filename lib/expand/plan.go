@@ -109,7 +109,7 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	builder.AddWaitPhase(plan)
 
 	if builder.JoiningNode.IsMaster() {
-		builder.AddPushAppToRegistryPhase(plan)
+		builder.AddExportPhase(plan)
 		// RPC agent started in the beginning is no longer needed so shut it down
 		builder.AddStopAgentPhase(plan)
 	}
