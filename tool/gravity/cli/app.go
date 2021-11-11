@@ -333,18 +333,17 @@ func pullApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.AppPullRequest{
+	puller := appservice.Puller{
 		SrcPack:  remotePackages,
 		DstPack:  env.Packages,
 		SrcApp:   remoteApps,
 		DstApp:   localApps,
-		Package:  appPackage,
 		Labels:   labels,
 		Progress: env.Reporter,
 		Upsert:   force,
 	}
-
-	if _, err = service.PullApp(req); err != nil {
+	err = puller.PullApp(context.TODO(), appPackage)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 
@@ -375,16 +374,15 @@ func pushApp(env *localenv.LocalEnvironment, appPackage loc.Locator, portalURL s
 		return trace.Wrap(err)
 	}
 
-	req := service.AppPullRequest{
+	puller := appservice.Puller{
 		SrcPack:  env.Packages,
 		DstPack:  remotePackages,
 		SrcApp:   localApps,
 		DstApp:   remoteApps,
-		Package:  appPackage,
 		Progress: env.Reporter,
 	}
-
-	if _, err = service.PullApp(req); err != nil {
+	err = puller.PullApp(context.TODO(), appPackage)
+	if err != nil {
 		return trace.Wrap(err)
 	}
 

@@ -17,11 +17,11 @@ limitations under the License.
 package builder
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/archive"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/hub"
@@ -104,14 +104,19 @@ func (s *s3Syncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersio
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return service.PullAppDeps(service.AppPullRequest{
+	puller := app.Puller{
 		FieldLogger: log,
 		SrcPack:     env.Packages,
 		SrcApp:      tarballApps,
 		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
-	}, *manifest)
+		OnConflict:  app.OnConflictSkip,
+	}
+	return puller.PullAppDeps(context.TODO(), app.Application{
+		Package:  manifest.Locator(),
+		Manifest: *manifest,
+	})
 }
 
 // packSyncer synchronizes local package cache with pack/apps services
@@ -136,14 +141,19 @@ func (s *packSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVers
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = service.PullAppDeps(service.AppPullRequest{
+	puller := app.Puller{
 		SrcPack:     s.pack,
 		SrcApp:      s.apps,
 		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
 		FieldLogger: log,
-	}, *manifest)
+		OnConflict:  app.OnConflictSkip,
+	}
+	err = puller.PullAppDeps(context.TODO(), app.Application{
+		Package:  manifest.Locator(),
+		Manifest: *manifest,
+	})
 	if err != nil {
 		if utils.IsNetworkError(err) || trace.IsEOF(err) {
 			return trace.ConnectionProblem(err, "failed to download "+

@@ -191,7 +191,7 @@ func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *sem
 	}
 	// see if all required packages/apps are already present in the local cache
 	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
-	err = app.VerifyDependencies(&app.Application{
+	err = app.VerifyDependencies(app.Application{
 		Manifest: *manifest,
 		Package:  manifest.Locator(),
 	}, apps, b.Env.Packages)

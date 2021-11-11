@@ -530,6 +530,9 @@ func (r *applications) GetApp(locator loc.Locator) (*appservice.Application, err
 
 	envelope, err := r.Packages.ReadPackageEnvelope(locator)
 	if err != nil {
+		if trace.IsNotFound(err) {
+			return nil, trace.NotFound("application package %v not found", locator)
+		}
 		return nil, trace.Wrap(err)
 	}
 

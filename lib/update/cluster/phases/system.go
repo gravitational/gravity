@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
@@ -59,7 +59,7 @@ type updatePhaseSystem struct {
 	seLinux bool
 }
 
-// NewUpdatePhaseNode returns a new node update phase executor
+// NewUpdatePhaseSystem returns a new node update phase executor
 func NewUpdatePhaseSystem(
 	p fsm.ExecutorParams,
 	remote fsm.Remote,
@@ -239,7 +239,9 @@ func NewUpdatePhaseConfig(
 // Execute pulls rotated teleport master config package to the local package store
 func (p *updatePhaseConfig) Execute(ctx context.Context) error {
 	b := utils.NewExponentialBackOff(5 * time.Minute)
-	err := utils.RetryTransient(ctx, b, p.pullUpdates)
+	err := utils.RetryTransient(ctx, b, func() error {
+		return p.pullUpdates(ctx)
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -283,7 +285,7 @@ func (p *updatePhaseConfig) PostCheck(context.Context) error {
 	return nil
 }
 
-func (p *updatePhaseConfig) pullUpdates() error {
+func (p *updatePhaseConfig) pullUpdates(ctx context.Context) error {
 	update, err := pack.FindLatestPackageWithLabels(
 		p.Packages, p.Plan.ClusterName, map[string]string{
 			pack.AdvertiseIPLabel: p.Phase.Data.Server.AdvertiseIP,
@@ -298,11 +300,11 @@ func (p *updatePhaseConfig) pullUpdates() error {
 		return nil
 	}
 	p.Infof("Pulling teleport master config update: %v.", update)
-	_, err = service.PullPackage(service.PackagePullRequest{
+	puller := libapp.Puller{
 		SrcPack: p.Packages,
 		DstPack: p.LocalPackages,
-		Package: *update,
 		Upsert:  true,
-	})
+	}
+	err = puller.PullPackage(ctx, *update)
 	return trace.Wrap(err)
 }

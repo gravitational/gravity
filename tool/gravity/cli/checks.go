@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/checks"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -169,12 +169,12 @@ func uploadGravity(ctx context.Context, env *localenv.LocalEnvironment, manifest
 	}
 	env.PrintStep("Uploading package %v:%v to the local cluster",
 		gravityPackage.Name, gravityPackage.Version)
-	_, err = service.PullPackage(service.PackagePullRequest{
+	puller := &libapp.Puller{
 		SrcPack: src,
 		DstPack: dst,
 		Upsert:  true,
-		Package: *gravityPackage,
-	})
+	}
+	err = puller.PullPackage(ctx, *gravityPackage)
 	if err != nil {
 		return trace.Wrap(err)
 	}
