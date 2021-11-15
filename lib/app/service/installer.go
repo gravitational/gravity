@@ -50,7 +50,6 @@ func (r *applications) getApplicationInstaller(
 	app *appservice.Application,
 	apps *applications,
 ) ([]*archive.Item, error) {
-	apps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	err := pullApplications([]appservice.Application{*app}, apps, r, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -253,7 +252,6 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 
 	apps := dependencies.Apps
 	apps = append(apps, *app)
-	localApps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
@@ -300,7 +298,7 @@ func pullApplications(apps []appservice.Application, localApps *applications, re
 		}
 
 		message := "Dependency %v purged from manifest"
-		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), localApps.Config.ExcludeDeps, message))
+		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), appservice.AppsToExclude(*m), message))
 		manifestBytes, err := yaml.Marshal(m)
 		if err != nil {
 			return trace.Wrap(err)

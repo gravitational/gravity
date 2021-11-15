@@ -20,7 +20,6 @@ import (
 	"context"
 
 	libapp "github.com/gravitational/gravity/lib/app"
-	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -69,15 +68,16 @@ func NewExport(ctx context.Context, p fsm.ExecutorParams, operator ops.Operator,
 func (p *exportExecutor) Execute(ctx context.Context) error {
 	ctx, cancel := defaults.WithTimeout(ctx)
 	defer cancel()
-	_, err := appservice.PullApp(appservice.AppPullRequest{
+	puller := libapp.Puller{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.clusterPackages,
 		DstPack:     p.localPackages,
 		SrcApp:      p.clusterApps,
 		DstApp:      p.localApps,
-		Package:     p.clusterApp,
-		Upsert:      true,
-	})
+		// Do not pull over existing packages
+		OnConflict: libapp.OnConflictContinue,
+	}
+	err := puller.PullApp(ctx, p.clusterApp)
 	if err != nil {
 		return trace.Wrap(err)
 	}

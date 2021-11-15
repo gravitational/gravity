@@ -443,7 +443,6 @@ func (env *LocalEnvironment) AppServiceLocal(config AppConfig) (service appbase.
 		ImageService: imageService,
 		StateDir:     filepath.Join(env.StateDir, "import"),
 		UnpackedDir:  filepath.Join(env.StateDir, defaults.PackagesDir, defaults.UnpackedDir),
-		ExcludeDeps:  config.ExcludeDeps,
 		GetClient:    env.getKubeClient,
 	})
 }
