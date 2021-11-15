@@ -192,7 +192,7 @@ func (r Puller) pullPackage(ctx context.Context, loc loc.Locator) error {
 }
 
 func (r Puller) pullPackageOnce(loc loc.Locator) error {
-	_, err := r.DstPack.ReadPackageEnvelope(loc)
+	existingEnv, err := r.DstPack.ReadPackageEnvelope(loc)
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
@@ -228,13 +228,17 @@ func (r Puller) pullPackageOnce(loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 
-	labels := utils.CombineLabels(env.RuntimeLabels, r.Labels)
 	if r.Upsert {
+		var existingLabels map[string]string
+		if existingEnv != nil {
+			existingLabels = existingEnv.RuntimeLabels
+		}
 		_, err = r.DstPack.UpsertPackage(
-			loc, reader, pack.WithLabels(labels))
+			loc, reader, pack.WithLabels(utils.CombineLabels(
+				env.RuntimeLabels, r.Labels, existingLabels)))
 	} else {
 		_, err = r.DstPack.CreatePackage(
-			loc, reader, pack.WithLabels(labels))
+			loc, reader, pack.WithLabels(r.Labels))
 	}
 	r.WithField("package", loc).Debug("Pulled package.")
 	return trace.Wrap(err)
