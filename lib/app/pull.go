@@ -228,6 +228,7 @@ func (r Puller) pullPackageOnce(loc loc.Locator) error {
 		return trace.Wrap(err)
 	}
 
+	labels := utils.CombineLabels(env.RuntimeLabels, r.Labels)
 	if r.Upsert {
 		var existingLabels map[string]string
 		if existingEnv != nil {
@@ -235,10 +236,10 @@ func (r Puller) pullPackageOnce(loc loc.Locator) error {
 		}
 		_, err = r.DstPack.UpsertPackage(
 			loc, reader, pack.WithLabels(utils.CombineLabels(
-				env.RuntimeLabels, r.Labels, existingLabels)))
+				labels, existingLabels)))
 	} else {
 		_, err = r.DstPack.CreatePackage(
-			loc, reader, pack.WithLabels(r.Labels))
+			loc, reader, pack.WithLabels(labels))
 	}
 	r.WithField("package", loc).Debug("Pulled package.")
 	return trace.Wrap(err)
