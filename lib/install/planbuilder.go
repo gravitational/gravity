@@ -162,7 +162,7 @@ func (b *PlanBuilder) AddConfigurePhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.ConfigurePhase,
 		Description: "Configure packages for all nodes",
-		Requires:    fsm.RequireIfPresent(plan, phases.InstallerPhase, phases.DecryptPhase),
+		Requires:    fsm.RequireIfPresent(*plan, phases.InstallerPhase, phases.DecryptPhase),
 		Data: &storage.OperationPhaseData{
 			Install: &storage.InstallOperationData{
 				Env:    b.env,
@@ -234,7 +234,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) error {
 				ServiceUser: &b.ServiceUser,
 				Pull:        pullData,
 			},
-			Requires: fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
+			Requires: fsm.RequireIfPresent(*plan, phases.ConfigurePhase, phases.BootstrapPhase),
 			Step:     3,
 		})
 	}
@@ -242,7 +242,7 @@ func (b *PlanBuilder) AddPullPhase(plan *storage.OperationPlan) error {
 		ID:            phases.PullPhase,
 		Description:   "Pull configured packages",
 		Phases:        pullPhases,
-		Requires:      fsm.RequireIfPresent(plan, phases.ConfigurePhase, phases.BootstrapPhase),
+		Requires:      fsm.RequireIfPresent(*plan, phases.ConfigurePhase, phases.BootstrapPhase),
 		LimitParallel: NumParallel,
 		Step:          3,
 	})
@@ -393,7 +393,7 @@ func (b *PlanBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.WaitPhase,
 		Description: "Wait for Kubernetes to become available",
-		Requires:    fsm.RequireIfPresent(plan, phases.MastersPhase, phases.NodesPhase),
+		Requires:    fsm.RequireIfPresent(*plan, phases.MastersPhase, phases.NodesPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 		},
@@ -406,7 +406,7 @@ func (b *PlanBuilder) AddHealthPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{
 		ID:          phases.HealthPhase,
 		Description: "Wait for cluster to pass health checks",
-		Requires:    fsm.RequireIfPresent(plan, phases.InstallOverlayPhase, phases.ExportPhase),
+		Requires:    fsm.RequireIfPresent(*plan, phases.InstallOverlayPhase, phases.ExportPhase),
 		Data: &storage.OperationPhaseData{
 			Server: &b.Master,
 		},
@@ -514,7 +514,7 @@ func (b *PlanBuilder) AddInstallOverlayPhase(plan *storage.OperationPlan, locato
 			Package:     locator,
 			ServiceUser: &b.ServiceUser,
 		},
-		Requires: fsm.RequireIfPresent(plan, phases.ExportPhase),
+		Requires: fsm.RequireIfPresent(*plan, phases.ExportPhase),
 		Step:     4,
 	})
 }

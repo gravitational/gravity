@@ -162,8 +162,7 @@ func copySite(site *storage.Site, dst storage.Backend, src ExportBackend, cluste
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		fsm.MarkCompleted(plan)
-		_, err = dst.CreateOperationPlan(*plan)
+		_, err = dst.CreateOperationPlan(fsm.MarkCompleted(*plan))
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

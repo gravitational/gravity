@@ -60,7 +60,7 @@ func (s *FSMUtilsSuite) TestGetPlanProgress(c *check.C) {
 		s.planner.bootstrapPhase(
 			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateUnstarted)),
 		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
-	c.Assert(GetPlanProgress(*plan), compare.DeepEquals, []storage.PlanChange(nil))
+	c.Assert(GetPlanProgress(plan), compare.DeepEquals, []storage.PlanChange(nil))
 
 	plan = s.planner.newPlan(
 		s.planner.initPhase(storage.OperationPhaseStateCompleted),
@@ -68,7 +68,7 @@ func (s *FSMUtilsSuite) TestGetPlanProgress(c *check.C) {
 			s.planner.bootstrapSubPhase("node-1", storage.OperationPhaseStateCompleted),
 			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateFailed)),
 		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
-	c.Assert(GetPlanProgress(*plan), compare.DeepEquals, []storage.PlanChange{
+	c.Assert(GetPlanProgress(plan), compare.DeepEquals, []storage.PlanChange{
 		{
 			PhaseID:    "/init",
 			PhaseIndex: 0,
@@ -102,7 +102,7 @@ func (s *FSMUtilsSuite) TestDiffPlan(c *check.C) {
 			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateFailed)),
 		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
 
-	diff, err := DiffPlan(prevPlan, *nextPlan)
+	diff, err := diffPlan(&prevPlan, nextPlan)
 	c.Assert(err, check.IsNil)
 	c.Assert(diff, compare.DeepEquals, []storage.PlanChange{
 		{
@@ -131,7 +131,7 @@ func (s *FSMUtilsSuite) TestDiffPlanNoPrevious(c *check.C) {
 			s.planner.bootstrapSubPhase("node-2", storage.OperationPhaseStateFailed)),
 		s.planner.upgradePhase(storage.OperationPhaseStateUnstarted))
 
-	diff, err := DiffPlan(nil, *nextPlan)
+	diff, err := diffPlan(nil, nextPlan)
 	c.Assert(err, check.IsNil)
 	c.Assert(diff, compare.DeepEquals, []storage.PlanChange{
 		{
@@ -180,7 +180,7 @@ func (s *FSMUtilsSuite) TestNonLeafRollback(c *check.C) {
 		}
 		plan := &storage.OperationPlan{Phases: phases}
 
-		err := CanRollback(plan, tc.rollbackID)
+		err := CanRollback(*plan, tc.rollbackID)
 		c.Assert(trace.UserMessage(err), check.Equals, tc.expected, comment)
 	}
 
@@ -400,9 +400,59 @@ func (s *FSMUtilsSuite) TestCanRollback(c *check.C) {
 		}
 		plan := &storage.OperationPlan{Phases: phases}
 
-		err := CanRollback(plan, tc.rollbackID)
+		err := CanRollback(*plan, tc.rollbackID)
 		c.Assert(trace.UserMessage(err), check.Equals, tc.expected, comment)
 	}
+}
+
+func (s *FSMUtilsSuite) TestMarksPlanAsCompleted(c *check.C) {
+	// setup
+	builder := []*phaseBuilder{
+		s.phaseBuilder("/non-leaf").
+			withSubphases(
+				s.phaseBuilder("/leaf").withState(storage.OperationPhaseStateInProgress),
+			),
+		s.phaseBuilder("/non-leaf-2").
+			withSubphases(
+				s.phaseBuilder("/leaf").withState(storage.OperationPhaseStateInProgress),
+				s.phaseBuilder("/leaf-2").withState(storage.OperationPhaseStateInProgress),
+			),
+	}
+	phases := make([]storage.OperationPhase, 0, len(builder))
+	for _, phase := range builder {
+		phases = append(phases, phase.build())
+	}
+	plan := storage.OperationPlan{Phases: phases}
+	// exercise
+	completedPlan := MarkCompleted(plan)
+	if IsCompleted(plan) {
+		c.Error("Expected the original plan not to be completed.")
+	}
+	if !IsCompleted(completedPlan) {
+		c.Error("Expected the resulting plan to be completed.")
+	}
+}
+
+func (s *FSMUtilsSuite) TestComputesNumberOfPhasesInPlan(c *check.C) {
+	// setup
+	builder := []*phaseBuilder{
+		s.phaseBuilder("/non-leaf").
+			withSubphases(
+				s.phaseBuilder("/leaf").withState(storage.OperationPhaseStateInProgress),
+			),
+		s.phaseBuilder("/non-leaf-2").
+			withSubphases(
+				s.phaseBuilder("/leaf").withState(storage.OperationPhaseStateInProgress),
+				s.phaseBuilder("/leaf-2").withState(storage.OperationPhaseStateInProgress),
+			),
+	}
+	phases := make([]storage.OperationPhase, 0, len(builder))
+	for _, phase := range builder {
+		phases = append(phases, phase.build())
+	}
+	plan := storage.OperationPlan{Phases: phases}
+	// exercise
+	c.Assert(GetNumPhases(plan), check.Equals, 5)
 }
 
 // phaseBuilder returns a new phaseBuilder.

@@ -204,7 +204,7 @@ func (f *engine) Complete(ctx context.Context, fsmErr error) error {
 	}
 
 	stateSetter := fsm.OperationStateSetter(opKey, f.Operator, f.LocalBackend)
-	completed := fsm.IsCompleted(plan)
+	completed := fsm.IsCompleted(*plan)
 	if completed {
 		err = ops.CompleteOperation(ctx, opKey, stateSetter)
 	} else {
@@ -225,7 +225,7 @@ func (f *engine) Complete(ctx context.Context, fsmErr error) error {
 		}
 	}
 
-	if completed || fsm.IsRolledBack(plan) {
+	if completed || fsm.IsRolledBack(*plan) {
 		if err := f.activateCluster(*cluster); err != nil {
 			return trace.Wrap(err)
 		}

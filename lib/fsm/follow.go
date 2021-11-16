@@ -18,9 +18,11 @@ package fsm
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/trace"
 
 	"github.com/cenkalti/backoff"
 	"github.com/sirupsen/logrus"
@@ -59,36 +61,26 @@ func (e *PlanRolledBackEvent) isTerminalEvent() bool { return true }
 
 // FollowOperationPlan returns a channel that will be receiving phase updates
 // for the specified plan.
+// The returned channel must be served to avoid blocking the producer as
+// no events are dropped.
 //
 // The watch will stop upon entering one of the terminal operation states, for
-// example if the obtained plan is completed or fully rolled back.
+// example if the obtained plan is completed or fully rolled back or when the specified
+// context has expired. In any case, the channel will be closed to signal completion
 func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEvent {
-	ch := make(chan PlanEvent, 100)
-	// Send an initial batch of events from the initial state of the plan.
-	plan, err := getPlan()
-	if err != nil {
-		logrus.WithError(err).Error("Failed to load plan.")
-	}
-	if plan != nil {
-		events := getPlanEvents(GetPlanProgress(*plan), *plan)
-		// recreate channel with enough room for all events + some room for additional events
-		ch = make(chan PlanEvent, len(events)+10)
-
-		for _, event := range events {
-			select {
-			case ch <- event:
-			default:
-				logrus.WithField("event", event).Warn("Event channel is full.")
-			}
-			if event.isTerminalEvent() {
-				return ch
+	ch := make(chan PlanEvent)
+	go func() {
+		defer close(ch)
+		// Send an initial batch of events from the initial state of the plan.
+		plan, err := getPlan()
+		if err == nil {
+			err = sendPlanChanges(ctx, GetPlanProgress(*plan), *plan, ch)
+			if errors.Is(err, errStopUpdates) {
+				// Done
+				return
 			}
 		}
-	}
-	// Then launch a goroutine that will be monitoring the progress.
-	go func() {
-		tickerBackoff := getFollowBackoffPolicy()
-		ticker := backoff.NewTicker(tickerBackoff)
+		ticker := backoff.NewTicker(getFollowStepPolicy())
 		defer ticker.Stop()
 		defer logrus.Info("Operation plan watcher done.")
 		for {
@@ -99,26 +91,23 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 					logrus.WithError(err).Error("Failed to reload plan.")
 					continue
 				}
-				changes, err := DiffPlan(plan, *nextPlan)
+				changes, err := diffPlan(plan, *nextPlan)
 				if err != nil {
 					logrus.WithError(err).Error("Failed to diff plans.")
 					continue
 				}
-				for _, event := range getPlanEvents(changes, *nextPlan) {
-					select {
-					case ch <- event:
-					default:
-						logrus.WithField("event", event).Warn("Event channel is full.")
-					}
-					if event.isTerminalEvent() {
-						return
-					}
+				err = sendPlanChanges(ctx, changes, *nextPlan, ch)
+				if errors.Is(err, errStopUpdates) {
+					// Done
+					return
+				}
+				if err != nil {
+					continue
 				}
 				// Update the current plan for comparison on the next cycle and
 				// reset the backoff so the ticker keeps ticking every second
 				// as long as there are no errors.
 				plan = nextPlan
-				tickerBackoff.Reset()
 			case <-ctx.Done():
 				return
 			}
@@ -127,29 +116,41 @@ func FollowOperationPlan(ctx context.Context, getPlan GetPlanFunc) <-chan PlanEv
 	return ch
 }
 
+func sendPlanChanges(ctx context.Context, changes []storage.PlanChange, plan storage.OperationPlan, ch chan<- PlanEvent) error {
+	for _, event := range getPlanEvents(changes, plan) {
+		select {
+		case ch <- event:
+		case <-ctx.Done():
+			return trace.Wrap(ctx.Err())
+		}
+		if event.isTerminalEvent() {
+			return errStopUpdates
+		}
+	}
+	return nil
+}
+
+// errStopUpdates is a special error value that signifies that no further
+// plan updates will be sent
+var errStopUpdates = errors.New("stop plan updates")
+
 // getPlanEvents returns a list of plan events from the provided list of
 // changes and the current state of the plan.
 func getPlanEvents(changes []storage.PlanChange, plan storage.OperationPlan) (events []PlanEvent) {
+	events = make([]PlanEvent, 0, len(changes)+1)
 	for _, change := range changes {
 		events = append(events, &PlanChangedEvent{Change: change})
 	}
-	if IsCompleted(&plan) {
+	if IsCompleted(plan) {
 		events = append(events, &PlanCompletedEvent{})
-	} else if IsRolledBack(&plan) {
+	} else if IsRolledBack(plan) {
 		events = append(events, &PlanRolledBackEvent{})
 	}
 	return events
 }
 
-// getFollowBackoffPolicy returns retry/backoff policy for the plan follower.
-//
-// Backoff triggers when plan reload fails. Otherwise, the backoff is reset
-// on each cycle to maintain the constant retry at initial interval.
-func getFollowBackoffPolicy() backoff.BackOff {
-	return &backoff.ExponentialBackOff{
-		InitialInterval: time.Second,
-		Multiplier:      backoff.DefaultMultiplier,
-		MaxInterval:     5 * time.Second,
-		Clock:           backoff.SystemClock,
-	}
+// getFollowStepPolicy returns the pacing policy for the plan follower
+// on the happy path
+func getFollowStepPolicy() backoff.BackOff {
+	return &backoff.ConstantBackOff{Interval: 5 * time.Second}
 }

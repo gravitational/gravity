@@ -83,7 +83,7 @@ func (r *Engine) UpdateProgress(ctx context.Context, params fsm.Params) error {
 		return trace.Wrap(err)
 	}
 
-	phase, err := fsm.FindPhase(plan, params.PhaseID)
+	phase, err := fsm.FindPhase(*plan, params.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -118,7 +118,7 @@ func (r *Engine) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	return fsm.CompleteOrFailOperation(ctx, plan, r.Operator, fsmErr.Error())
+	return fsm.CompleteOrFailOperation(ctx, *plan, r.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates a new changelog entry

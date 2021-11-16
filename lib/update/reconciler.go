@@ -61,7 +61,8 @@ func (r *reconciler) ReconcilePlan(ctx context.Context, plan storage.OperationPl
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return fsm.ResolvePlan(plan, local), nil
+	plan = fsm.ResolvePlan(plan, local)
+	return &plan, nil
 }
 
 func (r *reconciler) trySyncChangelogToEtcd(ctx context.Context) error {

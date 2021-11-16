@@ -43,7 +43,7 @@ You can pass --force flag to override this check and force phase %[1]s rollback.
 }
 
 // CanRollback checks if specified phase can be rolled back
-func CanRollback(plan *storage.OperationPlan, phaseID string) error {
+func CanRollback(plan storage.OperationPlan, phaseID string) error {
 	phase, err := FindPhase(plan, phaseID)
 	if err != nil {
 		return trace.Wrap(err)
@@ -106,7 +106,7 @@ func getRequired(phases []storage.OperationPhase, phaseID string) map[string]str
 
 // getRequiresRollback returns a list of phases that need to be rolled back
 // before the phase specified by phaseID can be rolled back.
-func getRequiresRollback(plan *storage.OperationPlan, phaseID string) (dependents []string) {
+func getRequiresRollback(plan storage.OperationPlan, phaseID string) (dependents []string) {
 	// required will be nil if an invalid phaseID is provided.
 	required := getRequired(plan.Phases, phaseID)
 	if required == nil {
@@ -151,7 +151,7 @@ func isDependent(required map[string]struct{}, phase storage.OperationPhase) boo
 }
 
 // IsCompleted returns true if all phases of the provided plan are completed
-func IsCompleted(plan *storage.OperationPlan) bool {
+func IsCompleted(plan storage.OperationPlan) bool {
 	for _, phase := range plan.GetLeafPhases() {
 		if !phase.IsCompleted() {
 			return false
@@ -161,7 +161,7 @@ func IsCompleted(plan *storage.OperationPlan) bool {
 }
 
 // IsRolledBack returns true if the provided plan is rolled back.
-func IsRolledBack(plan *storage.OperationPlan) bool {
+func IsRolledBack(plan storage.OperationPlan) bool {
 	for _, phase := range plan.GetLeafPhases() {
 		if !phase.IsRolledBack() && !phase.IsUnstarted() {
 			return false
@@ -171,51 +171,84 @@ func IsRolledBack(plan *storage.OperationPlan) bool {
 }
 
 // MarkCompleted marks all phases of the plan as completed
-func MarkCompleted(plan *storage.OperationPlan) {
-	allPhases := FlattenPlan(plan)
-	for i := range allPhases {
-		allPhases[i].State = storage.OperationPhaseStateCompleted
-	}
+func MarkCompleted(plan storage.OperationPlan) storage.OperationPlan {
+	VisitPlanRef(&plan, func(phase *storage.OperationPhase) bool {
+		phase.State = storage.OperationPhaseStateCompleted
+		return true
+	})
+	return plan
 }
 
 // HasFailed returns true if the provided plan has at least one failed phase
-func HasFailed(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
+func HasFailed(plan storage.OperationPlan) bool {
+	var hasFailedPhase bool
+	VisitPlan(plan, func(phase storage.OperationPhase) bool {
 		if phase.IsFailed() {
-			return true
+			hasFailedPhase = true
+			return false
 		}
-	}
-	return false
+		return true
+	})
+	return hasFailedPhase
 }
 
 // IsFailed returns true if all phases of the provided plan are either rolled back or unstarted
-func IsFailed(plan *storage.OperationPlan) bool {
-	for _, phase := range FlattenPlan(plan) {
+func IsFailed(plan storage.OperationPlan) bool {
+	allFailed := true
+	VisitPlan(plan, func(phase storage.OperationPhase) bool {
 		if !phase.IsFailed() && !phase.IsRolledBack() && !phase.IsUnstarted() {
+			allFailed = false
 			return false
 		}
-	}
-	return true
+		return true
+	})
+	return allFailed
 }
 
 // FindPhase finds a phase with the specified id in the provided plan
-func FindPhase(plan *storage.OperationPlan, phaseID string) (*storage.OperationPhase, error) {
-	allPhases := FlattenPlan(plan)
-	for i, phase := range allPhases {
+func FindPhase(plan storage.OperationPlan, phaseID string) (result *storage.OperationPhase, err error) {
+	VisitPlan(plan, func(phase storage.OperationPhase) bool {
 		if phase.ID == phaseID {
-			return allPhases[i], nil
+			result = &phase
+			return false
 		}
+		return true
+	})
+	if result == nil {
+		return nil, trace.NotFound("phase %q not found", phaseID)
 	}
-	return nil, trace.NotFound("phase %q not found", phaseID)
+	return result, nil
 }
 
-// FlattenPlan returns a slice of pointers to all phases of the provided plan
-func FlattenPlan(plan *storage.OperationPlan) []*storage.OperationPhase {
-	var result []*storage.OperationPhase
+// GetNumPhases computes the number of phases in the given plan
+func GetNumPhases(plan storage.OperationPlan) (numPhases int) {
+	VisitPlan(plan, func(storage.OperationPhase) bool {
+		numPhases++
+		return true
+	})
+	return numPhases
+}
+
+// VisitPlan executes the specified callback on each phase in the plan
+func VisitPlan(plan storage.OperationPlan, cb func(phase storage.OperationPhase) bool) {
 	for i := range plan.Phases {
-		addPhases(&plan.Phases[i], &result)
+		if !visitPhases(plan.Phases[i], cb) {
+			return
+		}
 	}
-	return result
+}
+
+// VisitPlanRef executes the specified callback on each phase in the plan.
+// The callback receives a mutable reference so any changes are persisted
+func VisitPlanRef(plan *storage.OperationPlan, cb func(phase *storage.OperationPhase) bool) {
+	phases := plan.Phases
+	plan.Phases = make([]storage.OperationPhase, len(phases))
+	copy(plan.Phases, phases)
+	for i := range plan.Phases {
+		if !visitPhasesRef(&plan.Phases[i], cb) {
+			return
+		}
+	}
 }
 
 // SplitServers splits the specified server list into servers with master cluster role
@@ -246,26 +279,28 @@ func GetOperationPlan(backend storage.Backend, opKey ops.SiteOperationKey) (*sto
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return ResolvePlan(*plan, changelog), nil
+	result := ResolvePlan(*plan, changelog)
+	return &result, nil
 }
 
 // ResolvePlan applies changelog to the provided plan and returns the resulting plan
-func ResolvePlan(plan storage.OperationPlan, changelog storage.PlanChangelog) *storage.OperationPlan {
-	allPhases := FlattenPlan(&plan)
-	for i, phase := range allPhases {
+func ResolvePlan(plan storage.OperationPlan, changelog storage.PlanChangelog) storage.OperationPlan {
+	clonedPlan := plan
+	VisitPlanRef(&clonedPlan, func(phase *storage.OperationPhase) bool {
 		latest := changelog.Latest(phase.ID)
 		if latest != nil {
-			allPhases[i].State = latest.NewState
-			allPhases[i].Updated = latest.Created
-			allPhases[i].Error = latest.Error
+			phase.State = latest.NewState
+			phase.Updated = latest.Created
+			phase.Error = latest.Error
 		}
-	}
-	return &plan
+		return true
+	})
+	return clonedPlan
 }
 
-// DiffPlan returns the difference between the previous and the next plans in the
+// diffPlan returns the difference between the previous and the next plans in the
 // form of a changelog.
-func DiffPlan(prevPlan *storage.OperationPlan, nextPlan storage.OperationPlan) (diff []storage.PlanChange, err error) {
+func diffPlan(prevPlan *storage.OperationPlan, nextPlan storage.OperationPlan) (diff []storage.PlanChange, err error) {
 	// If the current plan is not provided, the diff is all attempted phases
 	// from the next plan.
 	if prevPlan == nil {
@@ -273,19 +308,19 @@ func DiffPlan(prevPlan *storage.OperationPlan, nextPlan storage.OperationPlan) (
 	}
 	// Quick sanity check that this is the same plan.
 	if prevPlan.OperationID != nextPlan.OperationID {
-		return nil, trace.BadParameter("can't diff different plans: %v %v", prevPlan, nextPlan)
+		return nil, trace.BadParameter("could not diff different plans: %v %v (this is a bug)", prevPlan, nextPlan)
 	}
 	// Since this is the same plan, should be safe to assume they have the
 	// same phases with different states.
 	prevPhases := prevPlan.GetLeafPhases()
 	nextPhases := nextPlan.GetLeafPhases()
 	if len(prevPhases) != len(nextPhases) {
-		return nil, trace.BadParameter("plans have different lengths: %v %v", prevPlan, nextPlan)
+		return nil, trace.BadParameter("plans have different lengths: %v %v (this is a bug)", prevPlan, nextPlan)
 	}
 	for i, prevPhase := range prevPhases {
 		nextPhase := nextPhases[i]
 		if prevPhase.ID != nextPhase.ID {
-			return nil, trace.BadParameter("phase ids don't match: %v %v", prevPhase, nextPhase)
+			return nil, trace.BadParameter("phase ids don't match: %v %v (this is a bug)", prevPhase, nextPhase)
 		}
 		if prevPhase.State != nextPhase.State || prevPhase.Updated != nextPhase.Updated {
 			diff = append(diff, storage.PlanChange{
@@ -339,7 +374,7 @@ func DiffChangelog(local, remote storage.PlanChangelog) []storage.PlanChange {
 
 // RequireIfPresent takes a list of phase IDs and returns those that are
 // present in the provided plan
-func RequireIfPresent(plan *storage.OperationPlan, phaseIDs ...string) []string {
+func RequireIfPresent(plan storage.OperationPlan, phaseIDs ...string) []string {
 	var present []string
 	for _, id := range phaseIDs {
 		_, err := FindPhase(plan, id)
@@ -387,8 +422,8 @@ func OperationKey(plan storage.OperationPlan) ops.SiteOperationKey {
 
 // CompleteOrFailOperation completes or fails the operation given by the plan in the specified operator.
 // planErr optionally specifies the error to record in the failed message and record operation failure
-func CompleteOrFailOperation(ctx context.Context, plan *storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
-	key := OperationKey(*plan)
+func CompleteOrFailOperation(ctx context.Context, plan storage.OperationPlan, operator ops.Operator, planErr string) (err error) {
+	key := OperationKey(plan)
 	if IsCompleted(plan) {
 		err = ops.CompleteOperation(ctx, key, operator)
 	} else {
@@ -404,12 +439,37 @@ func CompleteOrFailOperation(ctx context.Context, plan *storage.OperationPlan, o
 	return nil
 }
 
-func addPhases(phase *storage.OperationPhase, result *[]*storage.OperationPhase) {
-	// Add the phase itself and all its subphases recursively.
-	*result = append(*result, phase)
-	for i := range phase.Phases {
-		addPhases(&phase.Phases[i], result)
+// visitPhasesRef walks the specified phase and its subphases executing the given callback
+// for each phase as long as it returns true.
+func visitPhasesRef(phase *storage.OperationPhase, cb func(phase *storage.OperationPhase) bool) bool {
+	if !cb(phase) {
+		return false
 	}
+	if len(phase.Phases) > 0 {
+		phases := phase.Phases
+		phase.Phases = make([]storage.OperationPhase, len(phases))
+		copy(phase.Phases, phases)
+		for i := range phase.Phases {
+			if !visitPhasesRef(&phase.Phases[i], cb) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// visitPhases walks the specified phase and its subphases executing the given callback
+// for each phase as long as it returns true.
+func visitPhases(phase storage.OperationPhase, cb func(phase storage.OperationPhase) bool) bool {
+	if !cb(phase) {
+		return false
+	}
+	for i := range phase.Phases {
+		if !visitPhases(phase.Phases[i], cb) {
+			return false
+		}
+	}
+	return true
 }
 
 // CheckPlanCoordinator ensures that the node this function is invoked on is the

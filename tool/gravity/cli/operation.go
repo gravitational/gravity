@@ -286,7 +286,7 @@ func completeClusterOperationPlan(localEnv *localenv.LocalEnvironment, operation
 	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
-	if err == nil && fsm.IsCompleted(plan) {
+	if err == nil && fsm.IsCompleted(*plan) {
 		return ops.CompleteOperation(context.TODO(), operation.Key(), clusterEnv.Operator)
 	}
 	return ops.FailOperation(context.TODO(), operation.Key(), clusterEnv.Operator, "completed manually")

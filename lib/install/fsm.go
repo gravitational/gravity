@@ -167,7 +167,7 @@ func (f *fsmEngine) UpdateProgress(ctx context.Context, p fsm.Params) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	phase, err := fsm.FindPhase(plan, p.PhaseID)
+	phase, err := fsm.FindPhase(*plan, p.PhaseID)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -198,7 +198,7 @@ func (f *fsmEngine) Complete(ctx context.Context, fsmErr error) error {
 	if fsmErr == nil {
 		fsmErr = trace.Errorf("completed manually")
 	}
-	return fsm.CompleteOrFailOperation(ctx, plan, f.Operator, fsmErr.Error())
+	return fsm.CompleteOrFailOperation(ctx, *plan, f.Operator, fsmErr.Error())
 }
 
 // ChangePhaseState creates an operation plan changelog entry
