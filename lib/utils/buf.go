@@ -21,19 +21,44 @@ import (
 	"io"
 )
 
-// NewSyncBuffer returns new in memory buffer
-func NewSyncBuffer() *SyncBuffer {
+// NewSyncBuffer returns a new sync buffer backed by a bytes.Buffer
+func NewSyncBuffer() *SyncBytesBuffer {
+	var buf bytes.Buffer
+	return &SyncBytesBuffer{
+		b:   NewSyncBufferWithWriter(&buf),
+		buf: &buf,
+	}
+}
+
+// NewSyncBufferWithWriter creates a new sync buffer for the specified writer
+func NewSyncBufferWithWriter(w io.Writer) *SyncBuffer {
 	reader, writer := io.Pipe()
-	buf := &bytes.Buffer{}
+	errCh := make(chan error, 1)
 	go func() {
-		// FIXME: this nolint needs fixing
-		io.Copy(buf, reader) //nolint:errcheck
+		_, err := io.Copy(w, reader)
+		errCh <- err
+		close(errCh)
 	}()
 	return &SyncBuffer{
 		reader: reader,
 		writer: writer,
-		buf:    buf,
+		w:      w,
+		errCh:  errCh,
 	}
+}
+
+// Write writes the specified data into the underlying writer.
+// Implements io.Writer
+func (b *SyncBuffer) Write(data []byte) (n int, err error) {
+	return b.writer.Write(data)
+}
+
+// Close closes reads and writes on the buffer.
+// Implements io.Closer
+func (b *SyncBuffer) Close() error {
+	b.reader.Close()
+	b.writer.Close()
+	return <-b.errCh
 }
 
 // SyncBuffer is in memory bytes buffer that is
@@ -41,33 +66,39 @@ func NewSyncBuffer() *SyncBuffer {
 type SyncBuffer struct {
 	reader *io.PipeReader
 	writer *io.PipeWriter
-	buf    *bytes.Buffer
+	w      io.Writer
+	errCh  <-chan error
 }
 
-func (b *SyncBuffer) Write(data []byte) (n int, err error) {
-	return b.writer.Write(data)
+// SyncBytesBuffer is an in-memory buffer backed by bytes.Buffer
+// and implemented as a SyncBuffer
+type SyncBytesBuffer struct {
+	b   *SyncBuffer
+	buf *bytes.Buffer
+}
+
+// Write writes the specified data into the underlying writer.
+// Implements io.Writer
+func (b *SyncBytesBuffer) Write(data []byte) (n int, err error) {
+	return b.b.Write(data)
+}
+
+// Close closes reads and writes on the buffer.
+// Implements io.Closer
+func (b *SyncBytesBuffer) Close() error {
+	return b.b.Close()
 }
 
 // String returns contents of the buffer
 // after this call, all writes will fail
-func (b *SyncBuffer) String() string {
-	b.Close()
+func (b *SyncBytesBuffer) String() string {
+	b.b.Close()
 	return b.buf.String()
 }
 
 // Bytes returns contents of the buffer
 // after this call, all writes will fail
-func (b *SyncBuffer) Bytes() []byte {
-	b.Close()
+func (b *SyncBytesBuffer) Bytes() []byte {
+	b.b.Close()
 	return b.buf.Bytes()
-}
-
-// Close closes reads and writes on the buffer
-func (b *SyncBuffer) Close() error {
-	err := b.reader.Close()
-	err2 := b.writer.Close()
-	if err != nil {
-		return err
-	}
-	return err2
 }

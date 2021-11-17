@@ -50,24 +50,14 @@ func Dir(dir string) CommandOptionSetter {
 // Stderr redirects the command's stderr to the specified writer
 func Stderr(w io.Writer) CommandOptionSetter {
 	return func(cmd *exec.Cmd) {
-		// preserve existing stderr
-		if cmd.Stderr != nil {
-			cmd.Stderr = io.MultiWriter(cmd.Stderr, w)
-		} else {
-			cmd.Stderr = w
-		}
+		cmd.Stderr = w
 	}
 }
 
 // Stdout redirects the command's stdout to the specified writer
 func Stdout(w io.Writer) CommandOptionSetter {
 	return func(cmd *exec.Cmd) {
-		// preserve existing stdout
-		if cmd.Stdout != nil {
-			cmd.Stdout = io.MultiWriter(cmd.Stdout, w)
-		} else {
-			cmd.Stdout = w
-		}
+		cmd.Stdout = w
 	}
 }
 
@@ -167,7 +157,15 @@ func ExecUnprivileged(ctx context.Context, command string, args []string, opts .
 // ExecL executes the specified cmd and logs the command line to the specified entry
 func ExecL(cmd *exec.Cmd, out io.Writer, logger log.FieldLogger, setters ...CommandOptionSetter) error {
 	var stderr, stdout bytes.Buffer
-	err := Exec(cmd, out, append(setters, Stderr(&stderr), Stdout(&stdout))...)
+	// Since we split the Stderr/Stdout into separate sinks
+	// but want to capture to out as required by the ExecL interface,
+	// we need to use a concurrency-safe version of the out buffer due
+	// to the os.exec.Command contract (only equal values of Stderr/Stdout
+	// are guaranteed to receive Writes from a single goroutine).
+	outBuf := NewSyncBufferWithWriter(out)
+	err := Exec(cmd, out, append(setters,
+		Stdout(io.MultiWriter(outBuf, &stdout)),
+		Stderr(io.MultiWriter(outBuf, &stderr)))...)
 	fields := log.Fields{
 		constants.FieldCommandError:       (err != nil),
 		constants.FieldCommandErrorReport: trace.UserMessage(err),
@@ -217,12 +215,6 @@ func ExecWithInput(cmd *exec.Cmd, input string, out io.Writer, setters ...Comman
 	}
 
 	return nil
-}
-
-func CombinedOutput(cmd *exec.Cmd, out io.Writer) (string, error) {
-	buf := &SafeByteBuffer{}
-	err := Exec(cmd, io.MultiWriter(buf, out))
-	return buf.String(), err
 }
 
 func ExecuteWithDelay(args []string, delay time.Duration) error {
