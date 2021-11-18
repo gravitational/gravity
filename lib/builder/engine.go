@@ -79,6 +79,9 @@ type Config struct {
 	Level utils.ProgressLevel
 	// Progress allows builder to report build progress
 	utils.Progress
+
+	// env optionally specifies the build environment. Used in tests
+	env *localenv.LocalEnvironment
 }
 
 // CheckAndSetDefaults validates builder config and fills in defaults
@@ -125,6 +128,7 @@ func newEngine(config Config) (*Engine, error) {
 	}
 	b := &Engine{
 		Config: config,
+		Env:    config.env,
 	}
 	if err := b.initServices(); err != nil {
 		b.Close()
@@ -184,15 +188,14 @@ func (b *Engine) SelectRuntime(manifest *schema.Manifest) (*semver.Version, erro
 
 // SyncPackageCache ensures that all system dependencies are present in
 // the local cache directory
-func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *semver.Version) error {
-	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{ExcludeDeps: app.AppsToExclude(*manifest)})
+func (b *Engine) SyncPackageCache(manifest schema.Manifest) error {
+	apps, err := b.Env.AppServiceLocal(localenv.AppConfig{ExcludeDeps: app.AppsToExclude(manifest)})
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	// see if all required packages/apps are already present in the local cache
-	manifest.SetBase(loc.Runtime.WithVersion(runtimeVersion))
 	err = app.VerifyDependencies(app.Application{
-		Manifest: *manifest,
+		Manifest: manifest,
 		Package:  manifest.Locator(),
 	}, apps, b.Env.Packages)
 	if err != nil && !trace.IsNotFound(err) {
@@ -213,7 +216,7 @@ func (b *Engine) SyncPackageCache(manifest *schema.Manifest, runtimeVersion *sem
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	return syncer.Sync(b, manifest, runtimeVersion)
+	return syncer.Sync(b, manifest)
 }
 
 // VendorRequest combines vendoring parameters.
@@ -312,9 +315,11 @@ func (b *Engine) WriteInstaller(data io.ReadCloser, outPath string) error {
 
 // initServices initializes the builder backend, package and apps services
 func (b *Engine) initServices() (err error) {
-	b.Env, err = b.makeBuildEnv()
-	if err != nil {
-		return trace.Wrap(err)
+	if b.Env == nil {
+		b.Env, err = b.makeBuildEnv()
+		if err != nil {
+			return trace.Wrap(err)
+		}
 	}
 	b.Dir, err = ioutil.TempDir("", "build")
 	if err != nil {

@@ -498,7 +498,7 @@ func (p *Process) ImportState(importDir string) (err error) {
 
 // InitRPCCredentials initializes the package with RPC secrets
 func (p *Process) InitRPCCredentials() error {
-	pkg, err := rpc.InitRPCCredentials(p.packages)
+	pkg, err := rpc.InitCredentials(p.packages)
 	if err != nil && !trace.IsAlreadyExists(err) {
 		return trace.Wrap(err, "failed to init RPC credentials")
 	}

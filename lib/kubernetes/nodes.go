@@ -81,10 +81,17 @@ func SetUnschedulable(ctx context.Context, client corev1.NodeInterface, nodeName
 
 // UpdateTaints adds and/or removes taints specified with add/remove correspondingly on the specified node.
 func UpdateTaints(ctx context.Context, client corev1.NodeInterface, nodeName string, taintsToAdd []v1.Taint, taintsToRemove []v1.Taint) error {
-	node, err := client.Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
+	var node *v1.Node
+	var err error
+
+	err = Retry(ctx, func() error {
+		node, err = client.Get(ctx, nodeName, metav1.GetOptions{})
 		return rigging.ConvertError(err)
+	})
+	if err != nil {
+		return trace.Wrap(err)
 	}
+
 	newTaints := append([]v1.Taint{}, taintsToAdd...)
 	oldTaints := node.Spec.Taints
 	// add taints that already exist but are not updated to newTaints

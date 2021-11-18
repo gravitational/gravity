@@ -96,7 +96,8 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	err = b.SyncPackageCache(manifest, runtimeVersion)
+	manifestWithRuntime := manifest.WithBase(loc.Runtime.WithVersion(runtimeVersion))
+	err = b.SyncPackageCache(manifestWithRuntime)
 	if err != nil {
 		if trace.IsNotFound(err) {
 			return trace.NotFound("base image version %v not found", runtimeVersion)
@@ -114,7 +115,7 @@ func (b *clusterBuilder) Build(ctx context.Context, req ClusterRequest) error {
 	stream, err := b.Vendor(ctx, VendorRequest{
 		SourceDir: imageSource.Dir(),
 		VendorDir: vendorDir,
-		Manifest:  manifest,
+		Manifest:  &manifestWithRuntime,
 		Vendor:    req.Vendor,
 	})
 	if err != nil {

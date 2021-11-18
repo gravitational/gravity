@@ -30,6 +30,7 @@ import (
 type PlanBuilder struct {
 	// PlanBuilder is the embedded installer plan builder.
 	*install.PlanBuilder
+	runtimePackage loc.Locator
 }
 
 // AddChecksPhase adds the preflight checks phase to the plan.
@@ -150,7 +151,7 @@ func (b *PlanBuilder) AddRestartPhase(plan *storage.OperationPlan) {
 				Description: "Restart Planet",
 				Data: &storage.OperationPhaseData{
 					Server:  &b.Master,
-					Package: &loc.Planet,
+					Package: &b.runtimePackage,
 				},
 			},
 		},
