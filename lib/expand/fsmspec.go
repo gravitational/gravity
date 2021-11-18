@@ -93,7 +93,7 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 				config.Operator,
 				config.Runner)
 
-		case p.Phase.ID == installphases.ExportPhase:
+		case strings.HasPrefix(p.Phase.ID, installphases.ExportPhase):
 			return phases.NewExport(context.TODO(), p,
 				config.Operator,
 				config.Packages,
