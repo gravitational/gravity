@@ -111,7 +111,7 @@ func (s *s3Syncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVersio
 		DstPack:     engine.Env.Packages,
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
-		OnConflict:  app.OnConflictSkip,
+		OnConflict:  app.OnConflictContinue,
 	}
 	return puller.PullAppDeps(context.TODO(), app.Application{
 		Package:  manifest.Locator(),
@@ -148,7 +148,7 @@ func (s *packSyncer) Sync(engine *Engine, manifest *schema.Manifest, runtimeVers
 		DstApp:      cacheApps,
 		Parallel:    engine.Parallel,
 		FieldLogger: log,
-		OnConflict:  app.OnConflictSkip,
+		OnConflict:  app.OnConflictContinue,
 	}
 	err = puller.PullAppDeps(context.TODO(), app.Application{
 		Package:  manifest.Locator(),
