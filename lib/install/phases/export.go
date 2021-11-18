@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/ops"
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/state"
-	"github.com/gravitational/gravity/lib/utils"
 
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
@@ -40,7 +39,7 @@ import (
 // This phase exports Docker images of the application and its dependencies
 // to the locally running Docker registry.
 func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.PackageService, apps app.Applications,
-	remote fsm.Remote) (*exportExecutor, error) {
+	remote fsm.Remote) (*ExportExecutor, error) {
 	stateDir, err := state.GetStateDir()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -64,7 +63,7 @@ func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.Packag
 		Operator: operator,
 		Server:   p.Phase.Data.Server,
 	}
-	return &exportExecutor{
+	return &ExportExecutor{
 		FieldLogger:    logger,
 		Packages:       packages,
 		Apps:           apps,
@@ -75,7 +74,7 @@ func NewExport(p fsm.ExecutorParams, operator ops.Operator, packages pack.Packag
 	}, nil
 }
 
-type exportExecutor struct {
+type ExportExecutor struct {
 	// FieldLogger is used for logging
 	logrus.FieldLogger
 	// Packages is the installer process pack service
@@ -93,7 +92,7 @@ type exportExecutor struct {
 }
 
 // Execute executes the export phase
-func (p *exportExecutor) Execute(ctx context.Context) error {
+func (p *ExportExecutor) Execute(ctx context.Context) error {
 	app, err := p.Apps.GetApp(*p.Phase.Data.Package)
 	if err != nil {
 		return trace.Wrap(err)
@@ -121,12 +120,12 @@ func (p *exportExecutor) Execute(ctx context.Context) error {
 }
 
 // Rollback is no-op for this phase
-func (*exportExecutor) Rollback(ctx context.Context) error {
+func (*ExportExecutor) Rollback(ctx context.Context) error {
 	return nil
 }
 
 // PreCheck makes sure the phase is executed on a proper node
-func (p *exportExecutor) PreCheck(ctx context.Context) error {
+func (p *ExportExecutor) PreCheck(ctx context.Context) error {
 	err := p.remote.CheckServer(ctx, *p.Phase.Data.Server)
 	if err != nil {
 		return trace.Wrap(err)
@@ -135,31 +134,31 @@ func (p *exportExecutor) PreCheck(ctx context.Context) error {
 }
 
 // PostCheck is no-op for this phase
-func (*exportExecutor) PostCheck(ctx context.Context) error {
+func (*ExportExecutor) PostCheck(ctx context.Context) error {
 	return nil
 }
 
-func (p *exportExecutor) unpackApp(locator loc.Locator) error {
+func (p *ExportExecutor) unpackApp(locator loc.Locator) error {
 	p.Progress.NextStep("Unpacking application %v:%v",
 		locator.Name, locator.Version)
 	return trace.Wrap(pack.UnpackIfNotUnpacked(p.Packages, locator,
 		p.packagePath(locator), nil))
 }
 
-func (p *exportExecutor) exportApp(ctx context.Context, locator loc.Locator) error {
+func (p *ExportExecutor) exportApp(ctx context.Context, locator loc.Locator) error {
 	p.Progress.NextStep("Exporting application %v:%v to local registry",
 		locator.Name, locator.Version)
 	p.Infof("Exporting application %v:%v to local registry.",
 		locator.Name, locator.Version)
-	_, err := p.ImageService.Sync(ctx, p.registryPath(locator), utils.DiscardPrinter)
+	_, err := p.ImageService.Sync(ctx, p.registryPath(locator), p.Progress)
 	return trace.Wrap(err)
 }
 
-func (p *exportExecutor) packagePath(locator loc.Locator) string {
+func (p *ExportExecutor) packagePath(locator loc.Locator) string {
 	return pack.PackagePath(filepath.Join(p.StateDir, defaults.LocalDir,
 		defaults.PackagesDir, defaults.UnpackedDir), locator)
 }
 
-func (p *exportExecutor) registryPath(locator loc.Locator) string {
+func (p *ExportExecutor) registryPath(locator loc.Locator) string {
 	return filepath.Join(p.packagePath(locator), defaults.RegistryDir)
 }

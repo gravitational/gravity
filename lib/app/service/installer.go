@@ -50,8 +50,7 @@ func (r *applications) getApplicationInstaller(
 	app *appservice.Application,
 	apps *applications,
 ) ([]*archive.Item, error) {
-	apps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
-	err := pullApplications([]loc.Locator{app.Package}, apps, r, r)
+	err := pullApplications([]appservice.Application{*app}, apps, r, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -63,7 +62,7 @@ func (r *applications) getClusterInstaller(
 	app *appservice.Application,
 	apps *applications,
 ) ([]*archive.Item, error) {
-	err := pullDependencies(app, apps, r, r)
+	err := pullDependencies(app, apps, r, r.Config.Packages, r)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -99,8 +98,7 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	var tempDir string
-	tempDir, err = ioutil.TempDir("", "installer")
+	tempDir, err := ioutil.TempDir("", "installer")
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -152,8 +150,7 @@ func (r *applications) GetAppInstaller(req appservice.InstallerRequest) (install
 		return nil, trace.Wrap(err)
 	}
 
-	var app *appservice.Application
-	app, err = r.GetApp(req.Application)
+	app, err := r.GetApp(req.Application)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -230,9 +227,7 @@ func (r *applications) getGravityBinaryForApp(app *appservice.Application) (*arc
 		return nil, trace.Wrap(err)
 	}
 
-	var envelope *pack.PackageEnvelope
-	var packageBytes io.ReadCloser
-	envelope, packageBytes, err = r.Packages.ReadPackage(*gravityPackage)
+	envelope, packageBytes, err := r.Config.Packages.ReadPackage(*gravityPackage)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -241,8 +236,12 @@ func (r *applications) getGravityBinaryForApp(app *appservice.Application) (*arc
 }
 
 // pullDependencies transitively pulls all dependent packages for app to localApps
-func pullDependencies(app *appservice.Application, localApps, remoteApps *applications, log log.FieldLogger) error {
-	dependencies, err := appservice.GetDependencies(app, remoteApps)
+func pullDependencies(app *appservice.Application, localApps, remoteApps *applications, remotePackages pack.PackageService, log log.FieldLogger) error {
+	dependencies, err := appservice.GetDependencies(appservice.GetDependenciesRequest{
+		App:  *app,
+		Apps: remoteApps,
+		Pack: remotePackages,
+	})
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -252,8 +251,7 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 	}
 
 	apps := dependencies.Apps
-	apps = append(apps, app.Package)
-	localApps.Config.ExcludeDeps = appservice.AppsToExclude(app.Manifest)
+	apps = append(apps, *app)
 	if err = pullApplications(apps, localApps, remoteApps, log); err != nil {
 		return trace.Wrap(err)
 	}
@@ -261,17 +259,17 @@ func pullDependencies(app *appservice.Application, localApps, remoteApps *applic
 }
 
 // pullPackages pulls package locators from remotePackages to localPackages
-func pullPackages(locators []loc.Locator, localPackages pack.PackageService, remotePackages pack.PackageService, log log.FieldLogger) error {
-	log.Infof("Pulling packages %v.", locators)
+func pullPackages(packages []pack.PackageEnvelope, localPackages pack.PackageService, remotePackages pack.PackageService, log log.FieldLogger) error {
+	log.Infof("Pulling packages %v.", packages)
 
-	for _, locator := range locators {
-		envelope, reader, err := remotePackages.ReadPackage(locator)
+	for _, pkg := range packages {
+		envelope, reader, err := remotePackages.ReadPackage(pkg.Locator)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
 
-		err = localPackages.UpsertRepository(locator.Repository, time.Time{})
+		err = localPackages.UpsertRepository(pkg.Locator.Repository, time.Time{})
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -284,31 +282,29 @@ func pullPackages(locators []loc.Locator, localPackages pack.PackageService, rem
 }
 
 // pullApplications pulls applications specified with locators from remoteApps to localApps
-func pullApplications(locators []loc.Locator, localApps *applications, remoteApps *applications, log log.FieldLogger) error {
-	log.Infof("Pulling applications %v.", locators)
+func pullApplications(apps []appservice.Application, localApps *applications, remoteApps *applications, log log.FieldLogger) error {
+	log.Infof("Pulling applications %v.", apps)
 
-	for _, locator := range locators {
-		envelope, reader, err := remoteApps.Packages.ReadPackage(locator)
+	for _, app := range apps {
+		env, reader, err := remoteApps.Packages.ReadPackage(app.Package)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		defer reader.Close()
 
-		m, err := schema.ParseManifestYAMLNoValidate(envelope.Manifest)
+		m, err := schema.ParseManifestYAMLNoValidate(env.Manifest)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 
 		message := "Dependency %v purged from manifest"
-		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), localApps.Config.ExcludeDeps, message))
+		m.Dependencies.Apps = appservice.Wrap(loc.Filter(appservice.Unwrap(m.Dependencies.Apps), appservice.AppsToExclude(*m), message))
 		manifestBytes, err := yaml.Marshal(m)
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		envelope.Manifest = manifestBytes
 
-		var labels map[string]string
-		_, err = localApps.CreateAppWithManifest(envelope.Locator, envelope.Manifest, reader, labels)
+		_, err = localApps.CreateAppWithManifest(app.Package, manifestBytes, reader, env.RuntimeLabels)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

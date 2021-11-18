@@ -19,7 +19,6 @@ import (
 
 	"github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/app/client"
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -82,15 +81,15 @@ type installerExecutor struct {
 func (p *installerExecutor) Execute(ctx context.Context) error {
 	p.Progress.NextStep("Downloading cluster image from Gravity Hub")
 	p.Info("Downloading cluster image from Gravity Hub")
-	_, err := service.PullApp(service.AppPullRequest{
+	puller := app.Puller{
 		FieldLogger: p.FieldLogger,
 		SrcPack:     p.OpsPackages,
 		DstPack:     p.WizardPackages,
 		SrcApp:      p.OpsApps,
 		DstApp:      p.WizardApps,
-		Package:     *p.Phase.Data.Package,
 		Upsert:      true,
-	})
+	}
+	err := puller.PullApp(ctx, *p.Phase.Data.Package)
 	if err != nil {
 		return trace.Wrap(err)
 	}

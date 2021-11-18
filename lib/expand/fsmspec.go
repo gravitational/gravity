@@ -17,6 +17,7 @@ limitations under the License.
 package expand
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gravitational/gravity/lib/expand/phases"
@@ -91,6 +92,15 @@ func FSMSpec(config FSMConfig) fsm.FSMSpecFunc {
 			return phases.NewEtcd(p,
 				config.Operator,
 				config.Runner)
+
+		case strings.HasPrefix(p.Phase.ID, installphases.ExportPhase):
+			return phases.NewExport(context.TODO(), p,
+				config.Operator,
+				config.Packages,
+				config.LocalPackages,
+				config.Apps,
+				config.LocalApps,
+				remote)
 
 		case strings.HasPrefix(p.Phase.ID, SystemPhase):
 			return installphases.NewSystem(p,

@@ -21,8 +21,8 @@ import (
 
 	"github.com/gravitational/gravity/e/lib/events"
 	"github.com/gravitational/gravity/e/lib/ops"
+	libapp "github.com/gravitational/gravity/lib/app"
 	appclient "github.com/gravitational/gravity/lib/app/client"
-	appservice "github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/httplib"
@@ -38,7 +38,7 @@ import (
 	"github.com/gravitational/trace"
 )
 
-// CheckForUpdates checks with remote Ops Center if there is a newer version
+// CheckForUpdate checks with remote Ops Center if there is a newer version
 // of the installed application
 func (o *Operator) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 	site, err := o.backend().GetSite(key.SiteDomain)
@@ -79,7 +79,7 @@ func (o *Operator) CheckForUpdate(key ossops.SiteKey) (*loc.Locator, error) {
 		"no update for %v installed on %v found", site.App, site.Domain)
 }
 
-// DownloadUpdates downloads the provided application version from remote Ops Center
+// DownloadUpdate downloads the provided application version from remote Ops Center
 func (o *Operator) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateRequest) error {
 	site, err := o.backend().GetSite(req.SiteDomain)
 	if err != nil {
@@ -101,13 +101,13 @@ func (o *Operator) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateReq
 		return trace.Wrap(err)
 	}
 
-	_, err = appservice.PullApp(appservice.AppPullRequest{
+	puller := libapp.Puller{
 		SrcPack: opsPackages,
 		SrcApp:  opsApps,
 		DstPack: o.packages(),
 		DstApp:  o.apps(),
-		Package: req.Application,
-	})
+	}
+	err = puller.PullApp(ctx, req.Application)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -119,13 +119,12 @@ func (o *Operator) DownloadUpdate(ctx context.Context, req ops.DownloadUpdateReq
 		return trace.Wrap(err)
 	}
 
-	err = appservice.SyncApp(ctx,
-		appservice.SyncRequest{
-			PackService:  o.packages(),
-			AppService:   o.apps(),
-			ImageService: imageService,
-			Package:      req.Application,
-		})
+	syncer := libapp.Syncer{
+		PackService:  o.packages(),
+		AppService:   o.apps(),
+		ImageService: imageService,
+	}
+	err = syncer.SyncApp(ctx, req.Application)
 	if err != nil {
 		return trace.Wrap(err)
 	}

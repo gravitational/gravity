@@ -907,7 +907,7 @@ func (h *WebHandler) createSite(w http.ResponseWriter, r *http.Request, p httpro
 		return trace.Wrap(err)
 	}
 
-	if err = app.VerifyDependencies(userApp, h.cfg.Applications, h.cfg.Packages); err != nil {
+	if err = app.VerifyDependencies(*userApp, h.cfg.Applications, h.cfg.Packages); err != nil {
 		return trace.Wrap(err)
 	}
 

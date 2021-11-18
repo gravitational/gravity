@@ -21,7 +21,7 @@ import (
 	"io"
 	"path/filepath"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -238,14 +238,17 @@ func (p *updatePhaseBootstrap) pullSystemUpdates(ctx context.Context) error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		_, err = appservice.PullPackage(appservice.PackagePullRequest{
+		puller := libapp.Puller{
 			SrcPack: p.Packages,
 			DstPack: p.LocalPackages,
-			Package: update,
 			Upsert:  true,
 			Labels:  existingLabels,
-		})
-		if err != nil {
+		}
+		err = puller.PullPackage(ctx, update)
+		if err != nil && !trace.IsAlreadyExists(err) {
+			if trace.IsNotFound(err) {
+				return trace.NotFound("failed to find %v in cluster package store", update)
+			}
 			return trace.Wrap(err)
 		}
 	}

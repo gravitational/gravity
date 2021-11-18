@@ -253,6 +253,22 @@ func (b *planBuilder) AddEtcdPhase(plan *storage.OperationPlan) {
 	})
 }
 
+// AddExportPhase appends the phase to push current application
+// images to this node's registry to the plan
+func (b *planBuilder) AddExportPhase(plan *storage.OperationPlan) {
+	plan.Phases = append(plan.Phases, storage.OperationPhase{
+		ID: installphases.ExportPhase,
+		Description: fmt.Sprintf("Populate Docker registry on master node %v",
+			b.JoiningNode.AdvertiseIP),
+		Data: &storage.OperationPhaseData{
+			Server:     &b.JoiningNode,
+			ExecServer: &b.JoiningNode,
+			Package:    &b.Application.Package,
+		},
+		Requires: []string{installphases.WaitPhase},
+	})
+}
+
 // AddWaitPhase appends planet startup wait phase to the plan
 func (b *planBuilder) AddWaitPhase(plan *storage.OperationPlan) {
 	plan.Phases = append(plan.Phases, storage.OperationPhase{

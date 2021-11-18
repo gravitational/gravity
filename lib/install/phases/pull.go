@@ -21,7 +21,6 @@ import (
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
-	"github.com/gravitational/gravity/lib/app/service"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -115,18 +114,18 @@ type pullExecutor struct {
 // Execute executes the pull phase
 func (p *pullExecutor) Execute(ctx context.Context) error {
 	if len(p.Pull.Packages) != 0 {
-		err := p.pullPackages(p.Pull.Packages)
+		err := p.pullPackages(ctx, p.Pull.Packages)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
 	if len(p.Pull.Apps) != 0 {
-		err := p.pullApps(p.Pull.Apps)
+		err := p.pullApps(ctx, p.Pull.Apps)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	}
-	err := p.pullConfiguredPackages()
+	err := p.pullConfiguredPackages(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -152,17 +151,17 @@ func (p *pullExecutor) Execute(ctx context.Context) error {
 	return nil
 }
 
-func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
+func (p *pullExecutor) pullPackages(ctx context.Context, locators []loc.Locator) error {
 	p.Progress.NextStep("Pulling packages")
 	p.Infof("Pulling packages: %v.", locators)
 	for _, locator := range locators {
 		p.Progress.NextStep("Pulling package %v:%v", locator.Name, locator.Version)
-		_, err := service.PullPackage(service.PackagePullRequest{
+		puller := app.Puller{
 			FieldLogger: p.FieldLogger,
 			SrcPack:     p.WizardPackages,
 			DstPack:     p.LocalPackages,
-			Package:     locator,
-		})
+		}
+		err := puller.PullPackage(ctx, locator)
 		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
 			return trace.Wrap(err)
 		}
@@ -170,19 +169,19 @@ func (p *pullExecutor) pullPackages(locators []loc.Locator) error {
 	return nil
 }
 
-func (p *pullExecutor) pullApps(locators []loc.Locator) error {
+func (p *pullExecutor) pullApps(ctx context.Context, locators []loc.Locator) error {
 	p.Progress.NextStep("Pulling applications")
 	p.Infof("Pulling applications: %v.", locators)
 	for _, locator := range locators {
 		p.Progress.NextStep("Pulling application %v:%v", locator.Name, locator.Version)
-		_, err := service.PullApp(service.AppPullRequest{
+		puller := app.Puller{
 			FieldLogger: p.FieldLogger,
 			SrcPack:     p.WizardPackages,
 			DstPack:     p.LocalPackages,
 			SrcApp:      p.WizardApps,
 			DstApp:      p.LocalApps,
-			Package:     locator,
-		})
+		}
+		err := puller.PullApp(ctx, locator)
 		if err != nil && !trace.IsAlreadyExists(err) { // Must be re-entrant.
 			return trace.Wrap(err)
 		}
@@ -235,7 +234,7 @@ func (p *pullExecutor) applyPackageLabels() error {
 	return nil
 }
 
-func (p *pullExecutor) pullConfiguredPackages() (err error) {
+func (p *pullExecutor) pullConfiguredPackages(ctx context.Context) (err error) {
 	p.Progress.NextStep("Pulling configured packages")
 	p.Info("Pulling configured packages.")
 	var envelopes []pack.PackageEnvelope
@@ -248,13 +247,13 @@ func (p *pullExecutor) pullConfiguredPackages() (err error) {
 		return trace.Wrap(err)
 	}
 	for _, e := range envelopes {
-		_, err := service.PullPackage(service.PackagePullRequest{
+		puller := app.Puller{
 			SrcPack: p.WizardPackages,
 			DstPack: p.LocalPackages,
-			Package: e.Locator,
 			Labels:  e.RuntimeLabels,
 			Upsert:  true,
-		})
+		}
+		err := puller.PullPackage(ctx, e.Locator)
 		// Ignore already exists as the steps need to be re-entrant
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)

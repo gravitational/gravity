@@ -21,7 +21,7 @@ import (
 	"fmt"
 	_ "net/http/pprof"
 
-	appservice "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/docker"
 	"github.com/gravitational/gravity/lib/install"
@@ -87,13 +87,13 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 	}
 
 	env.PrintStep("Importing application %v v%v", appPackage.Name, appPackage.Version)
-	_, err = appservice.PullApp(appservice.AppPullRequest{
+	puller := libapp.Puller{
 		SrcPack: tarballEnv.Packages,
 		SrcApp:  tarballEnv.Apps,
 		DstPack: clusterPackages,
 		DstApp:  clusterApps,
-		Package: *appPackage,
-	})
+	}
+	err = puller.PullApp(ctx, *appPackage)
 	if err != nil {
 		if !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
@@ -129,12 +129,12 @@ func uploadUpdate(ctx context.Context, tarballEnv *localenv.TarballEnvironment, 
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = appservice.SyncApp(ctx, appservice.SyncRequest{
+		syncer := libapp.Syncer{
 			PackService:  tarballEnv.Packages,
 			AppService:   tarballEnv.Apps,
 			ImageService: imageService,
-			Package:      *appPackage,
-		})
+		}
+		err = syncer.SyncApp(ctx, *appPackage)
 		if err != nil {
 			return trace.Wrap(err)
 		}

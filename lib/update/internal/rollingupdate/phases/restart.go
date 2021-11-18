@@ -19,7 +19,7 @@ package phases
 import (
 	"context"
 
-	libapp "github.com/gravitational/gravity/lib/app/service"
+	libapp "github.com/gravitational/gravity/lib/app"
 	libfsm "github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/loc"
 	"github.com/gravitational/gravity/lib/pack"
@@ -64,7 +64,7 @@ func NewRestart(
 
 // Execute restarts the runtime container with the new configuration package
 func (r *Restart) Execute(ctx context.Context) error {
-	err := r.pullUpdates()
+	err := r.pullUpdates(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -119,18 +119,18 @@ func (*Restart) PostCheck(context.Context) error {
 	return nil
 }
 
-func (r *Restart) pullUpdates() error {
+func (r *Restart) pullUpdates(ctx context.Context) error {
 	updates := []loc.Locator{r.update.Runtime.Update.Package, r.update.Runtime.Update.ConfigPackage}
 	if r.update.Runtime.SecretsPackage != nil {
 		updates = append(updates, *r.update.Runtime.SecretsPackage)
 	}
 	for _, update := range updates {
 		r.Infof("Pulling package update: %v.", update)
-		_, err := libapp.PullPackage(libapp.PackagePullRequest{
+		puller := libapp.Puller{
 			SrcPack: r.packages,
 			DstPack: r.localPackages,
-			Package: update,
-		})
+		}
+		err := puller.PullPackage(ctx, update)
 		if err != nil && !trace.IsAlreadyExists(err) {
 			return trace.Wrap(err)
 		}

@@ -100,16 +100,16 @@ func (m MultiCloser) Close() error {
 	return trace.NewAggregate(errors...)
 }
 
-// NopReader returns a new no-op io.Reader
-func NopReader() *nopReader {
-	return &nopReader{}
+// NewNopReader returns a new no-op io.Reader
+func NewNopReader() *NopReader {
+	return &NopReader{}
 }
 
-// nopReader is a io.Reader with no-op Read method
-type nopReader struct{}
+// NopReader is a io.Reader that does nothing
+type NopReader struct{}
 
 // Read is no-op, always returns 0
-func (r *nopReader) Read(_ []byte) (n int, err error) {
+func (r *NopReader) Read(_ []byte) (n int, err error) {
 	return 0, io.EOF
 }
 

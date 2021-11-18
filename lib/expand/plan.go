@@ -108,8 +108,9 @@ func (p *Peer) getOperationPlan(ctx operationContext) (*storage.OperationPlan, e
 	// wait for the planet to start up and the new Kubernetes node to register
 	builder.AddWaitPhase(plan)
 
-	// RPC agent started in the beginning is no longer needed so shut it down
 	if builder.JoiningNode.IsMaster() {
+		builder.AddExportPhase(plan)
+		// RPC agent started in the beginning is no longer needed so shut it down
 		builder.AddStopAgentPhase(plan)
 	}
 
