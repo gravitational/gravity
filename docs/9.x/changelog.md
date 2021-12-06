@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.7  | No  | pre-release          | October 19, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.7  | No  | pre-release          | November 2,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.35        | Yes | April 3, 2020        | December 6, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
@@ -334,6 +334,19 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.35 (December 6, 2021)
+
+#### Bugfixes
+
+* Use 7.0.x in logging-app ([#2596](https://github.com/gravitational/gravity/pull/2596)).
+* Fix an issue with excessive CPU usage when using `gravity plan --tail` ([#2645](https://github.com/gravitational/gravity/pull/2645)).
+* Fix fd leak in the nethealth checker ([#2686](https://github.com/gravitational/gravity/pull/2686), [planet#869](https://github.com/gravitational/planet/pull/869), [satellite#294](https://github.com/gravitational/satellite/pull/294)).
+
+#### Internal Changes
+
+* Update tiller registry ([#2621](https://github.com/gravitational/gravity/pull/2621)).
+* And other minor code cleanup and build improvements.
 
 ### 7.0.34 (August 4, 2021)
 
