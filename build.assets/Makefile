@@ -131,7 +131,7 @@ test: testbox test-etcd
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PK,_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(TESTBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-gcflags=all=-d=checkptr=0 -cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
