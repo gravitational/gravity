@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	defaultMaxMemory = 32 << 20 // 32 MB
+	defaultMaxMemory = 32 << 20 // 32 MiB
 )
 
 // ParseFilename parses the filename for the specified form data.
