@@ -4,7 +4,7 @@ CURRENT_DIR := $(realpath $(patsubst %/,%,$(dir $(MKFILE_PATH))))
 BUILDDIR ?= $(CURRENT_DIR)/_build
 
 include versions.mk
-GOLANG_VER := 1.13.8-stretch
+GOLANG_VER := 1.17.5-stretch
 
 # Set to non-empty value to trigger streaming builder progress
 CI ?=
