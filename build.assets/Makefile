@@ -120,7 +120,7 @@ test: buildbox test-etcd
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PKG_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(BBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race -mod=vendor' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-gcflags=all=-d=checkptr=0 -cover -race -mod=vendor' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
