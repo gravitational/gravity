@@ -18,6 +18,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"mime/multipart"
 	"net/http"
 
@@ -36,7 +37,7 @@ func newRequestWithPackage(filename string) (*http.Request, error) {
 		return nil, err
 	}
 	writer.Close()
-	request, err := http.NewRequest(http.MethodPost, "", body)
+	request, err := http.NewRequestWithContext(context.TODO(), http.MethodPost, "", body)
 	if err != nil {
 		return nil, err
 	}
