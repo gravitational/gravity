@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-beta.7  | No  | pre-release          | October 19, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.8  | No  | pre-release          | December 17, 2021    | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.7  | No  | pre-release          | November 2,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.35        | Yes | April 3, 2020        | December 6, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
@@ -55,6 +55,16 @@ extend updates past End of Support through customer agreements if required.
 ## 9.0 Releases
 
 9.0 is currently pre-release.
+
+### 9.0.0-beta.8 (December 17, 2021)
+
+#### Bugfixes
+
+* Upgrades Go version to 1.17.5 (CVE-2021-44716 / CVE-2021-44717) ([#2694](https://github.com/gravitational/gravity/pull/2694)).
+
+!!! warning
+    This release fixes a security vulnerability in Go. Please see
+    [Go Announcement for CVE-2021-44716/CVE-2021-44717](https://groups.google.com/g/golang-announce/c/hcmEScgc00k)
 
 ### 9.0.0-beta.7 (October 19, 2021)
 
