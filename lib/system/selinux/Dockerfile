@@ -11,6 +11,6 @@ COPY ./internal/generate /go/src/github.com/gravitational/gravity/lib/system/sel
 RUN set -ex && \
 	GO111MODULE=off go get -u github.com/gravitational/vfsgen && \
 	cd /go/src/github.com/gravitational/vfsgen && \
-	go install -tags generate_policy github.com/gravitational/gravity/lib/system/selinux/internal/generate
+	GO111MODULE=off go install -tags generate_policy github.com/gravitational/gravity/lib/system/selinux/internal/generate
 
 WORKDIR "/go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy/"
