@@ -303,7 +303,7 @@ $(GRAVITY_BUILDDIR):
 .PHONY: $(BINARIES)
 $(BINARIES):
 	@echo -e "\n----> Building $(LOCAL_GRAVITY_BUILDDIR)/$@ binary...\n"
-	go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
+	GO111MODULE=off go build -o $(LOCAL_GRAVITY_BUILDDIR)/$@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_PKG_PATH)/tool/$@
 	@echo "\nDone --> $(LOCAL_GRAVITY_BUILDDIR)/$@\n"
 
 .PHONY: compile
