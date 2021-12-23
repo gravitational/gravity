@@ -330,13 +330,13 @@ $(GOCACHE):
 .PHONY: $(TARGETS)
 $(TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=off go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: $(HOST_TARGETS)
 $(HOST_TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	GO111MODULE=off go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: compile
