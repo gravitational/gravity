@@ -114,7 +114,7 @@ test: buildbox test-etcd
 
 .PHONY: test-inside-container
 test-inside-container:
-	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(GRAVITY_PKG_PATH)/lib/... $(FLAGS)
+	GO111MODULE=off TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(GRAVITY_PKG_PATH)/lib/... $(FLAGS)
 # TODO: It turns out "go vet" never really worked because we used incorrect package path
 # and now that I've fixed it, it produces a gazillion of warnings. So I'm commenting this
 # out for the time being, should uncomment once we've fixed the warnings.
