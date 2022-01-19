@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.12.9-stretch
+FROM quay.io/gravitational/debian-venti:go1.17.5-stretch
 
 ARG PROTOC_VER
 ARG PROTOC_PLATFORM
@@ -46,7 +46,7 @@ RUN (set -ex && mkdir -p /gopath/src/github.com/gravitational && \
      git clone https://github.com/gravitational/version.git && \
      cd /gopath/src/github.com/gravitational/version && \
      git checkout ${VERSION_TAG} && \
-     go install github.com/gravitational/version/cmd/linkflags)
+     go install github.com/gravitational/version/cmd/linkflags@0.0.2)
 
 RUN (set -ex && mkdir -p /opt/protoc && \
      wget --quiet -O /tmp/${TARBALL} ${PROTOC_URL} && \
