@@ -13,8 +13,8 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.8  | No  | pre-release          | December 17, 2021    | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.8  | No  | pre-release          | November 18,2021     | Set upon release        | 1.19.15              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.35        | Yes | April 3, 2020        | December 6, 2021     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.36        | Yes | April 3, 2020        | January 19, 2022     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.52        | Yes | August 2, 2019       | January 19, 2022     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -356,6 +356,21 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.36 (January 19, 2022)
+
+#### Bugfixes
+
+* Upgrades Go version to 1.17.5 (CVE-2021-44716 / CVE-2021-44717) ([#2698](https://github.com/gravitational/gravity/pull/2698), [planet#873](https://github.com/gravitational/planet/pull/873)).
+
+!!! warning
+    This release fixes a security vulnerability in Go. Please see
+    [Go Announcement for CVE-2021-44716/CVE-2021-44717](https://groups.google.com/g/golang-announce/c/hcmEScgc00k)
+
+#### Internal Changes
+
+* Upgrades kube-rbac-proxy to v0.6.0 ([#2709](https://github.com/gravitational/gravity/pull/2709), [monitoring-app#224](https://github.com/gravitational/monitoring-app/pull/224)).
+* And other minor code cleanup and build improvements.
 
 ### 7.0.35 (December 6, 2021)
 
@@ -1087,6 +1102,17 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.52 (January 19, 2022)
+
+#### Bugfixes
+
+* Fix Helm installation failure ([#2707](https://github.com/gravitational/gravity/pull/2707), [planet#861](https://github.com/gravitational/planet/pull/861)).
+
+#### Internal Changes
+
+* Upgrades kube-rbac-proxy to v0.6.0 and kube-state-metrics to v1.9.2 ([#2708](https://github.com/gravitational/gravity/pull/2708), [monitoring-app#223](https://github.com/gravitational/monitoring-app/pull/223)).
+* And other minor code cleanup and build improvements.
 
 ### 6.1.51 LTS (September 28, 2021)
 
