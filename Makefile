@@ -738,5 +738,4 @@ fix-logrus:
 	find tool -type f -print0 | xargs -0 sed -i 's/Sirupsen/sirupsen/g'
 	rm -rf vendor/github.com/Sirupsen/logrus
 
-
 include build.assets/etcd.mk
