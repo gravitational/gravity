@@ -11,10 +11,10 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-beta.7  | No  | pre-release          | October 19, 2021     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
-| [8.0](#80-releases) | 8.0.0-beta.7  | No  | pre-release          | November 2,2021      | Set upon release        | 1.19.15              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.34        | Yes | April 3, 2020        | August 4, 2021       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
-| [6.1](#61-releases) | 6.1.51        | Yes | August 2, 2019       | September 28, 2021   | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.10 | No  | pre-release          | January 27, 2022     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
+| [8.0](#80-releases) | 8.0.0-beta.9  | No  | pre-release          | January 27, 2022     | Set upon release        | 1.19.15              | 3.2.17-gravity   |
+| [7.0](#70-releases) | 7.0.37        | Yes | April 3, 2020        | January 27, 2022     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [6.1](#61-releases) | 6.1.55        | Yes | August 2, 2019       | January 27, 2022     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 | [5.5](#55-releases) | 5.5.60        | Yes | March 8, 2019        | June 25, 2021        | March 8, 2021           | 1.13.11              | 3.0.7-gravity    |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -55,6 +55,23 @@ extend updates past End of Support through customer agreements if required.
 ## 9.0 Releases
 
 9.0 is currently pre-release.
+
+### 9.0.0-beta.10 (January 27, 2021)
+
+#### Bugfixes
+
+* Updates the gravity fork of flannel to avoid incompatibility with systemd 242+ and include other upstream fixes ([#2712](https://github.com/gravitational/gravity/pull/2712), [planet#875](https://github.com/gravitational/planet/pull/875), [flannel#11](https://github.com/gravitational/flannel/pull/11)).
+
+
+### 9.0.0-beta.8 (December 17, 2021)
+
+#### Bugfixes
+
+* Upgrades Go version to 1.17.5 (CVE-2021-44716 / CVE-2021-44717) ([#2694](https://github.com/gravitational/gravity/pull/2694)).
+
+!!! warning
+    This release fixes a security vulnerability in Go. Please see
+    [Go Announcement for CVE-2021-44716/CVE-2021-44717](https://groups.google.com/g/golang-announce/c/hcmEScgc00k)
 
 ### 9.0.0-beta.7 (October 19, 2021)
 
@@ -183,6 +200,30 @@ extend updates past End of Support through customer agreements if required.
 ## 8.0 Releases
 
 8.0 is currently pre-release.
+
+### 8.0.0-beta.9 (January 27, 2021)
+
+#### Bugfixes
+
+* Updates the gravity fork of flannel to avoid incompatibility with systemd 242+ and include other upstream fixes ([#2713](https://github.com/gravitational/gravity/pull/2713), [planet#876](https://github.com/gravitational/planet/pull/876), [flannel#11](https://github.com/gravitational/flannel/pull/11)).
+* Upgrades Go version to 1.17.5 (CVE-2021-44716 / CVE-2021-44717) ([#2697](https://github.com/gravitational/gravity/pull/2697)).
+* Disables CPU throttling alerts ([#2695](https://github.com/gravitational/gravity/pull/2695), [monitoring-app#218](https://github.com/gravitational/monitoring-app/pull/218)).
+
+!!! warning
+    This release fixes a security vulnerability in Go. Please see
+    [Go Announcement for CVE-2021-44716/CVE-2021-44717](https://groups.google.com/g/golang-announce/c/hcmEScgc00k)
+
+### 8.0.0-beta.8 (November 18, 2021)
+
+#### Improvements
+
+* Retry upon encountering a transient failure when updating node taints ([#2680](https://github.com/gravitational/gravity/pull/2680)).
+
+#### Bugfixes
+
+* Fix a DNS configuration issue when planet agent would not properly use DNS endpoints on worker nodes ([#2684](https://github.com/gravitational/gravity/pull/2684), [planet#868](https://github.com/gravitational/planet/pull/868)).
+* Fix an issue when a master node might become a leader with an empty registry ([#2683](https://github.com/gravitational/gravity/pull/2683)).
+* Fix the alerts watcher after rename of services ([#2684](https://github.com/gravitational/gravity/pull/2684), [monitoring-app#220](https://github.com/gravitational/monitoring-app/pull/220)).
 
 ### 8.0.0-beta.7 (November 2, 2021)
 
@@ -334,6 +375,40 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.37 (January 27, 2021)
+
+#### Bugfixes
+
+* Updates the gravity fork of flannel to avoid incompatibility with systemd 242+ and include other upstream fixes ([#2714](https://github.com/gravitational/gravity/pull/2714), [planet#877](https://github.com/gravitational/planet/pull/877), [flannel#11](https://github.com/gravitational/flannel/pull/11)).
+
+### 7.0.36 (January 19, 2022)
+
+#### Bugfixes
+
+* Upgrades Go version to 1.17.5 (CVE-2021-44716 / CVE-2021-44717) ([#2698](https://github.com/gravitational/gravity/pull/2698), [planet#873](https://github.com/gravitational/planet/pull/873)).
+
+!!! warning
+    This release fixes a security vulnerability in Go. Please see
+    [Go Announcement for CVE-2021-44716/CVE-2021-44717](https://groups.google.com/g/golang-announce/c/hcmEScgc00k)
+
+#### Internal Changes
+
+* Upgrades kube-rbac-proxy to v0.6.0 ([#2709](https://github.com/gravitational/gravity/pull/2709), [monitoring-app#224](https://github.com/gravitational/monitoring-app/pull/224)).
+* And other minor code cleanup and build improvements.
+
+### 7.0.35 (December 6, 2021)
+
+#### Bugfixes
+
+* Use 7.0.x in logging-app ([#2596](https://github.com/gravitational/gravity/pull/2596)).
+* Fix an issue with excessive CPU usage when using `gravity plan --tail` ([#2645](https://github.com/gravitational/gravity/pull/2645)).
+* Fix fd leak in the nethealth checker ([#2686](https://github.com/gravitational/gravity/pull/2686), [planet#869](https://github.com/gravitational/planet/pull/869), [satellite#294](https://github.com/gravitational/satellite/pull/294)).
+
+#### Internal Changes
+
+* Update tiller registry ([#2621](https://github.com/gravitational/gravity/pull/2621)).
+* And other minor code cleanup and build improvements.
 
 ### 7.0.34 (August 4, 2021)
 
@@ -1052,6 +1127,23 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.16.0`.
 
 ## 6.1 Releases
+
+### 6.1.55 (January 27, 2021)
+
+#### Bugfixes
+
+* Updates the gravity fork of flannel to avoid incompatibility with systemd 242+ and include other upstream fixes ([#2715](https://github.com/gravitational/gravity/pull/2715), [planet#878](https://github.com/gravitational/planet/pull/878), [flannel#11](https://github.com/gravitational/flannel/pull/11)).
+
+### 6.1.52 (January 19, 2022)
+
+#### Bugfixes
+
+* Fix Helm installation failure ([#2707](https://github.com/gravitational/gravity/pull/2707), [planet#861](https://github.com/gravitational/planet/pull/861)).
+
+#### Internal Changes
+
+* Upgrades kube-rbac-proxy to v0.6.0 and kube-state-metrics to v1.9.2 ([#2708](https://github.com/gravitational/gravity/pull/2708), [monitoring-app#223](https://github.com/gravitational/monitoring-app/pull/223)).
+* And other minor code cleanup and build improvements.
 
 ### 6.1.51 LTS (September 28, 2021)
 
