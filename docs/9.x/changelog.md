@@ -41,7 +41,7 @@ extend updates past End of Support through customer agreements if required.
 | [6.2](#62-releases) | 6.2.5        | No  | September 24, 2019   | December 18, 2019 (6.3) | 1.16.3               | 3.2.13           |
 | [6.0](#60-releases) | 6.0.10       | No  | July 17, 2019        | August 2, 2019 (6.1)    | 1.14.7               | 3.2.12           |
 | [5.6](#56-releases) | 5.6.8        | No  | April 19, 2019       | July 17, 2019 (6.0)     | 1.14.7               | 3.0.6-gravity    |
-| [5.5](#55-releases) | 5.5.60       | Yes | March 8, 2019        | January 31, 2022        | 1.13.11              | 3.0.7-gravity    |
+| [5.5](#55-releases) | 5.5.61       | Yes | March 8, 2019        | January 31, 2022        | 1.13.11              | 3.0.7-gravity    |
 | [5.4](#54-releases) | 5.4.10       | No  | December 14, 2018    | March 8, 2019 (5.5)     | 1.13.5               | 2.4.10           |
 | [5.3](#53-releases) | 5.3.9        | No  | October 19, 2018     | December 14, 2018 (5.4) | 1.12.3               | 2.4.7            |
 | [5.2](#52-releases) | 5.2.18       | Yes | October 15, 2018     | October 15, 2019        | 1.11.9               | 2.4.10           |
@@ -1980,6 +1980,14 @@ to learn how to gain insight into how the cluster status changes over time.
 * Upgrade Kubernetes to `v1.14.0`.
 
 ## 5.5 Releases
+
+### 5.5.61 LTS (February 1, 2022)
+
+#### Bugfixes
+
+* Updates the gravity fork of flannel to avoid incompatibility with systemd 242+ and include other upstream fixes ([#2716](https://github.com/gravitational/gravity/pull/2716), [planet#880](https://github.com/gravitational/planet/pull/880), [flannel#11](https://github.com/gravitational/flannel/pull/11)).
+* Retry during upgrade or install when kubernetes returns temporary errors ([#2656](https://github.com/gravitational/gravity/pull/2656)).
+* Add missing retries when updating taints during upgrades ([#2582](https://github.com/gravitational/gravity/pull/2582)).
 
 ### 5.5.60 LTS (June 25, 2021)
 #### Bugfixes
