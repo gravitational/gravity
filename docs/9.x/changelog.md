@@ -11,7 +11,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 
 | Version             | Latest Patch  | LTS | Release Date         | Latest Patch Date    | End of Support *        | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
-| [9.0](#90-releases) | 9.0.0-beta.10 | No  | pre-release          | January 27, 2022     | Set upon release        | 1.21.5               | 3.2.17-gravity   |
+| [9.0](#90-releases) | 9.0.0-beta.11 | No  | pre-release          | April 4, 2022        | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.9  | No  | pre-release          | January 27, 2022     | Set upon release        | 1.19.15              | 3.2.17-gravity   |
 | [7.0](#70-releases) | 7.0.37        | Yes | April 3, 2020        | January 27, 2022     | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.55        | Yes | August 2, 2019       | January 27, 2022     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
@@ -56,7 +56,13 @@ extend updates past End of Support through customer agreements if required.
 
 9.0 is currently pre-release.
 
-### 9.0.0-beta.10 (January 27, 2021)
+### 9.0.0-beta.11 (April 4, 2022)
+
+#### Bugfixes
+
+* Fix an issue that caused kubernetes nodes to only use controllers as DNS servers and not the workers ([#2723](https://github.com/gravitational/gravity/pull/2723), [planet#882](https://github.com/gravitational/planet/pull/882)).
+
+### 9.0.0-beta.10 (January 27, 2022)
 
 #### Bugfixes
 
@@ -201,7 +207,7 @@ extend updates past End of Support through customer agreements if required.
 
 8.0 is currently pre-release.
 
-### 8.0.0-beta.9 (January 27, 2021)
+### 8.0.0-beta.9 (January 27, 2022)
 
 #### Bugfixes
 
@@ -376,7 +382,7 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 ## 7.0 Releases
 
-### 7.0.37 (January 27, 2021)
+### 7.0.37 (January 27, 2022)
 
 #### Bugfixes
 
@@ -1128,7 +1134,7 @@ to learn how to gain insight into how the cluster status changes over time.
 
 ## 6.1 Releases
 
-### 6.1.55 (January 27, 2021)
+### 6.1.55 (January 27, 2022)
 
 #### Bugfixes
 
