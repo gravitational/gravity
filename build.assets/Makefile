@@ -131,12 +131,12 @@ test: testbox test-etcd
 		-e "GRAVITY_PKG_PATH=$(GRAVITY_PK,_PATH)" \
 		-e "TEST_PACKAGES=$(TEST_PACKAGES)" \
 		-t $(TESTBOX) \
-		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-gcflags=all=-d=checkptr=0 -cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
+		dumb-init make -C $(SRCDIR)/build.assets FLAGS='-cover -race' TEST_ETCD=true TEST_K8S=$(TEST_K8S) test-inside-container
 
 
 .PHONY: test-inside-container
 test-inside-container:
-	GO111MODULE=off TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(TEST_PACKAGES) $(FLAGS)
+	TEST_ETCD=$(TEST_ETCD) TEST_ETCD_CONFIG=$(TEST_ETCD_CONFIG) TEST_K8S=$(TEST_K8S) go test $(TEST_PACKAGES) $(FLAGS)
 # TODO: It turns out "go vet" never really worked because we used incorrect package path
 # and now that I've fixed it, it produces a gazillion of warnings. So I'm commenting this
 # out for the time being, should uncomment once we've fixed the warnings.
@@ -330,13 +330,13 @@ $(GOCACHE):
 .PHONY: $(TARGETS)
 $(TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	GO111MODULE=off go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: $(HOST_TARGETS)
 $(HOST_TARGETS): | $(GOCACHE)
 	@echo -e "\n----> Building $@ binary...\n"
-	GO111MODULE=off go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
+	go build -o $@ -ldflags $(GRAVITY_LINKFLAGS) $(GRAVITY_BUILDFLAGS) -tags "$(GRAVITY_BUILDTAGS)" $(GRAVITY_PKG_PATH)/tool/$(@F)
 	@echo "\nDone --> $@\n"
 
 .PHONY: compile
