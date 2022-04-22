@@ -1,5 +1,4 @@
-ARG GOLANG_VER=1.17.5-buster
-FROM golang:${GOLANG_VER}
+FROM golang:1.12.9-buster
 
 RUN set -ex && \
 	mkdir -p /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/generate && \
@@ -9,8 +8,8 @@ COPY ./internal/policy/policy.go /go/src/github.com/gravitational/gravity/lib/sy
 COPY ./internal/generate /go/src/github.com/gravitational/gravity/lib/system/selinux/internal/generate/
 
 RUN set -ex && \
-	GO111MODULE=off go get -u github.com/gravitational/vfsgen && \
+	go get -u github.com/gravitational/vfsgen && \
 	cd /go/src/github.com/gravitational/vfsgen && \
-	GO111MODULE=off go install -tags generate_policy github.com/gravitational/gravity/lib/system/selinux/internal/generate
+	go install -tags generate_policy github.com/gravitational/gravity/lib/system/selinux/internal/generate
 
 WORKDIR "/go/src/github.com/gravitational/gravity/lib/system/selinux/internal/policy/"

@@ -29,7 +29,6 @@ import (
 	"github.com/gravitational/gravity/lib/pack"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/users"
-	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/fields"
 
 	"github.com/gravitational/form"
@@ -267,11 +266,7 @@ func (s *Server) createPackage(w http.ResponseWriter, r *http.Request, p httprou
 		}
 	}()
 
-	packageName, err := utils.ParseFilename(r, "package")
-	if err != nil {
-		return trace.Wrap(err, "failed to parse package name")
-	}
-	loc, err := loc.ParseLocator(packageName)
+	loc, err := loc.ParseLocator(files[0].Name())
 	if err != nil {
 		return trace.BadParameter(err.Error())
 	}

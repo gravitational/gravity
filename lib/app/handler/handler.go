@@ -561,6 +561,7 @@ func (h *WebHandler) createApp(w http.ResponseWriter, req *http.Request,
 	var labelsMap string
 	var upsertS string
 	var manifestS string
+
 	err := form.Parse(req,
 		form.FileSlice("package", &files),
 		form.String("labels", &labelsMap),
@@ -587,10 +588,7 @@ func (h *WebHandler) createApp(w http.ResponseWriter, req *http.Request,
 	}()
 
 	reader := files[0]
-	appPackageName, err := utils.ParseFilename(req, "package")
-	if err != nil {
-		return trace.Wrap(err, "failed to parse package name")
-	}
+	appPackageName := reader.Name()
 	locator, err := loc.ParseLocator(appPackageName)
 	if err != nil {
 		return trace.BadParameter(err.Error())
