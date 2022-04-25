@@ -386,7 +386,7 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 #### Bugfixes
 
-* Reverts Go version upgrade that was causing volumes to be unable to be mounted on Google Cloud ([#2729](https://github.com/gravitational/gravity/pull/2729), [planet#885](https://github.com/gravitational/planet/pull/885)).
+* Reverts Go version upgrade that was causing volumes to be unable to be mounted on Google Cloud ([#2727](https://github.com/gravitational/gravity/issues/2727), [#2729](https://github.com/gravitational/gravity/pull/2729), [planet#885](https://github.com/gravitational/planet/pull/885)).
 
 ### 7.0.37 (January 27, 2022)
 
