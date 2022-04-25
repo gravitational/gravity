@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.17.5-stretch
+FROM quay.io/gravitational/debian-venti:go1.12.9-stretch
 
 RUN set -ex && adduser jenkins --uid=995 --disabled-password --system
 RUN (set -ex && mkdir -p /gopath/src/github.com/gravitational/gravity && \
