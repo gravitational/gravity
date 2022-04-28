@@ -71,11 +71,7 @@ func NewPhaseUpgradeEtcdBackup(logger log.FieldLogger) (fsm.PhaseExecutor, error
 
 func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 	p.Info("Backup etcd.")
-	backupFile, err := backupFile()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile)
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile())
 	if err != nil {
 		return trace.Wrap(err, "failed to backup etcd").AddField("output", string(out))
 	}
@@ -331,10 +327,6 @@ func restartGravitySite(ctx context.Context, client *kubeapi.Clientset, logger l
 	return trace.Wrap(err)
 }
 
-func backupFile() (string, error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(state.GravityUpdateDir(stateDir), defaults.EtcdUpgradeBackupFile), nil
+func backupFile() (path string) {
+	return filepath.Join(state.GravityUpdateDir(defaults.GravityDir), defaults.EtcdUpgradeBackupFile)
 }
