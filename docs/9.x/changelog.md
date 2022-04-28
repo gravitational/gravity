@@ -13,7 +13,7 @@ Find the latest Open Source Gravity releases at [Gravity Downloads](https://grav
 | ------------------- | ------------- | --- | -------------------- | -------------------- | ----------------------- | -------------------- | ---------------- |
 | [9.0](#90-releases) | 9.0.0-beta.11 | No  | pre-release          | April 4, 2022        | Set upon release        | 1.21.5               | 3.2.17-gravity   |
 | [8.0](#80-releases) | 8.0.0-beta.9  | No  | pre-release          | January 27, 2022     | Set upon release        | 1.19.15              | 3.2.17-gravity   |
-| [7.0](#70-releases) | 7.0.38        | Yes | April 3, 2020        | April 22, 2022       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
+| [7.0](#70-releases) | 7.0.39        | Yes | April 3, 2020        | April 28, 2022       | July 9, 2022            | 1.17.9               | 3.2.14-gravity   |
 | [6.1](#61-releases) | 6.1.55        | Yes | August 2, 2019       | January 27, 2022     | November 10, 2021       | 1.15.12              | 3.2.14-gravity   |
 
 Gravity offers one Long Term Support (LTS) version for every 2nd Kubernetes
@@ -381,6 +381,14 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.39 (April 28, 2022)
+
+#### Bugfixes
+
+* Fixes upgrade failures when using custom install directories ([#2734](https://github.com/gravitational/gravity/issues/2734), [#2735](https://github.com/gravitational/gravity/pull/2735)).
+* Fixes failure to mount volumes in Google Cloud ([#2727](https://github.com/gravitational/gravity/issues/2727), [#2733](https://github.com/gravitational/gravity/pull/2733), [planet#886](https://github.com/gravitational/planet/pull/886)).
+* Upgrade Go version to 1.17 with above bugs fixed ([#2733](https://github.com/gravitational/gravity/pull/2733), [planet#886](https://github.com/gravitational/planet/pull/886)).
 
 ### 7.0.38 (April 22, 2022)
 
