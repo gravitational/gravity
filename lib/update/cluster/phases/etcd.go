@@ -75,21 +75,13 @@ func NewPhaseUpgradeEtcdBackup(logger log.FieldLogger) (fsm.PhaseExecutor, error
 	}, nil
 }
 
-func backupFile() (string, error) {
-	stateDir, err := state.GetStateDir()
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	return filepath.Join(state.GravityUpdateDir(stateDir), defaults.EtcdUpgradeBackupFile), nil
+func backupFile() (path string) {
+	return filepath.Join(state.GravityUpdateDir(defaults.GravityDir), defaults.EtcdUpgradeBackupFile)
 }
 
 func (p *PhaseUpgradeEtcdBackup) Execute(ctx context.Context) error {
 	p.Info("Backup etcd.")
-	backupFile, err := backupFile()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile)
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "backup", backupFile())
 	if err != nil {
 		return trace.Wrap(err, "failed to backup etcd").AddField("output", string(out))
 	}
@@ -224,11 +216,7 @@ func NewPhaseUpgradeEtcdRestore(phase storage.OperationPhase, logger log.FieldLo
 // 10. Restart etcd on the correct ports on first node // API outage ends
 func (p *PhaseUpgradeEtcdRestore) Execute(ctx context.Context) error {
 	p.Info("Restore etcd data from backup.")
-	backupFile, err := backupFile()
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile)
+	out, err := utils.RunPlanetCommand(ctx, p.FieldLogger, "etcd", "restore", backupFile())
 	if err != nil {
 		return trace.Wrap(err).AddField("output", string(out))
 	}
