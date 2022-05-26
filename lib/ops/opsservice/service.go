@@ -621,6 +621,11 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		labels[ops.SiteLabelName] = r.DomainName
 	}
 
+	serfEncryptionKey, err := serfKeygen()
+	if err != nil {
+		return nil, trace.Wrap(err, "failed to generate serf encryption key")
+	}
+
 	clusterData := &storage.Site{
 		AccountID:    account.ID,
 		Domain:       r.DomainName,
@@ -641,7 +646,8 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		ClusterState: storage.ClusterState{
 			Docker: dockerConfig,
 		},
-		InstallToken: r.InstallToken,
+		InstallToken:      r.InstallToken,
+		SerfEncryptionKey: serfEncryptionKey,
 	}
 	if runtimeLoc := app.Manifest.Base(); runtimeLoc != nil {
 		runtimeApp, err := o.cfg.Apps.GetApp(*runtimeLoc)

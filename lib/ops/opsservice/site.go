@@ -650,6 +650,7 @@ func convertSite(in storage.Site, apps appservice.Applications) (*ops.Site, erro
 		DNSOverrides:             in.DNSOverrides,
 		DNSConfig:                in.DNSConfig,
 		InstallToken:             in.InstallToken,
+		SerfEncryptionKey:        in.SerfEncryptionKey,
 	}
 	if in.License != "" {
 		parsed, err := license.ParseLicense(in.License)

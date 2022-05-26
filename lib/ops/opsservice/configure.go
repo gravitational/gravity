@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -935,6 +936,12 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 			s.backendSite.DNSOverrides.FormatZones()))
 	}
 
+	disableSerfEncryption := config.config.GetGlobalConfig().DisableSerfEncryption
+	if s.backendSite.SerfEncryptionKey != "" && (disableSerfEncryption == nil || !(*disableSerfEncryption)) {
+		args = append(args, fmt.Sprintf("--serf-encryption-key=%v",
+			s.backendSite.SerfEncryptionKey))
+	}
+
 	vxlanPort := config.installExpand.InstallExpand.Vars.OnPrem.VxlanPort
 	if vxlanPort != 0 {
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
@@ -1428,6 +1435,20 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 		args = append(args, "--high-availability")
 	}
 	return args
+}
+
+// serfKeygen generates an encryption key for use in serf agent
+// https://github.com/hashicorp/serf/blob/a2bba5676d6e37953715ea10e583843793a0c507/cmd/serf/command/keygen.go#L20
+func serfKeygen() (string, error) {
+	key := make([]byte, 32)
+	n, err := rand.Reader.Read(key)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+	if n != 32 {
+		return "", trace.BadParameter("could not read enough entropy")
+	}
+	return base64.StdEncoding.EncodeToString(key), nil
 }
 
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node

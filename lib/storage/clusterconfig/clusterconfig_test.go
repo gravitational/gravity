@@ -24,6 +24,7 @@ import (
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/storage"
+	"github.com/gravitational/gravity/lib/utils"
 
 	teleservices "github.com/gravitational/teleport/lib/services"
 	"github.com/gravitational/trace"
@@ -170,7 +171,8 @@ spec:
       FeatureA: true
       FeatureB: false
     podSubnetSize: "26"
-    highAvailability: true`,
+    highAvailability: true
+    disableSerfEncryption: true`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -184,8 +186,9 @@ spec:
 							"FeatureA": true,
 							"FeatureB": false,
 						},
-						PodSubnetSize:    "26",
-						HighAvailability: true,
+						PodSubnetSize:         "26",
+						HighAvailability:      true,
+						DisableSerfEncryption: utils.BoolPtr(true),
 					},
 				},
 			},
@@ -243,7 +246,8 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						HighAvailability: true,
+						HighAvailability:      true,
+						DisableSerfEncryption: utils.BoolPtr(false),
 					},
 				},
 			},
@@ -262,7 +266,8 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 							"feature1": true,
 							"feature2": false,
 						},
-						HighAvailability: true,
+						HighAvailability:      true,
+						DisableSerfEncryption: utils.BoolPtr(false),
 					},
 				},
 			},
@@ -290,6 +295,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature2": false,
 						},
+						DisableSerfEncryption: utils.BoolPtr(true),
 					},
 				},
 			},
@@ -336,6 +342,7 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature3": true,
 						},
+						DisableSerfEncryption: utils.BoolPtr(true),
 					},
 				},
 			},

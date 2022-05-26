@@ -23,6 +23,7 @@ import (
 	"github.com/gravitational/gravity/lib/ops/resources"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/storage/clusterconfig"
+	"github.com/gravitational/gravity/lib/utils"
 
 	"gopkg.in/check.v1"
 )
@@ -44,6 +45,7 @@ spec:
     cloudProvider: gce
     serviceCIDR: "100.200.0.0/16"
     podSubnetSize: "26"
+    disableSerfEncryption: true
     cloudConfig: |
       [global]
       node-tags=example-cluster
@@ -70,10 +72,11 @@ spec:
 		// updateClusterConfig pushes the cluster configuration resource at the end
 		clusterConfigToMap(clusterconfig.New(clusterconfig.Spec{
 			Global: clusterconfig.Global{
-				CloudProvider: "gce",
-				ServiceCIDR:   "100.200.0.0/16",
-				PodCIDR:       "100.96.0.0/16",
-				PodSubnetSize: "26",
+				CloudProvider:         "gce",
+				ServiceCIDR:           "100.200.0.0/16",
+				PodCIDR:               "100.96.0.0/16",
+				PodSubnetSize:         "26",
+				DisableSerfEncryption: utils.BoolPtr(true),
 				CloudConfig: `[global]
 node-tags=example-cluster
 multizone="true"

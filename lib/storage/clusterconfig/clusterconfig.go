@@ -166,6 +166,12 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 	}
 	r.Spec.Global.HighAvailability = other.Spec.Global.HighAvailability
+	if other.Spec.Global.DisableSerfEncryption != nil {
+		if r.Spec.Global.DisableSerfEncryption == nil {
+			r.Spec.Global.DisableSerfEncryption = new(bool)
+		}
+		*r.Spec.Global.DisableSerfEncryption = *other.Spec.Global.DisableSerfEncryption
+	}
 	return r
 }
 
@@ -271,6 +277,7 @@ func (r Global) IsEmpty() bool {
 		r.PodSubnetSize == "" &&
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
+		r.DisableSerfEncryption == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -304,6 +311,8 @@ type Global struct {
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 	// HighAvailability enables high availability mode for Kubernetes.
 	HighAvailability bool `json:"highAvailability,omitempty"`
+	// DisableSerfEncryption disables serf encryption.
+	DisableSerfEncryption *bool `json:"disableSerfEncryption,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -352,7 +361,8 @@ const specSchemaTemplate = `{
                  "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
               }
             },
-            "highAvailability": {"type": "boolean"}
+            "highAvailability": {"type": "boolean"},
+            "disableSerfEncryption": {"type": "boolean"}
           }
         },
         "kubelet": {
