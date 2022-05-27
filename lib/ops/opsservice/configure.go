@@ -936,8 +936,8 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 			s.backendSite.DNSOverrides.FormatZones()))
 	}
 
-	disableSerfEncryption := config.config.GetGlobalConfig().DisableSerfEncryption
-	if s.backendSite.SerfEncryptionKey != "" && (disableSerfEncryption == nil || !(*disableSerfEncryption)) {
+	serfEncryption := config.config.GetGlobalConfig().SerfEncryption
+	if s.backendSite.SerfEncryptionKey != "" && (serfEncryption == nil || *serfEncryption) {
 		args = append(args, fmt.Sprintf("--serf-encryption-key=%v",
 			s.backendSite.SerfEncryptionKey))
 	}
