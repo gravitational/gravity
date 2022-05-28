@@ -1427,6 +1427,9 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	if globalConfig.HighAvailability {
 		args = append(args, "--high-availability")
 	}
+	if globalConfig.EtcdHealthz == nil || *globalConfig.EtcdHealthz {
+		args = append(args, "--etcd-healthz")
+	}
 	return args
 }
 

@@ -166,6 +166,12 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 	}
 	r.Spec.Global.HighAvailability = other.Spec.Global.HighAvailability
+	if other.Spec.Global.EtcdHealthz != nil {
+		if r.Spec.Global.EtcdHealthz == nil {
+			r.Spec.Global.EtcdHealthz = new(bool)
+		}
+		*r.Spec.Global.EtcdHealthz = *other.Spec.Global.EtcdHealthz
+	}
 	return r
 }
 
@@ -271,6 +277,7 @@ func (r Global) IsEmpty() bool {
 		r.PodSubnetSize == "" &&
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
+		r.EtcdHealthz == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -304,6 +311,8 @@ type Global struct {
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 	// HighAvailability enables high availability mode for Kubernetes.
 	HighAvailability bool `json:"highAvailability,omitempty"`
+	// EtcdHealthz enables the etc-healthz check.
+	EtcdHealthz *bool `json:"etcdHealthz,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -352,7 +361,8 @@ const specSchemaTemplate = `{
                  "^[a-zA-Z]+[a-zA-Z0-9]*$": {"type": "boolean"}
               }
             },
-            "highAvailability": {"type": "boolean"}
+            "highAvailability": {"type": "boolean"},
+            "etcdHealthz": {"type": "boolean"}
           }
         },
         "kubelet": {
