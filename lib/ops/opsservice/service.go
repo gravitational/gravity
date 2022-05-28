@@ -621,7 +621,7 @@ func (o *Operator) CreateSite(r ops.NewSiteRequest) (*ops.Site, error) {
 		labels[ops.SiteLabelName] = r.DomainName
 	}
 
-	serfEncryptionKey, err := serfKeygen()
+	serfEncryptionKey, err := getEncryptionKey(32)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to generate serf encryption key")
 	}

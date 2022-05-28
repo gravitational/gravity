@@ -1437,20 +1437,6 @@ func (s *site) addClusterConfig(config clusterconfig.Interface, overrideArgs map
 	return args
 }
 
-// serfKeygen generates an encryption key for use in serf agent
-// https://github.com/hashicorp/serf/blob/a2bba5676d6e37953715ea10e583843793a0c507/cmd/serf/command/keygen.go#L20
-func serfKeygen() (string, error) {
-	key := make([]byte, 32)
-	n, err := rand.Reader.Read(key)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-	if n != 32 {
-		return "", trace.BadParameter("could not read enough entropy")
-	}
-	return base64.StdEncoding.EncodeToString(key), nil
-}
-
 // configureDockerOptions creates a set of Docker-specific command line arguments to Planet on the specified node
 // based on the operation op and docker manifest configuration block.
 func configureDockerOptions(
@@ -1498,6 +1484,18 @@ func serviceSubnet(installExpand *storage.InstallExpandOperationState, override 
 		return storage.DefaultSubnets.Service
 	}
 	return installExpand.Subnets.Service
+}
+
+// genEncryptionKey generates a random base64-encoded string of lenght len.
+func getEncryptionKey(len int16) (string, error) {
+	bytesBuf := make([]byte, len)
+
+	_, err := rand.Read(bytesBuf)
+	if err != nil {
+		return "", err
+	}
+	bytesEnc := base64.StdEncoding.EncodeToString(bytesBuf)
+	return bytesEnc, nil
 }
 
 // exportBackend defines a shim to export site information
