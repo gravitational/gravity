@@ -211,6 +211,7 @@ multizone=true`,
 		"kubelet-config": {base64.StdEncoding.EncodeToString(configBytes)},
 		"service-subnet": {"10.0.0.1/8"},
 		"pod-subnet":     {"10.0.1.1/8"},
+		"etcd-healthz":   []string(nil),
 	}))
 	assertFeatures(features, []string{"FeatureA=true", "FeatureB=false"}, c)
 }
@@ -310,6 +311,7 @@ func (s *ConfigureSuite) TestCanSetCloudProviderWithoutCloudConfig(c *check.C) {
 		},
 		"service-subnet": {"10.0.0.1/8"},
 		"pod-subnet":     {"10.0.1.1/8"},
+		"etcd-healthz":   []string(nil),
 	}))
 }
 
