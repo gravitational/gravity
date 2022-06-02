@@ -371,7 +371,7 @@ const specSchemaTemplate = `{
               }
             },
             "highAvailability": {"type": "boolean"},
-            "etcdHealthz": {"type": "boolean"}
+            "etcdHealthz": {"type": "boolean"},
             "serfEncryption": {"type": "boolean"}
           }
         },
