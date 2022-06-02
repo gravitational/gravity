@@ -61,6 +61,10 @@ spec:
     # Enables Kubernetes high availability mode. When HA mode is enabled, Kubernetes
     # control plane components run on all master nodes.
     highAvailability: true
+    # Enables or disables serf encryption mode. Enabled by default.
+    serfEncryption: true
+    # Enables or disables etcd-healthz checks. Enabled by default.
+    etcdHealthz: true
     # A set of key=value pairs that describe feature gates for alpha/experimental features
     featureGates:
       AllAlpha: true
