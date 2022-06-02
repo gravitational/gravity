@@ -172,7 +172,8 @@ spec:
       FeatureB: false
     podSubnetSize: "26"
     highAvailability: true
-    etcdHealthz: true`,
+    etcdHealthz: true
+    serfEncryption: true`,
 			resource: &Resource{
 				Kind:    storage.KindClusterConfiguration,
 				Version: "v1",
@@ -189,6 +190,7 @@ spec:
 						PodSubnetSize:    "26",
 						HighAvailability: true,
 						EtcdHealthz:      utils.BoolPtr(true),
+						SerfEncryption:   utils.BoolPtr(true),
 					},
 				},
 			},
@@ -248,6 +250,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 						HighAvailability: true,
 						EtcdHealthz:      utils.BoolPtr(true),
+						SerfEncryption:   utils.BoolPtr(false),
 					},
 				},
 			},
@@ -268,6 +271,7 @@ func (*S) TestMergesClusterConfiguration(c *C) {
 						},
 						HighAvailability: true,
 						EtcdHealthz:      utils.BoolPtr(true),
+						SerfEncryption:   utils.BoolPtr(false),
 					},
 				},
 			},
@@ -295,7 +299,8 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature2": false,
 						},
-						EtcdHealthz: utils.BoolPtr(true),
+						EtcdHealthz:    utils.BoolPtr(true),
+						SerfEncryption: utils.BoolPtr(true),
 					},
 				},
 			},
@@ -342,7 +347,8 @@ address: 10.0.0.1
 							"feature1": true,
 							"feature3": true,
 						},
-						EtcdHealthz: utils.BoolPtr(true),
+						EtcdHealthz:    utils.BoolPtr(true),
+						SerfEncryption: utils.BoolPtr(true),
 					},
 				},
 			},

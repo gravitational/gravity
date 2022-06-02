@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -935,6 +936,12 @@ func (s *site) getPlanetConfig(config planetConfig) (args []string, err error) {
 			s.backendSite.DNSOverrides.FormatZones()))
 	}
 
+	serfEncryption := config.config.GetGlobalConfig().SerfEncryption
+	if s.backendSite.SerfEncryptionKey != "" && (serfEncryption == nil || *serfEncryption) {
+		args = append(args, fmt.Sprintf("--serf-encryption-key=%v",
+			s.backendSite.SerfEncryptionKey))
+	}
+
 	vxlanPort := config.installExpand.InstallExpand.Vars.OnPrem.VxlanPort
 	if vxlanPort != 0 {
 		args = append(args, fmt.Sprintf("--vxlan-port=%v", vxlanPort))
@@ -1480,6 +1487,18 @@ func serviceSubnet(installExpand *storage.InstallExpandOperationState, override 
 		return storage.DefaultSubnets.Service
 	}
 	return installExpand.Subnets.Service
+}
+
+// genEncryptionKey generates a random base64-encoded string of lenght len.
+func getEncryptionKey(len int16) (string, error) {
+	bytesBuf := make([]byte, len)
+
+	_, err := rand.Read(bytesBuf)
+	if err != nil {
+		return "", err
+	}
+	bytesEnc := base64.StdEncoding.EncodeToString(bytesBuf)
+	return bytesEnc, nil
 }
 
 // exportBackend defines a shim to export site information

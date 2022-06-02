@@ -172,6 +172,12 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 		*r.Spec.Global.EtcdHealthz = *other.Spec.Global.EtcdHealthz
 	}
+	if other.Spec.Global.SerfEncryption != nil {
+		if r.Spec.Global.SerfEncryption == nil {
+			r.Spec.Global.SerfEncryption = new(bool)
+		}
+		*r.Spec.Global.SerfEncryption = *other.Spec.Global.SerfEncryption
+	}
 	return r
 }
 
@@ -278,6 +284,7 @@ func (r Global) IsEmpty() bool {
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
 		r.EtcdHealthz == nil &&
+		r.SerfEncryption == nil &&
 		len(r.FeatureGates) == 0
 }
 
@@ -313,6 +320,8 @@ type Global struct {
 	HighAvailability bool `json:"highAvailability,omitempty"`
 	// EtcdHealthz enables the etc-healthz check.
 	EtcdHealthz *bool `json:"etcdHealthz,omitempty"`
+	// SerfEncryption enables serf encryption.
+	SerfEncryption *bool `json:"serfEncryption,omitempty"`
 }
 
 // specSchemaTemplate is JSON schema for the cluster configuration resource
@@ -363,6 +372,7 @@ const specSchemaTemplate = `{
             },
             "highAvailability": {"type": "boolean"},
             "etcdHealthz": {"type": "boolean"}
+            "serfEncryption": {"type": "boolean"}
           }
         },
         "kubelet": {
