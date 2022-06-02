@@ -1878,6 +1878,8 @@ type Site struct {
 	InstallToken string `json:"install_token"`
 	// SELinux specifies whether the cluster is using SELinux support
 	SELinux bool `json:"selinux,omitempty"`
+	// SerfEncryptionKey specifies the encryption key used by serf agents
+	SerfEncryptionKey string `json:"serf_encryption_key"`
 }
 
 // IsOnline returns whether this site is online

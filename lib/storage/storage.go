@@ -593,6 +593,8 @@ type Site struct {
 	DNSConfig DNSConfig `json:"dns_config"`
 	// InstallToken specifies the original token the cluster was installed with
 	InstallToken string `json:"install_token"`
+	// SerfEncryptionKey specifies the encryption key used by serf agents
+	SerfEncryptionKey string `json:"serf_encryption_key"`
 }
 
 // Check validates the cluster object's fields.
