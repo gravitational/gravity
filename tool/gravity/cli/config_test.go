@@ -45,6 +45,7 @@ spec:
     cloudProvider: gce
     serviceCIDR: "100.200.0.0/16"
     podSubnetSize: "26"
+    etcdHealthz: true
     serfEncryption: true
     cloudConfig: |
       [global]
@@ -76,6 +77,7 @@ spec:
 				ServiceCIDR:    "100.200.0.0/16",
 				PodCIDR:        "100.96.0.0/16",
 				PodSubnetSize:  "26",
+				EtcdHealthz:    utils.BoolPtr(true),
 				SerfEncryption: utils.BoolPtr(true),
 				CloudConfig: `[global]
 node-tags=example-cluster

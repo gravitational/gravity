@@ -166,6 +166,12 @@ func (r Resource) Merge(other Resource) Resource {
 		}
 	}
 	r.Spec.Global.HighAvailability = other.Spec.Global.HighAvailability
+	if other.Spec.Global.EtcdHealthz != nil {
+		if r.Spec.Global.EtcdHealthz == nil {
+			r.Spec.Global.EtcdHealthz = new(bool)
+		}
+		*r.Spec.Global.EtcdHealthz = *other.Spec.Global.EtcdHealthz
+	}
 	if other.Spec.Global.SerfEncryption != nil {
 		if r.Spec.Global.SerfEncryption == nil {
 			r.Spec.Global.SerfEncryption = new(bool)
@@ -277,6 +283,7 @@ func (r Global) IsEmpty() bool {
 		r.PodSubnetSize == "" &&
 		r.ServiceNodePortRange == "" &&
 		r.ProxyPortRange == "" &&
+		r.EtcdHealthz == nil &&
 		r.SerfEncryption == nil &&
 		len(r.FeatureGates) == 0
 }
@@ -311,6 +318,8 @@ type Global struct {
 	FeatureGates map[string]bool `json:"featureGates,omitempty"`
 	// HighAvailability enables high availability mode for Kubernetes.
 	HighAvailability bool `json:"highAvailability,omitempty"`
+	// EtcdHealthz enables the etc-healthz check.
+	EtcdHealthz *bool `json:"etcdHealthz,omitempty"`
 	// SerfEncryption enables serf encryption.
 	SerfEncryption *bool `json:"serfEncryption,omitempty"`
 }
@@ -362,6 +371,7 @@ const specSchemaTemplate = `{
               }
             },
             "highAvailability": {"type": "boolean"},
+            "etcdHealthz": {"type": "boolean"},
             "serfEncryption": {"type": "boolean"}
           }
         },
