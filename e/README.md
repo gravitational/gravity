@@ -200,7 +200,7 @@ provisioning scripts.
 
 We want to keep some of the build artifacts accessible and have an experimental
 support for deploying them to Amazon S3. There's a private bucket used for
-builds: s3://build.gravitational.io and makefiles are tailored to pull from
+builds: s3://clientbuilds.gravitational.io and makefiles are tailored to pull from
 that bucket first before doing the build for a particular dependency.
 
 To be able to deploy artifacts from local machine you need to set up aws CLI tools.
