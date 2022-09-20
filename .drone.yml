@@ -414,15 +414,8 @@ steps:
         from_secret: AWS_S3_RW_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY:
         from_secret: AWS_S3_RW_SECRET_ACCESS_KEY
-      MAC_ANSIBLE_BUILD_HOST:
-        from_secret: MAC_ANSIBLE_BUILD_HOST
-      MAC_ANSIBLE_SSH_KEY:
-        from_secret: MAC_ANSIBLE_SSH_KEY
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli ansible
-      - mkdir -m 0700 /root/.ssh && echo "$MAC_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-      - ssh-keyscan -H $MAC_ANSIBLE_BUILD_HOST > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
-      - export SSH_KEY_PATH=/root/.ssh/id_ed25519
       - export WORKSPACE=/drone/src
       - export GRAVITY_TAG=$DRONE_COMMIT_REF
       - cd ops/hub
@@ -506,23 +499,6 @@ steps:
     volumes:
       - name: dockersock
         path: /var/run
-  - name: publish on mac
-    image: docker:git
-    environment:
-      TELE_KEY:
-        from_secret: DISTRIBUTION_OPSCENTER_TOKEN
-      MAC_ANSIBLE_BUILD_HOST:
-        from_secret: MAC_ANSIBLE_BUILD_HOST
-      MAC_ANSIBLE_SSH_KEY:
-        from_secret: MAC_ANSIBLE_SSH_KEY
-    commands:
-      - apk add --no-cache make ansible
-      - mkdir -m 0700 /root/.ssh && echo "$MAC_ANSIBLE_SSH_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-      - ssh-keyscan -H $MAC_ANSIBLE_BUILD_HOST > /root/.ssh/known_hosts 2>/dev/null && chmod 600 /root/.ssh/known_hosts
-      - export SSH_KEY_PATH=/root/.ssh/id_ed25519
-      - export TELEKUBE_TAG=$DRONE_COMMIT_REF
-      - cd ops/xcloud
-      - make release-telekube-mac
 
 services:
   - name: run docker daemon
@@ -537,6 +513,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: e677c50a91a689705b0e249f508ccb73560a362be1dafeec3b8112d2d485afda
+hmac: bb3915c0a4071e845865c2f7fbf78351563c99a752556909bdc8607fb0ebdc2d
 
 ...
