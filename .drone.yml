@@ -475,7 +475,7 @@ steps:
         from_secret: OPS_REPO
       GITHUB_OPS_DEPLOY_KEY:
         from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: master
+      OPS_REF: main
     commands:
     - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
     - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
@@ -570,7 +570,7 @@ steps:
         from_secret: OPS_REPO
       GITHUB_OPS_DEPLOY_KEY:
         from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: master
+      OPS_REF: main
     commands:
     - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
     - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
@@ -634,6 +634,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: fc7bcba6e3cb847ee5f298704dee2c99237afee127ef9eacbb55076bd3ef06fa
+hmac: d40b14bf2bbb30adfe23bd07ba3a0ca104db4a5aeb4b8a3879079c959c7e2416
 
 ...
