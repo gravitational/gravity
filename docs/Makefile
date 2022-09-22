@@ -45,9 +45,8 @@ $(DOCBOX_ID_FILE): Dockerfile
 		--build-arg UID=$$(id -u) \
 		--build-arg GID=$$(id -g) \
 		--build-arg PORT=$(PORT) \
+		--iidfile $(DOCBOX_ID_FILE) \
 		--tag $(DOCBOX) .
-	# prefer --iidfile to touch, but jenkin's docker is too old. See ops issue #141
-	touch $(DOCBOX_ID_FILE)
 
 # builds a docker container which is used for running `mkdocs`
 .PHONY:bbox
