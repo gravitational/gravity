@@ -539,138 +539,6 @@ volumes:
 ---
 kind: pipeline
 type: kubernetes
-name: publish-oss
-
-trigger:
-  event:
-  - promote
-  target:
-  - release
-  - publish-oss
-
-clone:
-  disable: true
-
-steps:
-  - name: clone gravity
-    image: docker:git
-    commands:
-    - git clone $DRONE_REPO_LINK gravity
-    - cd gravity
-    - git fetch --tags
-    - git checkout $DRONE_COMMIT
-  - name: clone ops
-    image: docker:git
-    environment:
-      OPS_REPO:
-        from_secret: OPS_REPO
-      GITHUB_OPS_DEPLOY_KEY:
-        from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: main
-    commands:
-    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
-    - git clone $OPS_REPO ops
-    - cd ops
-    - git checkout $OPS_REF
-  - name: wait for docker
-    image: docker
-    commands:
-      - timeout 15s /bin/sh -c 'while [ ! -S /var/run/docker.sock ]; do sleep 1; done'
-      - docker version
-    volumes:
-      - name: dockersock
-        path: /var/run
-  - name: assume AWS role
-    image: amazon/aws-cli
-    environment:
-      AWS_ACCESS_KEY_ID:
-        from_secret: AWS_S3_RO_ACCESS_KEY_ID
-      AWS_SECRET_ACCESS_KEY:
-        from_secret: AWS_S3_RO_SECRET_ACCESS_KEY
-      AWS_ROLE:
-        from_secret: AWS_S3_RO_ROLE
-    volumes:
-      - name: awsconfig
-        path: /root/.aws
-    commands:
-      - aws sts get-caller-identity
-      - |-
-        printf "[default]\naws_access_key_id = %s\naws_secret_access_key = %s\naws_session_token = %s\n" \
-          $(aws sts assume-role \
-            --role-arn "$AWS_ROLE" \
-            --role-session-name $(echo "drone-${DRONE_REPO}-${DRONE_BUILD_NUMBER}" | sed "s|/|-|g") \
-            --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
-            --output text) \
-          > /root/.aws/credentials
-      - unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-      - aws sts get-caller-identity --profile default
-  - name: build
-    image: docker:git
-    commands:
-      - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - cd gravity
-      - make production telekube build-tsh release hub-vars
-    volumes:
-      - name: awsconfig
-        path: /root/.aws
-      - name: dockersock
-        path: /var/run
-  - name: assume publish AWS role
-    image: amazon/aws-cli
-    environment:
-      AWS_ACCESS_KEY_ID:
-        from_secret: AWS_S3_RW_ACCESS_KEY_ID
-      AWS_SECRET_ACCESS_KEY:
-        from_secret: AWS_S3_RW_SECRET_ACCESS_KEY
-      AWS_ROLE:
-        from_secret: AWS_S3_RW_ROLE
-    volumes:
-      - name: awsconfig
-        path: /root/.aws
-    commands:
-      - aws sts get-caller-identity
-      - |-
-        printf "[default]\naws_access_key_id = %s\naws_secret_access_key = %s\naws_session_token = %s\n" \
-          $(aws sts assume-role \
-            --role-arn "$AWS_ROLE" \
-            --role-session-name $(echo "drone-${DRONE_REPO}-${DRONE_BUILD_NUMBER}" | sed "s|/|-|g") \
-            --query "Credentials.[AccessKeyId,SecretAccessKey,SessionToken]" \
-            --output text) \
-          > /root/.aws/credentials
-      - unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-      - aws sts get-caller-identity --profile default
-  - name: publish
-    image: docker:git
-    commands:
-      - apk add --no-cache make bash libc6-compat aws-cli ansible
-      - export WORKSPACE=/drone/src
-      - export GRAVITY_TAG=$DRONE_COMMIT_REF
-      - cd ops/hub
-      - make bucket sync
-    volumes:
-      - name: awsconfig
-        path: /root/.aws
-      - name: dockersock
-        path: /var/run
-
-services:
-  - name: run docker daemon
-    image: docker:20.10.6-dind
-    privileged: true
-    volumes:
-      - name: dockersock
-        path: /var/run
-
-volumes:
-  - name: awsconfig
-    temp: {}
-  - name: dockersock
-    temp: {}
-
----
-kind: pipeline
-type: kubernetes
 name: publish-enterprise
 
 trigger:
@@ -680,31 +548,11 @@ trigger:
   - release
   - publish-enterprise
 
-clone:
-  disable: true
-
 steps:
-  - name: clone gravity
+  - name: fetch tags
     image: docker:git
     commands:
-    - git clone $DRONE_REPO_LINK gravity
-    - cd gravity
-    - git fetch --tags
-    - git checkout $DRONE_COMMIT
-  - name: clone ops
-    image: docker:git
-    environment:
-      OPS_REPO:
-        from_secret: OPS_REPO
-      GITHUB_OPS_DEPLOY_KEY:
-        from_secret: GITHUB_OPS_DEPLOY_KEY
-      OPS_REF: main
-    commands:
-    - mkdir -m 0700 /root/.ssh && echo "$GITHUB_OPS_DEPLOY_KEY" > /root/.ssh/id_ed25519 && chmod 600 /root/.ssh/id_ed25519
-    - ssh-keyscan -H github.com > /root/.ssh/known_hosts && chmod 600 /root/.ssh/known_hosts
-    - git clone $OPS_REPO ops
-    - cd ops
-    - git checkout $OPS_REF
+      - git fetch --tags
   - name: wait for docker
     image: docker
     commands:
@@ -744,7 +592,6 @@ steps:
         from_secret: DISTRIBUTION_OPSCENTER_TOKEN
     commands:
       - apk add --no-cache make bash libc6-compat aws-cli fakeroot
-      - cd gravity
       - make -C e production
       - e/build/current/tele login --hub get.gravitational.io --token $TELE_KEY
       - make -C e telekube opscenter publish-telekube publish-artifacts
@@ -769,6 +616,6 @@ volumes:
     temp: {}
 ---
 kind: signature
-hmac: cf077acc670709265dbf850eaa9a68fb6d44f87f102cb12f96114ebf4caec20c
+hmac: 5b06a89f4d5c4d3c330cc0c7dc0b7c6106c64640df9b000e0151655a19ad17d9
 
 ...
