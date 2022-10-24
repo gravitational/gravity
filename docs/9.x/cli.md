@@ -23,7 +23,7 @@ The typical Gravity workflow is as follows:
 
 ## tele
 
-`tele` is the Gravity CLI client and can run on macOS and Linux. With `tele` you can:
+`tele` is the Linux Gravity CLI client. With `tele` you can:
 
 * Package Kubernetes Clusters into self-installing Cluster Images.
 * Publish Cluster Images into the Gravity Hub. (Enterprise version only)
@@ -36,8 +36,8 @@ more details in [Building Cluster Images](pack.md) section.
 ## tsh
 
 `tsh` allows to remotely connect to any Gravity Cluster using SSH and
-Kubernetes API. It runs on MacOS and Linux. You can use `tsh` to remotely
-login into any node in a Gravity Cluster, even those located behind firewalls.
+Kubernetes API. You can use `tsh` to remotely login into any node in a
+Gravity Cluster, even those located behind firewalls.
 
 Gravity uses Teleport for remotely accessing Clusters. See more details in the
 [Teleport User Manual](https://gravitational.com/teleport/docs/user-manual/).

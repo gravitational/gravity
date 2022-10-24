@@ -56,6 +56,21 @@ extend updates past End of Support through customer agreements if required.
 
 9.0 is currently pre-release.
 
+### 9.0.0-beta.12 (upcoming)
+
+!!! warning
+    This release includes breaking changes.
+    The formerly avialable OSS and Mac artifacts are no longer published.
+    These artifacts will remain available for 9.0.0-beta.11 and below until July, 2023
+    but will not be published for any future Gravity releases.
+
+#### Breaking Changes
+* Removed MacOS builds of `tele` and `tsh` ([#2752](https://github.com/gravitational/gravity/pull/2752))
+* Stopped publishing OSS Gravity to hub.gravitational.io ([#2752](https://github.com/gravitational/gravity/pull/2752))
+
+#### Internal Changes
+* Several other minor code cleanup and build improvements.
+
 ### 9.0.0-beta.11 (April 4, 2022)
 
 #### Bugfixes
@@ -381,6 +396,21 @@ All changes listed are in comparison to 7.0.30 LTS.
 
 
 ## 7.0 Releases
+
+### 7.0.41 (upcoming)
+
+!!! warning
+    This release includes breaking changes.
+    The formerly avialable OSS and Mac artifacts are no longer published.
+    These artifacts will remain available for 9.0.0-beta.11 and below until July, 2023
+    but will not be published for any future Gravity releases.
+
+#### Breaking Changes
+* Removed MacOS builds of `tele` and `tsh` ([#2753](https://github.com/gravitational/gravity/pull/2753))
+* Stopped publishing OSS Gravity to hub.gravitational.io ([#2753](https://github.com/gravitational/gravity/pull/2753))
+
+#### Internal Changes
+* Several other minor code cleanup and build improvements.
 
 ### 7.0.40 (June 2, 2022)
 
