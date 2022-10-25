@@ -1,17 +1,20 @@
 # Support Notice
 
-**The Gravity project is no longer under active development.** 
-The project's development has been limited to maintenance and support for our
+**The Gravity project is no longer under active development.**
+
+Gravity's development has been limited to maintenance and support for our
 commercial customers until maintenance agreements expire.
 
 Please see our blog post for more information:
 https://goteleport.com/blog/gravitational-is-teleport/
 
+Current Gravity releases will remain available until June 30th, 2023.  After
+June, 2023 both Open Source Gravity and Enterprise Gravity hosting and release
+infrastructure will be turned off.
+
 ---
 
-<a href='https://gravitational.com/gravity/download/'>
-    <img src='https://gravitational.com/gravitational/images/logos/logo-gravity-x-large.png' alt='Gravity'>
-</a>
+# Gravity
 
 Gravity is a [Kubernetes](https://kubernetes.io/) packaging solution
 that takes the drama out of deploying and running applications in someone
@@ -20,14 +23,6 @@ else's cloud accounts, on-premise data centers, edge locations and other
 
 With Gravity, Kubernetes apps can run and be regularly updated anywhere in
 the world without a massive DevOps team.
-
-|Project Links| Description
-|---|----
-| [Gravity Downloads](https://goteleport.com/gravity/download/)  | The latest binaries |
-| [Gravity Documentation](https://gravitational.com/gravity/docs/)  | Gravity Documentation |
-| [Gravity Examples](examples/) | Examples of applications packaged with Gravity |
-| [Blog](http://blog.gravitational.com) | Our blog, where we publish Gravity news |
-| [Security and Release Updates](https://goteleport.com/gravity/docs/changelog/) | Gravity Security and Release Updates |
 
 ## Introduction
 
@@ -43,10 +38,6 @@ An image can run without human supervision, as a "kubernetes appliance".
 Gravity has been running in production in major financial institutions,
 government data centers and enterprises. Gravitational open sourced it in the
 fall of 2018.
-
-<a href='https://gravitational.com/gravity/download/'>
-    <img src='https://gravitational.com/gravitational/images/graphics/gravity-oss-hero.png' alt='Gravity'>
-</a>
 
 ## Gravity vs ...
 
@@ -149,13 +140,6 @@ multiple times](https://gravitational.com/resources/audits/) by reputable
 cyber security companies and it has been deployed in production in [multiple
 organizations](https://gravitational.com/teleport).
 
-## Is Gravity Production Ready?
-
-Yes!
-
-Fully autonomous Gravity clusters are running inside of large banks, government
-institutions, enterprises, etc. We use Gravity to run our own infrastructure.
-
 ## Why did We Build Gravity?
 
 Gravity is built by [Teleport](https://goteleport.com).
@@ -199,6 +183,4 @@ $ make clean
 
 ## Contributing
 
-To contribute, please read the [contribution guidelines](./CONTRIBUTING.md).
-
-Want to join our team? [We are always hiring!](https://jobs.lever.co/teleport)
+Gravity is not currently accepting community contributions.
