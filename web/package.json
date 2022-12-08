@@ -58,7 +58,7 @@
     "eslint-plugin-react": "7.11.1",
     "events": "1.0.2",
     "expect": "1.20.2",
-    "express": "4.16.3",
+    "express": "4.17.3",
     "file-loader": "2.0.0",
     "html-webpack-plugin": "3.2.0",
     "jest": "^24.8.0",
