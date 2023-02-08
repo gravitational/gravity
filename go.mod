@@ -3,13 +3,12 @@ module github.com/gravitational/gravity
 go 1.13
 
 require (
-	cloud.google.com/go v0.56.0
-	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
+	cloud.google.com/go v0.81.0
 	github.com/alecthomas/assert v0.0.0-20170929043011-405dbfeb8e38 // indirect
 	github.com/alecthomas/colour v0.1.0 // indirect
 	github.com/alecthomas/repr v0.0.0-20181024024818-d37bc2a10ba1 // indirect
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751
-	github.com/aws/aws-sdk-go v1.37.15
+	github.com/aws/aws-sdk-go v1.43.16
 	github.com/boltdb/bolt v1.3.1
 	github.com/boombuler/barcode v0.0.0-20161226211916-fe0f26ff6d26 // indirect
 	github.com/buger/goterm v0.0.0-20140416104154-af3f07dadc88
@@ -20,12 +19,11 @@ require (
 	github.com/coreos/etcd v3.3.25+incompatible
 	github.com/coreos/go-semver v0.3.0
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/distribution v2.7.1+incompatible
-	github.com/docker/docker v20.10.3-0.20210216175712-646072ed6524+incompatible
-	github.com/docker/go-metrics v0.0.1 // indirect
+	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/docker v20.10.21+incompatible
 	github.com/docker/libtrust v0.0.0-20150526203908-9cbd2a1374f4
 	github.com/dustin/go-humanize v1.0.0
-	github.com/evanphx/json-patch v4.9.0+incompatible
+	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/fatih/color v1.9.0
 	github.com/fsouza/go-dockerclient v1.7.2
 	github.com/garyburd/redigo v0.0.0-20151029235527-6ece6e0a09f2 // indirect
@@ -33,13 +31,12 @@ require (
 	github.com/gizak/termui v2.3.0+incompatible
 	github.com/go-ini/ini v1.30.0 // indirect
 	github.com/go-openapi/runtime v0.19.15
-	github.com/gofrs/flock v0.8.0
+	github.com/gofrs/flock v0.8.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/gokyle/hotp v0.0.0-20160218004637-c180d57d286b
 	github.com/google/certificate-transparency-go v0.0.0-00010101000000-000000000000 // indirect
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.9
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
-	github.com/gorilla/handlers v0.0.0-20151124211609-e96366d97736 // indirect
 	github.com/gravitational/configure v0.0.0-20191213111049-fce91dea0d0d
 	github.com/gravitational/coordinate v0.0.0-20180225144834-2bc9a83f6fe2
 	github.com/gravitational/form v0.0.0-20151109031454-c4048f792f70
@@ -74,43 +71,42 @@ require (
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/mreiferson/go-httpclient v0.0.0-20160630210159-31f0106b4474 // indirect
 	github.com/nsf/termbox-go v0.0.0-20190325093121-288510b9734e // indirect
-	github.com/olekukonko/tablewriter v0.0.4
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/selinux v1.5.2
+	github.com/opencontainers/selinux v1.10.1
 	github.com/pborman/uuid v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/pquerna/otp v0.0.0-20160912161815-54653902c20e // indirect
 	github.com/prometheus/alertmanager v0.20.0
-	github.com/prometheus/client_golang v1.7.1
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/client_golang v1.14.0
+	github.com/prometheus/common v0.37.0
 	github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a // indirect
 	github.com/russellhaering/goxmldsig v1.1.0 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4
-	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.0
+	github.com/sirupsen/logrus v1.9.0
+	github.com/stretchr/testify v1.8.1
 	github.com/tstranex/u2f v0.0.0-20160508205855-eb799ce68da4
 	github.com/vulcand/oxy v0.0.0-20160623194703-40720199a16c
 	github.com/vulcand/predicate v1.1.0
 	github.com/xtgo/set v1.0.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210224082022-3d97a244fca7
-	golang.org/x/sys v0.0.0-20210909193231-528a39cd75f3
-	google.golang.org/grpc v1.29.1
+	golang.org/x/crypto v0.5.0
+	golang.org/x/net v0.5.0
+	golang.org/x/sys v0.4.0
+	google.golang.org/grpc v1.49.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	helm.sh/helm/v3 v3.6.3
-	k8s.io/api v0.21.2
-	k8s.io/apiextensions-apiserver v0.21.0
-	k8s.io/apimachinery v0.21.2
+	helm.sh/helm/v3 v3.11.1
+	k8s.io/api v0.26.0
+	k8s.io/apiextensions-apiserver v0.26.0
+	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.19.8
-	k8s.io/kubectl v0.21.0
+	k8s.io/kubectl v0.26.0
 	k8s.io/kubernetes v1.19.8
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
-	rsc.io/letsencrypt v0.0.3 // indirect
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (
