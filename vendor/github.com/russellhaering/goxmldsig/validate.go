@@ -21,7 +21,7 @@ var (
 	// ErrMissingSignature indicates that no enveloped signature was found referencing
 	// the top level element passed for signature verification.
 	ErrMissingSignature = errors.New("Missing signature referencing the top-level element")
-	ErrInvalidSignature = errors.New( "Invalid Signature")
+	ErrInvalidSignature = errors.New("Invalid Signature")
 )
 
 type ValidationContext struct {
@@ -70,7 +70,7 @@ func mapPathToElement(tree, el *etree.Element) []int {
 	for i, child := range tree.Child {
 		if childElement, ok := child.(*etree.Element); ok {
 			childPath := mapPathToElement(childElement, el)
-			if childElement != nil {
+			if childPath != nil {
 				return append([]int{i}, childPath...)
 			}
 		}
@@ -111,10 +111,6 @@ func (ctx *ValidationContext) transform(
 	ref *types.Reference) (*etree.Element, Canonicalizer, error) {
 	transforms := ref.Transforms.Transforms
 
-	if len(transforms) != 2 {
-		return nil, nil, errors.New("Expected Enveloped and C14N transforms")
-	}
-
 	// map the path to the passed signature relative to the passed root, in
 	// order to enable removal of the signature by an enveloped signature
 	// transform
@@ -142,14 +138,25 @@ func (ctx *ValidationContext) transform(
 
 			canonicalizer = MakeC14N10ExclusiveCanonicalizerWithPrefixList(prefixList)
 
+		case CanonicalXML10ExclusiveWithCommentsAlgorithmId:
+			var prefixList string
+			if transform.InclusiveNamespaces != nil {
+				prefixList = transform.InclusiveNamespaces.PrefixList
+			}
+
+			canonicalizer = MakeC14N10ExclusiveWithCommentsCanonicalizerWithPrefixList(prefixList)
+
 		case CanonicalXML11AlgorithmId:
 			canonicalizer = MakeC14N11Canonicalizer()
+
+		case CanonicalXML11WithCommentsAlgorithmId:
+			canonicalizer = MakeC14N11WithCommentsCanonicalizer()
 
 		case CanonicalXML10RecAlgorithmId:
 			canonicalizer = MakeC14N10RecCanonicalizer()
 
-		case CanonicalXML10CommentAlgorithmId:
-			canonicalizer = MakeC14N10CommentCanonicalizer()
+		case CanonicalXML10WithCommentsAlgorithmId:
+			canonicalizer = MakeC14N10WithCommentsCanonicalizer()
 
 		default:
 			return nil, nil, errors.New("Unknown Transform Algorithm: " + algo)
@@ -157,7 +164,7 @@ func (ctx *ValidationContext) transform(
 	}
 
 	if canonicalizer == nil {
-		return nil, nil, errors.New("Expected canonicalization transform")
+		canonicalizer = MakeNullCanonicalizer()
 	}
 
 	return el, canonicalizer, nil
@@ -234,16 +241,17 @@ func (ctx *ValidationContext) verifySignedInfo(sig *types.Signature, canonicaliz
 }
 
 func (ctx *ValidationContext) validateSignature(el *etree.Element, sig *types.Signature, cert *x509.Certificate) (*etree.Element, error) {
-	idAttr := el.SelectAttr(ctx.IdAttribute)
-	if idAttr == nil || idAttr.Value == "" {
-		return nil, errors.New("Missing ID attribute")
+	idAttrEl := el.SelectAttr(ctx.IdAttribute)
+	idAttr := ""
+	if idAttrEl != nil {
+		idAttr = idAttrEl.Value
 	}
 
 	var ref *types.Reference
 
 	// Find the first reference which references the top-level element
 	for _, _ref := range sig.SignedInfo.References {
-		if _ref.URI == "" || _ref.URI[1:] == idAttr.Value {
+		if _ref.URI == "" || _ref.URI[1:] == idAttr {
 			ref = &_ref
 		}
 	}
@@ -269,6 +277,9 @@ func (ctx *ValidationContext) validateSignature(el *etree.Element, sig *types.Si
 	}
 
 	if !bytes.Equal(digest, decodedDigestValue) {
+		return nil, errors.New("Signature could not be verified")
+	}
+	if sig.SignatureValue == nil {
 		return nil, errors.New("Signature could not be verified")
 	}
 
@@ -318,9 +329,10 @@ func validateShape(signatureEl *etree.Element) error {
 
 // findSignature searches for a Signature element referencing the passed root element.
 func (ctx *ValidationContext) findSignature(root *etree.Element) (*types.Signature, error) {
-	idAttr := root.SelectAttr(ctx.IdAttribute)
-	if idAttr == nil || idAttr.Value == "" {
-		return nil, errors.New("Missing ID attribute")
+	idAttrEl := root.SelectAttr(ctx.IdAttribute)
+	idAttr := ""
+	if idAttrEl != nil {
+		idAttr = idAttrEl.Value
 	}
 
 	var sig *types.Signature
@@ -352,9 +364,9 @@ func (ctx *ValidationContext) findSignature(root *etree.Element) (*types.Signatu
 
 				var canonicalSignedInfo *etree.Element
 
-				switch AlgorithmID(c14NAlgorithm) {
-				case CanonicalXML10ExclusiveAlgorithmId:
-					err := etreeutils.TransformExcC14n(detachedSignedInfo, "")
+				switch alg := AlgorithmID(c14NAlgorithm); alg {
+				case CanonicalXML10ExclusiveAlgorithmId, CanonicalXML10ExclusiveWithCommentsAlgorithmId:
+					err := etreeutils.TransformExcC14n(detachedSignedInfo, "", alg == CanonicalXML10ExclusiveWithCommentsAlgorithmId)
 					if err != nil {
 						return err
 					}
@@ -365,14 +377,11 @@ func (ctx *ValidationContext) findSignature(root *etree.Element) (*types.Signatu
 					// removing of elements below.
 					canonicalSignedInfo = detachedSignedInfo
 
-				case CanonicalXML11AlgorithmId:
-					canonicalSignedInfo = canonicalPrep(detachedSignedInfo, map[string]struct{}{})
+				case CanonicalXML11AlgorithmId, CanonicalXML10RecAlgorithmId:
+					canonicalSignedInfo = canonicalPrep(detachedSignedInfo, map[string]struct{}{}, true, false)
 
-				case CanonicalXML10RecAlgorithmId:
-					canonicalSignedInfo = canonicalPrep(detachedSignedInfo, map[string]struct{}{})
-
-				case CanonicalXML10CommentAlgorithmId:
-					canonicalSignedInfo = canonicalPrep(detachedSignedInfo, map[string]struct{}{})
+				case CanonicalXML11WithCommentsAlgorithmId, CanonicalXML10WithCommentsAlgorithmId:
+					canonicalSignedInfo = canonicalPrep(detachedSignedInfo, map[string]struct{}{}, true, true)
 
 				default:
 					return fmt.Errorf("invalid CanonicalizationMethod on Signature: %s", c14NAlgorithm)
@@ -403,7 +412,7 @@ func (ctx *ValidationContext) findSignature(root *etree.Element) (*types.Signatu
 		// Traverse references in the signature to determine whether it has at least
 		// one reference to the top level element. If so, conclude the search.
 		for _, ref := range _sig.SignedInfo.References {
-			if ref.URI == "" || ref.URI[1:] == idAttr.Value {
+			if ref.URI == "" || ref.URI[1:] == idAttr {
 				sig = _sig
 				return etreeutils.ErrTraversalHalted
 			}
