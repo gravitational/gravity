@@ -57,7 +57,7 @@ require (
 	github.com/gravitational/ttlmap v0.0.0-20171116003245-91fd36b9004c
 	github.com/gravitational/version v0.0.2-0.20170324200323-95d33ece5ce1
 	github.com/gravitational/vfsgen v0.0.0-20181202132449-6a9ea43bcacd
-	github.com/jonboulle/clockwork v0.2.0
+	github.com/jonboulle/clockwork v0.2.2
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/common v0.10.0
 	github.com/russellhaering/gosaml2 v0.0.0-20170515204909-8908227c114a // indirect
-	github.com/russellhaering/goxmldsig v1.1.0 // indirect
+	github.com/russellhaering/goxmldsig v1.1.1 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
@@ -97,7 +97,7 @@ require (
 	golang.org/x/sys v0.0.0-20210909193231-528a39cd75f3
 	google.golang.org/grpc v1.29.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	gopkg.in/mgo.v2 v2.0.0-20160818020120-3f83fa500528 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	helm.sh/helm/v3 v3.6.3
