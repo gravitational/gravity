@@ -14,12 +14,11 @@ import (
 )
 
 var (
-	errUnexpectedURL = errors.New("unexpected URL on layer")
-	errMissingURL    = errors.New("missing URL on layer")
-	errInvalidURL    = errors.New("invalid URL on layer")
+	errMissingURL = errors.New("missing URL on layer")
+	errInvalidURL = errors.New("invalid URL on layer")
 )
 
-//schema2ManifestHandler is a ManifestHandler that covers schema2 manifests.
+// schema2ManifestHandler is a ManifestHandler that covers schema2 manifests.
 type schema2ManifestHandler struct {
 	repository   distribution.Repository
 	blobStore    distribution.BlobStore
@@ -93,7 +92,7 @@ func (ms *schema2ManifestHandler) verifyManifest(ctx context.Context, mnfst sche
 		switch descriptor.MediaType {
 		case schema2.MediaTypeForeignLayer:
 			// Clients download this layer from an external URL, so do not check for
-			// its presense.
+			// its presence.
 			if len(descriptor.URLs) == 0 {
 				err = errMissingURL
 			}
