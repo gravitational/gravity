@@ -5,17 +5,13 @@ description: List of Gravity releases and changes between them.
 
 # Releases
 
-To install Gravity, see the [Gravity installation instructions](installation.md).
-
 ## Supported Versions
 
-Open Source Gravity is no longer supported.  Commercial customers with prior
-agreements may receive targeted releases for otherwise unsupported versions.
+Gravity is no longer supported.
 
 ## Unsupported Versions
 
-These versions are past their End of Support date, and no longer receive
-regular security and bug fixes.
+These versions no longer receive regular security and bug fixes.
 
 | Version             | Latest Patch  | LTS | Release Date         | End of Support          | Kubernetes Version   | Teleport Version |
 | ------------------- | ------------- | --- | -------------------- | ----------------------- | -------------------- | ---------------- |
